@@ -495,7 +495,7 @@ public partial class GeneralSettingsPage : Page
 
 internal class CortexSettings
 {
-    public int Port { get; set; } = 8080;
+    public int Port { get; set; } = CortexEnvironment.Current.DefaultPort;
     public string? LogLevel { get; set; } = "Info";
     public bool ReadOnlyMode { get; set; }
     public int SupportReportKeepCount { get; set; } = 10;

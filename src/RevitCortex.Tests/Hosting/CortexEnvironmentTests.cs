@@ -43,5 +43,6 @@ public class CortexEnvironmentTests
         Assert.EndsWith(@".revitcortex-dev\audit.jsonl", env.AuditLogPath);
         Assert.EndsWith(@".revitcortex-dev\telemetry-queue.jsonl", env.TelemetryQueuePath);
         Assert.EndsWith(@".revitcortex-dev\support-reports", env.SupportReportsFolder);
+        Assert.EndsWith(@".revitcortex-dev\scripts", env.ScriptsFolder);
     }
 }

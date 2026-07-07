@@ -22,6 +22,7 @@ public class CortexEnvironment
     public string AuditLogPath => Path.Combine(RootFolder, "audit.jsonl");
     public string TelemetryQueuePath => Path.Combine(RootFolder, "telemetry-queue.jsonl");
     public string SupportReportsFolder => Path.Combine(RootFolder, "support-reports");
+    public string ScriptsFolder => Path.Combine(RootFolder, "scripts");
 
     private CortexEnvironment(string profileName, bool isDev, string rootFolder,
         int defaultPort, string defaultTelemetryEndpoint)

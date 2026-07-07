@@ -200,9 +200,14 @@ public class CortexEnvironment
 Only the call sites that break prod/dev coexistence migrate now (dynamo/PBI paths stay as-is — harmless and out of scope).
 
 **Files:**
-- Modify: `src/RevitCortex.Plugin/RevitCortexApp.cs` (settings/port read, AuditLogger wiring, ribbon tab name)
-- Modify: `src/RevitCortex.Plugin/UI/GeneralSettingsPage.xaml.cs` (`SettingsFilePath`)
-- Modify: `src/RevitCortex.Plugin/Commands/SendSupportReport.cs` (`ReportsFolder`, settings read)
+- Modify: `src/RevitCortex.Plugin/RevitCortexApp.cs` (settings/port read, single shared AuditLogger wired to router AND ToolExecutionHandler, ribbon panel name, temp-script cleanup)
+- Modify: `src/RevitCortex.Plugin/UI/GeneralSettingsPage.xaml.cs` (`SettingsFilePath`, `DefaultPort`, DTO `Port` default)
+- Modify: `src/RevitCortex.Plugin/UI/ToolsSettingsPage.xaml.cs` (`SettingsFilePath` — its Save writes `DisabledTools`, must never hit the prod file)
+- Modify: `src/RevitCortex.Plugin/Commands/SendSupportReport.cs` (`ReportsFolder`, settings read, report-zip source folder)
+- Modify: `src/RevitCortex.Core/Hosting/CortexEnvironment.cs` (add `ScriptsFolder` derived path)
+- Modify: `src/RevitCortex.Core/Security/CortexSettings.cs` (`DefaultPath` → profile settings path; `Port` default → profile port — gates `EnableCodeExecution` for send_code_to_revit)
+- Modify: `src/RevitCortex.Tools/Elements/SendCodeToRevitTool.cs` (`ScriptsFolder` → profile scripts path, in lockstep with `CleanupTempScripts`)
+- Test: `src/RevitCortex.Tests/Hosting/CortexEnvironmentTests.cs` (`ScriptsFolder` assertion in `Paths_DeriveFromRootFolder`)
 - Create: `deploy-dev.ps1` (repo root)
 
 - [ ] **Step 1: Migrate the Plugin call sites.** Grep the four files for hardcoded `.revitcortex` / `"settings.json"` / `new AuditLogger()` defaults and route them through `CortexEnvironment.Current`:

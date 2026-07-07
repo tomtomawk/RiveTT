@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using RevitCortex.Core.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -17,9 +18,7 @@ public partial class ToolsSettingsPage : Page
     private readonly List<CategoryGroup> _allGroups = new();
     private readonly ObservableCollection<CategoryGroup> _filteredGroups = new();
 
-    private static string SettingsFilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".revitcortex", "settings.json");
+    private static string SettingsFilePath => CortexEnvironment.Current.SettingsFilePath;
 
     public ToolsSettingsPage()
     {

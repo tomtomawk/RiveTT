@@ -1,5 +1,6 @@
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
+using RevitCortex.Core.Hosting;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Security;
 using RevitCortex.Core.Session;
@@ -21,9 +22,10 @@ namespace RevitCortex.Tools.Elements;
 /// </summary>
 public class SendCodeToRevitTool : ICortexTool
 {
-    public static readonly string ScriptsFolder = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".revitcortex", "scripts");
+    // Profile-scoped scripts folder (~/.revitcortex-dev/scripts in dev): must
+    // stay in lockstep with RevitCortexApp.CleanupTempScripts, which deletes
+    // TEMP scripts from this same folder at Revit shutdown.
+    public static string ScriptsFolder => CortexEnvironment.Current.ScriptsFolder;
 
     public string Name => "send_code_to_revit";
     public string Category => "Code";

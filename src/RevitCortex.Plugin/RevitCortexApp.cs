@@ -87,8 +87,13 @@ public class RevitCortexApp : IExternalApplication
             ConfirmationHelper.AutoModeChanged += OnAutoModeChanged;
             var analyzer = new DocumentAnalyzer();
 
-            _router = new CortexRouter(_session, analyzer,
-                auditLogger: new AuditLogger(CortexEnvironment.Current.AuditLogPath));
+            // One audit logger for the whole plugin, bound to the active
+            // profile's audit path (separate file per prod/dev). Shared by the
+            // router and the execution handler so no code path falls back to
+            // AuditLogger()'s hardcoded prod default.
+            var auditLogger = new AuditLogger(CortexEnvironment.Current.AuditLogPath);
+
+            _router = new CortexRouter(_session, analyzer, auditLogger: auditLogger);
 
             var toolsAssembly = LoadToolsAssembly();
             if (toolsAssembly != null)
@@ -102,7 +107,7 @@ public class RevitCortexApp : IExternalApplication
             _router.RegisterToolsFromAssembly(Assembly.GetExecutingAssembly());
 
             // Create thread dispatcher for Revit main thread execution
-            var executionHandler = new ToolExecutionHandler();
+            var executionHandler = new ToolExecutionHandler(auditLogger);
             var externalEvent = ExternalEvent.Create(executionHandler);
             var dispatcher = new RevitThreadDispatcher(executionHandler, externalEvent);
             _router.SetDispatcher(dispatcher);
@@ -595,8 +600,7 @@ public class RevitCortexApp : IExternalApplication
 
     private static void CleanupTempScripts()
     {
-        var scriptsFolder = System.IO.Path.Combine(
-            CortexEnvironment.Current.RootFolder, "scripts");
+        var scriptsFolder = CortexEnvironment.Current.ScriptsFolder;
         if (!System.IO.Directory.Exists(scriptsFolder)) return;
         foreach (var file in System.IO.Directory.GetFiles(scriptsFolder, "*.cs"))
         {

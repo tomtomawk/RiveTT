@@ -1,11 +1,12 @@
-using System;
 using System.IO;
 using Newtonsoft.Json;
+using RevitCortex.Core.Hosting;
 
 namespace RevitCortex.Core.Security;
 
 /// <summary>
-/// User-editable settings persisted at ~/.revitcortex/settings.json.
+/// User-editable settings persisted at CortexEnvironment.Current.SettingsFilePath
+/// (~/.revitcortex/settings.json in prod, ~/.revitcortex-dev/settings.json in dev).
 /// Missing file or parse errors return defaults (all opt-in features disabled).
 /// </summary>
 public class CortexSettings
@@ -20,11 +21,9 @@ public class CortexSettings
 
     /// <summary>TCP port for plugin-to-server communication.</summary>
     [JsonProperty("Port")]
-    public int Port { get; set; } = 8080;
+    public int Port { get; set; } = CortexEnvironment.Current.DefaultPort;
 
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".revitcortex", "settings.json");
+    public static string DefaultPath => CortexEnvironment.Current.SettingsFilePath;
 
     public static CortexSettings Load(string? path = null)
     {
