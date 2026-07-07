@@ -1944,6 +1944,10 @@ Add `using RevitCortex.Core.Results;` if not already present.
 
 No unit tests here (Revit UI); acceptance is the manual smoke in Task 15. Consent rules from the spec: default OFF, two equal choices, cancel = ask again next startup, one-click withdrawal in Settings.
 
+> **TWO CONSENT-PERSISTENCE PITFALLS (carried from Task 6 review — a reviewer MUST verify both):**
+> 1. **Persist consent ONLY through `TelemetryConfig.MarkConsent` (merge-write), NEVER through `CortexSettings.Save()`.** `RevitCortex.Core/Security/CortexSettings.cs` `Save()` blind-rewrites the whole file from a 2-field POCO — routing consent through it would erase every telemetry key (EnableTelemetry, TelemetryConsentAnswered/Version, InstallationId, thresholds) plus LogLevel/DisabledTools. This is the v1.0.36 config-corruption class. The GeneralSettingsPage save block already merge-writes its own keys into the JObject (see Task 1C); add the telemetry toggle keys to THAT merge-write path, or call `TelemetryConfig.Load(...).MarkConsent(...)`. Do not introduce a `CortexSettings.Save()` call.
+> 2. **After `MarkConsent`, re-`Load()` before reading `EffectiveEnabled`/`NeedsConsentPrompt` on that flow.** `TelemetryConfig` updates its in-memory `_root` only on a SUCCESSFUL write; on a swallowed write failure the same instance keeps returning stale values. The consent dialog (`PromptConsentIfNeeded`) is safe because it calls `MarkConsent` and returns without re-reading. But if the Settings toggle path saves and then reflects `EffectiveEnabled` back to the UI on the same instance, it must re-`Load()` first (cheap) rather than trust in-memory state.
+
 **Files:**
 - Modify: `src/RevitCortex.Plugin/UI/Localization.cs` (add keys to `Table`)
 - Create: `src/RevitCortex.Plugin/Telemetry/TelemetryBootstrap.cs`
