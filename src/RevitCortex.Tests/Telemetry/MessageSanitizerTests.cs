@@ -73,4 +73,26 @@ public class MessageSanitizerTests
         Assert.True(ok);
         Assert.True(s.Length <= 200);
     }
+
+    [Theory]
+    [InlineData("User mario.rossi is not authorized")]
+    [InlineData("Cannot save TorreA-Rev12 while locked")]
+    [InlineData("Connection refused from DESKTOP-7F3K2A1")]
+    [InlineData("Failed to load MyCustomFamily.rfa into project")]
+    public void TrySanitize_ProperNounShapes_FailClosed(string raw)
+    {
+        Assert.False(MessageSanitizer.TrySanitizeForTransmission(raw, out _));
+    }
+
+    [Fact]
+    public void TrySanitize_LoneSingleWord_IsKnownResidualGap()
+    {
+        // Documents the KNOWN limitation (not a desired behavior): a lone
+        // digit/punct-free word is shape-indistinguishable from a template
+        // word and passes. Safe only because the caller contract restricts
+        // this method to RevitCortex's own English templates (see class doc /
+        // ErrorReporter messageOrigin gate). If this assertion ever flips,
+        // the allowlist got stricter — re-read the class doc before "fixing".
+        Assert.True(MessageSanitizer.TrySanitizeForTransmission("workset strutture is not editable", out _));
+    }
 }

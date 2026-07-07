@@ -19,15 +19,27 @@ namespace RevitCortex.Core.Telemetry;
 /// document titles ("TorreA"), or machine names ("DESKTOP-7F3K2A1") through
 /// untouched, which is exactly the P1 leak this component exists to close.
 ///
-/// Known residual limitation: a single capitalized word with no digits, dots,
-/// hyphens, or internal caps (e.g. a bare Italian workset/room/type name like
-/// "Strutture") is shape-indistinguishable from a template word like
-/// "Element" and will pass. This class is the last gate for RevitCortex's own
-/// fixed English CortexResult.Fail templates (see
-/// docs/superpowers/specs/2026-07-07-bug-telemetry-pipeline-paid-readiness-design.md,
-/// messageOrigin amendment) — it is not a general-purpose PII scrubber for
-/// arbitrary uncontrolled text, and callers must not feed it raw Revit
-/// exception messages or interpolated model data expecting a safe verdict.
+/// Known residual limitation: a single word of ANY case — all-lowercase
+/// ("strutture") or single-leading-cap ("Strutture") — with no digits, dots,
+/// hyphens, or internal capitalization is shape-indistinguishable from a
+/// template word like "Element" and will pass. A bare Italian workset/room/
+/// type name is exactly this shape, and the spec explicitly lists such names
+/// as forbidden data, so this gap is real, not hypothetical.
+///
+/// Because of that gap, TrySanitizeForTransmission carries a HARD CALLER
+/// CONTRACT: it is only safe to call when the caller has ALREADY established
+/// messageOrigin=templated (a structured CortexResult.Fail from RevitCortex
+/// tool code) AND the template does NOT embed ex.Message or bare (unquoted)
+/// interpolated names. It is NOT a general-purpose PII scrubber: feeding it a
+/// raw Revit exception message, or a template that interpolates uncontrolled
+/// model data as bare tokens, can produce a "safe" verdict on unsafe text.
+/// See docs/superpowers/specs/2026-07-07-bug-telemetry-pipeline-paid-readiness-design.md
+/// (messageOrigin amendment) for the gate the caller must implement first.
+///
+/// Non-ASCII / accented tokens fail closed by design: RxSafeWord is
+/// ^[A-Za-z]+$, so "città", "Wände", "Pièce" never match and never transmit.
+/// This component gates English templates only; a surviving accented token
+/// signals uncontrolled localized text and is correctly rejected.
 /// </summary>
 public static class MessageSanitizer
 {
