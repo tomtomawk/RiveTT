@@ -1385,6 +1385,11 @@ public class TelemetrySender : IDisposable
 - Create: `src/RevitCortex.Core/Telemetry/ErrorReporter.cs`
 - Test: `src/RevitCortex.Tests/Telemetry/ErrorReporterTests.cs`
 
+> **SECURITY ACCEPTANCE CRITERION (carried from Task 3 review).** `MessageSanitizer.TrySanitizeForTransmission` is fail-closed but has one documented residual gap: a lone all-alphabetic token (any case, e.g. the Italian workset name `strutture`) is shape-indistinguishable from a template word and passes. That gap is only acceptable because ErrorReporter is the sole caller and enforces the `messageOrigin=templated` contract. Therefore ErrorReporter MUST:
+> 1. Only attempt `TrySanitizeForTransmission` when `errorCode != null && errorCode != "Unknown"` (RevitCortex's own structured `CortexResult.Fail`, not a wrapped exception). This is already in the Step-4 code below — keep it.
+> 2. Treat any message that could embed raw model data as exception-origin even when the code is structured. Concretely: this task's tests must include a case proving that a templated message embedding an UNQUOTED interpolated name (e.g. `"Failed to tag room Strutture: object reference not set"`, the bare-`{room.Name}`+`ex.Message` pattern that exists in real Fail templates) does NOT transmit text — assert `MessageOrigin == "exception"` and `SanitizedMessage == null`. If the shape-based sanitizer would let it through, ErrorReporter must additionally gate on `ex.Message` presence / bare-name shape before calling the sanitizer. Fail-closed dominates: when unsure, `origin = "exception"`, no text.
+> A reviewer of this task MUST verify both points against the real code, not just the happy-path tests.
+
 - [ ] **Step 1: Failing tests**
 
 ```csharp
