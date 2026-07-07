@@ -2,6 +2,8 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Events;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Events;
+using RevitCortex.Core.Hosting;
+using RevitCortex.Core.Security;
 using RevitCortex.Core.Session;
 using RevitCortex.Plugin.Caching;
 using RevitCortex.Plugin.Communication;
@@ -21,7 +23,7 @@ public class RevitCortexApp : IExternalApplication
     private CortexSession? _session;
     private DocumentChangeWatcher? _cacheWatcher;
     private UIApplication? _uiApplication;
-    private int _port = 8080;
+    private int _port = CortexEnvironment.Current.DefaultPort;
     private Autodesk.Revit.UI.PushButton? _connectButton;
     private UI.AutoModeWindow? _autoModeWindow;
     private bool _updateNotificationShown;
@@ -85,7 +87,8 @@ public class RevitCortexApp : IExternalApplication
             ConfirmationHelper.AutoModeChanged += OnAutoModeChanged;
             var analyzer = new DocumentAnalyzer();
 
-            _router = new CortexRouter(_session, analyzer);
+            _router = new CortexRouter(_session, analyzer,
+                auditLogger: new AuditLogger(CortexEnvironment.Current.AuditLogPath));
 
             var toolsAssembly = LoadToolsAssembly();
             if (toolsAssembly != null)
@@ -337,7 +340,11 @@ public class RevitCortexApp : IExternalApplication
 
     private void CreateRibbonPanel(UIControlledApplication application)
     {
-        RibbonPanel panel = application.CreateRibbonPanel("RevitCortex");
+        // Dev builds get a distinct ribbon tab/panel name so a side-by-side
+        // prod install never collides ("two addins, same tab name" is a hard
+        // Revit conflict, not a cosmetic issue).
+        string panelTitle = CortexEnvironment.Current.IsDev ? "RevitCortex Dev" : "RevitCortex";
+        RibbonPanel panel = application.CreateRibbonPanel(panelTitle);
         string assemblyLocation = Assembly.GetExecutingAssembly().Location;
 
         // Connection toggle button
@@ -519,9 +526,7 @@ public class RevitCortexApp : IExternalApplication
     {
         try
         {
-            string settingsPath = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".revitcortex", "settings.json");
+            string settingsPath = CortexEnvironment.Current.SettingsFilePath;
             if (System.IO.File.Exists(settingsPath))
             {
                 var json = System.IO.File.ReadAllText(settingsPath);
@@ -547,9 +552,7 @@ public class RevitCortexApp : IExternalApplication
     {
         try
         {
-            string settingsPath = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".revitcortex", "settings.json");
+            string settingsPath = CortexEnvironment.Current.SettingsFilePath;
             if (System.IO.File.Exists(settingsPath))
             {
                 var json = System.IO.File.ReadAllText(settingsPath);
@@ -572,9 +575,7 @@ public class RevitCortexApp : IExternalApplication
     {
         try
         {
-            string settingsPath = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".revitcortex", "settings.json");
+            string settingsPath = CortexEnvironment.Current.SettingsFilePath;
             if (System.IO.File.Exists(settingsPath))
             {
                 var json = System.IO.File.ReadAllText(settingsPath);
@@ -595,8 +596,7 @@ public class RevitCortexApp : IExternalApplication
     private static void CleanupTempScripts()
     {
         var scriptsFolder = System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".revitcortex", "scripts");
+            CortexEnvironment.Current.RootFolder, "scripts");
         if (!System.IO.Directory.Exists(scriptsFolder)) return;
         foreach (var file in System.IO.Directory.GetFiles(scriptsFolder, "*.cs"))
         {

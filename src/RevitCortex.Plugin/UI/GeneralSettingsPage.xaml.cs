@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using RevitCortex.Core.Hosting;
 using RevitCortex.Plugin.Commands;
 using RevitCortex.Plugin.Updates;
 using System;
@@ -17,16 +18,14 @@ namespace RevitCortex.Plugin.UI;
 
 public partial class GeneralSettingsPage : Page
 {
-    private const int DefaultPort = 8080;
+    private static int DefaultPort => CortexEnvironment.Current.DefaultPort;
     private const string DefaultLogLevel = "Info";
     private const int DefaultKeepCount = 10;
     private DispatcherTimer? _saveFeedbackTimer;
     private int _originalPort;
     private DispatcherTimer? _downloadTimer;
 
-    private static string SettingsFilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".revitcortex", "settings.json");
+    private static string SettingsFilePath => CortexEnvironment.Current.SettingsFilePath;
 
     public GeneralSettingsPage()
     {
@@ -267,7 +266,7 @@ public partial class GeneralSettingsPage : Page
     {
         var app = RevitCortexApp.Instance;
         bool running = app?.IsServiceRunning ?? false;
-        int port = app?.Port ?? 8080;
+        int port = app?.Port ?? DefaultPort;
 
         if (running)
         {

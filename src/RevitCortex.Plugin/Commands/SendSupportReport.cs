@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using RevitCortex.Core.Hosting;
 using RevitCortex.Plugin.UI;
 
 namespace RevitCortex.Plugin.Commands;
@@ -34,9 +35,7 @@ public class SendSupportReport : IExternalCommand
     private static int _workerBusy;
 
     /// <summary>Folder where bug-report ZIPs are written and rotated.</summary>
-    public static string ReportsFolder => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".revitcortex", "support-reports");
+    public static string ReportsFolder => CortexEnvironment.Current.SupportReportsFolder;
 
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
@@ -100,9 +99,7 @@ public class SendSupportReport : IExternalCommand
     {
         try
         {
-            string settingsPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".revitcortex", "settings.json");
+            string settingsPath = CortexEnvironment.Current.SettingsFilePath;
             if (!File.Exists(settingsPath)) return DefaultKeepCount;
 
             var json = File.ReadAllText(settingsPath);
@@ -189,8 +186,7 @@ public class SendSupportReport : IExternalCommand
     private static (string zipPath, List<string> included, List<string> skipped) BuildReportZip(
         ExternalCommandData commandData)
     {
-        string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        string rcFolder = Path.Combine(userProfile, ".revitcortex");
+        string rcFolder = CortexEnvironment.Current.RootFolder;
         string reportsDir = ReportsFolder;
         Directory.CreateDirectory(reportsDir);
         string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
