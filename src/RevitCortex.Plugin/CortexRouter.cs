@@ -185,6 +185,17 @@ public class CortexRouter
                 result = tool.Execute(input, _session);
             }
         }
+        catch (Exception ex)
+        {
+            // Route-wide backstop: NOTHING may escape Route unstructured —
+            // an escaping exception would skip audit + telemetry and surface
+            // as a raw JSON-RPC -32603 (paid-readiness spec, P1 finding).
+            System.Diagnostics.Trace.WriteLine(
+                $"[RevitCortex] Route('{toolName}') unhandled: {ex}");
+            result = CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                $"Unhandled exception: {ex.Message}",
+                suggestion: "Retry; if it persists, send a support report from the RevitCortex ribbon.");
+        }
         finally
         {
             // Reset only the per-batch "Yes to All" flag after each tool. AutoMode
