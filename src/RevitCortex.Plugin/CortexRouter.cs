@@ -87,13 +87,20 @@ public class CortexRouter
         public bool Declared { get; }
     }
 
+    // Cached license decision gate. Null = no gating (today's behavior, and the
+    // best-effort fallback when LicenseBootstrap.Init fails). Evaluated at bootstrap
+    // + on explicit refresh, NEVER per Route() call.
+    private readonly Licensing.LicenseGate? _licenseGate;
+
     public CortexRouter(CortexSession session, IDocumentAnalyzer analyzer,
-        AuditLogger? auditLogger = null, ErrorReporter? errorReporter = null)
+        AuditLogger? auditLogger = null, ErrorReporter? errorReporter = null,
+        Licensing.LicenseGate? licenseGate = null)
     {
         _session = session;
         _analyzer = analyzer;
         _auditLogger = auditLogger ?? new AuditLogger();
         _errorReporter = errorReporter;
+        _licenseGate = licenseGate;
     }
 
     /// <summary>
@@ -177,6 +184,16 @@ public class CortexRouter
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 $"Tool '{toolName}' is disabled",
                 suggestion: "Enable it in RevitCortex Settings > Tools");
+
+        // License gate (additive). Cached state; null gate = no gating. Blocks only write
+        // tools when the license is Expired/Invalid — read-only tools stay available
+        // (graceful degradation, spec §6). Reuses IsToolReadOnly (no new classification).
+        // PermissionDenied (there is no LicenseExpired code) with "License expired" in the
+        // message so the UI/agent tells this apart from user-chosen read-only mode.
+        if (_licenseGate != null && !_licenseGate.Allows(toolName, IsToolReadOnly))
+            return CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
+                $"License expired or invalid — write tool '{toolName}' is blocked",
+                suggestion: "Renew or reactivate your license in RevitCortex > License & Account. Read-only tools remain available.");
 
         if (tool.RequiresDocument && _session.Store.Get<object>("activeDocument") == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
