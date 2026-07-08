@@ -186,5 +186,32 @@ internal static class Localization
             ["en"] = "{0} report(s) deleted. {1} could not be removed (files in use).",
             ["it"] = "{0} report eliminati. {1} non rimossi (file in uso).",
         },
+
+        // ── Telemetry consent ───────────────────────────────────────────
+        ["telemetry.consent_instruction"] = new()
+        {
+            ["en"] = "Help improve RevitCortex?",
+            ["it"] = "Vuoi aiutarci a migliorare RevitCortex?",
+        },
+        ["telemetry.consent_body"] = new()
+        {
+            ["en"] = "RevitCortex can send pseudonymous error reports when a command fails: tool name, error type, versions, timing. Never sent: model names, file paths, parameter values, user or machine names.\n\nYou can change this anytime in Settings > General.",
+            ["it"] = "RevitCortex può inviare segnalazioni pseudonime quando un comando fallisce: nome del tool, tipo di errore, versioni, tempi. Mai inviati: nomi dei modelli, percorsi file, valori dei parametri, nomi utente o macchina.\n\nPuoi cambiare la scelta in qualsiasi momento da Impostazioni > Generale.",
+        },
+        ["telemetry.consent_enable"] = new()
+        {
+            ["en"] = "Enable error telemetry",
+            ["it"] = "Attiva la telemetria errori",
+        },
+        ["telemetry.consent_decline"] = new()
+        {
+            ["en"] = "Keep it disabled",
+            ["it"] = "Lascia disattivata",
+        },
+        ["telemetry.settings_toggle"] = new()
+        {
+            ["en"] = "Send pseudonymous error telemetry (no model data)",
+            ["it"] = "Invia telemetria errori pseudonima (nessun dato del modello)",
+        },
     };
 }

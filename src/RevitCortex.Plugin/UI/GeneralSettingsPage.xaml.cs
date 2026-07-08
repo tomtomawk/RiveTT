@@ -65,6 +65,7 @@ public partial class GeneralSettingsPage : Page
         SupportReportsSubtitle.Text = Localization.T("support.settings.subtitle");
         OpenReportsFolderButton.Content = Localization.T("support.settings.open_folder");
         DeleteAllReportsButton.Content = Localization.T("support.settings.delete_now");
+        EnableTelemetryCheckBox.Content = Localization.T("telemetry.settings_toggle");
     }
 
     private void RefreshUpdateBanner()
@@ -305,6 +306,7 @@ public partial class GeneralSettingsPage : Page
                     SetComboSelection(LogLevelComboBox, settings.LogLevel ?? DefaultLogLevel);
                     ReadOnlyCheckBox.IsChecked = settings.ReadOnlyMode;
                     KeepCountTextBox.Text = ClampKeepCount(settings.SupportReportKeepCount).ToString();
+                    EnableTelemetryCheckBox.IsChecked = settings.EnableTelemetry;
                     return;
                 }
             }
@@ -347,6 +349,7 @@ public partial class GeneralSettingsPage : Page
         PortTextBox.Text = DefaultPort.ToString();
         SetComboSelection(LogLevelComboBox, DefaultLogLevel);
         KeepCountTextBox.Text = DefaultKeepCount.ToString();
+        EnableTelemetryCheckBox.IsChecked = false;
     }
 
     private static int ClampKeepCount(int n) => n < 1 ? 1 : (n > 200 ? 200 : n);
@@ -391,6 +394,12 @@ public partial class GeneralSettingsPage : Page
             settings["LogLevel"] = logLevel;
             settings["ReadOnlyMode"] = ReadOnlyCheckBox.IsChecked == true;
             settings["SupportReportKeepCount"] = keep;
+            settings["EnableTelemetry"] = EnableTelemetryCheckBox.IsChecked == true;
+            // Saving the page is an affirmative action: stamp consent so the
+            // first-run dialog does not re-ask what the user just decided.
+            settings["TelemetryConsentAnswered"] = true;
+            settings["TelemetryConsentVersion"] =
+                RevitCortex.Core.Telemetry.TelemetryConfig.CurrentConsentVersion;
 
             string dir = Path.GetDirectoryName(SettingsFilePath)!;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
@@ -499,4 +508,5 @@ internal class CortexSettings
     public string? LogLevel { get; set; } = "Info";
     public bool ReadOnlyMode { get; set; }
     public int SupportReportKeepCount { get; set; } = 10;
+    public bool EnableTelemetry { get; set; }
 }

@@ -93,7 +93,10 @@ public class RevitCortexApp : IExternalApplication
             // AuditLogger()'s hardcoded prod default.
             var auditLogger = new AuditLogger(CortexEnvironment.Current.AuditLogPath);
 
-            _router = new CortexRouter(_session, analyzer, auditLogger: auditLogger);
+            Telemetry.TelemetryBootstrap.Init(application);
+
+            _router = new CortexRouter(_session, analyzer, auditLogger: auditLogger,
+                errorReporter: Telemetry.TelemetryBootstrap.Reporter);
 
             var toolsAssembly = LoadToolsAssembly();
             if (toolsAssembly != null)
@@ -147,10 +150,14 @@ public class RevitCortexApp : IExternalApplication
             System.Diagnostics.Trace.WriteLine(
                 $"[RevitCortex] Started. {_router.TotalToolCount} tools registered.");
 
+            Telemetry.TelemetryBootstrap.PromptConsentIfNeeded();
+
             return Result.Succeeded;
         }
         catch (Exception ex)
         {
+            Telemetry.TelemetryBootstrap.Reporter?.Record("_startup", false, "Unknown",
+                ex.Message, failureStage: "startup", durationMs: 0, responseBytes: 0);
             System.Diagnostics.Trace.WriteLine($"[RevitCortex] Startup failed: {ex}");
             return Result.Failed;
         }
@@ -160,6 +167,8 @@ public class RevitCortexApp : IExternalApplication
     {
         try
         {
+            Telemetry.TelemetryBootstrap.Shutdown();
+
             ConfirmationHelper.AutoModeChanged -= OnAutoModeChanged;
             _pbiSelectListener?.Dispose();
             _pbiSelectListener = null;
