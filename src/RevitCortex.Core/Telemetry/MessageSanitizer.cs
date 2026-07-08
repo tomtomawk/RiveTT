@@ -108,6 +108,11 @@ public static class MessageSanitizer
         return true;
     }
 
+    /// <summary>Case-preserving strip used by ErrorReporter's pure-template
+    /// pre-filter. Same patterns as Normalize but without the final ToLower.</summary>
+    internal static string StripForTemplateCheck(string? message)
+        => StripKnownPatterns(message);
+
     /// <summary>
     /// Applies every known-safe stripping pattern (paths, GUIDs, emails,
     /// quoted strings, IFC/compound tokens, numbers) but preserves case and
