@@ -190,13 +190,13 @@ internal static class Localization
         // ── Telemetry consent ───────────────────────────────────────────
         ["telemetry.consent_instruction"] = new()
         {
-            ["en"] = "Help improve RevitCortex Premium?",
-            ["it"] = "Vuoi aiutarci a migliorare RevitCortex Premium?",
+            ["en"] = "Do you consent to sending anonymous error reports to help us improve the product?",
+            ["it"] = "Acconsenti a inviare segnalazioni di errore anonime per aiutarci a migliorare il prodotto?",
         },
         ["telemetry.consent_body"] = new()
         {
-            ["en"] = "RevitCortex Premium can send pseudonymous error reports when a command fails: tool name, error type, versions, timing. Never sent: model names, file paths, parameter values, user or machine names.\n\nYou can change this anytime in Settings > General.",
-            ["it"] = "RevitCortex Premium può inviare segnalazioni pseudonime quando un comando fallisce: nome del tool, tipo di errore, versioni, tempi. Mai inviati: nomi dei modelli, percorsi file, valori dei parametri, nomi utente o macchina.\n\nPuoi cambiare la scelta in qualsiasi momento da Impostazioni > Generale.",
+            ["en"] = "When a command fails, RevitCortex Premium can send an anonymous error report: tool name, error type, versions, timing. Never sent: model names, file paths, parameter values, user or machine names.\n\nConsent is optional and you can change it anytime in Settings > General.",
+            ["it"] = "Quando un comando fallisce, RevitCortex Premium può inviare una segnalazione di errore anonima: nome del tool, tipo di errore, versioni, tempi. Mai inviati: nomi dei modelli, percorsi file, valori dei parametri, nomi utente o macchina.\n\nIl consenso è facoltativo e puoi modificarlo in qualsiasi momento da Impostazioni > Generale.",
         },
         ["telemetry.consent_enable"] = new()
         {
@@ -210,14 +210,44 @@ internal static class Localization
         },
         ["telemetry.settings_toggle"] = new()
         {
-            ["en"] = "Send pseudonymous error telemetry (no model data)",
-            ["it"] = "Invia telemetria errori pseudonima (nessun dato del modello)",
+            ["en"] = "Send anonymous error telemetry (no model data)",
+            ["it"] = "Invia telemetria errori anonima (nessun dato del modello)",
         },
         // ── License & Account ───────────────────────────────────────────
         ["license.window_title"] = new()
         {
             ["en"] = "License & Account",
             ["it"] = "Licenza e account",
+        },
+        ["license.header_subtitle"] = new()
+        {
+            ["en"] = "View license status and activate RevitCortex Premium",
+            ["it"] = "Visualizza lo stato della licenza e attiva RevitCortex Premium",
+        },
+        ["license.banner_detail_active"] = new()
+        {
+            ["en"] = "Your license is active — all commands are available",
+            ["it"] = "La licenza è attiva — tutti i comandi sono disponibili",
+        },
+        ["license.banner_detail_trial"] = new()
+        {
+            ["en"] = "You're on a trial license — all commands are available",
+            ["it"] = "Licenza di prova in corso — tutti i comandi sono disponibili",
+        },
+        ["license.banner_detail_grace"] = new()
+        {
+            ["en"] = "Offline grace period — reconnect soon to keep write commands enabled",
+            ["it"] = "Periodo di tolleranza offline — riconnettiti presto per mantenere attivi i comandi di scrittura",
+        },
+        ["license.banner_detail_expired"] = new()
+        {
+            ["en"] = "License expired — write commands are blocked, read-only still works",
+            ["it"] = "Licenza scaduta — i comandi di scrittura sono bloccati, la sola lettura funziona ancora",
+        },
+        ["license.banner_detail_invalid"] = new()
+        {
+            ["en"] = "No valid license found — activate a key below to unlock write commands",
+            ["it"] = "Nessuna licenza valida trovata — attiva una chiave qui sotto per sbloccare i comandi di scrittura",
         },
         ["license.state_label"] = new()
         {

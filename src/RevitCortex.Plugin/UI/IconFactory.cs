@@ -160,6 +160,47 @@ public static class IconFactory
         });
     }
 
+    /// <summary>License icon: shield with a checkmark, on a violet background
+    /// (distinct from the teal-gear Settings icon it used to borrow).</summary>
+    public static BitmapSource CreateLicenseIcon(int size)
+    {
+        var violet = Color.FromRgb(123, 31, 162); // #7B1FA2
+        return CreateIconWithDrawing(size, violet, (dc, s) =>
+        {
+            double m = s * 0.22;
+            var pen = new Pen(Brushes.White, s * 0.07) { LineJoin = PenLineJoin.Round };
+            pen.Freeze();
+
+            // Shield outline
+            var shield = new StreamGeometry();
+            using (var ctx = shield.Open())
+            {
+                double l = m, r = s - m, t = m * 0.9, mid = s * 0.55, b = s - m * 0.7;
+                ctx.BeginFigure(new Point(s / 2.0, t), false, true);
+                ctx.LineTo(new Point(r, t + (mid - t) * 0.35), true, true);
+                ctx.LineTo(new Point(r, mid), true, true);
+                ctx.LineTo(new Point(s / 2.0, b), true, true);
+                ctx.LineTo(new Point(l, mid), true, true);
+                ctx.LineTo(new Point(l, t + (mid - t) * 0.35), true, true);
+            }
+            shield.Freeze();
+            dc.DrawGeometry(null, pen, shield);
+
+            // Checkmark inside the shield
+            var check = new StreamGeometry();
+            using (var ctx = check.Open())
+            {
+                ctx.BeginFigure(new Point(s * 0.36, s * 0.5), false, false);
+                ctx.LineTo(new Point(s * 0.46, s * 0.6), true, true);
+                ctx.LineTo(new Point(s * 0.66, s * 0.38), true, true);
+            }
+            check.Freeze();
+            var checkPen = new Pen(Brushes.White, s * 0.08) { LineJoin = PenLineJoin.Round, StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+            checkPen.Freeze();
+            dc.DrawGeometry(null, checkPen, check);
+        });
+    }
+
     /// <summary>Support icon: stylized envelope on indigo background.</summary>
     public static BitmapSource CreateSupportIcon(int size)
     {

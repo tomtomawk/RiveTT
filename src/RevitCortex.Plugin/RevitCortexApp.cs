@@ -426,8 +426,8 @@ public class RevitCortexApp : IExternalApplication
             "ID_CORTEX_LICENSE", "License &\r\nAccount",
             assemblyLocation, "RevitCortex.Plugin.Commands.OpenLicense");
         licenseBtn.ToolTip = "View license status and activate RevitCortex Premium";
-        licenseBtn.Image = IconFactory.CreateSettingsIcon(16);
-        licenseBtn.LargeImage = IconFactory.CreateSettingsIcon(32);
+        licenseBtn.Image = IconFactory.CreateLicenseIcon(16);
+        licenseBtn.LargeImage = IconFactory.CreateLicenseIcon(32);
         panel.AddItem(licenseBtn);
 
         // Note: Auto mode is stopped via a floating AutoModeWindow shown while
