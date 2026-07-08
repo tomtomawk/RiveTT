@@ -104,8 +104,13 @@ public class RevitCortexApp : IExternalApplication
 
             Telemetry.TelemetryBootstrap.Init(application);
 
+            // License gate: built before the router so it can be passed in. Best-effort —
+            // a null Gate means no gating (see LicenseBootstrap).
+            Licensing.LicenseBootstrap.Init(CortexEnvironment.Current);
+
             _router = new CortexRouter(_session, analyzer, auditLogger: auditLogger,
-                errorReporter: Telemetry.TelemetryBootstrap.Reporter);
+                errorReporter: Telemetry.TelemetryBootstrap.Reporter,
+                licenseGate: Licensing.LicenseBootstrap.Gate);
 
             var toolsAssembly = LoadToolsAssembly();
             if (toolsAssembly != null)
