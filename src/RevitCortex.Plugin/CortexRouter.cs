@@ -192,8 +192,8 @@ public class CortexRouter
         // message so the UI/agent tells this apart from user-chosen read-only mode.
         if (_licenseGate != null && !_licenseGate.Allows(toolName, IsToolReadOnly))
             return CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
-                $"License expired or invalid — write tool '{toolName}' is blocked",
-                suggestion: "Renew or reactivate your license in RevitCortex > License & Account. Read-only tools remain available.");
+                UI.Localization.T("license.gate_blocked", toolName),
+                suggestion: UI.Localization.T("license.gate_suggestion"));
 
         if (tool.RequiresDocument && _session.Store.Get<object>("activeDocument") == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,

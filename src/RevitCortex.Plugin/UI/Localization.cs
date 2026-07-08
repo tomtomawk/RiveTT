@@ -55,22 +55,10 @@ internal static class Localization
     {
         try
         {
-            var app = RevitCortexApp.Instance?.UiApplication?.Application;
-            if (app != null)
-            {
-                return app.Language switch
-                {
-                    LanguageType.Italian             => "it",
-                    LanguageType.French              => "fr",
-                    LanguageType.German              => "de",
-                    LanguageType.Spanish             => "es",
-                    LanguageType.English_USA         => "en",
-                    LanguageType.English_GB          => "en",
-                    _                                => "en"
-                };
-            }
+            var fromRevit = TryDetectFromRevit();
+            if (fromRevit != null) return fromRevit;
         }
-        catch { /* fall through */ }
+        catch { /* fall through — RevitAPI unavailable (e.g. unit tests without Revit) */ }
 
         try
         {
@@ -80,6 +68,30 @@ internal static class Localization
         catch { /* ignore */ }
 
         return "en";
+    }
+
+    // Separate method so the JIT only resolves RevitAPI (Autodesk.Revit.ApplicationServices)
+    // when this is actually invoked (inside DetectLocale's try), not when DetectLocale itself
+    // is JITted. Without this split, a bare reference to Application/LanguageType in
+    // DetectLocale's body forces RevitAPI resolution to prepare DetectLocale at all, throwing
+    // FileNotFoundException in unit tests that have no RevitAPI.dll in their output folder —
+    // even when RevitCortexApp.Instance is null and the Revit-specific branch never executes.
+    // Same pattern as RevitApiAvailability.ForceLoad in RequiresRevitApiFactAttribute.cs.
+    private static string? TryDetectFromRevit()
+    {
+        var app = RevitCortexApp.Instance?.UiApplication?.Application;
+        if (app == null) return null;
+
+        return app.Language switch
+        {
+            LanguageType.Italian             => "it",
+            LanguageType.French              => "fr",
+            LanguageType.German              => "de",
+            LanguageType.Spanish             => "es",
+            LanguageType.English_USA         => "en",
+            LanguageType.English_GB          => "en",
+            _                                => "en"
+        };
     }
 
     // Keys: dot-separated namespaces. Values: per-locale string.
@@ -328,6 +340,16 @@ internal static class Localization
         {
             ["en"] = "Write commands are blocked until you renew. Read-only commands still work.",
             ["it"] = "I comandi di scrittura sono bloccati fino al rinnovo. I comandi di sola lettura restano attivi.",
+        },
+        ["license.gate_blocked"] = new()
+        {
+            ["en"] = "License not active: RevitCortex Premium is running in read-only mode. Editing command '{0}' is disabled until you activate a valid license.",
+            ["it"] = "Licenza non attiva: RevitCortex Premium funziona in sola lettura. Il comando di modifica '{0}' è disattivato finché non attivi una licenza valida.",
+        },
+        ["license.gate_suggestion"] = new()
+        {
+            ["en"] = "Activate a license in RevitCortex > License & Account. Read-only commands remain available.",
+            ["it"] = "Attiva una licenza da RevitCortex > Licenza e account. I comandi di sola lettura restano disponibili.",
         },
     };
 }
