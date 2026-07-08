@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using RevitCortex.Core.Results;
 
 namespace RevitCortex.Plugin.Communication;
 
@@ -153,8 +154,10 @@ public class SocketService
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Trace.WriteLine(
+                $"[RevitCortex] ProcessRequest internal failure: {ex}");
             return JsonConvert.SerializeObject(
-                JsonRpcResponse.Fail(request.Id, -32603, ex.Message));
+                JsonRpcResponse.Fail(request.Id, -32603, SafeErrorMessages.ForInternal(ex)));
         }
     }
 }
