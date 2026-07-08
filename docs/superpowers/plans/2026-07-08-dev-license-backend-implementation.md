@@ -2,26 +2,29 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a Debug-only `DevLicenseBackend` that mimics a real licensing authority locally — key whitelist, node-lock, and a persisted RSA keypair so the license survives Revit restarts — plus a localized read-only gate message.
+**Goal:** Add a Debug-only `DevLicenseBackend` that mimics a real licensing authority locally — key whitelist, node-lock, persisted RSA keypair (survives Revit restart / fix N1) — wired through the REAL `LicenseManager` even for the dev profile, with Release fail-closed (no fake backend) and a localized read-only gate message.
 
-**Architecture:** New `DevLicenseBackend : ILicenseBackend` in Core, fed by two injected file-backed stores (`IDevKeyStore`, `IDevNodeLockStore`) whose Plugin implementations live in `RevitCortex.Plugin/Licensing`. `LicenseBootstrap` selects it under `#if DEBUG` only; the existing `FakeLicenseBackend` and the Release path stay untouched. The gate block message in `CortexRouter` moves to `Localization` (IT/EN).
+**Architecture:** New `DevLicenseBackend : ILicenseBackend` in Core, fed by two file-backed JSON stores (`IDevKeyStore`, `IDevNodeLockStore`) whose Plugin implementations live in `RevitCortex.Plugin/Licensing`. `LicenseBootstrap.Init` is restructured: under `#if DEBUG` it builds a real `LicenseManager` + `DevLicenseBackend` with a **non-dev** gate (D4 "dev transparent" is deliberately suspended in Debug so the gate is exercisable); under `#else` it fails closed (gate null, no `FakeLicenseBackend`). The gate block message moves to `Localization` (IT/EN).
 
-**Tech Stack:** C# (netstandard2.0 Core / net48+net8 Plugin), xUnit, Newtonsoft.Json, System.Security.Cryptography (RSAParameters import/export — never ToXmlString, which is not net48-safe).
+**Tech Stack:** C# (netstandard2.0 Core / net48+net8 Plugin), xUnit, Newtonsoft.Json, System.Security.Cryptography (RSAParameters import/export as base64 JSON — never ToXmlString, not net48-safe).
+
+**Revised against** `docs/superpowers/specs/2026-07-08-dev-license-backend-evaluation-design.md`, which caught two bugs in the first draft: (1) `CORTEX-EXPIRED` activated now evaluates to **Grace**, not Expired (writes stay unlocked) → renamed `CORTEX-GRACE`, hard-Expired shown only via a store fixture; (2) the dev profile early-returns a transparent gate, so the backend would be **dead code** under `deploy-dev.ps1` → bootstrap restructured to select by build config, not profile.
 
 ---
 
 ## Cross-group contracts (pinned — cited identically everywhere)
 
-- **`IDevKeyStore`** (Core): `RSAParameters LoadOrCreate()` — returns a full (private) RSA keypair, generating + persisting it on first call, reloading it thereafter. `RSAParameters PublicOnly()` — the public half (Modulus+Exponent) of the same keypair, for building the verifier.
-- **`IDevNodeLockStore`** (Core): `string? GetBoundFingerprint(string licenseKey)` — the fingerprint hash bound to this key, or null if never activated. `void Bind(string licenseKey, string fingerprint)` — records the binding (first-write-wins semantics enforced by the backend, not the store).
-- **`DevLicenseBackend`** (Core) implements `ILicenseBackend` (unchanged): `Activate(string licenseKey, IReadOnlyList<string> fingerprintHashes)` and `Validate(string wireToken)`. Ctor: `DevLicenseBackend(IDevKeyStore keyStore, IDevNodeLockStore nodeLockStore)`.
-- **Node-lock fingerprint choice:** the backend binds/compares against `fingerprintHashes[0]` (the first hash — MachineGuid in Fase 1). Empty list → activation fails ("no machine fingerprint available").
-- **Whitelist:** internal static map. `CORTEX-ACTIVE-2026` → state `active`, expiry `nowUtc.AddYears(1)`. `CORTEX-TRIAL-14` → state `trial`, expiry `nowUtc.AddDays(14)`. `CORTEX-EXPIRED` → state `active`, expiry `nowUtc.AddDays(-1)`. Any other key → `Fail`. Expiry is computed from a `Func<DateTime> nowUtc` ctor param defaulting to `() => DateTime.UtcNow` so tests are deterministic.
-- **Wire format (identical to FakeLicenseBackend):** `base64(payloadJsonUtf8) + "." + base64(pkcs1-sha256 signature over the SAME payload bytes)`. Payload keys: `licenseId`, `state`, `expiresAtUtc` (ISO `yyyy-MM-ddTHH:mm:ssZ`), `seatLimit`, `fingerprintHashes`, `issuedAtUtc`.
-- **`LicenseActivationResult`** (existing): `Ok(string token)` / `Fail(string error)`; `.Success`, `.Token`, `.Error`.
-- **`LicenseTokenVerifier`** (existing): ctor `(byte[] modulus, byte[] exponent)`, method `LicenseToken? Verify(string wireToken)`.
+- **`IDevKeyStore`** (Core): `RSAParameters LoadOrCreate()` — full (private) keypair, generated+persisted on first call, reloaded after. `RSAParameters PublicOnly()` — public half (Modulus+Exponent).
+- **`IDevNodeLockStore`** (Core): `string? GetBoundFingerprint(string licenseKey)` — bound fingerprint or null. `bool TryBind(string licenseKey, string fingerprint)` — persist the binding; returns false if the write failed (activation then fails, per eval-spec save-failure policy).
+- **`DevLicenseBackend`** (Core) implements `ILicenseBackend` (unchanged). Ctors: `DevLicenseBackend(IDevKeyStore, IDevNodeLockStore)` and `DevLicenseBackend(IDevKeyStore, IDevNodeLockStore, Func<DateTime> nowUtc)`.
+- **Node-lock:** binds/compares `fingerprintHashes[0]`. Empty list → `Fail("no machine fingerprint available")`.
+- **Whitelist** (state, expiry-from-`nowUtc`): `CORTEX-ACTIVE-2026`→(active, +1y); `CORTEX-TRIAL-14`→(trial, +14d); `CORTEX-GRACE`→(active, −1d). Anything else → `Fail("invalid license key")`.
+- **Wire format (identical to FakeLicenseBackend):** `base64(payloadJsonUtf8) + "." + base64(pkcs1-sha256 sig over the SAME bytes)`. Payload keys: `licenseId`, `state`, `expiresAtUtc` (`yyyy-MM-ddTHH:mm:ssZ`), `seatLimit`, `fingerprintHashes`, `issuedAtUtc`.
+- **`LicenseActivationResult`** (existing): `Ok(string)` / `Fail(string)`; `.Success/.Token/.Error`.
+- **`LicenseTokenVerifier`** (existing): ctor `(byte[] modulus, byte[] exponent)`, `LicenseToken? Verify(string)`.
+- **`LicenseManager`** (existing, unchanged): ctor `(ILicenseStore, IFingerprintProvider, LicenseTokenVerifier, ISystemClock, ILicenseBackend)`, `.State`, `.Activate(key)`, `.Refresh()`.
 
-**Do NOT touch:** `ILicenseBackend`, `LicenseManager`, `LicenseGate` (decision logic), `LicenseTokenVerifier`, `FileLicenseStore`, `FakeLicenseBackend`, and the 696 existing tests. Release (`#else`) path unchanged.
+**Do NOT touch:** `ILicenseBackend`, `LicenseManager`, `LicenseGate` (decision logic), `LicenseTokenVerifier`, `FileLicenseStore`, `FakeLicenseBackend`, and the 696 existing tests. `FakeLicenseBackend` stays for its tests but is no longer wired into the plugin.
 
 ---
 
@@ -30,7 +33,6 @@
 **Files:**
 - Create: `src/RevitCortex.Core/Licensing/IDevKeyStore.cs`
 - Create: `src/RevitCortex.Core/Licensing/IDevNodeLockStore.cs`
-- Test: `src/RevitCortex.Tests/Licensing/DevLicenseBackendTests.cs` (fakes live here; created in Task 2)
 
 - [ ] **Step 1: Write the interfaces**
 
@@ -43,8 +45,8 @@ namespace RevitCortex.Core.Licensing;
 /// <summary>
 /// Dev/demo-only store for the RSA keypair that signs demo license tokens. Persists the
 /// FULL keypair so the same signing key survives process restarts (fix N1). Never used in
-/// Release builds — a persisted private key must not ship. Cross-target: keypair is stored
-/// as RSAParameters byte arrays (base64), never ToXmlString (not net48-safe).
+/// Release builds — a persisted private key must not ship. Cross-target: stored as
+/// RSAParameters byte arrays (base64 JSON), never ToXmlString (not net48-safe).
 /// </summary>
 public interface IDevKeyStore
 {
@@ -70,12 +72,13 @@ public interface IDevNodeLockStore
     /// <summary>The fingerprint bound to this key, or null if never activated.</summary>
     string? GetBoundFingerprint(string licenseKey);
 
-    /// <summary>Record key -> fingerprint.</summary>
-    void Bind(string licenseKey, string fingerprint);
+    /// <summary>Persist key -> fingerprint. Returns false if the write failed (the backend
+    /// then fails activation, so a lock is never accepted without being persisted).</summary>
+    bool TryBind(string licenseKey, string fingerprint);
 }
 ```
 
-- [ ] **Step 2: Build Core to verify it compiles**
+- [ ] **Step 2: Build Core**
 
 Run: `dotnet build -c "Debug R25" src/RevitCortex.Core/RevitCortex.Core.csproj`
 Expected: `Errori: 0`
@@ -125,7 +128,6 @@ public class DevLicenseBackendTests : IDisposable
 
     public void Dispose() => _key.Dispose();
 
-    // Deterministic clock for expiry assertions.
     private static readonly DateTime Now = new DateTime(2026, 7, 8, 12, 0, 0, DateTimeKind.Utc);
 
     private sealed class FakeKeyStore : IDevKeyStore
@@ -139,8 +141,9 @@ public class DevLicenseBackendTests : IDisposable
     private sealed class FakeNodeLock : IDevNodeLockStore
     {
         public readonly Dictionary<string, string> Map = new Dictionary<string, string>();
+        public bool FailWrites = false;
         public string? GetBoundFingerprint(string k) => Map.TryGetValue(k, out var v) ? v : null;
-        public void Bind(string k, string fp) => Map[k] = fp;
+        public bool TryBind(string k, string fp) { if (FailWrites) return false; Map[k] = fp; return true; }
     }
 
     private DevLicenseBackend NewBackend(FakeNodeLock? nl = null) =>
@@ -163,19 +166,17 @@ public class DevLicenseBackendTests : IDisposable
     [Fact]
     public void Activate_TrialKey_MintsTrialTokenPlus14Days()
     {
-        var r = NewBackend().Activate("CORTEX-TRIAL-14", new List<string> { "fpA" });
-        var t = Verifier().Verify(r.Token!);
+        var t = Verifier().Verify(NewBackend().Activate("CORTEX-TRIAL-14", new List<string> { "fpA" }).Token!);
         Assert.Equal("trial", t!.State);
         Assert.Equal(Now.AddDays(14), t.ExpiresAtUtc);
     }
 
     [Fact]
-    public void Activate_ExpiredKey_MintsAlreadyExpiredToken()
+    public void Activate_GraceKey_MintsActiveTokenExpiredYesterday()
     {
-        var r = NewBackend().Activate("CORTEX-EXPIRED", new List<string> { "fpA" });
-        var t = Verifier().Verify(r.Token!);
+        var t = Verifier().Verify(NewBackend().Activate("CORTEX-GRACE", new List<string> { "fpA" }).Token!);
         Assert.Equal("active", t!.State);
-        Assert.True(t.ExpiresAtUtc < Now);
+        Assert.Equal(Now.AddDays(-1), t.ExpiresAtUtc);
     }
 
     [Fact]
@@ -183,7 +184,7 @@ public class DevLicenseBackendTests : IDisposable
     {
         var r = NewBackend().Activate("NOPE", new List<string> { "fpA" });
         Assert.False(r.Success);
-        Assert.NotNull(r.Error);
+        Assert.Contains("invalid license key", r.Error!, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -213,11 +214,13 @@ namespace RevitCortex.Core.Licensing;
 
 /// <summary>
 /// Dev/demo-only <see cref="ILicenseBackend"/> that mimics a real licensing authority
-/// LOCALLY: a fixed key whitelist (active / trial-14d / expired), node-lock to the first
+/// LOCALLY: a fixed key whitelist (active / trial-14d / grace), node-lock to the first
 /// machine fingerprint, and a persisted signing keypair (via <see cref="IDevKeyStore"/>) so
 /// tokens survive process restarts. Selected only under #if DEBUG in LicenseBootstrap;
-/// Release keeps FakeLicenseBackend / (Fase 2) the real Keygen backend. Wire format matches
-/// FakeLicenseBackend so LicenseTokenVerifier round-trips.
+/// Release is fail-closed (no backend). Wire format matches FakeLicenseBackend so
+/// LicenseTokenVerifier round-trips. NOTE: CORTEX-GRACE mints a token expired yesterday;
+/// under LicenseManager (lastOnlineCheck=now) that evaluates to Grace, not hard Expired —
+/// hard Expired is only reachable via an aged stored license (see plan Task 8 fixture).
 /// </summary>
 public class DevLicenseBackend : ILicenseBackend
 {
@@ -232,7 +235,7 @@ public class DevLicenseBackend : ILicenseBackend
         {
             ["CORTEX-ACTIVE-2026"] = new Plan { State = "active", Expiry = n => n.AddYears(1) },
             ["CORTEX-TRIAL-14"]    = new Plan { State = "trial",  Expiry = n => n.AddDays(14) },
-            ["CORTEX-EXPIRED"]     = new Plan { State = "active", Expiry = n => n.AddDays(-1) },
+            ["CORTEX-GRACE"]       = new Plan { State = "active", Expiry = n => n.AddDays(-1) },
         };
 
     private readonly IDevKeyStore _keyStore;
@@ -258,10 +261,9 @@ public class DevLicenseBackend : ILicenseBackend
         if (fingerprintHashes == null || fingerprintHashes.Count == 0)
             return LicenseActivationResult.Fail("no machine fingerprint available");
 
-        // Node-lock will be enforced in Task 3; Task 2 only mints.
+        // Node-lock enforced in Task 3; Task 2 only mints.
         var now = _nowUtc();
-        var token = Mint(key, plan, now, fingerprintHashes);
-        return LicenseActivationResult.Ok(token);
+        return LicenseActivationResult.Ok(Mint(key, plan, now, fingerprintHashes));
     }
 
     public LicenseActivationResult Validate(string wireToken)
@@ -302,7 +304,7 @@ public class DevLicenseBackend : ILicenseBackend
 Run: `dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --filter "FullyQualifiedName~DevLicenseBackendTests"`
 Expected: PASS (5 tests).
 
-- [ ] **Step 5: Build R24 (net48) to confirm cross-target**
+- [ ] **Step 5: Build R24**
 
 Run: `dotnet build -c "Debug R24" src/RevitCortex.Plugin/RevitCortex.Plugin.csproj`
 Expected: `Errori: 0`
@@ -346,8 +348,7 @@ Append to `DevLicenseBackendTests`:
         var nl = new FakeNodeLock();
         var b = NewBackend(nl);
         b.Activate("CORTEX-ACTIVE-2026", new List<string> { "fp1" });
-        var r2 = b.Activate("CORTEX-ACTIVE-2026", new List<string> { "fp1" });
-        Assert.True(r2.Success);
+        Assert.True(b.Activate("CORTEX-ACTIVE-2026", new List<string> { "fp1" }).Success);
     }
 
     [Fact]
@@ -360,33 +361,51 @@ Append to `DevLicenseBackendTests`:
         Assert.False(r2.Success);
         Assert.Contains("another machine", r2.Error!, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Activate_NodeLockWriteFails_FailsActivation()
+    {
+        var nl = new FakeNodeLock { FailWrites = true };
+        var r = NewBackend(nl).Activate("CORTEX-ACTIVE-2026", new List<string> { "fp1" });
+        Assert.False(r.Success);
+    }
 ```
 
 - [ ] **Step 2: Run to verify the new tests fail**
 
 Run: `dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --filter "FullyQualifiedName~DevLicenseBackendTests"`
-Expected: the 3 new tests FAIL (no binding happens yet); `DifferentFingerprint` fails because activation still succeeds.
+Expected: the 4 new tests FAIL (no binding/enforcement yet).
 
 - [ ] **Step 3: Add node-lock logic to `Activate`**
 
-In `DevLicenseBackend.Activate`, replace the comment line `// Node-lock will be enforced in Task 3; Task 2 only mints.` and the two lines after it with:
+In `DevLicenseBackend.Activate`, replace:
+```csharp
+        // Node-lock enforced in Task 3; Task 2 only mints.
+        var now = _nowUtc();
+        return LicenseActivationResult.Ok(Mint(key, plan, now, fingerprintHashes));
+```
+with:
 ```csharp
         var fp = fingerprintHashes[0];
         var bound = _nodeLock.GetBoundFingerprint(key);
         if (bound == null)
-            _nodeLock.Bind(key, fp);
+        {
+            if (!_nodeLock.TryBind(key, fp))
+                return LicenseActivationResult.Fail("could not persist license activation");
+        }
         else if (!string.Equals(bound, fp, StringComparison.Ordinal))
+        {
             return LicenseActivationResult.Fail("license already activated on another machine");
+        }
 
         var now = _nowUtc();
-        var token = Mint(key, plan, now, fingerprintHashes);
-        return LicenseActivationResult.Ok(token);
+        return LicenseActivationResult.Ok(Mint(key, plan, now, fingerprintHashes));
 ```
 
 - [ ] **Step 4: Run to verify pass**
 
 Run: `dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --filter "FullyQualifiedName~DevLicenseBackendTests"`
-Expected: PASS (8 tests).
+Expected: PASS (9 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -402,7 +421,7 @@ EOF
 
 ---
 
-## Task 4: `FileDevKeyStore` — persisted RSA keypair (Plugin)
+## Task 4: `FileDevKeyStore` — persisted RSA keypair, JSON (Plugin)
 
 **Files:**
 - Create: `src/RevitCortex.Plugin/Licensing/FileDevKeyStore.cs`
@@ -412,6 +431,7 @@ EOF
 
 ```csharp
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using RevitCortex.Core.Licensing;
@@ -440,10 +460,9 @@ public class FileDevKeyStoreTests : IDisposable
     [Fact]
     public void LoadOrCreate_FirstCall_GeneratesAndPersists()
     {
-        var store = new FileDevKeyStore(_path);
-        var p = store.LoadOrCreate();
+        var p = new FileDevKeyStore(_path).LoadOrCreate();
         Assert.NotNull(p.Modulus);
-        Assert.NotNull(p.D); // private material present
+        Assert.NotNull(p.D);
         Assert.True(File.Exists(_path));
     }
 
@@ -451,7 +470,7 @@ public class FileDevKeyStoreTests : IDisposable
     public void LoadOrCreate_SecondInstance_ReturnsSameKey()
     {
         var first = new FileDevKeyStore(_path).LoadOrCreate();
-        var second = new FileDevKeyStore(_path).LoadOrCreate(); // reload from disk
+        var second = new FileDevKeyStore(_path).LoadOrCreate();
         Assert.Equal(first.Modulus, second.Modulus);
         Assert.Equal(first.D, second.D);
     }
@@ -459,23 +478,31 @@ public class FileDevKeyStoreTests : IDisposable
     [Fact]
     public void SignedTokenSurvivesReload_VerifierAcceptsAcrossInstances()
     {
-        // Simulates a Revit restart: instance A signs, instance B (fresh) verifies.
-        var storeA = new FileDevKeyStore(_path);
-        var backendA = new DevLicenseBackend(storeA, new InMemNodeLock(),
+        // Simulates a Revit restart: instance A signs, fresh instance B verifies.
+        var backendA = new DevLicenseBackend(new FileDevKeyStore(_path), new InMemNodeLock(),
             () => new DateTime(2026, 7, 8, 12, 0, 0, DateTimeKind.Utc));
-        var token = backendA.Activate("CORTEX-ACTIVE-2026",
-            new System.Collections.Generic.List<string> { "fp1" }).Token!;
+        var token = backendA.Activate("CORTEX-ACTIVE-2026", new List<string> { "fp1" }).Token!;
 
         var pubB = new FileDevKeyStore(_path).PublicOnly();
         var verifier = new LicenseTokenVerifier(pubB.Modulus!, pubB.Exponent!);
         Assert.NotNull(verifier.Verify(token));
     }
 
+    [Fact]
+    public void CorruptKeyFile_RenamedBad_AndRegenerated()
+    {
+        File.WriteAllText(_path, "{ not valid json ");
+        var p = new FileDevKeyStore(_path).LoadOrCreate();
+        Assert.NotNull(p.Modulus);                       // regenerated
+        Assert.True(File.Exists(_path + ".bad"));        // corrupt file preserved
+        Assert.True(File.Exists(_path));                 // fresh key written
+    }
+
     private sealed class InMemNodeLock : IDevNodeLockStore
     {
-        private readonly System.Collections.Generic.Dictionary<string, string> _m = new();
+        private readonly Dictionary<string, string> _m = new();
         public string? GetBoundFingerprint(string k) => _m.TryGetValue(k, out var v) ? v : null;
-        public void Bind(string k, string fp) => _m[k] = fp;
+        public bool TryBind(string k, string fp) { _m[k] = fp; return true; }
     }
 }
 ```
@@ -499,7 +526,8 @@ namespace RevitCortex.Plugin.Licensing;
 /// <summary>
 /// File-backed <see cref="IDevKeyStore"/>: persists the full RSA keypair as base64
 /// RSAParameters fields in a JSON file (cross-target — never ToXmlString). Dev/demo only;
-/// gated to Debug builds by LicenseBootstrap. Any read failure regenerates the key.
+/// gated to Debug builds by LicenseBootstrap. A corrupt file is renamed ".bad" and the
+/// key is regenerated (old debug tokens stop verifying — acceptable local demo state).
 /// </summary>
 public class FileDevKeyStore : IDevKeyStore
 {
@@ -532,23 +560,29 @@ public class FileDevKeyStore : IDevKeyStore
 
     private RSAParameters? TryLoad()
     {
+        if (!File.Exists(_path)) return null;
         try
         {
-            if (!File.Exists(_path)) return null;
             var o = JObject.Parse(File.ReadAllText(_path));
             return new RSAParameters
             {
-                Modulus  = B64(o, "Modulus"),
-                Exponent = B64(o, "Exponent"),
-                D        = B64(o, "D"),
-                P        = B64(o, "P"),
-                Q        = B64(o, "Q"),
-                DP       = B64(o, "DP"),
-                DQ       = B64(o, "DQ"),
-                InverseQ = B64(o, "InverseQ"),
+                Modulus  = B64(o, "modulus"),
+                Exponent = B64(o, "exponent"),
+                D        = B64(o, "d"),
+                P        = B64(o, "p"),
+                Q        = B64(o, "q"),
+                DP       = B64(o, "dp"),
+                DQ       = B64(o, "dq"),
+                InverseQ = B64(o, "inverseQ"),
             };
         }
-        catch { return null; }
+        catch
+        {
+            // Corrupt: preserve as .bad (best-effort), then signal regenerate.
+            try { if (File.Exists(_path + ".bad")) File.Delete(_path + ".bad"); File.Move(_path, _path + ".bad"); }
+            catch { }
+            return null;
+        }
     }
 
     private void Save(RSAParameters p)
@@ -557,16 +591,21 @@ public class FileDevKeyStore : IDevKeyStore
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
         var o = new JObject
         {
-            ["Modulus"]  = Conv(p.Modulus),
-            ["Exponent"] = Conv(p.Exponent),
-            ["D"]        = Conv(p.D),
-            ["P"]        = Conv(p.P),
-            ["Q"]        = Conv(p.Q),
-            ["DP"]       = Conv(p.DP),
-            ["DQ"]       = Conv(p.DQ),
-            ["InverseQ"] = Conv(p.InverseQ),
+            ["format"] = 1,
+            ["algorithm"] = "RSA-2048-PKCS1-SHA256",
+            ["modulus"]  = Conv(p.Modulus),
+            ["exponent"] = Conv(p.Exponent),
+            ["d"]        = Conv(p.D),
+            ["p"]        = Conv(p.P),
+            ["q"]        = Conv(p.Q),
+            ["dp"]       = Conv(p.DP),
+            ["dq"]       = Conv(p.DQ),
+            ["inverseQ"] = Conv(p.InverseQ),
         };
-        File.WriteAllText(_path, o.ToString(Newtonsoft.Json.Formatting.Indented));
+        var tmp = _path + ".tmp";
+        File.WriteAllText(tmp, o.ToString(Newtonsoft.Json.Formatting.Indented));
+        if (File.Exists(_path)) File.Delete(_path);
+        File.Move(tmp, _path);
     }
 
     private static string? Conv(byte[]? b) => b == null ? null : Convert.ToBase64String(b);
@@ -581,7 +620,7 @@ public class FileDevKeyStore : IDevKeyStore
 - [ ] **Step 4: Run to verify pass**
 
 Run: `dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --filter "FullyQualifiedName~FileDevKeyStoreTests"`
-Expected: PASS (3 tests).
+Expected: PASS (4 tests).
 
 - [ ] **Step 5: Build R24**
 
@@ -593,7 +632,7 @@ Expected: `Errori: 0`
 ```bash
 git add src/RevitCortex.Plugin/Licensing/FileDevKeyStore.cs src/RevitCortex.Tests/Licensing/FileDevKeyStoreTests.cs
 git commit -m "$(cat <<'EOF'
-feat(licensing): FileDevKeyStore — persisted RSA keypair for dev backend (fix N1)
+feat(licensing): FileDevKeyStore — persisted RSA keypair, JSON, .bad recovery (fix N1)
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 EOF
@@ -637,22 +676,20 @@ public class FileDevNodeLockStoreTests : IDisposable
 
     [Fact]
     public void GetBoundFingerprint_Unknown_ReturnsNull()
-    {
-        Assert.Null(new FileDevNodeLockStore(_path).GetBoundFingerprint("K"));
-    }
+        => Assert.Null(new FileDevNodeLockStore(_path).GetBoundFingerprint("K"));
 
     [Fact]
-    public void Bind_ThenGet_ReturnsFingerprint()
+    public void TryBind_ThenGet_ReturnsFingerprint()
     {
         var s = new FileDevNodeLockStore(_path);
-        s.Bind("K", "fp1");
+        Assert.True(s.TryBind("K", "fp1"));
         Assert.Equal("fp1", s.GetBoundFingerprint("K"));
     }
 
     [Fact]
-    public void Bind_PersistsAcrossInstances()
+    public void TryBind_PersistsAcrossInstances()
     {
-        new FileDevNodeLockStore(_path).Bind("K", "fp1");
+        new FileDevNodeLockStore(_path).TryBind("K", "fp1");
         Assert.Equal("fp1", new FileDevNodeLockStore(_path).GetBoundFingerprint("K"));
     }
 
@@ -681,9 +718,9 @@ using RevitCortex.Core.Licensing;
 namespace RevitCortex.Plugin.Licensing;
 
 /// <summary>
-/// File-backed <see cref="IDevNodeLockStore"/>: a JSON object mapping license key ->
-/// bound fingerprint. Dev/demo only. A missing/corrupt file is treated as empty; a bad
-/// write is swallowed (demo must never crash Revit).
+/// File-backed <see cref="IDevNodeLockStore"/>: JSON `{ format, locks: { key: fingerprint } }`.
+/// Dev/demo only. Missing/corrupt file → empty. A failed write returns false so the backend
+/// fails activation rather than accepting an unpersisted lock. Atomic temp-replace write.
 /// </summary>
 public class FileDevNodeLockStore : IDevNodeLockStore
 {
@@ -693,26 +730,37 @@ public class FileDevNodeLockStore : IDevNodeLockStore
 
     public string? GetBoundFingerprint(string licenseKey)
     {
-        var map = Load();
-        return (string?)map[licenseKey];
+        var locks = LoadLocks();
+        return (string?)locks[licenseKey];
     }
 
-    public void Bind(string licenseKey, string fingerprint)
+    public bool TryBind(string licenseKey, string fingerprint)
     {
         try
         {
-            var map = Load();
-            map[licenseKey] = fingerprint;
+            var locks = LoadLocks();
+            locks[licenseKey] = fingerprint;
+            var root = new JObject { ["format"] = 1, ["locks"] = locks };
+
             var dir = Path.GetDirectoryName(_path);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-            File.WriteAllText(_path, map.ToString(Newtonsoft.Json.Formatting.Indented));
+            var tmp = _path + ".tmp";
+            File.WriteAllText(tmp, root.ToString(Newtonsoft.Json.Formatting.Indented));
+            if (File.Exists(_path)) File.Delete(_path);
+            File.Move(tmp, _path);
+            return true;
         }
-        catch { /* demo store must never throw */ }
+        catch { return false; }
     }
 
-    private JObject Load()
+    private JObject LoadLocks()
     {
-        try { return File.Exists(_path) ? JObject.Parse(File.ReadAllText(_path)) : new JObject(); }
+        try
+        {
+            if (!File.Exists(_path)) return new JObject();
+            var root = JObject.Parse(File.ReadAllText(_path));
+            return root["locks"] as JObject ?? new JObject();
+        }
         catch { return new JObject(); }
     }
 }
@@ -742,59 +790,95 @@ EOF
 
 ---
 
-## Task 6: Wire `DevLicenseBackend` into `LicenseBootstrap` under `#if DEBUG`
+## Task 6: Restructure `LicenseBootstrap` — Debug real gate, Release fail-closed
 
 **Files:**
 - Modify: `src/RevitCortex.Plugin/Licensing/LicenseBootstrap.cs`
 
-**Context:** The current non-dev branch (lines ~43-58) builds `store`, `fingerprint`, `clock`, `verifier`, `backend`, `manager`. We wrap only the backend + verifier selection in `#if DEBUG`. No test here — this is compile-time wiring, validated by both builds. (`LicenseBootstrap` has no unit test today; behavior is exercised by the live smoke.)
-
-- [ ] **Step 1: Replace the verifier+backend construction lines**
-
-In `LicenseBootstrap.Init`, find:
+**Context (read the current file first):** `Init(env)` today is:
 ```csharp
-            var verifier = new LicenseTokenVerifier(EmbeddedPublicKey.Modulus!, EmbeddedPublicKey.Exponent!);
-            var backend = new FakeLicenseBackend(_fakeKey);
-            var manager = new LicenseManager(store, fingerprint, verifier, clock, backend);
+try
+{
+    if (env.IsDev) { Gate = new LicenseGate(() => LicenseState.Active, isDev: true); return; }
+    var storePath = ...; var store = new FileLicenseStore(storePath);
+    var fingerprint = new WindowsFingerprintProvider();
+    var clock = new AntiRollbackClock(() => DateTime.UtcNow, new RegistryHighWaterMarkStore(), new ProgramDataHighWaterMarkStore());
+    var verifier = new LicenseTokenVerifier(EmbeddedPublicKey.Modulus!, EmbeddedPublicKey.Exponent!);
+    var backend = new FakeLicenseBackend(_fakeKey);
+    var manager = new LicenseManager(store, fingerprint, verifier, clock, backend);
+    manager.Refresh();
+    Gate = new LicenseGate(() => manager.State, isDev: false);
+    Manager = manager; Fingerprint = fingerprint; Backend = backend;
+}
+catch (Exception ex) { ...; Gate = null; Manager = null; Backend = null; Fingerprint = null; }
 ```
-Replace with:
+We replace the **entire body of the `try`** (both the `IsDev` early-return AND the non-dev block) with a `#if DEBUG` / `#else`. No unit test here — validated by the build matrix + Task 8 bootstrap/integration tests. This deliberately **suspends D4 in Debug** (dev profile is no longer transparent) so the gate is exercisable; documented in the design.
+
+- [ ] **Step 1: Replace the `try` body**
+
+Replace everything between `try` `{` and the closing `}` before `catch` with:
 ```csharp
 #if DEBUG
-            // Dev/demo backend: whitelist + node-lock + persisted keypair (survives restart).
-            // Signer and verifier share the SAME persisted keypair so tokens round-trip.
+            // DEBUG: real manager + DevLicenseBackend, EVEN for the dev profile. D4
+            // (IsDev => transparent) is deliberately suspended in Debug so the gate can be
+            // exercised live. Debug builds never ship. env.RootFolder keeps dev/prod profiles
+            // separate (dev => ~/.revitcortex-dev).
+            var store = new FileLicenseStore(System.IO.Path.Combine(env.RootFolder, "license.json"));
+            var fingerprint = new WindowsFingerprintProvider();
+            var clock = new AntiRollbackClock(
+                () => DateTime.UtcNow,
+                new RegistryHighWaterMarkStore(),
+                new ProgramDataHighWaterMarkStore());
             var keyStore = new FileDevKeyStore(System.IO.Path.Combine(env.RootFolder, "dev-license-key.json"));
             var nodeLock = new FileDevNodeLockStore(System.IO.Path.Combine(env.RootFolder, "dev-node-lock.json"));
             var devPub = keyStore.PublicOnly();
             var verifier = new LicenseTokenVerifier(devPub.Modulus!, devPub.Exponent!);
-            ILicenseBackend backend = new DevLicenseBackend(keyStore, nodeLock);
-#else
-            var verifier = new LicenseTokenVerifier(EmbeddedPublicKey.Modulus!, EmbeddedPublicKey.Exponent!);
-            ILicenseBackend backend = new FakeLicenseBackend(_fakeKey);
-#endif
+            var backend = new DevLicenseBackend(keyStore, nodeLock);
             var manager = new LicenseManager(store, fingerprint, verifier, clock, backend);
+            manager.Refresh();
+            Gate = new LicenseGate(() => manager.State, isDev: false);
+            Manager = manager;
+            Fingerprint = fingerprint;
+            Backend = backend;
+#else
+            // RELEASE before Fase 2: fail-closed-honest. No FakeLicenseBackend (it accepts any
+            // key). Gate null => NO gating => app runs full (like today's prod), but WITHOUT a
+            // fake licensing authority in a production binary. Real enforcement = Keygen (Fase 2).
+            Gate = null;
+            Manager = null;
+            Backend = null;
+            Fingerprint = null;
+#endif
 ```
 
-- [ ] **Step 2: Build R25 (Debug — takes the #if DEBUG path)**
+- [ ] **Step 2: Handle now-unused Release fields**
+
+`_fakeKey` and `EmbeddedPublicKey` are now unused in Release (and in Debug). Wrap their declarations in `#if DEBUG` is wrong (they're not used in Debug either now). Instead, keep them but suppress the warning: above the `_fakeKey` field add `#pragma warning disable` is heavy — simpler: mark them used-for-Fase-2 by leaving them and confirming the build has no *error* (unused private field is CS0169 warning, not error). If the build treats warnings as errors, delete `_fakeKey`/`EmbeddedPublicKey` and the `using System.Security.Cryptography;` if now unused. **Check:** run Step 3; if it errors on unused fields, remove them.
+
+- [ ] **Step 3: Build R25 (Debug)**
 
 Run: `dotnet build -c "Debug R25" src/RevitCortex.Plugin/RevitCortex.Plugin.csproj`
 Expected: `Errori: 0`
 
-- [ ] **Step 3: Build R24 (Debug — same path, net48)**
+- [ ] **Step 4: Build R24 (Debug)**
 
 Run: `dotnet build -c "Debug R24" src/RevitCortex.Plugin/RevitCortex.Plugin.csproj`
 Expected: `Errori: 0`
 
-- [ ] **Step 4: Build Release to confirm the #else path still compiles**
+- [ ] **Step 5: Build Release (the #else fail-closed path)**
 
 Run: `dotnet build -c "Release R25" src/RevitCortex.Plugin/RevitCortex.Plugin.csproj`
-Expected: `Errori: 0` (FakeLicenseBackend path intact).
+Expected: `Errori: 0`
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/RevitCortex.Plugin/Licensing/LicenseBootstrap.cs
 git commit -m "$(cat <<'EOF'
-feat(licensing): select DevLicenseBackend under #if DEBUG (Release path unchanged)
+feat(licensing): Debug real gate via DevLicenseBackend; Release fail-closed (no fake)
+
+Suspends D4 (dev-transparent) in Debug so the gate is exercisable; Release wires no
+FakeLicenseBackend (gate null) — no fake licensing authority in a production binary.
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 EOF
@@ -808,11 +892,13 @@ EOF
 **Files:**
 - Modify: `src/RevitCortex.Plugin/UI/Localization.cs`
 - Modify: `src/RevitCortex.Plugin/CortexRouter.cs:193-196`
-- Test: `src/RevitCortex.Tests/Router/` — see Step 1 for the exact new test file
+- Test: `src/RevitCortex.Tests/Router/CortexRouterLicenseMessageTests.cs`
 
-**Context:** `IsToolReadOnly` and the gate guard are in `CortexRouter`. `Localization` is in the same assembly. We add two keys and swap the hard-coded strings.
-
-**IMPORTANT — locale trap:** `Localization.DetectLocale()` falls back to `CultureInfo.CurrentUICulture` when no Revit `UIApplication` is present. On an Italian machine the tests would run under locale "it", so asserting on English words ("read-only") would fail for the wrong reason. The tests must be **locale-independent**: assert that (a) the resolved string is NOT the raw key (proves a translation was found) and (b) it interpolates the tool name (`{0}` → `create_level`, same in every locale).
+**IMPORTANT — locale trap:** `Localization.DetectLocale()` falls back to
+`CultureInfo.CurrentUICulture` with no Revit `UIApplication`. On an Italian machine tests
+run under "it", so asserting English words would fail for the wrong reason. Tests must be
+**locale-independent**: assert the resolved string is NOT the raw key and interpolates the
+tool name.
 
 - [ ] **Step 1: Add the failing test**
 
@@ -828,18 +914,16 @@ public class CortexRouterLicenseMessageTests
     [Fact]
     public void GateBlockedKey_IsTranslated_AndInterpolatesToolName()
     {
-        // Locale-independent: proves the key resolves to a real (translated) string that
-        // embeds the tool name, without depending on the machine's UI language.
         var msg = Localization.T("license.gate_blocked", "create_level");
-        Assert.NotEqual("license.gate_blocked", msg);          // a translation exists
-        Assert.Contains("create_level", msg);                  // {0} was interpolated
+        Assert.NotEqual("license.gate_blocked", msg);   // a translation exists
+        Assert.Contains("create_level", msg);           // {0} interpolated
     }
 
     [Fact]
     public void GateSuggestionKey_IsTranslated()
     {
         var s = Localization.T("license.gate_suggestion");
-        Assert.NotEqual("license.gate_suggestion", s);         // a translation exists
+        Assert.NotEqual("license.gate_suggestion", s);
         Assert.NotEqual("", s);
     }
 }
@@ -848,11 +932,11 @@ public class CortexRouterLicenseMessageTests
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --filter "FullyQualifiedName~CortexRouterLicenseMessageTests"`
-Expected: FAIL — `T("license.gate_blocked", "create_level")` returns the raw key `"license.gate_blocked"` (no interpolation), so both asserts fail.
+Expected: FAIL — `T("license.gate_blocked", "create_level")` returns the raw key (no interpolation).
 
 - [ ] **Step 3: Add the two keys to `Localization.cs`**
 
-Immediately after the `["license.expired_hint"]` entry (before the closing `};` of the table), add:
+Immediately after the `["license.expired_hint"]` entry (before the table's closing `};`), add:
 ```csharp
         ["license.gate_blocked"] = new()
         {
@@ -883,10 +967,10 @@ Replace with:
                 suggestion: UI.Localization.T("license.gate_suggestion"));
 ```
 
-- [ ] **Step 5: Run the new test + a broad licensing regression**
+- [ ] **Step 5: Run the new test + licensing regression**
 
 Run: `dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --filter "FullyQualifiedName~CortexRouterLicense"`
-Expected: PASS (the new 2 tests + the existing `CortexRouterLicenseGateTests` still green — the gate still returns PermissionDenied, only the message text changed).
+Expected: PASS — new 2 tests + existing `CortexRouterLicenseGateTests` still green (gate still returns PermissionDenied; only the message text changed).
 
 - [ ] **Step 6: Build R24**
 
@@ -907,16 +991,132 @@ EOF
 
 ---
 
-## Task 8: Full-suite regression + final build matrix
+## Task 8: Integration tests — real LicenseManager states (Grace + hard Expired)
+
+**Files:**
+- Test: `src/RevitCortex.Tests/Licensing/DevBackendManagerIntegrationTests.cs`
+
+**Why:** the corrected whitelist depends on `CORTEX-GRACE` evaluating to **Grace** (not Expired) through the REAL manager, and hard `Expired` being reachable only via an aged store. These tests prove both against `LicenseManager` — no manager change.
+
+- [ ] **Step 1: Write the failing tests**
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Security.Cryptography;
+using RevitCortex.Core.Licensing;
+using RevitCortex.Plugin.Licensing;
+using Xunit;
+
+namespace RevitCortex.Tests.Licensing;
+
+public class DevBackendManagerIntegrationTests : IDisposable
+{
+    private readonly string _dir;
+    public DevBackendManagerIntegrationTests()
+    {
+        _dir = Path.Combine(Path.GetTempPath(), "rc-devint-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_dir);
+    }
+    public void Dispose() { try { Directory.Delete(_dir, true); } catch { } }
+
+    private sealed class TestClock : ISystemClock
+    {
+        private readonly DateTime _now;
+        public TestClock(DateTime now) { _now = now; }
+        public DateTime UtcNow => _now;
+        public DateTime HighWaterMarkUtc => _now;
+    }
+
+    private LicenseManager NewManager(DateTime now, out DevLicenseBackend backend, out FileLicenseStore store)
+    {
+        var keyStore = new FileDevKeyStore(Path.Combine(_dir, "dev-license-key.json"));
+        var nodeLock = new FileDevNodeLockStore(Path.Combine(_dir, "dev-node-lock.json"));
+        backend = new DevLicenseBackend(keyStore, nodeLock, () => now);
+        var pub = keyStore.PublicOnly();
+        var verifier = new LicenseTokenVerifier(pub.Modulus!, pub.Exponent!);
+        store = new FileLicenseStore(Path.Combine(_dir, "license.json"));
+        var fp = new FakeFingerprintProvider(new[] { "fp1" });
+        return new LicenseManager(store, fp, verifier, new TestClock(now), backend);
+    }
+
+    [Fact]
+    public void ActivateActiveKey_ManagerStateIsActive()
+    {
+        var now = new DateTime(2026, 7, 8, 12, 0, 0, DateTimeKind.Utc);
+        var m = NewManager(now, out _, out _);
+        var r = m.Activate("CORTEX-ACTIVE-2026");
+        Assert.True(r.Success);
+        Assert.Equal(LicenseState.Active, m.State);
+    }
+
+    [Fact]
+    public void ActivateGraceKey_ManagerStateIsGrace_NotExpired()
+    {
+        // The honest behavior the corrected whitelist relies on: expired token activated
+        // now => Grace (lastOnlineCheck=now), so writes STAY allowed.
+        var now = new DateTime(2026, 7, 8, 12, 0, 0, DateTimeKind.Utc);
+        var m = NewManager(now, out _, out _);
+        m.Activate("CORTEX-GRACE");
+        Assert.Equal(LicenseState.Grace, m.State);
+    }
+
+    [Fact]
+    public void AgedStore_ManagerStateIsExpired()
+    {
+        // Hard Expired requires lastOnlineCheck older than the 10-day grace window.
+        var activateAt = new DateTime(2026, 7, 8, 12, 0, 0, DateTimeKind.Utc);
+        var m1 = NewManager(activateAt, out _, out var store);
+        m1.Activate("CORTEX-GRACE"); // token expired yesterday, lastOnlineCheck = activateAt
+
+        // Re-open 20 days later: same store + key files, later clock.
+        var later = activateAt.AddDays(20);
+        var m2 = NewManager(later, out _, out _);
+        m2.Refresh();
+        Assert.Equal(LicenseState.Expired, m2.State);
+    }
+}
+```
+
+Note: `AgedStore` reuses the same `_dir`, so `m2` reads the `license.json` written by `m1.Activate` (whose `lastOnlineCheckUtc = activateAt`); 20 days later that exceeds the 10-day grace window → Expired. The `dev-license-key.json` persists too, so the stored token still verifies.
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --filter "FullyQualifiedName~DevBackendManagerIntegrationTests"`
+Expected: FAIL to compile until Tasks 2-5 types exist; if run after them, the assertions drive the behavior. (In subagent order this runs last, so it should compile and pass.)
+
+- [ ] **Step 3: No new implementation** — these tests exercise existing `LicenseManager` + the Task 2-5 types. If `AgedStore` fails, the bug is in a store's persistence (fix there), NOT in `LicenseManager`.
+
+- [ ] **Step 4: Run to verify pass**
+
+Run: `dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --filter "FullyQualifiedName~DevBackendManagerIntegrationTests"`
+Expected: PASS (3 tests).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/RevitCortex.Tests/Licensing/DevBackendManagerIntegrationTests.cs
+git commit -m "$(cat <<'EOF'
+test(licensing): integration — CORTEX-GRACE=>Grace, aged store=>Expired (no manager change)
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+## Task 9: Full-suite regression + final build matrix
 
 **Files:** none (verification only)
 
 - [ ] **Step 1: Full test suite**
 
 Run: `dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25"`
-Expected: all green. New count = 696 + 8 (Task 2/3) + 3 (Task 4) + 4 (Task 5) + 2 (Task 7) = **713 passed / 1 skipped / 0 failed**.
+Expected: all green. New count = 696 + 9 (T2/T3) + 4 (T4) + 4 (T5) + 2 (T7) + 3 (T8) = **718 passed / 1 skipped / 0 failed**.
 
-- [ ] **Step 2: Build all five Revit targets + Release**
+- [ ] **Step 2: Build all five Debug targets + one Release**
 
 Run each; expected `Errori: 0`:
 ```bash
@@ -928,13 +1128,13 @@ dotnet build -c "Debug R27" src/RevitCortex.Plugin/RevitCortex.Plugin.csproj
 dotnet build -c "Release R25" src/RevitCortex.Plugin/RevitCortex.Plugin.csproj
 ```
 
-- [ ] **Step 3: No commit** (verification only). Report the final suite count and confirm Release (the `#else` path) built clean.
+- [ ] **Step 3: No commit** (verification only). Report the final suite count and confirm Release (the `#else` fail-closed path) built clean.
 
 ---
 
 ## Self-review notes
 
-- **Spec coverage:** whitelist (T2), node-lock (T3), persisted key/N1 (T4+T6), node-lock persistence (T5), Debug-only wiring + Release-unchanged (T6), localized read-only gate message (T7), full regression (T8). All spec sections covered.
-- **Type consistency:** `IDevKeyStore.LoadOrCreate()/PublicOnly()`, `IDevNodeLockStore.GetBoundFingerprint()/Bind()`, `DevLicenseBackend(keyStore, nodeLock[, nowUtc])` used identically across T1-T6. Whitelist keys `CORTEX-ACTIVE-2026`/`CORTEX-TRIAL-14`/`CORTEX-EXPIRED` consistent T2↔T3↔T4. Localization keys `license.gate_blocked`/`license.gate_suggestion` consistent T7.
-- **No placeholders:** every code step shows full code; every run step shows the exact command + expected outcome.
-- **Scope guard:** `ILicenseBackend`, `LicenseManager`, `LicenseGate` logic, verifier, `FileLicenseStore`, `FakeLicenseBackend`, and the 696 existing tests are untouched; only the `#else` selection sits beside the new `#if DEBUG` path.
+- **Spec coverage:** whitelist active/trial-14/grace (T2), node-lock + save-failure (T3), persisted JSON key + .bad recovery + N1 (T4), node-lock persistence (T5), Debug-real-gate/D4-suspend + Release-fail-closed (T6), localized gate message (T7), real-manager Grace vs hard-Expired (T8), full regression (T9). All spec sections covered, including the evaluation-spec corrections.
+- **Type consistency:** `IDevKeyStore.LoadOrCreate()/PublicOnly()`, `IDevNodeLockStore.GetBoundFingerprint()/TryBind()` (bool), `DevLicenseBackend(keyStore, nodeLock[, nowUtc])` used identically T1-T8. Whitelist keys `CORTEX-ACTIVE-2026`/`CORTEX-TRIAL-14`/`CORTEX-GRACE` consistent T2↔T3↔T4↔T8. `ISystemClock` has `UtcNow`+`HighWaterMarkUtc` (matches the F1 change). Localization keys `license.gate_blocked`/`license.gate_suggestion` consistent T7.
+- **No placeholders:** every code step shows full code; every run step shows the exact command + expected outcome. (T6 Step 2 explicitly instructs how to resolve the possible unused-field warning rather than leaving it vague.)
+- **Scope guard:** `ILicenseBackend`, `LicenseManager`, `LicenseGate` logic, verifier, `FileLicenseStore`, `FakeLicenseBackend`, and the 696 existing tests untouched. `FakeLicenseBackend` no longer wired into the plugin (Release fail-closed, Debug uses DevLicenseBackend).

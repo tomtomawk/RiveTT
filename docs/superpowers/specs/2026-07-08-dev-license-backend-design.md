@@ -2,7 +2,10 @@
 
 **Date:** 2026-07-08
 **Branch:** `feature/licensing-phase1`
-**Status:** Approved (brainstorming), ready for implementation plan
+**Status:** Approved + revised against the evaluation spec (2026-07-08)
+**Evaluation spec:** `docs/superpowers/specs/2026-07-08-dev-license-backend-evaluation-design.md`
+(reviewed the first draft against the real code; found the `CORTEX-EXPIRED`→Grace bug
+and the dead dev-branch wiring — both corrected below)
 
 ## Purpose
 
@@ -45,10 +48,8 @@ it is a stand-in for a not-yet-built API, ~150 lines, not a reinvented server.
 
 A **new** class `DevLicenseBackend : ILicenseBackend` in `RevitCortex.Core/Licensing/`.
 The existing `FakeLicenseBackend` is **left untouched** — 696 unit tests depend on its
-permissive behavior. `LicenseBootstrap` selects the demo backend **only** under
-`#if DEBUG`; Release keeps today's wiring (Fase 2 will swap in `KeygenLicenseBackend`).
-
-`ILicenseBackend` is **not** modified. `DevLicenseBackend` implements its two methods:
+permissive behavior. `ILicenseBackend` is **not** modified. `DevLicenseBackend`
+implements its two methods:
 - `Activate(licenseKey, fingerprintHashes)` — validate key against the whitelist, apply
   node-lock, and on success mint a signed wire token (same wire format as
   `FakeLicenseBackend`) carrying the whitelist's state + expiry.
@@ -59,52 +60,110 @@ Two injected collaborators (fakeable in tests):
 - `IDevKeyStore` — load/save the RSA keypair from a local file; exposes the public half.
 - `IDevNodeLockStore` — load/save the `key → first fingerprint` map.
 
+### Bootstrap selection — the D4 override (corrected)
+
+**Critical correction (from the evaluation spec).** `LicenseBootstrap.Init` today
+*early-returns* for `env.IsDev` and installs a transparent always-Active gate — it never
+builds a `LicenseManager`. If we only touched the non-dev branch, `deploy-dev.ps1` (which
+sets a dev profile) would take the early-return and **never reach `DevLicenseBackend`** —
+the whole feature would be dead code in the exact environment we test in (same class of
+"dead wiring" as the earlier F1 bug).
+
+Therefore the selection is by **build configuration, not by profile**:
+
 ```
-LicenseBootstrap.Init(env)  [non-dev branch]
+LicenseBootstrap.Init(env)
+  try
   #if DEBUG
-     keyStore = new FileDevKeyStore(env.RootFolder)
-     nodeLock = new FileDevNodeLockStore(env.RootFolder)
+     // Debug: a REAL manager + DevLicenseBackend, EVEN for the dev profile.
+     // D4 (IsDev => transparent) is deliberately SUSPENDED in Debug builds so the
+     // gate can actually be exercised live. Debug builds never ship to customers.
+     keyStore = new FileDevKeyStore(Path.Combine(env.RootFolder, "dev-license-key.json"))
+     nodeLock = new FileDevNodeLockStore(Path.Combine(env.RootFolder, "dev-node-lock.json"))
+     pub      = keyStore.PublicOnly()
+     verifier = new LicenseTokenVerifier(pub.Modulus, pub.Exponent)
      backend  = new DevLicenseBackend(keyStore, nodeLock)
-     verifier = new LicenseTokenVerifier(keyStore.PublicKey.Modulus, .Exponent)  // same keypair
+     manager  = new LicenseManager(store, fingerprint, verifier, clock, backend)
+     manager.Refresh()
+     Gate = new LicenseGate(() => manager.State, isDev: false)   // isDev:false → gate really evaluates
+     Manager = manager; Backend = backend; Fingerprint = fingerprint
   #else
-     backend  = new FakeLicenseBackend(_fakeKey)                                  // unchanged
-     verifier = new LicenseTokenVerifier(EmbeddedPublicKey.Modulus, .Exponent)
+     // Release BEFORE Fase 2: fail-closed-honest. No FakeLicenseBackend (it accepts any
+     // key — a fake licensing authority in a production binary). Gate stays null → NO
+     // gating → the app runs full, exactly like today's prod 1.0.49, but WITHOUT pretending
+     // to have licensing. Real enforcement arrives with Keygen (Fase 2).
+     Gate = null; Manager = null; Backend = null; Fingerprint = null
   #endif
-  manager = new LicenseManager(store, fingerprint, verifier, clock, backend)
+  catch { Gate = null; Manager = null; Backend = null; Fingerprint = null }
 ```
 
-The key point for N1: in Debug the signer (`DevLicenseBackend`) and the verifier read
-the **same** RSA keypair from the same file, so a token minted in one session verifies
-in the next → the license survives restart.
+Consequences:
+- **Debug (incl. `deploy-dev.ps1`)** → real gate, real `DevLicenseBackend`; the dev
+  profile is no longer transparent. This is what makes the live key/state/block test
+  possible.
+- **Release before Fase 2** → gate null, no `FakeLicenseBackend` wired; app runs
+  unrestricted but carries no fake licensing. (The `_fakeKey`/`EmbeddedPublicKey`
+  static fields become unused in Release; keep them for Fase 2 or `#if DEBUG` them —
+  the plan decides.)
+- **`FakeLicenseBackend` stays in the codebase** purely for the 696 unit tests; it is no
+  longer wired into the running plugin in either configuration.
+
+The N1 key point holds: in Debug the signer (`DevLicenseBackend`) and the verifier read
+the **same** persisted RSA keypair, so a token minted in one session verifies in the
+next → the license survives restart.
 
 ## Files on disk (Debug-only, never in the repo)
 
-Both live in the profile folder (`~/.revitcortex/`), created lazily:
+Both are **JSON** (not XML — the evaluation spec is right: JSON avoids older XML crypto
+serialization edge cases across net48/net8; the codebase already handles RSA only via
+`RSAParameters` byte arrays, never `ToXmlString`). Both live in the profile folder
+(`env.RootFolder`, e.g. `~/.revitcortex-dev` for the dev profile), created lazily:
 
-- **`dev-license-key.xml`** — the RSA keypair (the "stamp"). First Debug run generates
-  and saves it; later runs reload it. Signer and verifier both read it → same stamp →
-  license survives restart. Delete this file to reset the stamp.
-- **`dev-node-lock.json`** — the `key → first-fingerprint` map. First activation of a
-  key records `key → this machine's fingerprint`. Re-activation with the same
-  fingerprint → OK; a different fingerprint → refused. Delete this file to reset the
-  node-lock.
+- **`dev-license-key.json`** — the RSA keypair (the "stamp"), stored as base64
+  `RSAParameters` fields (modulus, exponent, d, p, q, dp, dq, inverseQ). First Debug run
+  generates and saves it; later runs reload it. Signer and verifier both read it → same
+  stamp → license survives restart. **Corrupt file handling:** on parse failure, rename
+  it to `dev-license-key.json.bad` (best-effort) and regenerate; existing debug tokens
+  stop verifying, which is acceptable (local demo state). Delete to reset the stamp.
+- **`dev-node-lock.json`** — `{ "format": 1, "locks": { key: firstFingerprint } }`.
+  First activation records `key → this machine's fingerprint`. Same fingerprint → OK;
+  different → refused. Corrupt/missing → treated as empty. Delete to reset the node-lock.
 
-Deleting both files resets the demo to a clean slate.
+**Save-failure policy (from evaluation spec):** if the node-lock *write* fails during
+activation, the activation itself fails with a readable error — accepting a lock without
+persisting it would make the demo inconsistent across restarts. Writes are atomic
+(temp-file replace), mirroring `FileLicenseStore`.
+
+Deleting both files (plus `license.json`) resets the demo to a clean slate.
 
 ## Whitelist (keys → state)
 
 A fixed map in the Debug-only code, exercising every state by simply changing the key:
 
-| Key entered          | State  | Expiry            | Demonstrates                                   |
-|----------------------|--------|-------------------|------------------------------------------------|
-| `CORTEX-ACTIVE-2026` | active | +1 year           | Full license → writes unlocked                 |
-| `CORTEX-TRIAL-14`    | trial  | +14 days          | Trial period → writes unlocked, "Trial" banner |
-| `CORTEX-EXPIRED`     | active | already expired   | Expired → writes blocked, red banner, grace    |
-| *(anything else)*    | —      | —                 | Refused: "invalid license key"                 |
+| Key entered          | Token state | Token expiry    | State AFTER activation | Demonstrates                          |
+|----------------------|-------------|-----------------|------------------------|---------------------------------------|
+| `CORTEX-ACTIVE-2026` | active      | now + 1 year    | **Active**             | Full license → writes unlocked        |
+| `CORTEX-TRIAL-14`    | trial       | now + 14 days   | **Trial**              | Trial → writes unlocked, "Trial" banner |
+| `CORTEX-GRACE`       | active      | now − 1 day     | **Grace**              | Offline grace → writes STILL unlocked |
+| *(anything else)*    | —           | —               | activation failure     | Refused: "invalid license key"        |
 
-`CORTEX-EXPIRED` mints a token expired in the past; `LicenseManager` (already real)
-evaluates it as Expired or Grace depending on age, so the grace window is demonstrable
-live. Keys/states are readable constants, easy to extend.
+**Correction (from the evaluation spec) — the earlier `CORTEX-EXPIRED` was wrong.**
+`LicenseManager.Activate()` always stores `lastOnlineCheckUtc = now`. `Evaluate()` then
+returns **Grace** for an expired token when `now − lastOnlineCheckUtc ≤ GraceWindow`
+(10 days). So a token expired-in-the-past *activated right now* evaluates as **Grace**,
+and `LicenseGate.Allows()` **permits writes in Grace**. A key literally named
+"EXPIRED" that leaves writes enabled would be a misleading demo. So:
+
+- The whitelist key is **`CORTEX-GRACE`** (honest: expired token → Grace → writes still
+  allowed, which is the real offline-grace behavior).
+- **Hard `Expired`** (writes blocked) is demonstrated **only via a test fixture** — a
+  stored `license.json` whose `lastOnlineCheckUtc` is older than the 10-day
+  `GraceWindow`, which `Evaluate()` then resolves to `Expired`. This needs **no change**
+  to `LicenseManager`. (Live hard-Expired in the UI is out of scope for this bridge; it
+  is fully covered by the existing `LicenseManager` tests + this fixture test.)
+
+Keys/states are readable constants, easy to extend. Expiry is computed from an injected
+`Func<DateTime> nowUtc` (default `() => DateTime.UtcNow`) so tests are deterministic.
 
 ## Gate message — localized + clearer
 
@@ -128,30 +187,56 @@ assurance the user asked for.
 ## Testing (TDD — each test red first, then green)
 
 - `DevLicenseBackend`:
-  - valid key → token with the expected state
+  - `CORTEX-ACTIVE-2026` → active token, +1 year
+  - `CORTEX-TRIAL-14` → trial token, +14 days
+  - `CORTEX-GRACE` → active token expired 1 day ago
   - unknown key → Fail
-  - `CORTEX-TRIAL-14` → trial, +14 days
-  - `CORTEX-EXPIRED` → expired token
+  - empty fingerprint → Fail
 - Node-lock:
   - first activation records the fingerprint
   - same fingerprint → OK
   - different fingerprint → Fail ("already activated on another machine")
-- Key persistence:
-  - two backend instances reading the same key file sign/verify consistently
-    (simulates a restart)
-- Gate message localization: router returns the localized string for the current locale
-- Build **R25 and R24** green (both mandatory)
+- Persistence stores:
+  - `FileDevKeyStore`: generate+persist on first call; reload identical on second
+    instance; a token minted by instance A verifies with instance B's public key
+    (simulates restart / N1); corrupt file → renamed `.bad` + regenerated
+  - `FileDevNodeLockStore`: bind→get round-trips; persists across instances; corrupt
+    file → empty, no crash
+- State evaluation via the REAL `LicenseManager` (integration):
+  - after activating `CORTEX-GRACE`, `manager.State == Grace` (NOT Expired) — this is
+    the honest behavior the corrected whitelist depends on
+  - hard `Expired` fixture: a stored `license.json` with `lastOnlineCheckUtc` older than
+    `GraceWindow` → `manager.State == Expired` → gate blocks writes (no manager change)
+- Gate message localization: `Localization.T("license.gate_blocked", tool)` is
+  translated (≠ raw key) and interpolates the tool name — **locale-independent** assert
+  (tests may run under "it" on this machine)
+- Bootstrap (Debug): `Init` builds `Manager`, `Backend`, `Fingerprint`, and a
+  **non-dev** `LicenseGate` even for a dev-profile `env`
+- Build **R25 and R24** green (both mandatory); **Release R25** green (the `#else`
+  fail-closed path compiles)
 
 ## Not touched (scope guard)
 
-`FakeLicenseBackend`, `LicenseManager`, `LicenseGate` (decision logic), verifier, store,
-and the 696 existing tests. No tool-count limiting (separate task). The `#else` /
-Release path is unchanged from today.
+`ILicenseBackend`, `LicenseManager`, `LicenseGate` (decision logic), `LicenseTokenVerifier`,
+`FileLicenseStore`, and the 696 existing tests. `FakeLicenseBackend` **stays in the
+codebase** for those tests but is **no longer wired** into the running plugin in either
+configuration. No tool-count limiting (separate task).
+
+## Release-safety checklist (from evaluation spec)
+
+- [ ] `DevLicenseBackend` + private-key persistence compile/select only under `#if DEBUG`.
+- [ ] No debug private-key file is ever created by Release code.
+- [ ] No private signing key is embedded as a Release resource/constant.
+- [ ] Release before Fase 2 is **fail-closed-honest**: gate null, no `FakeLicenseBackend`
+      wired (no fake authority in a production binary).
+- [ ] Fase 2 replaces the backend with a server-held signing key (Keygen).
+- [ ] The sales-channel / distribution decision (Autodesk vs Keygen+Stripe) is tracked
+      separately and precedes public packaging.
 
 ## Security note
 
 The persisted private signing key is why this whole backend is `#if DEBUG`-gated. In a
-Release/distribution build the key never exists on the client; Fase 2's real backend
-keeps the private key server-side (Keygen), which also resolves N1 permanently (the
-signing stamp is fixed and server-held, so a stored token stays valid across restarts
-with no re-activation).
+Release build the key never exists on the client (and no fake backend is wired at all).
+Fase 2's real backend keeps the private key server-side (Keygen), which also resolves N1
+permanently (the signing stamp is fixed and server-held, so a stored token stays valid
+across restarts with no re-activation).
