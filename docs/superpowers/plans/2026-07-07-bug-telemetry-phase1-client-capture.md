@@ -1390,6 +1390,106 @@ public class TelemetrySender : IDisposable
 > 2. Treat any message that could embed raw model data as exception-origin even when the code is structured. Concretely: this task's tests must include a case proving that a templated message embedding an UNQUOTED interpolated name (e.g. `"Failed to tag room Strutture: object reference not set"`, the bare-`{room.Name}`+`ex.Message` pattern that exists in real Fail templates) does NOT transmit text — assert `MessageOrigin == "exception"` and `SanitizedMessage == null`. If the shape-based sanitizer would let it through, ErrorReporter must additionally gate on `ex.Message` presence / bare-name shape before calling the sanitizer. Fail-closed dominates: when unsure, `origin = "exception"`, no text.
 > A reviewer of this task MUST verify both points against the real code, not just the happy-path tests.
 
+> **EMPIRICAL GROUND TRUTH (verified 2026-07-08 against the committed MessageSanitizer + a repo grep of real `CortexResult.Fail` templates).** Two facts drive the gate design below:
+> - **(a)** Almost every `ex.Message`-embedding template in `src/RevitCortex.Tools` uses `CortexErrorCode.Unknown` (e.g. `Fail(Unknown, $"Failed to tag walls: {ex.Message}")`), so gate #1 (`errorCode != "Unknown"`) already blocks them. Good, but do not *rely* only on that convention — the spec (paid-readiness, line 176) wants `ex.Message`-embedding templates classed as exception-origin regardless of code.
+> - **(b)** Structured-code templates that interpolate a name are almost all single-quoted (`$"Level '{levelName}' not found"`, `$"A grid named '{newName}' already exists"`) → `RxQuoted` strips them → safe. The one bare-after-colon shape (`$"Category not found: {categoryName}"`) is saved ONLY because the trailing colon on `found:` trips `RxSafeWord`. That safety is INCIDENTAL: a bare leading-cap token with no adjacent punctuation (worst case `"...tag room Strutture object reference not set"`) passes the sanitizer and LEAKS `strutture`. The gate must not depend on punctuation luck.
+
+- [ ] **Step 3b: ADDITIONAL GATE (mandatory — the plan's literal Step-4 code alone does NOT satisfy the criterion).**
+  Add a private static helper to `ErrorReporter` and call it in the sanitize decision. The helper is a conservative pre-filter that runs the SAME stripping the sanitizer uses, then rejects the message (→ exception origin) if any residue betrays embedded uncontrolled data that the sanitizer's shape-allowlist cannot catch:
+
+```csharp
+using System.Text.RegularExpressions;   // add to ErrorReporter usings
+
+// A message is eligible for text transmission only if it is a pure
+// structural template: no ex.Message fingerprints, and no capitalized word
+// in a NON-INITIAL position after stripping. RevitCortex's own template
+// vocabulary is lowercase structural English ("does", "not", "exist",
+// "category", "found"); a mid-sentence Capitalized token that survives
+// stripping is uncontrolled interpolated data (a workset/room/type/family
+// name), which the shape sanitizer would wave through when no punctuation
+// happens to be adjacent. Fail-closed: any doubt -> not a pure template.
+private static readonly Regex RxNonInitialCap = new Regex(
+    @"(?<=\S\s)[A-Z][A-Za-z]*", RegexOptions.Compiled);
+
+private static bool IsPureTemplate(string? message)
+{
+    if (string.IsNullOrWhiteSpace(message)) return false;
+    // Run the sanitizer's own stripping first so quoted names, paths, GUIDs,
+    // compound tokens and numbers are already redacted to "_" and do not
+    // trip the capital-word check (e.g. 'Strutture' -> _ is fine).
+    var stripped = MessageSanitizer.StripForTemplateCheck(message);
+    // A non-initial capitalized word surviving stripping = interpolated proper
+    // noun / bare name. Reject.
+    if (RxNonInitialCap.IsMatch(stripped)) return false;
+    return true;
+}
+```
+
+  This requires exposing the sanitizer's stripping to the reporter. Add ONE `internal static` passthrough to `MessageSanitizer` (do NOT duplicate the regex set):
+
+```csharp
+/// <summary>Case-preserving strip used by ErrorReporter's pure-template
+/// pre-filter. Same patterns as Normalize but without the final ToLower.</summary>
+internal static string StripForTemplateCheck(string? message)
+    => StripKnownPatterns(message);
+```
+
+  **VERIFIED 2026-07-08:** `StripKnownPatterns` is `private static` in `MessageSanitizer`, and `RevitCortex.Core` has NO `InternalsVisibleTo`. `ErrorReporter` lives in the same assembly (`RevitCortex.Core.Telemetry`), so an `internal static StripForTemplateCheck` is directly visible to it — no `InternalsVisibleTo` attribute is required. The tests assert only through the public `ErrorReporter.Record`, never the helper, so they need no special visibility either. Do NOT add `InternalsVisibleTo`.
+
+  Then in `Record`, change the sanitize condition from:
+  `if (errorCode != null && errorCode != "Unknown" && MessageSanitizer.TrySanitizeForTransmission(message, out var safe))`
+  to:
+  `if (errorCode != null && errorCode != "Unknown" && IsPureTemplate(message) && MessageSanitizer.TrySanitizeForTransmission(message, out var safe))`
+
+  **Why non-initial only:** the first word of a template is legitimately capitalized ("Element does not exist", "Category not found") — that is controlled vocabulary, not interpolated data. Interpolated names appear mid-sentence. This keeps the safe templates (`"Element 12345 does not exist"` → after strip `"Element _ does not exist"` → no non-initial cap → still transmits) while rejecting the leak (`"...room Strutture object..."` → non-initial `Strutture` → exception origin).
+
+- [ ] **Step 3c: MANDATORY adversarial tests** (add to `ErrorReporterTests`, beyond the plan's Step-1 list):
+
+```csharp
+[Fact]
+public void Record_TemplatedBareNameMidSentence_NeverSendsText()
+{
+    // Structured code, but the template embeds a bare (unquoted) interpolated
+    // name with no adjacent punctuation — the worst-case leak the sanitizer
+    // alone would wave through. Must be classed exception-origin, no text.
+    var (r, q, _) = Make();
+    r.Record("tag_rooms", false, "TransactionFailed",
+        "Failed to tag room Strutture object reference not set", "tool", 1, 1);
+    var evt = q.PeekBatch(10).Events.Single();
+    Assert.Equal("exception", evt.MessageOrigin);
+    Assert.Null(evt.SanitizedMessage);
+}
+
+[Fact]
+public void Record_StructuredCodeButExMessageEmbedded_NeverSendsText()
+{
+    // A structured (non-Unknown) code whose template still appended ex.Message.
+    // Even though gate #1 passes, the embedded exception phrase carries a
+    // capitalized proper-noun-shaped token -> must fail closed.
+    var (r, q, _) = Make();
+    r.Record("some_tool", false, "TransactionFailed",
+        "Save failed: The DESKTOP model is locked by Mario", "tool", 1, 1);
+    var evt = q.PeekBatch(10).Events.Single();
+    Assert.Equal("exception", evt.MessageOrigin);
+    Assert.Null(evt.SanitizedMessage);
+}
+
+[Fact]
+public void Record_QuotedNameInTemplate_StillTransmits_NameRedacted()
+{
+    // The common safe shape: name is single-quoted, so RxQuoted redacts it.
+    // Text still transmits (templated) but the name must NOT appear.
+    var (r, q, _) = Make();
+    r.Record("create_level", false, "InvalidInput",
+        "A level named 'Strutture' already exists", "tool", 1, 1);
+    var evt = q.PeekBatch(10).Events.Single();
+    Assert.Equal("templated", evt.MessageOrigin);
+    Assert.DoesNotContain("strutture", evt.SanitizedMessage!.ToLowerInvariant());
+}
+```
+
+  If `Record_QuotedNameInTemplate_StillTransmits_NameRedacted` fails because `IsPureTemplate` rejects a quoted-name template (it should NOT — stripping redacts `'Strutture'` to `_` before the capital-word check), that is a real bug in the helper; fix the helper, do not weaken the test.
+
 - [ ] **Step 1: Failing tests**
 
 ```csharp
@@ -2033,6 +2133,11 @@ internal static class TelemetryBootstrap
                 OsMajor = "Windows " + Environment.OSVersion.Version.ToString(2),
                 Locale = Localization.Locale
             };
+            // PRIVACY (Task 9 security review F3): OsMajor MUST be derived from
+            // Version.ToString(2) (major.minor only, e.g. "Windows 10.0"). It must
+            // NEVER be Environment.MachineName or OSVersion.VersionString — a full
+            // machine name would violate TelemetryEvent's own no-host-identity
+            // contract. A reviewer of Task 13 MUST confirm this line is unchanged.
 
             var reporter = new ErrorReporter(config, queue, sender, env);
             reporter.RepeatedFailureDetected += (fp, count) =>
