@@ -74,6 +74,11 @@ public class CortexEnvironment
     public static CortexEnvironment Dev() => new CortexEnvironment(
         "dev", true, HomePath(".revitcortex-dev"), 8081, "http://127.0.0.1:8787");
 
+    /// <summary>Test-only: a dev-profile environment rooted at an arbitrary folder, so
+    /// tests can exercise the dev stack without touching the real ~/.revitcortex-dev.</summary>
+    public static CortexEnvironment ForTests(string rootFolder) =>
+        new CortexEnvironment("dev", true, rootFolder, 8081, "");
+
     private static string HomePath(string folder) => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), folder);
 }
