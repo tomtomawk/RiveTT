@@ -213,5 +213,91 @@ internal static class Localization
             ["en"] = "Send pseudonymous error telemetry (no model data)",
             ["it"] = "Invia telemetria errori pseudonima (nessun dato del modello)",
         },
+        // ── License & Account ───────────────────────────────────────────
+        ["license.window_title"] = new()
+        {
+            ["en"] = "License & Account",
+            ["it"] = "Licenza e account",
+        },
+        ["license.state_label"] = new()
+        {
+            ["en"] = "Status:",
+            ["it"] = "Stato:",
+        },
+        ["license.state_active"] = new()
+        {
+            ["en"] = "Active",
+            ["it"] = "Attiva",
+        },
+        ["license.state_trial"] = new()
+        {
+            ["en"] = "Trial",
+            ["it"] = "Prova",
+        },
+        ["license.state_grace"] = new()
+        {
+            ["en"] = "Offline (grace)",
+            ["it"] = "Offline (periodo di tolleranza)",
+        },
+        ["license.state_expired"] = new()
+        {
+            ["en"] = "Expired",
+            ["it"] = "Scaduta",
+        },
+        ["license.state_invalid"] = new()
+        {
+            ["en"] = "Not activated / invalid",
+            ["it"] = "Non attivata / non valida",
+        },
+        ["license.expiry_label"] = new()
+        {
+            ["en"] = "Expires:",
+            ["it"] = "Scadenza:",
+        },
+        ["license.grace_label"] = new()
+        {
+            ["en"] = "Offline days remaining:",
+            ["it"] = "Giorni offline rimanenti:",
+        },
+        ["license.id_label"] = new()
+        {
+            ["en"] = "License ID:",
+            ["it"] = "ID licenza:",
+        },
+        ["license.key_label"] = new()
+        {
+            ["en"] = "License key:",
+            ["it"] = "Chiave di licenza:",
+        },
+        ["license.activate_button"] = new()
+        {
+            ["en"] = "Activate",
+            ["it"] = "Attiva",
+        },
+        ["license.refresh_button"] = new()
+        {
+            ["en"] = "Refresh",
+            ["it"] = "Aggiorna",
+        },
+        ["license.activate_ok"] = new()
+        {
+            ["en"] = "License activated. Status: {0}.",
+            ["it"] = "Licenza attivata. Stato: {0}.",
+        },
+        ["license.activate_failed"] = new()
+        {
+            ["en"] = "Activation failed: {0}",
+            ["it"] = "Attivazione non riuscita: {0}",
+        },
+        ["license.dev_transparent"] = new()
+        {
+            ["en"] = "Dev profile — licensing is transparent (always active).",
+            ["it"] = "Profilo dev — licenza trasparente (sempre attiva).",
+        },
+        ["license.expired_hint"] = new()
+        {
+            ["en"] = "Write commands are blocked until you renew. Read-only commands still work.",
+            ["it"] = "I comandi di scrittura sono bloccati fino al rinnovo. I comandi di sola lettura restano attivi.",
+        },
     };
 }
