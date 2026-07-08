@@ -347,6 +347,25 @@ public class SendSupportReport : IExternalCommand
         // Machine-readable key (used by rclog to match known-issues with reporter_version_max).
         w.WriteLine($"plugin_version: {pluginVersion}");
         w.WriteLine("Plugin assembly: " + System.Reflection.Assembly.GetExecutingAssembly().Location);
+
+        // MCP / configuration (Phase 0 trust-cleanup acceptance criterion: the
+        // support report must identify the active MCP server, plugin version,
+        // Revit version, and the configuration path — so support can triage a
+        // single report and know exactly which stack/profile is active).
+        w.WriteLine();
+        w.WriteLine("Supported MCP server: revitcortex (C# stdio server, RevitCortex.Server.exe)");
+        try
+        {
+            var env = CortexEnvironment.Current;
+            w.WriteLine($"Profile:        {env.ProfileName}{(env.IsDev ? " (DEV build)" : "")}");
+            w.WriteLine($"Config folder:  {env.RootFolder}");
+            w.WriteLine($"Settings file:  {env.SettingsFilePath}");
+            w.WriteLine($"Bridge port:    {env.DefaultPort}");
+        }
+        catch (Exception ex)
+        {
+            w.WriteLine($"Profile:        (unreadable: {ex.Message})");
+        }
     }
 
     // ── Email body ──────────────────────────────────────────────────────────
