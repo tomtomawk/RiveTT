@@ -75,7 +75,7 @@ RevitCortex/
   src/RevitCortex.Server/     C# MCP server (stdio transport)
     Program.cs                  Entry point (MCP hosting)
     Connection/RevitBridge.cs   TCP bridge to Plugin
-    Tools/                      157 tool definitions (9 files)
+    Tools/                      288 tool definitions (9 files)
 ```
 
 ## Architecture: Layer Cake

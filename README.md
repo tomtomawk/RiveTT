@@ -670,7 +670,7 @@ Use the `dryRun: true` parameter (where available) to preview changes without ap
 RevitCortex/
   RevitCortex.sln              Solution file
   nuget.config                 NuGet package source (nuget.org)
-  deploy.ps1                   Deploy script (Revit 2023-2026)
+  deploy.ps1                   Deploy script (Revit 2023-2027)
   tool-schemas.txt             Compact tool signatures for token optimization
   CLAUDE.md                    AI assistant guide (tool corrections, locale maps)
 
@@ -707,7 +707,7 @@ RevitCortex/
     Program.cs                   Server entry point (MCP hosting)
     Connection/
       RevitBridge.cs             TCP bridge to Plugin (JSON-RPC)
-    Tools/                       Tool definitions (157 tools across 9 files)
+    Tools/                       Tool definitions (288 tools across 9 files)
       MetaTools.cs               say_hello, get_project_info
       ElementTools.cs            Element CRUD, filtering, selection
       ViewTools.cs               Views, sheets, schedules
