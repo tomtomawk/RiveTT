@@ -85,4 +85,41 @@ public class DevLicenseBackendTests : IDisposable
         var r = NewBackend().Activate("CORTEX-ACTIVE-2026", new List<string>());
         Assert.False(r.Success);
     }
+
+    [Fact]
+    public void Activate_FirstTime_BindsFingerprint()
+    {
+        var nl = new FakeNodeLock();
+        var r = NewBackend(nl).Activate("CORTEX-ACTIVE-2026", new List<string> { "fp1" });
+        Assert.True(r.Success);
+        Assert.Equal("fp1", nl.GetBoundFingerprint("CORTEX-ACTIVE-2026"));
+    }
+
+    [Fact]
+    public void Activate_SameFingerprint_Succeeds()
+    {
+        var nl = new FakeNodeLock();
+        var b = NewBackend(nl);
+        b.Activate("CORTEX-ACTIVE-2026", new List<string> { "fp1" });
+        Assert.True(b.Activate("CORTEX-ACTIVE-2026", new List<string> { "fp1" }).Success);
+    }
+
+    [Fact]
+    public void Activate_DifferentFingerprint_Fails()
+    {
+        var nl = new FakeNodeLock();
+        var b = NewBackend(nl);
+        b.Activate("CORTEX-ACTIVE-2026", new List<string> { "fp1" });
+        var r2 = b.Activate("CORTEX-ACTIVE-2026", new List<string> { "fp2" });
+        Assert.False(r2.Success);
+        Assert.Contains("another machine", r2.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Activate_NodeLockWriteFails_FailsActivation()
+    {
+        var nl = new FakeNodeLock { FailWrites = true };
+        var r = NewBackend(nl).Activate("CORTEX-ACTIVE-2026", new List<string> { "fp1" });
+        Assert.False(r.Success);
+    }
 }

@@ -55,7 +55,18 @@ public class DevLicenseBackend : ILicenseBackend
         if (fingerprintHashes == null || fingerprintHashes.Count == 0)
             return LicenseActivationResult.Fail("no machine fingerprint available");
 
-        // Node-lock enforced in Task 3; Task 2 only mints.
+        var fp = fingerprintHashes[0];
+        var bound = _nodeLock.GetBoundFingerprint(key);
+        if (bound == null)
+        {
+            if (!_nodeLock.TryBind(key, fp))
+                return LicenseActivationResult.Fail("could not persist license activation");
+        }
+        else if (!string.Equals(bound, fp, StringComparison.Ordinal))
+        {
+            return LicenseActivationResult.Fail("license already activated on another machine");
+        }
+
         var now = _nowUtc();
         return LicenseActivationResult.Ok(Mint(key, plan, now, fingerprintHashes));
     }
