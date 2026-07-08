@@ -1082,6 +1082,17 @@ return new { typeId = newType.Id.Value, name = newType.Name };
 **Transazioni:**
 - `transactionMode: "auto"` (default) — la transazione è gestita automaticamente
 - `transactionMode: "none"` — nessuna transazione (per sola lettura o quando il codice gestisce le transazioni)
+
+## Telemetria errori (opzionale, default disattivata)
+
+Al primo avvio RevitCortex chiede se attivare la telemetria errori pseudonima.
+Se attivata, quando un comando fallisce viene inviato un evento minimale
+(nome tool, tipo errore, versioni, tempi) a ingest.revitcortex.dev. Non vengono
+MAI inviati: nomi dei modelli, percorsi, valori di parametri, nomi utente o
+macchina. La scelta si cambia in ogni momento da **Impostazioni > Generale >
+"Invia telemetria errori pseudonima"**. Con la telemetria disattivata non viene
+accodato né inviato nulla.
+
 ## Risoluzione dei problemi comuni
 
 ### Il plugin non si connette

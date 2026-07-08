@@ -149,6 +149,24 @@ I tool di export e import dati restano invece su policy stretta: scrivere o legg
 
 ---
 
+## Outbound telemetry (v1.0.4x+)
+
+RevitCortex can send pseudonymous error/bottleneck events to
+`https://ingest.revitcortex.dev` (`POST /v1/events`). This surface is:
+
+- **Opt-in, default OFF.** Gated by `EnableTelemetry` + `TelemetryConsentAnswered`
+  + `TelemetryConsentVersion` in `~/.revitcortex/settings.json`. No event is
+  queued before affirmative consent (first-run dialog or Settings toggle).
+- **Minimal by construction.** Events carry: tool name, error code/class,
+  fingerprint, versions, locale, duration, response size, random installation
+  GUID. Never: tool inputs, raw exception text, document titles/paths,
+  usernames, machine names, parameter/family/type names, element ids
+  (enforced by `MessageSanitizer` fail-closed verdict + unit tests).
+- **Fail-safe.** 5 s timeout, offline queue capped at 5 MB (drop-oldest),
+  all entry points wrapped: telemetry can never crash or slow Revit.
+
+---
+
 ## Livello di rischio
 
 | Area | Livello rischio | Stato |
