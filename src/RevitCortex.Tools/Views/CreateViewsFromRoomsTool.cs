@@ -15,6 +15,7 @@ namespace RevitCortex.Tools.Views;
 /// Creates callout, section, or elevation views from room bounding boxes.
 /// Combines create_callout_from_rooms, create_elevations_from_rooms, and create_views_from_rooms.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateViewsFromRoomsTool : ICortexTool
 {
     public string Name => "create_views_from_rooms";
@@ -39,6 +40,16 @@ public class CreateViewsFromRoomsTool : ICortexTool
         if (roomIds.Count == 0)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "roomIds array is required");
 
+        var normalizedViewType = viewType.ToLowerInvariant();
+        if (normalizedViewType != "callout" &&
+            normalizedViewType != "section" &&
+            normalizedViewType != "elevation")
+        {
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                $"Invalid viewType '{viewType}'",
+                suggestion: "Use one of: callout, section, elevation");
+        }
+
         try
         {
             var offset = offsetMm / MmPerFoot;
@@ -46,6 +57,7 @@ public class CreateViewsFromRoomsTool : ICortexTool
             var warnings = new List<string>();
 
             using var tx = new Transaction(doc, "RevitCortex: Create Views From Rooms");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             foreach (var rid in roomIds)
@@ -66,7 +78,7 @@ public class CreateViewsFromRoomsTool : ICortexTool
                     .Replace("{RoomName}", roomName)
                     .Replace("{RoomNumber}", roomNumber);
 
-                switch (viewType.ToLowerInvariant())
+                switch (normalizedViewType)
                 {
                     case "section":
                         var sectionView = CreateSectionFromBB(doc, bb, offset, "north");
@@ -78,17 +90,10 @@ public class CreateViewsFromRoomsTool : ICortexTool
                         }
                         break;
                     case "elevation":
-                        var directions = new[] { "north", "south", "east", "west" };
-                        foreach (var dir in directions)
-                        {
-                            var elevView = CreateSectionFromBB(doc, bb, offset, dir);
-                            if (elevView != null)
-                            {
-                                TrySetName(elevView, $"{dir.Substring(0,1).ToUpper()}{dir.Substring(1)} - {viewNameBase}");
-                                elevView.Scale = scale;
-                                createdViews.Add(new { id = ToolHelpers.GetElementIdValue(elevView.Id), name = elevView.Name, type = $"elevation_{dir}" });
-                            }
-                        }
+                        var ownerPlan = FindOwnerFloorPlan(doc, room);
+                        if (ownerPlan == null) { warnings.Add($"No floor plan found for room {roomNumber}"); continue; }
+
+                        createdViews.AddRange(CreateElevationsFromRoom(doc, room, bb, offset, scale, ownerPlan, viewNameBase, warnings));
                         break;
                     default: // callout
                         var parentView = FindParentFloorPlan(doc, room);
@@ -108,7 +113,10 @@ public class CreateViewsFromRoomsTool : ICortexTool
                 }
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 createdViewCount = createdViews.Count,
@@ -118,8 +126,133 @@ public class CreateViewsFromRoomsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {FormatException(ex)}");
         }
+    }
+
+    private static List<object> CreateElevationsFromRoom(
+        Document doc,
+        Room room,
+        BoundingBoxXYZ roomBB,
+        double offset,
+        int scale,
+        ViewPlan ownerPlan,
+        string viewNameBase,
+        List<string> warnings)
+    {
+        var createdViews = new List<object>();
+        var vft = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
+            .FirstOrDefault(v => v.ViewFamily == ViewFamily.Elevation);
+        if (vft == null)
+        {
+            warnings.Add("No elevation ViewFamilyType");
+            return createdViews;
+        }
+
+        var center = (roomBB.Min + roomBB.Max) / 2.0;
+        var z = room.Level != null ? room.Level.Elevation : roomBB.Min.Z;
+        var markerOrigin = new XYZ(center.X, center.Y, z);
+        var directions = new[] { "north", "south", "east", "west" };
+        foreach (var dir in directions)
+        {
+            ElevationMarker? marker = null;
+            try
+            {
+                // One marker per direction, each rotated to face the room and read at index 0.
+                // A single marker only reliably hosts one elevation via this API ("index is
+                // occupied or out of range" on indices 1-3), so we create a fresh marker per side.
+                marker = ElevationMarker.CreateElevationMarker(doc, vft.Id, markerOrigin, scale);
+                RotateElevationMarker(doc, marker.Id, markerOrigin, RotationAngleForDirection(dir));
+
+                var elevView = marker.CreateElevation(doc, ownerPlan.Id, 0);
+                TrySetName(elevView, $"{Capitalize(dir)} - {viewNameBase}");
+                elevView.Scale = scale;
+                ApplyRoomCrop(elevView, roomBB, offset);
+                createdViews.Add(new { id = ToolHelpers.GetElementIdValue(elevView.Id), name = elevView.Name, type = $"elevation_{dir}" });
+            }
+            catch (Exception ex)
+            {
+                warnings.Add($"Failed to create {dir} elevation for room {room.Number}: {FormatException(ex)}");
+                if (marker != null)
+                {
+                    try { doc.Delete(marker.Id); } catch { }
+                }
+            }
+        }
+
+        return createdViews;
+    }
+
+    private static void RotateElevationMarker(Document doc, ElementId markerId, XYZ origin, double angle)
+    {
+        if (Math.Abs(angle) < 0.000001) return;
+        var axis = Line.CreateBound(origin, origin + XYZ.BasisZ);
+        ElementTransformUtils.RotateElement(doc, markerId, axis, angle);
+    }
+
+    private static double RotationAngleForDirection(string direction)
+    {
+        switch (direction)
+        {
+            case "east": return -Math.PI / 2.0;
+            case "south": return Math.PI;
+            case "west": return Math.PI / 2.0;
+            default: return 0.0;
+        }
+    }
+
+    private static void ApplyRoomCrop(ViewSection view, BoundingBoxXYZ roomBB, double offset)
+    {
+        try
+        {
+            var crop = view.CropBox;
+            var inverse = crop.Transform.Inverse;
+            var points = GetBoundingBoxCorners(roomBB).Select(p => inverse.OfPoint(p)).ToList();
+
+            var minX = points.Min(p => p.X) - offset;
+            var maxX = points.Max(p => p.X) + offset;
+            var minY = points.Min(p => p.Y) - offset;
+            var maxY = points.Max(p => p.Y) + offset;
+
+            crop.Min = new XYZ(minX, minY, crop.Min.Z);
+            crop.Max = new XYZ(maxX, maxY, crop.Max.Z);
+            view.CropBox = crop;
+            view.CropBoxActive = true;
+            view.CropBoxVisible = true;
+        }
+        catch
+        {
+            // Some elevation types/templates reject crop-box edits; the view itself is still valid.
+        }
+    }
+
+    private static IEnumerable<XYZ> GetBoundingBoxCorners(BoundingBoxXYZ bb)
+    {
+        var transform = bb.Transform ?? Transform.Identity;
+        var min = bb.Min;
+        var max = bb.Max;
+
+        yield return transform.OfPoint(new XYZ(min.X, min.Y, min.Z));
+        yield return transform.OfPoint(new XYZ(max.X, min.Y, min.Z));
+        yield return transform.OfPoint(new XYZ(min.X, max.Y, min.Z));
+        yield return transform.OfPoint(new XYZ(max.X, max.Y, min.Z));
+        yield return transform.OfPoint(new XYZ(min.X, min.Y, max.Z));
+        yield return transform.OfPoint(new XYZ(max.X, min.Y, max.Z));
+        yield return transform.OfPoint(new XYZ(min.X, max.Y, max.Z));
+        yield return transform.OfPoint(new XYZ(max.X, max.Y, max.Z));
+    }
+
+    private static string Capitalize(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+        return value.Substring(0, 1).ToUpperInvariant() + value.Substring(1);
+    }
+
+    private static string FormatException(Exception ex)
+    {
+        var message = ex.Message;
+        var typeName = ex.GetType().FullName ?? ex.GetType().Name;
+        return string.IsNullOrWhiteSpace(message) ? typeName : $"{typeName}: {message}";
     }
 
     private static ViewSection? CreateSectionFromBB(Document doc, BoundingBoxXYZ roomBB, double offset, string direction)
@@ -163,6 +296,27 @@ public class CreateViewsFromRoomsTool : ICortexTool
         if (level == null) return null;
         return new FilteredElementCollector(doc).OfClass(typeof(ViewPlan)).Cast<ViewPlan>()
             .FirstOrDefault(v => !v.IsTemplate && v.GenLevel?.Id == level.Id && v.ViewType == ViewType.FloorPlan);
+    }
+
+    private static ViewPlan? FindOwnerFloorPlan(Document doc, Room room)
+    {
+        var activePlan = doc.ActiveView as ViewPlan;
+        if (IsOwnerFloorPlanForRoom(activePlan, room))
+            return activePlan;
+
+        return FindParentFloorPlan(doc, room);
+    }
+
+    private static bool IsOwnerFloorPlanForRoom(ViewPlan? view, Room room)
+    {
+        if (view == null || view.IsTemplate || view.ViewType != ViewType.FloorPlan)
+            return false;
+
+        var roomLevel = room.Level;
+        if (roomLevel == null || view.GenLevel == null)
+            return true;
+
+        return ToolHelpers.GetElementIdValue(view.GenLevel.Id) == ToolHelpers.GetElementIdValue(roomLevel.Id);
     }
 
     private static void TrySetName(View view, string name)

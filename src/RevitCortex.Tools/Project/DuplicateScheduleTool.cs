@@ -12,6 +12,7 @@ namespace RevitCortex.Tools.Project;
 /// <summary>
 /// Duplicates a Revit schedule by ID or name with a new name.
 /// </summary>
+[ToolSafety(false, false)]
 public class DuplicateScheduleTool : ICortexTool
 {
     public string Name => "duplicate_schedule";
@@ -56,12 +57,16 @@ public class DuplicateScheduleTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Schedule not found");
 
             using var tx = new Transaction(doc, "RevitCortex: Duplicate Schedule");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             var newId = schedule.Duplicate(ViewDuplicateOption.Duplicate);
             var newSchedule = doc.GetElement(newId) as ViewSchedule;
             if (newSchedule != null)
                 newSchedule.Name = newName;
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             return CortexResult<object>.Ok(new
             {

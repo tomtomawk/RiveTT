@@ -13,6 +13,7 @@ namespace RevitCortex.Tools.Views;
 /// <summary>
 /// Lists or deletes views that are not placed on any sheet.
 /// </summary>
+[ToolSafety(false, true)]
 public class ManageUnplacedViewsTool : ICortexTool
 {
     public string Name => "manage_unplaced_views";
@@ -70,13 +71,17 @@ public class ManageUnplacedViewsTool : ICortexTool
                         "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RevitCortex: Delete Unplaced Views");
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 int deleted = 0;
                 foreach (var v in views)
                 {
                     try { doc.Delete(v.Id); deleted++; } catch { /* skip protected views */ }
                 }
-                tx.Commit();
+                if (tx.Commit() != TransactionStatus.Committed)
+                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                        suggestion: "Fix the reported model errors and retry.");
                 return CortexResult<object>.Ok(new { action = "delete", deletedCount = deleted });
             }
 

@@ -34,6 +34,7 @@ namespace RevitCortex.Tools.StructuralSteel;
 /// Adds a solid-solid cut so cutElement cuts targetElement (SolidSolidCutUtils.AddCutBetweenSolids).
 /// Generic Revit geometry cut, not steel-specific.
 /// </summary>
+[ToolSafety(false, false)]
 public class AddSteelSolidCutTool : ICortexTool
 {
     public string Name => "add_steel_solid_cut";
@@ -79,12 +80,16 @@ public class AddSteelSolidCutTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Add Solid Cut");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             // ARG ORDER: (doc, solidToBeCut=target, cuttingSolid=cutter, splitFaces).
             SolidSolidCutUtils.AddCutBetweenSolids(doc!, target!, cutter!, splitFaces);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = "Solid cut added (generic Revit geometry cut, not steel-specific)",
@@ -104,6 +109,7 @@ public class AddSteelSolidCutTool : ICortexTool
 /// <summary>
 /// Reports whether one element may cut another via a solid cut and/or an instance void cut, without mutating.
 /// </summary>
+[ToolSafety(true, false)]
 public class CheckSteelCutEligibilityTool : ICortexTool
 {
     public string Name => "check_steel_cut_eligibility";
@@ -149,6 +155,7 @@ public class CheckSteelCutEligibilityTool : ICortexTool
 /// <summary>
 /// Removes a solid-solid cut between two elements (SolidSolidCutUtils.RemoveCutBetweenSolids).
 /// </summary>
+[ToolSafety(false, true)]
 public class RemoveSteelSolidCutTool : ICortexTool
 {
     public string Name => "remove_steel_solid_cut";
@@ -180,11 +187,15 @@ public class RemoveSteelSolidCutTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Remove Solid Cut");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             SolidSolidCutUtils.RemoveCutBetweenSolids(doc!, cutter!, target!);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = "Solid cut removed (generic Revit geometry cut, not steel-specific)",
@@ -204,6 +215,7 @@ public class RemoveSteelSolidCutTool : ICortexTool
 /// Toggles whether the cutting solid's faces are split at an existing solid-solid cut
 /// (SolidSolidCutUtils.SplitFacesOfCuttingSolid).
 /// </summary>
+[ToolSafety(false, false)]
 public class SetSteelSolidCutFaceSplittingTool : ICortexTool
 {
     public string Name => "set_steel_solid_cut_face_splitting";
@@ -232,11 +244,15 @@ public class SetSteelSolidCutFaceSplittingTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Set Solid Cut Face Splitting");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             SolidSolidCutUtils.SplitFacesOfCuttingSolid(cutter!, target!, split.Value);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = "Solid cut face-splitting updated (generic Revit geometry cut, not steel-specific)",
@@ -257,6 +273,7 @@ public class SetSteelSolidCutFaceSplittingTool : ICortexTool
 /// Adds an instance void cut so a cutting void instance cuts targetElement
 /// (InstanceVoidCutUtils.AddInstanceVoidCut). Generic Revit geometry op, not steel-specific.
 /// </summary>
+[ToolSafety(false, false)]
 public class AddSteelInstanceVoidCutTool : ICortexTool
 {
     public string Name => "add_steel_instance_void_cut";
@@ -299,12 +316,16 @@ public class AddSteelInstanceVoidCutTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Add Instance Void Cut");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             // ARG ORDER: (doc, element=target, cuttingInstance=void).
             InstanceVoidCutUtils.AddInstanceVoidCut(doc!, target!, voidInstance!);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = "Instance void cut added (generic Revit geometry cut, not steel-specific)",
@@ -324,6 +345,7 @@ public class AddSteelInstanceVoidCutTool : ICortexTool
 /// Removes an instance void cut between a cutting void instance and a target element
 /// (InstanceVoidCutUtils.RemoveInstanceVoidCut).
 /// </summary>
+[ToolSafety(false, true)]
 public class RemoveSteelInstanceVoidCutTool : ICortexTool
 {
     public string Name => "remove_steel_instance_void_cut";
@@ -355,12 +377,16 @@ public class RemoveSteelInstanceVoidCutTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Remove Instance Void Cut");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             // ARG ORDER: (doc, element=target, cuttingInstance=void).
             InstanceVoidCutUtils.RemoveInstanceVoidCut(doc!, target!, voidInstance!);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = "Instance void cut removed (generic Revit geometry cut, not steel-specific)",
@@ -380,6 +406,7 @@ public class RemoveSteelInstanceVoidCutTool : ICortexTool
 /// Reads the solid-solid cut relationships of an element: the solids that cut it
 /// (GetCuttingSolids) and the solids it cuts (GetSolidsBeingCut).
 /// </summary>
+[ToolSafety(true, false)]
 public class GetSolidCutRelationshipsTool : ICortexTool
 {
     public string Name => "get_solid_cut_relationships";
@@ -435,6 +462,7 @@ public class GetSolidCutRelationshipsTool : ICortexTool
 /// Reads the instance-void cut relationships of an element: the void instances that cut it
 /// (GetCuttingVoidInstances) and the elements it (as a void instance) cuts (GetElementsBeingCut).
 /// </summary>
+[ToolSafety(true, false)]
 public class GetInstanceVoidCutRelationshipsTool : ICortexTool
 {
     public string Name => "get_instance_void_cut_relationships";

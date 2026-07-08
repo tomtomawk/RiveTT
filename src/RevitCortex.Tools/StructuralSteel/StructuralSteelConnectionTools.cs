@@ -41,6 +41,7 @@ namespace RevitCortex.Tools.StructuralSteel;
 /// Creates a GENERIC structural connection between &gt;=2 elements (no provider required — the safe baseline).
 /// Input: elementIds[] (&gt;=2), optional connectionName, dryRun.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateGenericSteelConnectionTool : ICortexTool
 {
     public string Name => "create_generic_steel_connection";
@@ -69,6 +70,7 @@ public class CreateGenericSteelConnectionTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Create Generic Steel Connection");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -84,7 +86,10 @@ public class CreateGenericSteelConnectionTool : ICortexTool
                 try { handler.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.Set(name); } catch { /* naming is best-effort */ }
             }
             var id = ToolHelpers.GetElementIdValue(handler);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Created generic steel connection {id} between {ids.Count} element(s)",
@@ -105,6 +110,7 @@ public class CreateGenericSteelConnectionTool : ICortexTool
 /// Creates a TYPED structural connection from a connection handler type id/name (provider-gated).
 /// inputPoints are accepted but NOT wired (ConnectionInputPoint has no public constructor reachable from JSON).
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateSteelConnectionTool : ICortexTool
 {
     public string Name => "create_steel_connection";
@@ -145,6 +151,7 @@ public class CreateSteelConnectionTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Create Steel Connection");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -157,7 +164,10 @@ public class CreateSteelConnectionTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed, "Revit returned no connection handler");
             }
             var id = ToolHelpers.GetElementIdValue(handler);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Created steel connection {id} (type {ToolHelpers.GetElementIdValue(typeId)}) between {ids.Count} element(s)",
@@ -211,6 +221,7 @@ public class CreateSteelConnectionTool : ICortexTool
 /// Mutates the connected-element set of an existing connection handler (add/remove element ids).
 /// Reference-based actions are not supported (References cannot be fabricated from JSON).
 /// </summary>
+[ToolSafety(false, false)]
 public class ModifySteelConnectionInputsTool : ICortexTool
 {
     public string Name => "modify_steel_connection_inputs";
@@ -263,13 +274,17 @@ public class ModifySteelConnectionInputsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Modify Steel Connection Inputs");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             if (isAdd) handler!.AddElementIds(ids);
             else handler!.RemoveElementIds(ids);
             var connected = handler!.GetConnectedElementIds()?.Select(i => ToolHelpers.GetElementIdValue(i)).ToList() ?? new List<long>();
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"{(isAdd ? "Added" : "Removed")} {ids.Count} element(s) {(isAdd ? "to" : "from")} connection {ToolHelpers.GetElementIdValue(handler)}",
@@ -293,6 +308,7 @@ public class ModifySteelConnectionInputsTool : ICortexTool
 /// Changes a connection handler's type by recreation: read connected ids, delete the old handler,
 /// and Create() a new one with the new type id (no in-place type setter exists). Provider-gated.
 /// </summary>
+[ToolSafety(false, true)]
 public class SetSteelConnectionTypeTool : ICortexTool
 {
     public string Name => "set_steel_connection_type";
@@ -374,6 +390,7 @@ public class SetSteelConnectionTypeTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Change Steel Connection Type");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -404,7 +421,10 @@ public class SetSteelConnectionTypeTool : ICortexTool
             if (inputReferenceCount > 0) lostFields.Add("inputReferences");
 
             var newId = ToolHelpers.GetElementIdValue(created);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             var warnings = new List<string>();
             if (inputPointCount > 0 || inputReferenceCount > 0)
@@ -433,6 +453,7 @@ public class SetSteelConnectionTypeTool : ICortexTool
 }
 
 /// <summary>Sets a connection handler's approval type (ApprovalTypeId) from an approval type id/name.</summary>
+[ToolSafety(false, false)]
 public class SetSteelConnectionApprovalTool : ICortexTool
 {
     public string Name => "set_steel_connection_approval";
@@ -463,11 +484,15 @@ public class SetSteelConnectionApprovalTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Set Steel Connection Approval");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             handler!.ApprovalTypeId = approvalId;
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Set approval type {ToolHelpers.GetElementIdValue(approvalId)} on connection {ToolHelpers.GetElementIdValue(handler)}",
@@ -523,6 +548,7 @@ public class SetSteelConnectionApprovalTool : ICortexTool
 }
 
 /// <summary>Sets a connection handler's code-checking status (NotCalculated | OkChecked | CheckingFailed).</summary>
+[ToolSafety(false, false)]
 public class SetSteelConnectionStatusTool : ICortexTool
 {
     public string Name => "set_steel_connection_status";
@@ -555,11 +581,15 @@ public class SetSteelConnectionStatusTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Set Steel Connection Status");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             handler!.CodeCheckingStatus = status;
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Set code-checking status '{status}' on connection {ToolHelpers.GetElementIdValue(handler)}",
@@ -576,6 +606,7 @@ public class SetSteelConnectionStatusTool : ICortexTool
 }
 
 /// <summary>Restores the default element order on a connection handler (SetDefaultElementOrder).</summary>
+[ToolSafety(false, false)]
 public class SetSteelConnectionDefaultOrderTool : ICortexTool
 {
     public string Name => "set_steel_connection_default_order";
@@ -595,11 +626,15 @@ public class SetSteelConnectionDefaultOrderTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Set Steel Connection Default Order");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             handler!.SetDefaultElementOrder();
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Reset default element order on connection {ToolHelpers.GetElementIdValue(handler)}",
@@ -615,6 +650,7 @@ public class SetSteelConnectionDefaultOrderTool : ICortexTool
 }
 
 /// <summary>Deletes a structural connection handler (destructive). Supports dryRun.</summary>
+[ToolSafety(false, true)]
 public class DeleteSteelConnectionTool : ICortexTool
 {
     public string Name => "delete_steel_connection";
@@ -639,11 +675,15 @@ public class DeleteSteelConnectionTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Delete Steel Connection");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             doc!.Delete(handler!.Id);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Deleted steel connection {id}",

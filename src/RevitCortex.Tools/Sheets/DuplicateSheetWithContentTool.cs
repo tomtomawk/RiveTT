@@ -14,6 +14,7 @@ namespace RevitCortex.Tools.Sheets;
 /// Duplicates a sheet including all annotations and detail items.
 /// Views can optionally be duplicated with detailing.
 /// </summary>
+[ToolSafety(false, false)]
 public class DuplicateSheetWithContentTool : ICortexTool
 {
     public string Name => "duplicate_sheet_with_content";
@@ -79,6 +80,7 @@ public class DuplicateSheetWithContentTool : ICortexTool
             var results = new List<object>();
 
             using var tx = new Transaction(doc, "RevitCortex: Duplicate Sheet With Content");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             for (int i = 0; i < copies; i++)
@@ -151,7 +153,10 @@ public class DuplicateSheetWithContentTool : ICortexTool
                 });
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new { duplicatedCount = results.Count, sheets = results });
         }
         catch (Exception ex)

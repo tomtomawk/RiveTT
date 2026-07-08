@@ -14,6 +14,7 @@ namespace RevitCortex.Tools.IFC;
 /// Tags IFC-imported elements that cannot be rebuilt as native Revit elements.
 /// Sets a value in the Comments parameter to mark them for manual review.
 /// </summary>
+[ToolSafety(false, true)]
 public class IfcTagUnreconstructableElementsTool : ICortexTool
 {
     public string Name => "ifc_tag_unreconstructable_elements";
@@ -65,6 +66,7 @@ public class IfcTagUnreconstructableElementsTool : ICortexTool
         var results = new List<object>();
 
         using var tx = new Transaction(doc!, "RevitCortex: Tag Unreconstructable");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
         foreach (var ds in targets)
@@ -106,7 +108,10 @@ public class IfcTagUnreconstructableElementsTool : ICortexTool
             }
         }
 
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new
         {

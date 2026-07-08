@@ -6,12 +6,14 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Project;
 
 /// <summary>
 /// Gets or sets project units (length, area, volume, angle, slope, etc.).
 /// </summary>
+[ToolSafety(false, false)]
 public class ManageProjectUnitsTool : ICortexTool
 {
     public string Name => "manage_project_units";
@@ -135,9 +137,13 @@ public class ManageProjectUnitsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Set Project Units");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         doc.SetUnits(units);
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new
         {

@@ -83,6 +83,7 @@ internal static class RebarConstraintCompat
 /// Creates a rebar coupler connecting two bar ends, or caps a single bar end. Provide a coupler type
 /// (a FamilySymbol of category OST_Coupler) and one or two reinforcement-data descriptors {rebarId, end}.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateRebarCouplerTool : ICortexTool
 {
     public string Name => "create_rebar_coupler";
@@ -114,6 +115,7 @@ public class CreateRebarCouplerTool : ICortexTool
 
         // Activate the coupler symbol if needed (must be inside the transaction).
         using var tx = new Transaction(doc, "RevitCortex: Create Rebar Coupler");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -130,7 +132,10 @@ public class CreateRebarCouplerTool : ICortexTool
             }
             var id = ToolHelpers.GetElementIdValue(coupler);
             var mark = coupler.CouplerMark;
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = d2 != null ? $"Created coupler {id} linking two bars" : $"Created coupler {id} capping one bar",
@@ -172,6 +177,7 @@ public class CreateRebarCouplerTool : ICortexTool
 }
 
 /// <summary>Sets whether a coupler is drawn unobscured (solid) in a given view.</summary>
+[ToolSafety(false, false)]
 public class SetRebarCouplerVisibilityTool : ICortexTool
 {
     public string Name => "set_rebar_coupler_visibility";
@@ -205,12 +211,16 @@ public class SetRebarCouplerVisibilityTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Set Coupler Visibility");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             coupler.SetUnobscuredInView(view, unobscured);
             var isUnobscured = coupler.IsUnobscuredInView(view);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 couplerId = ToolHelpers.GetElementIdValue(coupler),
@@ -231,6 +241,7 @@ public class SetRebarCouplerVisibilityTool : ICortexTool
 /// open a transaction. Mutating actions (set_preferred/remove_preferred/recompute) confirm + transact.
 /// Constraint targets are addressed by handleIndex (never a raw serialized Reference).
 /// </summary>
+[ToolSafety(false, false)]
 public class ManageRebarConstraintsTool : ICortexTool
 {
     public string Name => "manage_rebar_constraints";
@@ -311,12 +322,16 @@ public class ManageRebarConstraintsTool : ICortexTool
 
                 using (var tx = new Transaction(doc, "RevitCortex: Set Preferred Rebar Constraint"))
                 {
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
                     try
                     {
                         // Bridged across targets: SetPreferredConstraint(c) on R25+, per-handle setter on R23/R24.
                         RebarConstraintCompat.SetPreferred(mgr, handle!, candidates[cidx]);
-                        tx.Commit();
+                        if (tx.Commit() != TransactionStatus.Committed)
+                            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                                suggestion: "Fix the reported model errors and retry.");
                     }
                     catch (Exception ex)
                     {
@@ -345,11 +360,15 @@ public class ManageRebarConstraintsTool : ICortexTool
 
                 using (var tx = new Transaction(doc, "RevitCortex: Remove Preferred Rebar Constraint"))
                 {
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
                     try
                     {
                         mgr.RemovePreferredConstraintFromHandle(handle!);
-                        tx.Commit();
+                        if (tx.Commit() != TransactionStatus.Committed)
+                            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                                suggestion: "Fix the reported model errors and retry.");
                     }
                     catch (Exception ex)
                     {
@@ -376,11 +395,15 @@ public class ManageRebarConstraintsTool : ICortexTool
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
                 using (var tx = new Transaction(doc, "RevitCortex: Recompute Rebar Constraints"))
                 {
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
                     try
                     {
                         mgr.SetPreferredConstraintsToSurfaceForHandles(handles);
-                        tx.Commit();
+                        if (tx.Commit() != TransactionStatus.Committed)
+                            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                                suggestion: "Fix the reported model errors and retry.");
                     }
                     catch (Exception ex)
                     {
@@ -458,6 +481,7 @@ public class ManageRebarConstraintsTool : ICortexTool
 /// supported version (ReinforcementUtils is empty; the only Propagate* methods belong to DatumPlane).
 /// This tool therefore returns a structured "unsupported" failure rather than faking a result.
 /// </summary>
+[ToolSafety(true, false)]
 public class PropagateRebarTool : ICortexTool
 {
     public string Name => "propagate_rebar";
@@ -485,6 +509,7 @@ public class PropagateRebarTool : ICortexTool
 /// Unifies two compatible standalone bars into a single rebar via RebarSpliceUtils.UnifyRebarsIntoOne
 /// (the only unify entry point in the API). Revit 2025+ only.
 /// </summary>
+[ToolSafety(false, true)]
 public class UnifyRebarsTool : ICortexTool
 {
     public string Name => "unify_rebars";
@@ -518,6 +543,7 @@ public class UnifyRebarsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Unify Rebars");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -535,7 +561,10 @@ public class UnifyRebarsTool : ICortexTool
                 }
             }
             var finalId = ToolHelpers.GetElementIdValue(resultId);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Unified {ids.Count} bars into rebar {finalId}",
@@ -558,6 +587,7 @@ public class UnifyRebarsTool : ICortexTool
 /// Copies rebar tag/dimension annotations from one view to another by recreating MultiReferenceAnnotations
 /// over the rebars present in the source view. Best-effort: per-element failures are surfaced in warnings[].
 /// </summary>
+[ToolSafety(false, false)]
 public class TransferRebarAnnotationsTool : ICortexTool
 {
     public string Name => "transfer_rebar_annotations";
@@ -597,6 +627,7 @@ public class TransferRebarAnnotationsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Transfer Rebar Annotations");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -635,7 +666,10 @@ public class TransferRebarAnnotationsTool : ICortexTool
                 }
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Transferred annotations for {created.Count} of {rebars.Count} rebar(s) from view {srcId} to {tgtId}",
@@ -656,6 +690,7 @@ public class TransferRebarAnnotationsTool : ICortexTool
 }
 
 /// <summary>Reads coupler data: mark, quantity, and the linked reinforcement descriptors (read-only).</summary>
+[ToolSafety(true, false)]
 public class GetRebarCouplerDataTool : ICortexTool
 {
     public string Name => "get_rebar_coupler_data";
@@ -712,6 +747,7 @@ public class GetRebarCouplerDataTool : ICortexTool
 }
 
 /// <summary>Lists constraint candidates for a given rebar handle (read-only).</summary>
+[ToolSafety(true, false)]
 public class GetRebarConstraintCandidatesTool : ICortexTool
 {
     public string Name => "get_rebar_constraint_candidates";
@@ -786,6 +822,7 @@ public class GetRebarConstraintCandidatesTool : ICortexTool
 // =====================================================================================================
 
 /// <summary>Splices a rebar by rules at a chosen position (Revit 2025+).</summary>
+[ToolSafety(false, true)]
 public class SpliceRebarTool : ICortexTool
 {
     public string Name => "splice_rebar";
@@ -824,6 +861,7 @@ public class SpliceRebarTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Splice Rebar");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -861,7 +899,10 @@ public class SpliceRebarTool : ICortexTool
 
             var resultIds = RebarSpliceUtils.SpliceRebar(doc!, rebar.Id, options, geometries);
             var ids = (resultIds ?? new List<ElementId>()).Select(i => ToolHelpers.GetElementIdValue(i)).ToList();
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Spliced rebar into {ids.Count} segment(s) at position {position}",
@@ -883,6 +924,7 @@ public class SpliceRebarTool : ICortexTool
 }
 
 /// <summary>Removes the splice at a bar end (Revit 2025+).</summary>
+[ToolSafety(false, true)]
 public class RemoveRebarSpliceTool : ICortexTool
 {
     public string Name => "remove_rebar_splice";
@@ -904,11 +946,15 @@ public class RemoveRebarSpliceTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Remove Rebar Splice");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             rebar!.RemoveSplice(barEnd);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Removed splice at end {barEnd} of rebar {ToolHelpers.GetElementIdValue(rebar)}",
@@ -928,6 +974,7 @@ public class RemoveRebarSpliceTool : ICortexTool
 }
 
 /// <summary>Reads splice data at each bar end: lap length, stagger, position, connected bar (Revit 2025+, read-only).</summary>
+[ToolSafety(true, false)]
 public class GetRebarSpliceDataTool : ICortexTool
 {
     public string Name => "get_rebar_splice_data";
@@ -990,6 +1037,7 @@ public class GetRebarSpliceDataTool : ICortexTool
 /// Reports candidate splice geometries computed by rules for a rebar (Revit 2025+, read-only). Does NOT
 /// modify the model; useful before calling splice_rebar.
 /// </summary>
+[ToolSafety(true, false)]
 public class GetRebarSpliceCandidatesTool : ICortexTool
 {
     public string Name => "get_rebar_splice_candidates";

@@ -5,12 +5,14 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Project;
 
 /// <summary>
 /// Creates a new material in the project with optional color, class, and transparency.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateMaterialTool : ICortexTool
 {
     public string Name => "create_material";
@@ -44,6 +46,7 @@ public class CreateMaterialTool : ICortexTool
 
             using (var tx = new Transaction(doc, "RevitCortex: Create Material"))
             {
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
 
                 newMatId = Material.Create(doc, name);
@@ -75,7 +78,10 @@ public class CreateMaterialTool : ICortexTool
                 if (smoothness.HasValue)
                     mat.Smoothness = Math.Max(0, Math.Min(100, smoothness.Value));
 
-                tx.Commit();
+                if (tx.Commit() != TransactionStatus.Committed)
+                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                        suggestion: "Fix the reported model errors and retry.");
             }
 
             long idValue;

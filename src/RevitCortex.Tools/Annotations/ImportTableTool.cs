@@ -14,6 +14,7 @@ namespace RevitCortex.Tools.Annotations;
 /// <summary>
 /// Imports a CSV/TSV file as a formatted table of text notes in a drafting or legend view.
 /// </summary>
+[ToolSafety(false, false)]
 public class ImportTableTool : ICortexTool
 {
     public string Name => "import_table";
@@ -83,6 +84,7 @@ public class ImportTableTool : ICortexTool
             }
 
             using var tx = new Transaction(doc, "RevitCortex: Import Table");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             try
@@ -141,7 +143,10 @@ public class ImportTableTool : ICortexTool
                     }
                 }
 
-                tx.Commit();
+                if (tx.Commit() != TransactionStatus.Committed)
+                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                        suggestion: "Fix the reported model errors and retry.");
 
                 return CortexResult<object>.Ok(new
                 {

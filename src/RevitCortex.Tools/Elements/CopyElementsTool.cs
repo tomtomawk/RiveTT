@@ -15,6 +15,7 @@ namespace RevitCortex.Tools.Elements;
 /// Offsets are in mm and converted to internal units (feet).
 /// Mirrors the fork's CopyElementsEventHandler logic.
 /// </summary>
+[ToolSafety(false, false)]
 public class CopyElementsTool : ICortexTool
 {
     public string Name => "copy_elements";
@@ -88,12 +89,16 @@ public class CopyElementsTool : ICortexTool
                         "targetDocumentTitle is the active document — omit it for a same-document copy");
 
                 using var tx = new Transaction(destDoc, "RevitCortex: Copy Elements Across Documents");
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 try
                 {
                     copiedIds = ElementTransformUtils.CopyElements(
                         doc, ids, destDoc, transform, new CopyPasteOptions());
-                    tx.Commit();
+                    if (tx.Commit() != TransactionStatus.Committed)
+                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                            $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                            suggestion: "Fix the reported model errors and retry.");
                 }
                 catch
                 {
@@ -142,12 +147,16 @@ public class CopyElementsTool : ICortexTool
                         $"Target view with ID {targetViewId} not found");
 
                 using var tx = new Transaction(doc, "RevitCortex: Copy Elements Between Views");
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 try
                 {
                     copiedIds = ElementTransformUtils.CopyElements(
                         sourceView, ids, targetView, transform, new CopyPasteOptions());
-                    tx.Commit();
+                    if (tx.Commit() != TransactionStatus.Committed)
+                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                            $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                            suggestion: "Fix the reported model errors and retry.");
                 }
                 catch
                 {
@@ -160,11 +169,15 @@ public class CopyElementsTool : ICortexTool
             {
                 // Simple in-place copy with optional offset
                 using var tx = new Transaction(doc, "RevitCortex: Copy Elements");
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 try
                 {
                     copiedIds = ElementTransformUtils.CopyElements(doc, ids, translation);
-                    tx.Commit();
+                    if (tx.Commit() != TransactionStatus.Committed)
+                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                            $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                            suggestion: "Fix the reported model errors and retry.");
                 }
                 catch
                 {

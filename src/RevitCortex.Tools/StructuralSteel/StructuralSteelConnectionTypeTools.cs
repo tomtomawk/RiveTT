@@ -57,6 +57,7 @@ namespace RevitCortex.Tools.StructuralSteel;
 // =====================================================================================
 
 /// <summary>Creates a StructuralConnectionType bound to a family symbol (typed create).</summary>
+[ToolSafety(false, false)]
 public class CreateSteelStructuralConnectionTypeTool : ICortexTool
 {
     public string Name => "create_steel_structural_connection_type";
@@ -106,6 +107,7 @@ public class CreateSteelStructuralConnectionTypeTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Create Steel Connection Type");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -116,7 +118,10 @@ public class CreateSteelStructuralConnectionTypeTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed, "Revit returned no connection type");
             }
             var id = ToolHelpers.GetElementIdValue(ct);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Created structural connection type {id}",
@@ -135,6 +140,7 @@ public class CreateSteelStructuralConnectionTypeTool : ICortexTool
 }
 
 /// <summary>Creates a StructuralConnectionHandlerType (name + guid + family name).</summary>
+[ToolSafety(false, false)]
 public class CreateSteelConnectionHandlerTypeTool : ICortexTool
 {
     public string Name => "create_steel_connection_handler_type";
@@ -175,6 +181,7 @@ public class CreateSteelConnectionHandlerTypeTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Create Steel Connection Handler Type");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -187,7 +194,10 @@ public class CreateSteelConnectionHandlerTypeTool : ICortexTool
             var id = ToolHelpers.GetElementIdValue(handlerType);
             string? connGuid = null;
             try { connGuid = handlerType.ConnectionGuid.ToString(); } catch { }
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Created structural connection handler type {id}",
@@ -207,6 +217,7 @@ public class CreateSteelConnectionHandlerTypeTool : ICortexTool
 }
 
 /// <summary>Creates the document's default StructuralConnectionHandlerType.</summary>
+[ToolSafety(false, false)]
 public class CreateDefaultSteelConnectionHandlerTypeTool : ICortexTool
 {
     public string Name => "create_default_steel_connection_handler_type";
@@ -227,6 +238,7 @@ public class CreateDefaultSteelConnectionHandlerTypeTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Create Default Steel Connection Handler Type");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -239,7 +251,10 @@ public class CreateDefaultSteelConnectionHandlerTypeTool : ICortexTool
             var id = ToolHelpers.GetElementIdValue(typeId);
             string? name = null;
             try { name = doc!.GetElement(typeId)?.Name; } catch { }
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Created default structural connection handler type {id}",
@@ -256,6 +271,7 @@ public class CreateDefaultSteelConnectionHandlerTypeTool : ICortexTool
 }
 
 /// <summary>Re-binds a StructuralConnectionType to a different family symbol (SetFamilySymbolId).</summary>
+[ToolSafety(false, false)]
 public class SetSteelConnectionTypeFamilySymbolTool : ICortexTool
 {
     public string Name => "set_steel_connection_type_family_symbol";
@@ -309,11 +325,15 @@ public class SetSteelConnectionTypeFamilySymbolTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Set Steel Connection Type Family Symbol");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             ct.SetFamilySymbolId(symId);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Set family symbol {symbolId} on connection type {ToolHelpers.GetElementIdValue(ct)}",
@@ -331,6 +351,7 @@ public class SetSteelConnectionTypeFamilySymbolTool : ICortexTool
 }
 
 /// <summary>Action-based administration of StructuralConnectionApprovalType (create | list only).</summary>
+[ToolSafety(false, false)]
 public class ManageSteelApprovalTypeTool : ICortexTool
 {
     public string Name => "manage_steel_approval_type";
@@ -403,6 +424,7 @@ public class ManageSteelApprovalTypeTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Create Steel Approval Type");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -413,7 +435,10 @@ public class ManageSteelApprovalTypeTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed, "Revit returned no approval type");
             }
             var id = ToolHelpers.GetElementIdValue(approval);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Created approval type {id}",
@@ -435,6 +460,7 @@ public class ManageSteelApprovalTypeTool : ICortexTool
 /// mutation requires interactively-picked Reference / Subelement objects that cannot be reconstructed from
 /// JSON ids. The message documents that the legacy add/remove APIs were removed in Revit 2027.
 /// </summary>
+[ToolSafety(false, false)]
 public class ManageCustomSteelConnectionTypeTool : ICortexTool
 {
     public string Name => "manage_custom_steel_connection_type";
@@ -498,6 +524,7 @@ public class ManageCustomSteelConnectionTypeTool : ICortexTool
 }
 
 /// <summary>Reads a connection handler's input points (id GUID + position in mm).</summary>
+[ToolSafety(true, false)]
 public class GetSteelConnectionInputPointsTool : ICortexTool
 {
     public string Name => "get_steel_connection_input_points";
@@ -559,6 +586,7 @@ public class GetSteelConnectionInputPointsTool : ICortexTool
 /// predicate, so this returns the type's ApplyTo + family symbol and (optionally) the supplied elements'
 /// categories so the caller can judge fit.
 /// </summary>
+[ToolSafety(true, false)]
 public class GetSteelConnectionApplicabilityTool : ICortexTool
 {
     public string Name => "get_steel_connection_applicability";
@@ -633,6 +661,7 @@ public class GetSteelConnectionApplicabilityTool : ICortexTool
 /// (the type is absent from Autodesk.Revit.DB.Structure in R26+R27 and the handler exposes no producer),
 /// so this returns a documented validationAvailable=false rather than fabricating warnings.
 /// </summary>
+[ToolSafety(true, false)]
 public class GetSteelConnectionValidationTool : ICortexTool
 {
     public string Name => "get_steel_connection_validation";

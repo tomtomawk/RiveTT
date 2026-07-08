@@ -16,6 +16,7 @@ namespace RevitCortex.Tools.Elements;
 /// Mirrors the fork's CreatePointElementEventHandler logic, including wall-hosted placement,
 /// door/window facing auto-detection, and rotation support.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreatePointBasedElementTool : ICortexTool
 {
     public string Name => "create_point_based_element";
@@ -149,6 +150,7 @@ public class CreatePointBasedElementTool : ICortexTool
         }
 
         using var tx = new Transaction(doc, "RevitCortex: Create Point-Based Element");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -249,7 +251,8 @@ public class CreatePointBasedElementTool : ICortexTool
                 createdIds.Add(ToolHelpers.GetElementIdValue(instance.Id));
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                warnings.Add($"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
         }
         catch
         {

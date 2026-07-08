@@ -5,12 +5,14 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Project;
 
 /// <summary>
 /// Deletes a Revit schedule by ID or name.
 /// </summary>
+[ToolSafety(false, true)]
 public class DeleteScheduleTool : ICortexTool
 {
     public string Name => "delete_schedule";
@@ -55,9 +57,13 @@ public class DeleteScheduleTool : ICortexTool
 
             var name = schedule.Name;
             using var tx = new Transaction(doc, "RevitCortex: Delete Schedule");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             doc.Delete(schedule.Id);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             return CortexResult<object>.Ok(new { deleted = true, scheduleName = name });
         }

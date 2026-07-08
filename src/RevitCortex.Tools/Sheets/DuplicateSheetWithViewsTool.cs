@@ -14,6 +14,7 @@ namespace RevitCortex.Tools.Sheets;
 /// Duplicates a sheet and its placed views with configurable duplication options.
 /// Also copies title block parameters from source sheet.
 /// </summary>
+[ToolSafety(false, false)]
 public class DuplicateSheetWithViewsTool : ICortexTool
 {
     public string Name => "duplicate_sheet_with_views";
@@ -89,6 +90,7 @@ public class DuplicateSheetWithViewsTool : ICortexTool
             var results = new List<object>();
 
             using var tx = new Transaction(doc, "RevitCortex: Duplicate Sheet With Views");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             for (int i = 0; i < copies; i++)
@@ -172,7 +174,10 @@ public class DuplicateSheetWithViewsTool : ICortexTool
                 });
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new { duplicatedCount = results.Count, sheets = results });
         }
         catch (Exception ex)

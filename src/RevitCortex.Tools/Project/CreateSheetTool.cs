@@ -12,6 +12,7 @@ namespace RevitCortex.Tools.Project;
 /// <summary>
 /// Creates a new sheet with optional title block and numbering.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateSheetTool : ICortexTool
 {
     public string Name => "create_sheet";
@@ -75,6 +76,7 @@ public class CreateSheetTool : ICortexTool
             }
 
             using var tx = new Transaction(doc, "RevitCortex: Create Sheet");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             // Activate title block if needed
@@ -95,7 +97,10 @@ public class CreateSheetTool : ICortexTool
             if (!string.IsNullOrEmpty(sheetName))
                 sheet.Name = sheetName;
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             return CortexResult<object>.Ok(new
             {

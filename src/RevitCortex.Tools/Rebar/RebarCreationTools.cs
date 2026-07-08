@@ -16,6 +16,7 @@ namespace RevitCortex.Tools.Rebar;
 /// Input (mm): hostId, shapeId|shapeName, barTypeId|barTypeName, origin{x,y,z}, xVec{x,y,z}, yVec{x,y,z},
 /// optional layout{...}. Returns created rebar id + applied layout.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateRebarFromShapeTool : ICortexTool
 {
     public string Name => "create_rebar_from_shape";
@@ -57,10 +58,23 @@ public class CreateRebarFromShapeTool : ICortexTool
             if (lerr != null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, lerr);
         }
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would create a shape-driven rebar in host {ToolHelpers.GetElementIdValue(host!)}",
+                hostId = ToolHelpers.GetElementIdValue(host!),
+                barTypeId = ToolHelpers.GetElementIdValue(barType),
+                barTypeName = barType.Name,
+                shapeId = ToolHelpers.GetElementIdValue(shape),
+                layout = layout?.Rule.ToString()
+            });
+
         if (!session.RequestConfirmation("create rebar", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Create Rebar From Shape");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -82,7 +96,10 @@ public class CreateRebarFromShapeTool : ICortexTool
             }
 
             var id = ToolHelpers.GetElementIdValue(rebar);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Created rebar {id} in host {ToolHelpers.GetElementIdValue(host!)}",
@@ -108,6 +125,7 @@ public class CreateRebarFromShapeTool : ICortexTool
 /// plane normal. Hooks optional via startHookId/endHookId. Version-aware: uses BarTerminationsData
 /// on Revit 2026+, the legacy hook overload on 2023-2025.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateRebarFromCurvesTool : ICortexTool
 {
     public string Name => "create_rebar_from_curves";
@@ -151,10 +169,23 @@ public class CreateRebarFromCurvesTool : ICortexTool
             if (lerr != null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, lerr);
         }
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would create a rebar from {curves.Count} curve(s) in host {ToolHelpers.GetElementIdValue(host!)}",
+                hostId = ToolHelpers.GetElementIdValue(host!),
+                barTypeId = ToolHelpers.GetElementIdValue(barType),
+                curveCount = curves.Count,
+                style = style.ToString(),
+                layout = layout?.Rule.ToString()
+            });
+
         if (!session.RequestConfirmation("create rebar", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Create Rebar From Curves");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -196,7 +227,10 @@ public class CreateRebarFromCurvesTool : ICortexTool
             }
 
             var id = ToolHelpers.GetElementIdValue(rebar);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Created rebar {id} from {curves.Count} curve(s)",
@@ -219,6 +253,7 @@ public class CreateRebarFromCurvesTool : ICortexTool
 /// Creates an unconstrained free-form rebar from one or more curve loops (mm) in a host.
 /// Does NOT accept arbitrary server code — only the unconstrained curve-loop path.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateFreeFormRebarTool : ICortexTool
 {
     public string Name => "create_free_form_rebar";
@@ -252,10 +287,22 @@ public class CreateFreeFormRebarTool : ICortexTool
         var style = RebarToolHelpers.ParseEnum<RebarStyle>(input["style"]?.Value<string>() ?? "Standard", "style", out var serr);
         if (serr != null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, serr);
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would create a free-form rebar from {loops.Count} loop(s) in host {ToolHelpers.GetElementIdValue(host!)}",
+                hostId = ToolHelpers.GetElementIdValue(host!),
+                barTypeId = ToolHelpers.GetElementIdValue(barType),
+                loopCount = loops.Count,
+                style = style.ToString()
+            });
+
         if (!session.RequestConfirmation("create free-form rebar", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Create Free-Form Rebar");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -286,7 +333,10 @@ public class CreateFreeFormRebarTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed, "Revit returned no free-form rebar");
             }
             var id = ToolHelpers.GetElementIdValue(rebar);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Created free-form rebar {id} from {loops.Count} loop(s)",
@@ -303,6 +353,7 @@ public class CreateFreeFormRebarTool : ICortexTool
 }
 
 /// <summary>Re-applies a layout rule to an existing shape-driven rebar.</summary>
+[ToolSafety(false, false)]
 public class SetRebarLayoutTool : ICortexTool
 {
     public string Name => "set_rebar_layout";
@@ -324,15 +375,28 @@ public class SetRebarLayoutTool : ICortexTool
         var layout = RebarToolHelpers.ParseLayoutSpec(layoutObj, out var lerr);
         if (lerr != null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, lerr);
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would set layout '{layout.Rule}' on rebar {ToolHelpers.GetElementIdValue(rebar)}",
+                rebarId = ToolHelpers.GetElementIdValue(rebar),
+                layout = layout.Rule.ToString()
+            });
+
         if (!session.RequestConfirmation("set rebar layout", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Set Rebar Layout");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             RebarToolHelpers.ApplyLayout(rebar.GetShapeDrivenAccessor(), layout);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 rebarId = ToolHelpers.GetElementIdValue(rebar),
@@ -349,6 +413,7 @@ public class SetRebarLayoutTool : ICortexTool
 }
 
 /// <summary>Changes the RebarShape of a shape-driven rebar.</summary>
+[ToolSafety(false, false)]
 public class SetRebarShapeTool : ICortexTool
 {
     public string Name => "set_rebar_shape";
@@ -368,15 +433,28 @@ public class SetRebarShapeTool : ICortexTool
         var shape = RebarToolHelpers.ResolveRebarShape(doc!, input["shapeId"]?.Value<long?>(), input["shapeName"]?.Value<string>());
         if (shape == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No rebar shape resolved");
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would set shape {ToolHelpers.GetElementIdValue(shape)} on rebar {ToolHelpers.GetElementIdValue(rebar)}",
+                rebarId = ToolHelpers.GetElementIdValue(rebar),
+                shapeId = ToolHelpers.GetElementIdValue(shape)
+            });
+
         if (!session.RequestConfirmation("set rebar shape", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Set Rebar Shape");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             rebar.GetShapeDrivenAccessor().SetRebarShapeId(shape.Id);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new { rebarId = ToolHelpers.GetElementIdValue(rebar), shapeId = ToolHelpers.GetElementIdValue(shape) });
         }
         catch (Exception ex)
@@ -388,6 +466,7 @@ public class SetRebarShapeTool : ICortexTool
 }
 
 /// <summary>Reassigns a rebar to a new valid host.</summary>
+[ToolSafety(false, false)]
 public class SetRebarHostTool : ICortexTool
 {
     public string Name => "set_rebar_host";
@@ -405,16 +484,29 @@ public class SetRebarHostTool : ICortexTool
         var (host, herr) = RebarToolHelpers.RequireHost(doc!, input["newHostId"]?.Value<long?>());
         if (herr != null) return herr;
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would reassign rebar {ToolHelpers.GetElementIdValue(rebar!)} to host {ToolHelpers.GetElementIdValue(host!)}",
+                rebarId = ToolHelpers.GetElementIdValue(rebar!),
+                newHostId = ToolHelpers.GetElementIdValue(host!)
+            });
+
         if (!session.RequestConfirmation("reassign rebar host", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Set Rebar Host");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             // SetHostId is (Document, ElementId) on all ref assemblies 2023-2027.
             rebar!.SetHostId(doc!, host!.Id);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new { rebarId = ToolHelpers.GetElementIdValue(rebar), hostId = ToolHelpers.GetElementIdValue(host) });
         }
         catch (Exception ex)
@@ -426,6 +518,7 @@ public class SetRebarHostTool : ICortexTool
 }
 
 /// <summary>Sets unobscured/solid presentation of a rebar in a view (post-2024 API).</summary>
+[ToolSafety(false, false)]
 public class SetRebarVisibilityTool : ICortexTool
 {
     public string Name => "set_rebar_visibility";
@@ -447,15 +540,29 @@ public class SetRebarVisibilityTool : ICortexTool
         if (view == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"No view with id {viewId}");
         var unobscured = input["unobscured"]?.Value<bool?>() ?? true;
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would set unobscured={unobscured} on rebar {ToolHelpers.GetElementIdValue(rebar!)} in view {viewId}",
+                rebarId = ToolHelpers.GetElementIdValue(rebar!),
+                viewId,
+                unobscured
+            });
+
         if (!session.RequestConfirmation("set rebar visibility", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Set Rebar Visibility");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             rebar!.SetUnobscuredInView(view, unobscured);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new { rebarId = ToolHelpers.GetElementIdValue(rebar), viewId, unobscured });
         }
         catch (Exception ex)
@@ -467,6 +574,7 @@ public class SetRebarVisibilityTool : ICortexTool
 }
 
 /// <summary>Sets the hook type at one or both ends of a rebar (works on all Revit versions).</summary>
+[ToolSafety(false, false)]
 public class SetRebarHooksTool : ICortexTool
 {
     public string Name => "set_rebar_hooks";
@@ -487,10 +595,21 @@ public class SetRebarHooksTool : ICortexTool
         if (!hasStart && !hasEnd)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "Provide startHookId and/or endHookId (0 to clear)");
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would set hooks on rebar {ToolHelpers.GetElementIdValue(rebar!)}",
+                rebarId = ToolHelpers.GetElementIdValue(rebar!),
+                startHookId = hasStart ? input["startHookId"]!.Value<long>() : (long?)null,
+                endHookId = hasEnd ? input["endHookId"]!.Value<long>() : (long?)null
+            });
+
         if (!session.RequestConfirmation("set rebar hooks", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Set Rebar Hooks");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -504,7 +623,10 @@ public class SetRebarHooksTool : ICortexTool
                 var eid = input["endHookId"]!.Value<long>();
                 rebar!.SetHookTypeId(1, eid > 0 ? ToolHelpers.ToElementId(eid) : ElementId.InvalidElementId);
             }
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new { rebarId = ToolHelpers.GetElementIdValue(rebar) });
         }
         catch (Exception ex)
@@ -516,6 +638,7 @@ public class SetRebarHooksTool : ICortexTool
 }
 
 /// <summary>Sets full termination data on a rebar end (Revit 2026+ only).</summary>
+[ToolSafety(false, false)]
 public class SetRebarTerminationsTool : ICortexTool
 {
     public string Name => "set_rebar_terminations";
@@ -537,10 +660,22 @@ public class SetRebarTerminationsTool : ICortexTool
         if (oerr != null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, oerr);
         var rotDeg = input["rotationDegrees"]?.Value<double?>() ?? 0.0;
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would set terminations on rebar {ToolHelpers.GetElementIdValue(rebar!)} end {end}",
+                rebarId = ToolHelpers.GetElementIdValue(rebar!),
+                end,
+                orientation = orientation.ToString(),
+                rotationDegrees = rotDeg
+            });
+
         if (!session.RequestConfirmation("set rebar terminations", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Set Rebar Terminations");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -548,7 +683,10 @@ public class SetRebarTerminationsTool : ICortexTool
             // and Rebar.SetTerminationRotationAngle(int, double radians). Neither exists before 2026.
             rebar!.SetTerminationOrientation(end, orientation);
             rebar.SetTerminationRotationAngle(end, rotDeg * Math.PI / 180.0);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new { rebarId = ToolHelpers.GetElementIdValue(rebar), end, orientation = orientation.ToString() });
         }
         catch (Exception ex)
@@ -563,6 +701,7 @@ public class SetRebarTerminationsTool : ICortexTool
 }
 
 /// <summary>Moves a single bar within a shape-driven set.</summary>
+[ToolSafety(false, false)]
 public class MoveRebarInSetTool : ICortexTool
 {
     public string Name => "move_rebar_in_set";
@@ -579,11 +718,26 @@ public class MoveRebarInSetTool : ICortexTool
         if (rerr != null) return rerr;
         var idx = input["barPositionIndex"]?.Value<int?>() ?? 0;
         var reset = input["reset"]?.Value<bool?>() ?? false;
+        if (!reset && input["translation"] == null)
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "translation{x,y,z} required unless reset:true");
+
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = reset
+                    ? $"Preview: would reset moved-bar transform at position {idx} on rebar {ToolHelpers.GetElementIdValue(rebar!)}"
+                    : $"Preview: would move bar at position {idx} on rebar {ToolHelpers.GetElementIdValue(rebar!)}",
+                rebarId = ToolHelpers.GetElementIdValue(rebar!),
+                barPositionIndex = idx,
+                reset
+            });
 
         if (!session.RequestConfirmation("move bar in set", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Move Bar In Set");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -593,12 +747,13 @@ public class MoveRebarInSetTool : ICortexTool
             }
             else
             {
-                if (input["translation"] == null)
-                    { tx.RollBack(); return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "translation{x,y,z} required unless reset:true"); }
                 var v = RebarToolHelpers.ParseXyzMm(input["translation"]!);
                 rebar!.MoveBarInSet(idx, Transform.CreateTranslation(v));
             }
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new { rebarId = ToolHelpers.GetElementIdValue(rebar), barPositionIndex = idx, reset });
         }
         catch (Exception ex)
@@ -610,6 +765,7 @@ public class MoveRebarInSetTool : ICortexTool
 }
 
 /// <summary>Shows/hides a single bar of a set in a view.</summary>
+[ToolSafety(false, false)]
 public class IncludeExcludeRebarBarsTool : ICortexTool
 {
     public string Name => "include_exclude_rebar_bars";
@@ -631,15 +787,30 @@ public class IncludeExcludeRebarBarsTool : ICortexTool
         var idx = input["barPositionIndex"]?.Value<int?>() ?? 0;
         var hidden = input["hidden"]?.Value<bool?>() ?? true;
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would set bar {idx} hidden={hidden} on rebar {ToolHelpers.GetElementIdValue(rebar!)} in view {viewId}",
+                rebarId = ToolHelpers.GetElementIdValue(rebar!),
+                viewId,
+                barPositionIndex = idx,
+                hidden
+            });
+
         if (!session.RequestConfirmation("change bar visibility", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Include/Exclude Bar");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
             rebar!.SetBarHiddenStatus(view, idx, hidden);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new { rebarId = ToolHelpers.GetElementIdValue(rebar), viewId, barPositionIndex = idx, hidden });
         }
         catch (Exception ex)
@@ -655,6 +826,7 @@ public class IncludeExcludeRebarBarsTool : ICortexTool
 /// duplicate set for the remaining positions, so each piece can be edited independently.
 /// Implemented via ElementTransformUtils copy + layout adjustment (the API has no single Split call).
 /// </summary>
+[ToolSafety(false, true)]
 public class SplitRebarTool : ICortexTool
 {
     public string Name => "split_rebar";
@@ -677,10 +849,22 @@ public class SplitRebarTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 $"splitAtPosition must be between 1 and {total - 1} (set has {total} positions)");
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would split rebar {ToolHelpers.GetElementIdValue(rebar)} at position {splitAt} (original keeps {splitAt}, new keeps {total - splitAt})",
+                rebarId = ToolHelpers.GetElementIdValue(rebar),
+                splitAtPosition = splitAt,
+                originalKeeps = splitAt,
+                newKeeps = total - splitAt
+            });
+
         if (!session.RequestConfirmation("split rebar set", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Split Rebar");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -714,7 +898,10 @@ public class SplitRebarTool : ICortexTool
 
             var origId = ToolHelpers.GetElementIdValue(rebar);
             var newId = ToolHelpers.GetElementIdValue(newRebar);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Split rebar {origId}: original keeps {splitAt} positions, new {newId} keeps {remaining}",
@@ -746,6 +933,7 @@ public class SplitRebarTool : ICortexTool
 /// Toggles whether a shape-driven rebar set produces varying-length bars from its constraints
 /// (the "Varying Rebar Set" command). Revit 2025+ only; returns a version error on older targets.
 /// </summary>
+[ToolSafety(false, false)]
 public class SetRebarVaryingTool : ICortexTool
 {
     public string Name => "set_rebar_varying";
@@ -775,10 +963,20 @@ public class SetRebarVaryingTool : ICortexTool
                 "This rebar set cannot have varying-length bars (CanHaveVaryingLengthBars is false).",
                 suggestion: "Varying bars require a constraint-driven shape-driven set whose handles are constrained to non-parallel host faces; constrain the set first.");
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = $"Preview: would {(enabled ? "enable" : "disable")} varying-length bars for rebar {ToolHelpers.GetElementIdValue(rebar)}",
+                rebarId = ToolHelpers.GetElementIdValue(rebar),
+                varyingEnabled = enabled
+            });
+
         if (!session.RequestConfirmation(enabled ? "enable varying rebar set" : "disable varying rebar set", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc!, "RevitCortex: Set Varying Rebar Set");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -787,7 +985,10 @@ public class SetRebarVaryingTool : ICortexTool
             // Regenerate so NumberOfBarPositions / per-bar geometry reflect the toggle before we read back.
             doc!.Regenerate();
             var resulting = acc.UseRebarConstraintsToProduceVaryingBars;
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"Varying-length bars {(resulting ? "enabled" : "disabled")} for rebar {ToolHelpers.GetElementIdValue(rebar)}",
@@ -812,6 +1013,7 @@ public class SetRebarVaryingTool : ICortexTool
 /// length (mm) of each bar position so a varying set's per-bar differences are visible. Revit 2025+,
 /// read-only; returns a version error on older targets.
 /// </summary>
+[ToolSafety(true, false)]
 public class GetRebarVaryingDataTool : ICortexTool
 {
     public string Name => "get_rebar_varying_data";

@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Hosting;
+using CoreSettings = RevitCortex.Core.Security.CortexSettings;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -32,6 +33,9 @@ public partial class ToolsSettingsPage : Page
         };
 
         LoadTools();
+
+        // Reflect the persisted master switch for custom C# execution.
+        CodeExecToggle.IsChecked = CoreSettings.Load().EnableCodeExecution;
     }
 
     private void LoadTools()
@@ -201,8 +205,14 @@ public partial class ToolsSettingsPage : Page
 
             RevitCortexApp.Instance?.Router?.SetDisabledTools(disabledTools);
 
+            // Persist the master switch for send_code_to_revit (merge-write preserves
+            // DisabledTools just written above and any other keys).
+            bool codeExec = CodeExecToggle.IsChecked == true;
+            CoreSettings.SetEnableCodeExecution(codeExec);
+
             MessageBox.Show(
-                $"Saved. {disabledTools.Length} tools disabled.",
+                $"Saved. {disabledTools.Length} tools disabled. " +
+                $"send_code_to_revit: {(codeExec ? "ENABLED (last resort)" : "disabled")}.",
                 "Tools", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)

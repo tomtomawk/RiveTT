@@ -18,6 +18,7 @@ namespace RevitCortex.Tools.LinkedFiles;
 /// DirectShape marker in the host document around each linked target's
 /// bounding box so the user can actually see where the linked element is.
 /// </summary>
+[ToolSafety(false, false)]
 public class ShowCrossModelElementsTool : ICortexTool
 {
     public string Name => "show_cross_model_elements";
@@ -234,6 +235,7 @@ public class ShowCrossModelElementsTool : ICortexTool
 
                 using (var tx = new Transaction(doc, "RevitCortex: Show Cross Model Elements"))
                 {
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
 
                     foreach (var marker in pendingMarkers)
@@ -284,7 +286,10 @@ public class ShowCrossModelElementsTool : ICortexTool
                             isolateView.IsolateElementsTemporary(isolateIds.ToList());
                     }
 
-                    tx.Commit();
+                    if (tx.Commit() != TransactionStatus.Committed)
+                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                            $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                            suggestion: "Fix the reported model errors and retry.");
                 }
 
                 if (targetView != null)

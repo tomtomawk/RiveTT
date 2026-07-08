@@ -15,6 +15,7 @@ namespace RevitCortex.Tools.Project;
 /// fill patterns, halftone/underlay, and detail levels.
 /// Corresponds to Manage → Additional Settings dropdown.
 /// </summary>
+[ToolSafety(false, false)]
 public class ManageAdditionalSettingsTool : ICortexTool
 {
     public string Name => "manage_additional_settings";
@@ -99,13 +100,17 @@ public class ManageAdditionalSettingsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Create Line Style");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
         var newStyle = doc.Settings.Categories.NewSubcategory(linesCategory, name);
 
         ApplyLineStyleOverrides(doc, newStyle, input);
 
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new
         {
@@ -140,9 +145,13 @@ public class ManageAdditionalSettingsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Modify Line Style");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         ApplyLineStyleOverrides(doc, target, input);
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new
         {
@@ -316,9 +325,13 @@ public class ManageAdditionalSettingsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Set Halftone/Underlay Settings");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         setMethod.Invoke(null, new[] { doc, settings });
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new
         {

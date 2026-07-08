@@ -12,6 +12,7 @@ namespace RevitCortex.Tools.IFC;
 /// <summary>
 /// Reloads an existing IFC link, optionally from a new IFC file path.
 /// </summary>
+[ToolSafety(false, true)]
 public class IfcReloadLinkTool : ICortexTool
 {
     public string Name => "ifc_reload_link";
@@ -83,9 +84,13 @@ public class IfcReloadLinkTool : ICortexTool
                 // outside of a transaction" (ultrareview C6).
                 using (var tx = new Transaction(doc!, "RevitCortex: Reload IFC Link"))
                 {
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
                     RevitLinkType.CreateFromIFC(doc!, newIfcFilePath, revitFilePath, recreateLink, options);
-                    tx.Commit();
+                    if (tx.Commit() != TransactionStatus.Committed)
+                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                            $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                            suggestion: "Fix the reported model errors and retry.");
                 }
             }
             else

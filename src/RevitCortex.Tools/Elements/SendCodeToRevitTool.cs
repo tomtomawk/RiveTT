@@ -20,6 +20,7 @@ namespace RevitCortex.Tools.Elements;
 /// Scripts are persisted to ~/.revitcortex/scripts/ and cleaned up at Revit shutdown
 /// unless marked as reusable.
 /// </summary>
+[ToolSafety(false, true)]
 public class SendCodeToRevitTool : ICortexTool
 {
     // Profile-scoped scripts folder (~/.revitcortex-dev/scripts in dev): must
@@ -31,7 +32,7 @@ public class SendCodeToRevitTool : ICortexTool
     public string Category => "Code";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Execute custom C# code in the Revit context. Use ONLY when no dedicated tool covers the task — prefer specific tools always. Globals: document (Document), uiDocument (UIDocument), app (Application). REQUIRES EnableCodeExecution=true in ~/.revitcortex/settings.json.";
+    public string Description => "LAST RESORT ONLY — execute custom C# code in the Revit context. Prefer dedicated tools always; use ONLY when no dedicated tool covers the operation and after proposing the dedicated-tool alternative and obtaining explicit user consent. Globals: document (Document), uiDocument (UIDocument), app (Application). REQUIRES EnableCodeExecution=true in ~/.revitcortex/settings.json.";
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -65,7 +66,7 @@ public class SendCodeToRevitTool : ICortexTool
         }
 
         // Gate 3: explicit user confirmation before any script execution
-        if (!session.RequestConfirmation("execute C# script", 1))
+        if (!session.RequestConfirmation("execute C# script", 1, critical: true))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Script execution cancelled by user");
 
         // Persist script to ~/.revitcortex/scripts/

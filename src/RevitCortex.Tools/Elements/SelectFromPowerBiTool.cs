@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Elements;
 
@@ -15,6 +16,7 @@ namespace RevitCortex.Tools.Elements;
 /// revitcortex:// protocol handler) and selects/zooms/isolates them in the
 /// active Revit view. This is the bridge that closes the loop PBI → Revit.
 /// </summary>
+[ToolSafety(false, false)]
 public class SelectFromPowerBiTool : ICortexTool
 {
     public string Name => "select_from_powerbi";
@@ -83,9 +85,13 @@ public class SelectFromPowerBiTool : ICortexTool
                 case "isolate":
                     using (var tx = new Transaction(doc, "RevitCortex: Isolate from PBI"))
                     {
+                        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                         tx.Start();
                         doc.ActiveView.IsolateElementsTemporary(validIds);
-                        tx.Commit();
+                        if (tx.Commit() != TransactionStatus.Committed)
+                            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                                suggestion: "Fix the reported model errors and retry.");
                     }
                     uiDoc.Selection.SetElementIds(validIds);
                     uiDoc.ShowElements(validIds);

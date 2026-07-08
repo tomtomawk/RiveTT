@@ -6,12 +6,14 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Parameters;
 
 /// <summary>
 /// Copies parameter values from a source element to target elements.
 /// </summary>
+[ToolSafety(false, true)]
 public class TransferParametersTool : ICortexTool
 {
     public string Name => "transfer_parameters";
@@ -76,9 +78,13 @@ public class TransferParametersTool : ICortexTool
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RevitCortex: Transfer Parameters");
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 results = TransferToTargets(doc, targetIds, sourceValues, includeType);
-                tx.Commit();
+                if (tx.Commit() != TransactionStatus.Committed)
+                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                        suggestion: "Fix the reported model errors and retry.");
             }
             else
             {

@@ -14,6 +14,7 @@ namespace RevitCortex.Tools.Elements;
 /// <summary>
 /// Creates a beam system (structural framing system) from boundary on a level.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateStructuralFramingSystemTool : ICortexTool
 {
     public string Name => "create_structural_framing_system";
@@ -86,6 +87,7 @@ public class CreateStructuralFramingSystemTool : ICortexTool
                 };
 
                 using var btx = new Transaction(doc, "RevitCortex: Create Beam System");
+                var btxFailures = TransactionFailureHandling.SuppressWarnings(btx);
                 btx.Start();
                 if (!beamType.IsActive) beamType.Activate();
                 // direction = beam run direction (along Y); is3D = false (planar).
@@ -99,7 +101,10 @@ public class CreateStructuralFramingSystemTool : ICortexTool
                     bs.BeamType = beamType;
                 }
                 catch (Exception ex) { layoutWarning = ex.Message; }
-                btx.Commit();
+                if (btx.Commit() != TransactionStatus.Committed)
+                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(btxFailures)}",
+                        suggestion: "Fix the reported model errors and retry.");
 
                 return CortexResult<object>.Ok(new
                 {
@@ -117,6 +122,7 @@ public class CreateStructuralFramingSystemTool : ICortexTool
             }
 
             using var tx = new Transaction(doc, "RevitCortex: Create Structural Framing System");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             if (!beamType.IsActive) beamType.Activate();
@@ -139,7 +145,10 @@ public class CreateStructuralFramingSystemTool : ICortexTool
                 if (beam != null) createdBeams.Add(ToolHelpers.GetElementIdValue(beam.Id));
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 beamCount = createdBeams.Count,

@@ -46,6 +46,13 @@ public class CortexSession
     public Func<string, int, string?, bool?>? ConfirmAction { get; set; }
 
     /// <summary>
+    /// Confirmation callback for critical operations. Critical operations must
+    /// not expose batch approval modes such as "Yes to All" or "Auto"; null/false
+    /// both cancel.
+    /// </summary>
+    public Func<string, int, string?, bool?>? CriticalConfirmAction { get; set; }
+
+    /// <summary>
     /// When true, all subsequent confirmations are auto-approved until timeout.
     /// Set by "Yes to All" in the confirmation dialog. Expires after 120 seconds.
     /// The flag+timestamp pair must be read/written as a unit, otherwise a
@@ -128,27 +135,40 @@ public class CortexSession
     /// Ask user to confirm a destructive operation. Returns true if confirmed or no callback set.
     /// If "Yes to All" was previously clicked, auto-approves for 120 s.
     /// If "Auto" mode is active, auto-approves indefinitely until the user clicks Stop Auto.
+    /// Critical confirmations ignore automatic approval modes and require a real callback.
     /// </summary>
     /// <param name="action">Action verb: "delete", "rename", "replace compound structure", etc.</param>
     /// <param name="elementCount">Number of elements affected.</param>
     /// <param name="description">Optional detailed description of what will happen.</param>
-    public bool RequestConfirmation(string action, int elementCount, string? description = null)
+    /// <param name="critical">If true, bypasses ApproveAll and fails closed when no callback is available.</param>
+    public bool RequestConfirmation(
+        string action,
+        int elementCount,
+        string? description = null,
+        bool critical = false)
     {
         if (elementCount <= 0) return true;
-        if (AutoMode)
+        if (!critical && AutoMode)
         {
             // Auto-approved by Auto mode. Signal activity so the UI keeps the
             // Auto mode window alive through this burst of operations.
             AutoModeActivity?.Invoke();
             return true;
         }
-        if (ApproveAll) return true;
+        if (!critical && ApproveAll) return true;
+        if (critical)
+        {
+            if (CriticalConfirmAction == null) return false;
+            var criticalResult = CriticalConfirmAction.Invoke(action, elementCount, description);
+            return criticalResult == true;
+        }
 
         var result = ConfirmAction?.Invoke(action, elementCount, description);
         if (result == null)
         {
-            // null = "Yes to All" was clicked
-            ApproveAll = true;
+            // null = "Yes to All" was clicked. Critical confirmations may
+            // proceed for this explicit click, but must not arm future approval.
+            if (!critical) ApproveAll = true;
             return true;
         }
         if (result == false) return false;
@@ -156,7 +176,7 @@ public class CortexSession
         // Check for Auto sentinel: ConfirmAction returns false with a special
         // convention would be complex — instead ConfirmationHelper sets AutoMode
         // directly on the session. Check again after the dialog.
-        if (AutoMode) return true;
+        if (!critical && AutoMode) return true;
 
         return result.Value;
     }

@@ -5,12 +5,14 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Project;
 
 /// <summary>
 /// Duplicates an existing material with a new name, copying all properties and assets.
 /// </summary>
+[ToolSafety(false, false)]
 public class DuplicateMaterialTool : ICortexTool
 {
     public string Name => "duplicate_material";
@@ -69,6 +71,7 @@ public class DuplicateMaterialTool : ICortexTool
 
             using (var tx = new Transaction(doc, "RevitCortex: Duplicate Material"))
             {
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
 
                 newMatId = Material.Create(doc, newName);
@@ -133,7 +136,10 @@ public class DuplicateMaterialTool : ICortexTool
                     catch { /* thermal asset copy not critical */ }
                 }
 
-                tx.Commit();
+                if (tx.Commit() != TransactionStatus.Committed)
+                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                        suggestion: "Fix the reported model errors and retry.");
             }
 
             long newIdValue;

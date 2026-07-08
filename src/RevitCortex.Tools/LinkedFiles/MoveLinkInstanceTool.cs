@@ -4,12 +4,14 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.LinkedFiles;
 
 /// <summary>
 /// Moves a linked file instance by a delta offset or to an absolute position (in mm).
 /// </summary>
+[ToolSafety(false, false)]
 public class MoveLinkInstanceTool : ICortexTool
 {
     public string Name => "move_link_instance";
@@ -70,9 +72,13 @@ public class MoveLinkInstanceTool : ICortexTool
             }
 
             using var tx = new Transaction(doc, "RevitCortex: Move Link Instance");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             ElementTransformUtils.MoveElement(doc, linkInstance.Id, translation);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             // Read new position
             var newTransform = linkInstance.GetTotalTransform();

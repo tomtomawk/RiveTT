@@ -13,6 +13,7 @@ namespace RevitCortex.Tools.Project;
 /// <summary>
 /// Creates a schedule view with specified category, fields, filters, and sort options.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateScheduleTool : ICortexTool
 {
     public string Name => "create_schedule";
@@ -56,6 +57,7 @@ public class CreateScheduleTool : ICortexTool
             }
 
             using var tx = new Transaction(doc, "RevitCortex: Create Schedule");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             ViewSchedule schedule;
@@ -163,7 +165,10 @@ public class CreateScheduleTool : ICortexTool
                 }
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             return CortexResult<object>.Ok(new
             {

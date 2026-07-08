@@ -5,12 +5,14 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Project;
 
 /// <summary>
 /// Deletes a material from the project (with confirmation).
 /// </summary>
+[ToolSafety(false, true)]
 public class DeleteMaterialTool : ICortexTool
 {
     public string Name => "delete_material";
@@ -67,9 +69,13 @@ public class DeleteMaterialTool : ICortexTool
 
             using (var tx = new Transaction(doc, "RevitCortex: Delete Material"))
             {
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 doc.Delete(material.Id);
-                tx.Commit();
+                if (tx.Commit() != TransactionStatus.Committed)
+                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                        suggestion: "Fix the reported model errors and retry.");
             }
 
             return CortexResult<object>.Ok(new

@@ -14,6 +14,7 @@ namespace RevitCortex.Tools.Elements;
 /// Creates one or more surface-based elements: floors, ceilings, or roofs.
 /// Mirrors the fork's CreateSurfaceElementEventHandler logic.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateSurfaceBasedElementTool : ICortexTool
 {
     public string Name => "create_surface_based_element";
@@ -234,6 +235,7 @@ public class CreateSurfaceBasedElementTool : ICortexTool
         }
 
         using var tx = new Transaction(doc, "RevitCortex: Create Surface Element");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
         {
@@ -287,7 +289,8 @@ public class CreateSurfaceBasedElementTool : ICortexTool
                 }
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                warnings.Add($"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
         }
         catch
         {

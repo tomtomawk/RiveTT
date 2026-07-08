@@ -13,6 +13,7 @@ namespace RevitCortex.Tools.Project;
 /// <summary>
 /// Lists, reloads, or unloads linked Revit/CAD/IFC files.
 /// </summary>
+[ToolSafety(false, true)]
 public class ManageLinksTool : ICortexTool
 {
     public string Name => "manage_links";
@@ -105,9 +106,13 @@ public class ManageLinksTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Reload Link");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         linkType.Reload();
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded" });
     }
@@ -133,9 +138,13 @@ public class ManageLinksTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Unload Link");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         linkType.Unload(null);
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "unloaded" });
     }
@@ -164,9 +173,13 @@ public class ManageLinksTool : ICortexTool
         var modelPath = ModelPathUtils.ConvertUserVisiblePathToModelPath(newPath);
 
         using var tx = new Transaction(doc, "RevitCortex: Reload Link From");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         linkType.LoadFrom(modelPath, new WorksetConfiguration());
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded_from", newPath });
     }
@@ -189,6 +202,7 @@ public class ManageLinksTool : ICortexTool
         var typeId = element is RevitLinkInstance rli ? rli.GetTypeId() : ElementId.InvalidElementId;
 
         using var tx = new Transaction(doc, "RevitCortex: Remove Link");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         doc.Delete(element.Id);
 
@@ -204,7 +218,10 @@ public class ManageLinksTool : ICortexTool
                 typeRemoved = true;
             }
         }
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new { linkId, name, action = "removed", typeRemoved });
     }

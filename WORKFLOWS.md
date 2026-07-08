@@ -33,6 +33,20 @@ Ogni flusso e stato ricavato dalla documentazione operativa del progetto e testa
 
 ---
 
+## Audit Uso Improprio send_code_to_revit
+
+**Sequenza:** verificare `~/.revitcortex/settings.json` (`EnableCodeExecution`) -> analizzare `~/.revitcortex/audit.jsonl` raggruppando per `tool` -> leggere le ultime entry `send_code_to_revit` con `code_snippet`/`error_message` -> confrontare ogni pattern con `tool-schemas.txt` e i tool dedicati -> controllare le descrizioni MCP esposte da `src/RevitCortex.Server` e dal wrapper legacy `server/src/tools`.
+**Parametri chiave:**
+- `EnableCodeExecution: true` rende lo script tool realmente disponibile; con `false` ogni chiamata deve fermarsi e usare tool nativi.
+- Le entry audit v2 includono `code_snippet`, `code_hash`, `duration_ms`, `error_message`: bastano per classificare query, write, test sandbox e casi coperti da tool nativi.
+- Per query semplici usare `ai_element_filter`, `export_elements_data`, `analyze_model_statistics`, `list_*`/`get_*`; per modifiche usare i mutatori dedicati con `dryRun` quando disponibile.
+- `send_code_to_revit` deve usare una conferma critica singola: niente `Auto`, niente `Yes to All`.
+**NON fare:** Non giudicare dal solo prompt del modello. Verificare prima audit reale + schema MCP effettivamente installato. Non lasciare descrizioni legacy tipo "Execute custom C# code..." senza "LAST RESORT ONLY".
+
+**Fonte:** audit locale RevitCortex del 2026-06-30 su uso eccessivo di `send_code_to_revit`
+
+---
+
 ## Controllo Qualita Mattutino
 
 **Sequenza:** `check_model_health` -> `get_warnings` -> (opzionale) `clash_detection`
@@ -224,6 +238,19 @@ Ogni flusso e stato ricavato dalla documentazione operativa del progetto e testa
 **NON fare:** Non eseguire operazioni distruttive senza prima un dryRun. Se l'utente annulla, non ripetere automaticamente -- chiedere.
 
 **Fonte:** CLAUDE.md (Confirmation Dialogs, Handling User Input Situations)
+
+---
+
+## Convenzione Sviluppo: Tool Safety
+
+**Sequenza:** nuovo/modificato `ICortexTool` -> dichiarare `[ToolSafety(readOnly, destructive)]` quando il comportamento e noto -> verificare read-only mode con test -> build R25 + R24
+**Parametri chiave:**
+- `readOnly`: valore autorevole usato dal router; il prefisso del nome resta solo fallback per tool non annotati
+- `destructive`: metadata per audit/UI/gating; usare `true` per delete, purge, rename, parameter write, code execution e operazioni equivalenti
+- `send_code_to_revit`: deve usare conferma critica, non auto-approvabile da "Yes to All"
+**NON fare:** Non affidare la sicurezza solo a prefissi `get_`/`export_`. Non usare `RequestConfirmation` normale per capacita arbitrarie come esecuzione C#.
+
+**Fonte:** 2026-06-29 Tool Safety & Hardening Design
 
 ---
 

@@ -14,6 +14,7 @@ namespace RevitCortex.Tools.Annotations;
 /// <summary>
 /// Tags all or specified rooms in the current view.
 /// </summary>
+[ToolSafety(false, false)]
 public class TagRoomsTool : ICortexTool
 {
     public string Name => "tag_rooms";
@@ -75,6 +76,7 @@ public class TagRoomsTool : ICortexTool
             var warnings = new List<string>();
 
             using var tx = new Transaction(doc, "RevitCortex: Tag Rooms");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             foreach (var room in rooms)
@@ -105,7 +107,10 @@ public class TagRoomsTool : ICortexTool
                 }
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             return CortexResult<object>.Ok(new
             {

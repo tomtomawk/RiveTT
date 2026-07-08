@@ -6,12 +6,14 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.LinkedFiles;
 
 /// <summary>
 /// Pins or unpins one or more link instances.
 /// </summary>
+[ToolSafety(false, false)]
 public class PinUnpinLinkInstanceTool : ICortexTool
 {
     public string Name => "pin_unpin_link_instance";
@@ -42,6 +44,7 @@ public class PinUnpinLinkInstanceTool : ICortexTool
             int successCount = 0;
 
             using var tx = new Transaction(doc, $"RevitCortex: {(pin ? "Pin" : "Unpin")} Link Instance");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             foreach (var id in instanceIds)
@@ -63,7 +66,10 @@ public class PinUnpinLinkInstanceTool : ICortexTool
                 successCount++;
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
             return CortexResult<object>.Ok(new
             {
                 message = $"{(pin ? "Pinned" : "Unpinned")} {successCount}/{instanceIds.Count} instance(s)",

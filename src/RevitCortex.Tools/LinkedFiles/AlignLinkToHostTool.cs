@@ -4,12 +4,14 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.LinkedFiles;
 
 /// <summary>
 /// Aligns a link instance to the host project's internal origin or shared coordinates.
 /// </summary>
+[ToolSafety(false, false)]
 public class AlignLinkToHostTool : ICortexTool
 {
     public string Name => "align_link_to_host";
@@ -60,6 +62,7 @@ public class AlignLinkToHostTool : ICortexTool
             };
 
             using var tx = new Transaction(doc, "RevitCortex: Align Link To Host");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             if (alignMode.Equals("shared", StringComparison.OrdinalIgnoreCase))
@@ -102,7 +105,10 @@ public class AlignLinkToHostTool : ICortexTool
                     ElementTransformUtils.MoveElement(doc, linkInstance.Id, delta);
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             var newTransform = linkInstance.GetTotalTransform();
             return CortexResult<object>.Ok(new

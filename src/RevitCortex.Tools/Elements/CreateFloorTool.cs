@@ -14,6 +14,7 @@ namespace RevitCortex.Tools.Elements;
 /// <summary>
 /// Creates a floor from boundary points or a room boundary.
 /// </summary>
+[ToolSafety(false, false)]
 public class CreateFloorTool : ICortexTool
 {
     public string Name => "create_floor";
@@ -154,9 +155,13 @@ public class CreateFloorTool : ICortexTool
             }
 
             using var tx = new Transaction(doc, "RevitCortex: Create Floor");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             var floor = Floor.Create(doc, loops, floorType.Id, level.Id);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             return CortexResult<object>.Ok(new
             {

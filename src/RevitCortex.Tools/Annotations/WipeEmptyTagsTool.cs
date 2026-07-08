@@ -13,6 +13,7 @@ namespace RevitCortex.Tools.Annotations;
 /// <summary>
 /// Finds and removes tags that have empty text or reference deleted/invalid elements.
 /// </summary>
+[ToolSafety(false, true)]
 public class WipeEmptyTagsTool : ICortexTool
 {
     public string Name => "wipe_empty_tags";
@@ -138,6 +139,7 @@ public class WipeEmptyTagsTool : ICortexTool
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RevitCortex: Wipe Empty Tags");
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 int deleted = 0;
                 // Surface per-tag delete failures (e.g. a tag pinned or in a locked workset)
@@ -156,7 +158,10 @@ public class WipeEmptyTagsTool : ICortexTool
                     }
                     catch (Exception ex) { failures.Add(new { id = t.id, reason = ex.Message }); }
                 }
-                tx.Commit();
+                if (tx.Commit() != TransactionStatus.Committed)
+                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                        suggestion: "Fix the reported model errors and retry.");
                 return CortexResult<object>.Ok(new
                 {
                     dryRun = false,

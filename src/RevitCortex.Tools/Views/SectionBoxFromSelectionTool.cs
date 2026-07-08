@@ -13,6 +13,7 @@ namespace RevitCortex.Tools.Views;
 /// <summary>
 /// Creates a 3D section box from selected elements' combined bounding box.
 /// </summary>
+[ToolSafety(false, false)]
 public class SectionBoxFromSelectionTool : ICortexTool
 {
     public string Name => "section_box_from_selection";
@@ -68,9 +69,10 @@ public class SectionBoxFromSelectionTool : ICortexTool
             };
 
             using var tx = new Transaction(doc, "RevitCortex: Section Box From Selection");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
-            View3D targetView;
+            View3D? targetView;
             if (duplicateView)
             {
                 var vft = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
@@ -85,11 +87,19 @@ public class SectionBoxFromSelectionTool : ICortexTool
             {
                 targetView = doc.ActiveView as View3D
                     ?? new FilteredElementCollector(doc).OfClass(typeof(View3D)).Cast<View3D>()
-                        .FirstOrDefault(v => !v.IsTemplate)!;
+                        .FirstOrDefault(v => !v.IsTemplate);
             }
 
+            if (targetView == null)
+                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    "No 3D view available to apply a section box",
+                    suggestion: "Open or create a 3D view, or pass duplicateView=true");
+
             targetView.SetSectionBox(sectionBox);
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             return CortexResult<object>.Ok(new
             {

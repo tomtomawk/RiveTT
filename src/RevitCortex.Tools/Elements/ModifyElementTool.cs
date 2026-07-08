@@ -6,9 +6,11 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Elements;
 
+[ToolSafety(false, false)]
 public class ModifyElementTool : ICortexTool
 {
     public string Name => "modify_element";
@@ -59,6 +61,7 @@ public class ModifyElementTool : ICortexTool
             ICollection<ElementId>? newElementIds = null;
 
             using var tx = new Transaction(doc, $"RevitCortex: Modify Elements - {action}");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             try
             {
@@ -83,7 +86,10 @@ public class ModifyElementTool : ICortexTool
                             suggestion: "Supported actions: move, rotate, mirror, copy");
                 }
 
-                tx.Commit();
+                if (tx.Commit() != TransactionStatus.Committed)
+                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                        suggestion: "Fix the reported model errors and retry.");
             }
             catch
             {

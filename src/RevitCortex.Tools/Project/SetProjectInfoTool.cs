@@ -5,6 +5,7 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Project;
 
@@ -12,6 +13,7 @@ namespace RevitCortex.Tools.Project;
 /// Writes editable Project Information fields (name, number, address, author,
 /// organization, status, client, etc.). Write counterpart of <c>get_project_info</c>.
 /// </summary>
+[ToolSafety(false, false)]
 public class SetProjectInfoTool : ICortexTool
 {
     public string Name => "set_project_info";
@@ -39,6 +41,7 @@ public class SetProjectInfoTool : ICortexTool
         try
         {
             using var tx = new Transaction(doc, "RevitCortex: Set Project Info");
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
             ApplyString(input, "projectName",              v => info.Name = v,                    changed, "projectName");
@@ -63,7 +66,10 @@ public class SetProjectInfoTool : ICortexTool
                 }
             }
 
-            tx.Commit();
+            if (tx.Commit() != TransactionStatus.Committed)
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
 
             if (changed.Count == 0)
                 return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,

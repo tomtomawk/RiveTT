@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Project;
 
@@ -25,6 +26,7 @@ namespace RevitCortex.Tools.Project;
 ///   ShowOverriden  (also accepted: Overridden, Overriden)
 ///   DontShow       (also accepted: NotDisplayed, None, Hidden)
 /// </summary>
+[ToolSafety(false, false)]
 public class ManagePhaseFiltersTool : ICortexTool
 {
     public string Name => "manage_phase_filters";
@@ -127,9 +129,13 @@ public class ManagePhaseFiltersTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Modify Phase Filter");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         filter.SetPhaseStatusPresentation(statusEnum, presentationEnum);
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new
         {
@@ -174,13 +180,17 @@ public class ManagePhaseFiltersTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Create Phase Filter");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         var created = PhaseFilter.Create(doc, name!);
         created.SetPhaseStatusPresentation(ElementOnPhaseStatus.New,        newP);
         created.SetPhaseStatusPresentation(ElementOnPhaseStatus.Existing,   exP);
         created.SetPhaseStatusPresentation(ElementOnPhaseStatus.Demolished, demP);
         created.SetPhaseStatusPresentation(ElementOnPhaseStatus.Temporary,  tempP);
-        tx.Commit();
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
 
         return CortexResult<object>.Ok(new
         {
