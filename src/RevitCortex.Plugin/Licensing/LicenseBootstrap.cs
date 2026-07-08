@@ -22,11 +22,15 @@ internal static class LicenseBootstrap
     {
         try
         {
-#if DEBUG
-            // DEBUG: real manager + DevLicenseBackend, EVEN for the dev profile. D4
+#if DEBUG_R23 || DEBUG_R24 || DEBUG_R25 || DEBUG_R26 || DEBUG_R27
+            // Debug: real manager + DevLicenseBackend, EVEN for the dev profile. D4
             // (IsDev => transparent) is deliberately suspended in Debug so the gate can be
             // exercised live. Debug builds never ship. env.RootFolder keeps dev/prod profiles
             // separate (dev => ~/.revitcortex-dev).
+            // NOTE: this project's configurations are "Debug R23".."Debug R27" (NOT plain
+            // "Debug"), so the SDK never defines the bare DEBUG symbol — it synthesizes
+            // DEBUG_R23..DEBUG_R27 instead. `#if DEBUG` would be dead in every build. Do NOT
+            // change this back to `#if DEBUG`.
             var store = new FileLicenseStore(System.IO.Path.Combine(env.RootFolder, "license.json"));
             var fingerprint = new WindowsFingerprintProvider();
             var clock = new AntiRollbackClock(
