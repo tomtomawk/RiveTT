@@ -13,6 +13,25 @@
     <FileVersion>1.0.39.0</FileVersion>
   </PropertyGroup>
 
+  <!-- Dev side-by-side identity.
+       Prod and a dev build install into the same Revit at once (prod .addin in
+       ProgramData machine-scope, RevitCortexDev.addin in %APPDATA% user-scope).
+       Both are loaded into one CLR AppDomain, so if they share an assembly
+       identity Revit refuses the second with
+       "System.IO.FileLoadException: Assembly with same name is already loaded"
+       — the distinct .addin AddInId GUID does NOT prevent this (the collision is
+       at the CLR level, not the manifest level).
+       deploy-dev.ps1 passes -p:DevBuild=true so the dev DLL gets a distinct
+       simple name (RevitCortex.Plugin.Dev) and can load next to prod.
+       RootNamespace stays RevitCortex.Plugin, so the entry type
+       RevitCortex.Plugin.RevitCortexApp (referenced by FullClassName in the dev
+       .addin) still resolves, and CortexEnvironment's dev-profile detection is
+       unaffected because it keys on the "RevitCortexDev" *folder* name, not the
+       DLL name. Normal/prod builds never set DevBuild → stay RevitCortex.Plugin. -->
+  <PropertyGroup Condition="'$(DevBuild)' == 'true'">
+    <AssemblyName>RevitCortex.Plugin.Dev</AssemblyName>
+  </PropertyGroup>
+
   <!-- Revit 2023 -->
   <PropertyGroup Condition="$(Configuration.Contains('R23'))">
     <RevitVersion>2023</RevitVersion>

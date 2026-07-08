@@ -7,14 +7,21 @@ param(
 
 # --- Dev-only side-by-side deploy ---
 # Mirrors deploy.ps1's build+copy shape, but installs into a completely
-# separate folder/manifest/AddInId/port so a dev build can run next to the
-# production RevitCortex install without touching any prod file:
+# separate folder/manifest/assembly-identity/port so a dev build can run next to
+# the production RevitCortex install without touching any prod file:
 #   - user-scope only (no ProgramData / no elevation)
 #   - RevitCortexDev\ folder (never RevitCortex\)
 #   - RevitCortexDev.addin manifest, distinct AddInId GUID
-#   - CortexEnvironment.Detect() sees "RevitCortexDev" in the assembly path
-#     and switches the whole plugin to the dev profile (settings/audit/port/
-#     ribbon tab all separate from prod) — see src/RevitCortex.Core/Hosting/CortexEnvironment.cs
+#   - distinct CLR assembly identity: the Plugin is published with
+#     -p:DevBuild=true, renaming it RevitCortex.Plugin.Dev.dll. This is what lets
+#     prod and dev load in the SAME Revit — a shared assembly identity makes Revit
+#     reject the second manifest with "FileLoadException: Assembly with same name
+#     is already loaded", and the distinct AddInId GUID does NOT prevent that
+#     (the clash is at the CLR AppDomain level, not the manifest level).
+#   - CortexEnvironment.Detect() sees "RevitCortexDev" in the assembly *folder*
+#     path (not the DLL name) and switches the whole plugin to the dev profile
+#     (settings/audit/port/ribbon tab all separate from prod) —
+#     see src/RevitCortex.Core/Hosting/CortexEnvironment.cs
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = $PSScriptRoot
@@ -65,8 +72,14 @@ if ($orphans) {
 if (Test-Path $PublishDir) { Remove-Item $PublishDir -Recurse -Force }
 
 # Build & publish Plugin
+# -p:DevBuild=true renames the output to RevitCortex.Plugin.Dev.dll (distinct CLR
+# assembly identity) so this dev plugin loads side-by-side with a production
+# RevitCortex install in the SAME Revit. Without a distinct identity Revit refuses
+# the second manifest with "System.IO.FileLoadException: Assembly with same name
+# is already loaded" — the distinct .addin AddInId GUID does not prevent this.
+# The dev .addin's <Assembly> below and <FullClassName> must stay in sync with this.
 Write-Host "`nPublishing Plugin (dev)..." -ForegroundColor Yellow
-dotnet publish -c "$Configuration" "$RepoRoot\src\RevitCortex.Plugin\RevitCortex.Plugin.csproj" -o $PublishDir --no-self-contained
+dotnet publish -c "$Configuration" "$RepoRoot\src\RevitCortex.Plugin\RevitCortex.Plugin.csproj" -o $PublishDir --no-self-contained -p:DevBuild=true
 if ($LASTEXITCODE -ne 0) { throw "Plugin publish failed" }
 
 # Build & publish Tools (to same output)
@@ -92,12 +105,16 @@ if (-not (Test-Path $UserAddinsDir)) {
     New-Item -ItemType Directory -Path $UserAddinsDir -Force | Out-Null
 }
 $DevManifestPath = Join-Path $UserAddinsDir "RevitCortexDev.addin"
+# <Assembly> points at the DevBuild-renamed DLL (RevitCortex.Plugin.Dev.dll) so
+# this loads next to prod's RevitCortex.Plugin.dll without a CLR identity clash.
+# <FullClassName> keeps the RevitCortex.Plugin namespace: DevBuild only changes
+# the assembly/file name, not RootNamespace, so RevitCortexApp still resolves.
 $manifestXml = @"
 <?xml version="1.0" encoding="utf-8"?>
 <RevitAddIns>
   <AddIn Type="Application">
     <Name>RevitCortex Dev</Name>
-    <Assembly>RevitCortexDev\RevitCortex.Plugin.dll</Assembly>
+    <Assembly>RevitCortexDev\RevitCortex.Plugin.Dev.dll</Assembly>
     <FullClassName>RevitCortex.Plugin.RevitCortexApp</FullClassName>
     <AddInId>$DevAddInId</AddInId>
     <VendorId>RevitCortex</VendorId>
