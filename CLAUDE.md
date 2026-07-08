@@ -18,6 +18,15 @@ Flussi operativi collaudati: vedere WORKFLOWS.md
 
 RevitCortex is a next-generation MCP (Model Context Protocol) server for Autodesk Revit. It improves on the original mcp-servers-for-revit with typed errors, session state, and dynamic tool discovery. Tools are rewritten from scratch -- not copied from the fork reference.
 
+## Source of Truth (repo vs OneDrive)
+
+To avoid docs/repo drift (a known maturity risk), keep these two locations distinct:
+
+- **Source repository = the Desktop clone** (`C:\Users\<you>\Desktop\ClaudeCode\RevitCortex`, and its worktrees like `RevitCortex-telemetry-dev`). This is where code, tests, `CLAUDE.md`, `README.md`, `docs/` and the build/release matrix live and are version-controlled. **All implementation specs/plans that drive code belong here.**
+- **Product hub = the OneDrive folder** (`C:\Users\<you>\OneDrive - GPA Ingegneria Srl\Documenti\RevitCortex`). This holds product/commercial artifacts: `rclog` (log analyzer), the public `releases` clone, `SpecificaTecnica`, commercial/licensing design specs, and review reports. Treat these as **generated/mirrored or product-level** documents, not the code source of truth.
+
+Rule: when a spec drives implementation, it lives (or is mirrored) in the repo under `docs/superpowers/`. When a document is commercial/product-facing, it lives in OneDrive. Every spec should state its own source path so it is never ambiguous which copy is canonical.
+
 ## Supported Revit Versions
 
 | Revit Version | Target Framework |
