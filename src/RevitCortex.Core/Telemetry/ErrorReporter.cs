@@ -137,9 +137,25 @@ public class ErrorReporter
             count++;
             _failureCounts[fingerprint] = count;
         }
+        // The local `count` snapshot above is captured under the lock; comparing
+        // it here (outside the lock) is load-bearing for the exactly-once
+        // guarantee — do not move this comparison inside the lock or re-read
+        // the dictionary here, or a race could fire the event more than once
+        // (or never) for the same fingerprint.
         if (count == _config.ZipPromptFailureThreshold)
         {
-            try { RepeatedFailureDetected?.Invoke(fingerprint, count); } catch { }
+            var subscribers = RepeatedFailureDetected;
+            if (subscribers != null)
+            {
+                // Invoke each subscriber individually (not via a single multicast
+                // Invoke) so one throwing subscriber cannot abort the chain and
+                // skip subscribers registered after it — mirrors
+                // TelemetrySender.RaiseKnownIssues.
+                foreach (Action<string, int> handler in subscribers.GetInvocationList())
+                {
+                    try { handler(fingerprint, count); } catch { }
+                }
+            }
         }
     }
 }

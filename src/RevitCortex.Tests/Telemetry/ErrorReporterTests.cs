@@ -154,4 +154,56 @@ public class ErrorReporterTests : IDisposable
         Assert.Equal("templated", evt.MessageOrigin);
         Assert.DoesNotContain("strutture", evt.SanitizedMessage!.ToLowerInvariant());
     }
+
+    [Fact]
+    public void RepeatedFailure_ThrowingSubscriber_DoesNotSkipLaterSubscribers()
+    {
+        var (r, _, _) = Make();
+        r.RepeatedFailureDetected += (fp, c) => throw new InvalidOperationException("boom");
+        var recorded = new List<int>();
+        r.RepeatedFailureDetected += (fp, c) => recorded.Add(c);
+
+        for (int i = 0; i < 3; i++)
+            r.Record("t", false, "InvalidInput", "Element 1 does not exist", "tool", 1, 1);
+
+        Assert.Single(recorded);       // the second (recording) subscriber still fired
+        Assert.Equal(3, recorded[0]);  // at the threshold
+    }
+
+    [Fact]
+    public void RepeatedFailure_DifferentFingerprints_CountIndependently()
+    {
+        var (r, _, _) = Make();
+        var raised = new List<int>();
+        r.RepeatedFailureDetected += (fp, c) => raised.Add(c);
+
+        // 2x fingerprint A (different tool) + 2x fingerprint B — neither hits 3.
+        r.Record("tool_a", false, "InvalidInput", "Element 1 does not exist", "tool", 1, 1);
+        r.Record("tool_a", false, "InvalidInput", "Element 1 does not exist", "tool", 1, 1);
+        r.Record("tool_b", false, "InvalidInput", "Element 1 does not exist", "tool", 1, 1);
+        r.Record("tool_b", false, "InvalidInput", "Element 1 does not exist", "tool", 1, 1);
+
+        Assert.Empty(raised); // independent counters, neither reached threshold 3
+    }
+
+    [Theory]
+    // The only real structured-code (non-Unknown) bare-name interpolation templates
+    // in src/RevitCortex.Tools today. Both are saved from leaking by IsPureTemplate
+    // (capitalized value) or by the sanitizer's punctuation guard (the trailing ':'
+    // on "found:"). This test pins that they stay exception-origin. NOTE: a purely
+    // lowercase bare name with NO adjacent punctuation (e.g. "category strutture not
+    // found") is a KNOWN RESIDUAL GAP documented in MessageSanitizer's XML doc — it
+    // is only theoretical because no such template exists. If a future template of
+    // that shape is added, that is a leak: add a lint/guard at the Fail() call site.
+    [InlineData("Category not found: Strutture")]
+    [InlineData("Category not found: strutture")]
+    [InlineData("File not found: myproject")]
+    public void Record_RealBareNameTemplates_StayExceptionOrigin(string message)
+    {
+        var (r, q, _) = Make();
+        r.Record("some_tool", false, "InvalidInput", message, "tool", 1, 1);
+        var evt = q.PeekBatch(10).Events.Single();
+        Assert.Equal("exception", evt.MessageOrigin);
+        Assert.Null(evt.SanitizedMessage);
+    }
 }
