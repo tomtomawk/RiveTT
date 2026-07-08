@@ -2228,27 +2228,29 @@ In the existing `catch (Exception ex)` of `OnStartup` (line ~150), record the st
                 ex.Message, failureStage: "startup", durationMs: 0, responseBytes: 0);
 ```
 
-- [ ] **Step 4: Settings toggle.** In `GeneralSettingsPage.xaml`, add directly below `EnableCodeExecutionCheckBox` (mirror its markup/margins):
+- [ ] **Step 4: Settings toggle.**
+  **VERIFIED 2026-07-08 — the plan's original anchors were WRONG; use these instead.** `GeneralSettingsPage` has NO `EnableCodeExecutionCheckBox` (that lives on ToolsSettingsPage; it only appears here as a comment example of a key owned by another page). The real controls on this page are `PortTextBox`, `LogLevelComboBox`, `ReadOnlyCheckBox`, `KeepCountTextBox`. The `CortexSettings` POCO is at line 496 with fields `Port/LogLevel/ReadOnlyMode/SupportReportKeepCount`. `LoadSettings()` is at line 293 (reads the POCO). The save block is at lines ~384-393 and ALREADY merge-writes via `JObject.Parse(File.ReadAllText(SettingsFilePath))` then sets `settings["Port"]`/`["LogLevel"]`/`["ReadOnlyMode"]`/`["SupportReportKeepCount"]` — this is exactly the merge-write path pitfall #1 requires; add the telemetry keys HERE.
 
+  In `GeneralSettingsPage.xaml`, add a new checkbox near `ReadOnlyCheckBox` (mirror its markup/margins — find `x:Name="ReadOnlyCheckBox"` and add below it):
 ```xml
 <CheckBox x:Name="EnableTelemetryCheckBox" Margin="0,8,0,0"/>
 ```
-
-In `GeneralSettingsPage.xaml.cs`:
-- constructor: `EnableTelemetryCheckBox.Content = Localization.T("telemetry.settings_toggle");`
-- `CortexSettings` class (line ~501): add `public bool EnableTelemetry { get; set; }`
-- `LoadSettings()` (~line 308): add `EnableTelemetryCheckBox.IsChecked = settings.EnableTelemetry;`
-- save block (~line 396), after the `EnableCodeExecution` line:
-
+  In `GeneralSettingsPage.xaml.cs`:
+  - constructor (after `LoadSettings()` at line 34, or wherever other `*.Content =` localization assignments are — match the existing pattern): `EnableTelemetryCheckBox.Content = Localization.T("telemetry.settings_toggle");`
+  - `CortexSettings` class (line 496): add `public bool EnableTelemetry { get; set; }`
+  - `LoadSettings()` — inside the `if (settings != null)` block (after line 307 `KeepCountTextBox.Text = ...` and BEFORE the `return;` at 308): add `EnableTelemetryCheckBox.IsChecked = settings.EnableTelemetry;`. ALSO handle the `SetDefaults()` fallback path (line 314) — set `EnableTelemetryCheckBox.IsChecked = false;` in `SetDefaults()` so a missing settings file shows the toggle OFF (default OFF).
+  - save block — AFTER `settings["SupportReportKeepCount"] = keep;` (line 393):
 ```csharp
-            bool telemetryChoice = EnableTelemetryCheckBox.IsChecked == true;
-            settings["EnableTelemetry"] = telemetryChoice;
+            settings["EnableTelemetry"] = EnableTelemetryCheckBox.IsChecked == true;
             // Saving the page is an affirmative action: stamp consent so the
             // first-run dialog does not re-ask what the user just decided.
             settings["TelemetryConsentAnswered"] = true;
             settings["TelemetryConsentVersion"] =
                 RevitCortex.Core.Telemetry.TelemetryConfig.CurrentConsentVersion;
 ```
+  This save path is a JObject merge-write (NOT `CortexSettings.Save()`), so it satisfies consent-persistence pitfall #1 by construction — it preserves EnableTelemetry/InstallationId/thresholds written by TelemetryConfig.MarkConsent and never blind-rewrites the file.
+
+  **Consent-persistence pitfall #2 (re-Load):** this Settings page writes to disk and does NOT read `EffectiveEnabled` back on the same in-memory instance afterward — it just closes/reflects the checkbox value it already holds. So no re-Load is needed HERE. But `TelemetryBootstrap.Config` (the process-wide instance created at startup) will now be STALE relative to what the user just saved. That is acceptable for Phase 1 (the new consent takes effect at the next Revit start, when TelemetryBootstrap.Init re-Loads from disk), and the live smoke (Task 15 step 3) exercises exactly this: enable toggle → save → trigger failing tool. IF that smoke shows no event queued because `TelemetryBootstrap.Reporter` holds the stale pre-consent config, the fix is to have the save block also refresh the live config, e.g. `RevitCortexApp.Instance?.RefreshTelemetryConsent()` calling `TelemetryBootstrap.Config?.Reload()` (add a `Reload()` to TelemetryConfig that re-reads the file into `_root`). Decide during smoke; do NOT pre-build it if the simpler "takes effect next start" behavior is acceptable — but NOTE it explicitly in the smoke checklist so it is a conscious decision, not a silent gap.
 
 - [ ] **Step 5: Build R25 + R24 (Plugin), run FULL test suite, commit** — `feat(telemetry): consent dialog, settings toggle, plugin bootstrap wiring`
 
