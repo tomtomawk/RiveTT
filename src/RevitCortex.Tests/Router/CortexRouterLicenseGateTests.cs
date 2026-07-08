@@ -38,7 +38,10 @@ public class CortexRouterLicenseGateTests
 
         Assert.False(result.Success);
         Assert.Equal(CortexErrorCode.PermissionDenied, result.Error!.Code);
-        Assert.Contains("license", result.Error.Message, System.StringComparison.OrdinalIgnoreCase);
+        // Locale-independent: the localized block message interpolates the tool name ({0}),
+        // which is identical in every language. (Asserting on the word "license" was locale-
+        // dependent — the Italian message reads "Licenza…", breaking the substring on IT hosts.)
+        Assert.Contains("delete_element", result.Error.Message, System.StringComparison.Ordinal);
     }
 
     [Fact]
