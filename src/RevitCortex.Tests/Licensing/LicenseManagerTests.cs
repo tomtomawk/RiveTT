@@ -270,4 +270,39 @@ public class LicenseManagerTests : IDisposable
         Assert.Equal("", manager.LicenseIdTruncated);
         Assert.Equal(0, manager.GraceDaysRemaining);
     }
+
+    // F1 regression: Refresh must fold the CLOCK's anti-rollback HWM (HKCU+ProgramData in
+    // production) into the rollback check — not rely solely on the user-writable license.json HWM.
+    private sealed class FakeRollbackClock : ISystemClock
+    {
+        private readonly DateTime _now;
+        private readonly DateTime _hwm;
+        public FakeRollbackClock(DateTime now, DateTime hwm) { _now = now; _hwm = hwm; }
+        public DateTime UtcNow => _now;
+        public DateTime HighWaterMarkUtc => _hwm;
+    }
+
+    [Fact]
+    public void Refresh_UsesClockHighWaterMark_DetectsRollback_EvenWhenStoredHwmIsBehind()
+    {
+        var store = new InMemoryLicenseStore();
+        var fp = new FakeFingerprintProvider(MachineFp);
+        // now is rolled BACK to Expiry-? ; clock HWM (from HKCU/ProgramData) is Expiry+3d.
+        var now = Expiry.AddDays(1);
+        var clockHwm = Expiry.AddDays(3);          // tamper-resistant ratchet, ahead of now
+        var lastCheck = Expiry.AddDays(-3);        // within the 10-day grace window vs now
+        var clock = new FakeRollbackClock(now, clockHwm);
+        _backend.State = "active";
+        _backend.FingerprintHashes = MachineFp;
+        var manager = new LicenseManager(store, fp, _verifier, clock, _backend);
+        var wire = _backend.Activate("K", MachineFp).Token!;
+        // stored license.json HWM is BEHIND now (== now), so it alone would NOT trip rollback.
+        store.Save(new StoredLicenseState(wire, lastCheck, now));
+
+        manager.Refresh();
+
+        // Without the fix, hwm=now -> no rollback -> Grace. With the fix, hwm=max(now, clockHwm, storedHwm)=clockHwm
+        // -> now < clockHwm - 1h -> rollback -> Expired.
+        Assert.Equal(LicenseState.Expired, manager.State);
+    }
 }

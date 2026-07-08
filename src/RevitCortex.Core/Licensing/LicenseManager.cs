@@ -58,14 +58,14 @@ public class LicenseManager
         LicenseToken? token = null;
         DateTime? lastCheck = null;
         var now = _clock.UtcNow;
-        var hwm = now;
+        var hwm = _clock.HighWaterMarkUtc > now ? _clock.HighWaterMarkUtc : now;
 
         var stored = SafeLoad();
         if (stored != null)
         {
             token = _verifier.Verify(stored.Token);
             lastCheck = stored.LastOnlineCheckUtc;
-            hwm = stored.HighWaterMarkUtc > now ? stored.HighWaterMarkUtc : now;
+            if (stored.HighWaterMarkUtc > hwm) hwm = stored.HighWaterMarkUtc;
         }
 
         var current = SafeFingerprint();

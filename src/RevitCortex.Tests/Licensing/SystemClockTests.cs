@@ -45,4 +45,17 @@ public class SystemClockTests
         clock.Set(target);
         Assert.Equal(target, clock.UtcNow);
     }
+
+    [Fact]
+    public void SystemClock_HighWaterMark_EqualsUtcNow_Kind()
+    {
+        Assert.Equal(DateTimeKind.Utc, new SystemClock().HighWaterMarkUtc.Kind);
+    }
+
+    [Fact]
+    public void TestClock_HighWaterMark_TracksSetTime()
+    {
+        var t = new DateTime(2026, 5, 4, 3, 2, 1, DateTimeKind.Utc);
+        Assert.Equal(t, new TestClock(t).HighWaterMarkUtc);
+    }
 }
