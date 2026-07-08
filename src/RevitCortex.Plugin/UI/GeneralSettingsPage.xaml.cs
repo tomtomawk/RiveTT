@@ -83,7 +83,7 @@ public partial class GeneralSettingsPage : Page
         switch (UpdateChecker.State)
         {
             case UpdateChecker.DownloadState.Idle:
-                UpdateTitle.Text = $"RevitCortex {info.RemoteVersion} disponibile";
+                UpdateTitle.Text = $"RevitCortex Premium {info.RemoteVersion} disponibile";
                 UpdateDetail.Text = $"Sei sulla {UpdateChecker.CurrentVersion} — {info.Changelog}";
                 UpdateProgressGrid.Visibility = Visibility.Collapsed;
                 SetActionButton("Download & Install", "#FFB300", "#FF8F00", isEnabled: true);

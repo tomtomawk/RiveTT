@@ -284,8 +284,8 @@ public class RevitCortexApp : IExternalApplication
         _connectButton.Image = IconFactory.CreateConnectionIcon(16, active);
         _connectButton.LargeImage = IconFactory.CreateConnectionIcon(32, active);
         _connectButton.ToolTip = active
-            ? $"RevitCortex running on port {_port} — click to stop"
-            : "Start RevitCortex server";
+            ? $"RevitCortex Premium running on port {_port} — click to stop"
+            : "Start RevitCortex Premium server";
     }
 
     /// <summary>
@@ -357,7 +357,7 @@ public class RevitCortexApp : IExternalApplication
         // Dev builds get a distinct ribbon tab/panel name so a side-by-side
         // prod install never collides ("two addins, same tab name" is a hard
         // Revit conflict, not a cosmetic issue).
-        string panelTitle = CortexEnvironment.Current.IsDev ? "RevitCortex Dev" : "RevitCortex";
+        string panelTitle = CortexEnvironment.Current.IsDev ? "RevitCortex Premium Dev" : "RevitCortex Premium";
         RibbonPanel panel = application.CreateRibbonPanel(panelTitle);
         string assemblyLocation = Assembly.GetExecutingAssembly().Location;
 
@@ -365,7 +365,7 @@ public class RevitCortexApp : IExternalApplication
         var connectBtnData = new PushButtonData(
             "ID_CORTEX_TOGGLE", "Cortex\r\nSwitch",
             assemblyLocation, "RevitCortex.Plugin.Commands.ToggleConnection");
-        connectBtnData.ToolTip = "Start RevitCortex server";
+        connectBtnData.ToolTip = "Start RevitCortex Premium server";
         connectBtnData.Image = IconFactory.CreateConnectionIcon(16, false);
         connectBtnData.LargeImage = IconFactory.CreateConnectionIcon(32, false);
         _connectButton = panel.AddItem(connectBtnData) as Autodesk.Revit.UI.PushButton;
@@ -374,7 +374,7 @@ public class RevitCortexApp : IExternalApplication
         var settingsBtn = new PushButtonData(
             "ID_CORTEX_SETTINGS", "Settings",
             assemblyLocation, "RevitCortex.Plugin.Commands.OpenSettings");
-        settingsBtn.ToolTip = "RevitCortex settings";
+        settingsBtn.ToolTip = "RevitCortex Premium settings";
         settingsBtn.Image = IconFactory.CreateSettingsIcon(16);
         settingsBtn.LargeImage = IconFactory.CreateSettingsIcon(32);
         panel.AddItem(settingsBtn);
@@ -396,7 +396,7 @@ public class RevitCortexApp : IExternalApplication
         var supportBtn = new PushButtonData(
             "ID_CORTEX_SUPPORT", "Send log\r\nto support",
             assemblyLocation, "RevitCortex.Plugin.Commands.SendSupportReport");
-        supportBtn.ToolTip = "Send a bug report to RevitCortex support";
+        supportBtn.ToolTip = "Send a bug report to RevitCortex Premium support";
         supportBtn.LongDescription =
             "Collects recent audit logs, token-usage log, settings, and the most recent " +
             "Revit journal into a ZIP on the desktop, then opens a pre-filled Outlook " +

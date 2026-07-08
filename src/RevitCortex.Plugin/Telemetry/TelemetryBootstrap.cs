@@ -75,7 +75,7 @@ internal static class TelemetryBootstrap
             var config = Config;
             if (config == null || !config.NeedsConsentPrompt) return;
 
-            var dlg = new TaskDialog("RevitCortex")
+            var dlg = new TaskDialog("RevitCortex Premium")
             {
                 MainInstruction = Localization.T("telemetry.consent_instruction"),
                 MainContent = Localization.T("telemetry.consent_body"),

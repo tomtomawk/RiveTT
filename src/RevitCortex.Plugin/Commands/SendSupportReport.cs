@@ -58,7 +58,7 @@ public class SendSupportReport : IExternalCommand
             var (zipPath, included, skipped) = BuildReportZip(commandData);
 
             var body = BuildEmailBody(commandData, included, skipped);
-            var subject = $"RevitCortex bug report - {Environment.UserName} - {DateTime.Now:yyyy-MM-dd HH:mm}";
+            var subject = $"RevitCortex Premium bug report - {Environment.UserName} - {DateTime.Now:yyyy-MM-dd HH:mm}";
 
             bool outlookOk = TryOpenOutlookWithTimeout(
                 subject, body, zipPath, TimeSpan.FromSeconds(10));
@@ -305,7 +305,7 @@ public class SendSupportReport : IExternalCommand
 
     private static void WriteContextFile(StreamWriter w, ExternalCommandData commandData)
     {
-        w.WriteLine("RevitCortex diagnostic context");
+        w.WriteLine("RevitCortex Premium diagnostic context");
         w.WriteLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss} (local) / {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
         w.WriteLine($"User:      {Environment.UserName}");
         w.WriteLine($"Machine:   {Environment.MachineName}");
@@ -357,7 +357,7 @@ public class SendSupportReport : IExternalCommand
         var sb = new StringBuilder();
         sb.AppendLine("Ciao Luigi,");
         sb.AppendLine();
-        sb.AppendLine("ti invio un bug report di RevitCortex.");
+        sb.AppendLine("ti invio un bug report di RevitCortex Premium.");
         sb.AppendLine();
         sb.AppendLine("── Descrizione del problema ─────────────");
         sb.AppendLine("(descrivi qui cosa stavi facendo e cosa è andato storto)");

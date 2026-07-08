@@ -60,7 +60,7 @@ public partial class UpdateNotificationWindow : Window
         switch (_state)
         {
             case NotifState.Idle:
-                NotifTitle.Text  = $"RevitCortex {info.RemoteVersion} disponibile";
+                NotifTitle.Text  = $"RevitCortex Premium {info.RemoteVersion} disponibile";
                 NotifDetail.Text = string.IsNullOrWhiteSpace(info.Changelog)
                     ? $"Versione corrente: {UpdateChecker.CurrentVersion}"
                     : info.Changelog;

@@ -15,21 +15,21 @@ public class ToggleConnection : IExternalCommand
             var app = RevitCortexApp.Instance;
             if (app == null)
             {
-                TaskDialog.Show("RevitCortex", "Plugin not initialized.");
+                TaskDialog.Show("RevitCortex Premium", "Plugin not initialized.");
                 return Result.Failed;
             }
 
             if (app.IsServiceRunning)
             {
                 app.StopService();
-                TaskDialog.Show("RevitCortex", "Server stopped.");
+                TaskDialog.Show("RevitCortex Premium", "Server stopped.");
             }
             else
             {
                 // Pass active document so the session is initialized immediately
                 var doc = commandData.Application.ActiveUIDocument?.Document;
                 app.StartService(doc);
-                TaskDialog.Show("RevitCortex", $"Server started on port {app.Port}.");
+                TaskDialog.Show("RevitCortex Premium", $"Server started on port {app.Port}.");
             }
 
             return Result.Succeeded;

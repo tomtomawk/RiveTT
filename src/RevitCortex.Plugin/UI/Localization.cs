@@ -89,8 +89,8 @@ internal static class Localization
         // ── Support report ──────────────────────────────────────────────
         ["support.title"] = new()
         {
-            ["en"] = "RevitCortex",
-            ["it"] = "RevitCortex",
+            ["en"] = "RevitCortex Premium",
+            ["it"] = "RevitCortex Premium",
         },
         ["support.already_running"] = new()
         {
@@ -143,8 +143,8 @@ internal static class Localization
         // ── Update checker ──────────────────────────────────────────────
         ["update.available_title"] = new()
         {
-            ["en"] = "RevitCortex {0} is available",
-            ["it"] = "È disponibile RevitCortex {0}",
+            ["en"] = "RevitCortex Premium {0} is available",
+            ["it"] = "È disponibile RevitCortex Premium {0}",
         },
         ["update.available_detail"] = new()
         {
@@ -190,13 +190,13 @@ internal static class Localization
         // ── Telemetry consent ───────────────────────────────────────────
         ["telemetry.consent_instruction"] = new()
         {
-            ["en"] = "Help improve RevitCortex?",
-            ["it"] = "Vuoi aiutarci a migliorare RevitCortex?",
+            ["en"] = "Help improve RevitCortex Premium?",
+            ["it"] = "Vuoi aiutarci a migliorare RevitCortex Premium?",
         },
         ["telemetry.consent_body"] = new()
         {
-            ["en"] = "RevitCortex can send pseudonymous error reports when a command fails: tool name, error type, versions, timing. Never sent: model names, file paths, parameter values, user or machine names.\n\nYou can change this anytime in Settings > General.",
-            ["it"] = "RevitCortex può inviare segnalazioni pseudonime quando un comando fallisce: nome del tool, tipo di errore, versioni, tempi. Mai inviati: nomi dei modelli, percorsi file, valori dei parametri, nomi utente o macchina.\n\nPuoi cambiare la scelta in qualsiasi momento da Impostazioni > Generale.",
+            ["en"] = "RevitCortex Premium can send pseudonymous error reports when a command fails: tool name, error type, versions, timing. Never sent: model names, file paths, parameter values, user or machine names.\n\nYou can change this anytime in Settings > General.",
+            ["it"] = "RevitCortex Premium può inviare segnalazioni pseudonime quando un comando fallisce: nome del tool, tipo di errore, versioni, tempi. Mai inviati: nomi dei modelli, percorsi file, valori dei parametri, nomi utente o macchina.\n\nPuoi cambiare la scelta in qualsiasi momento da Impostazioni > Generale.",
         },
         ["telemetry.consent_enable"] = new()
         {

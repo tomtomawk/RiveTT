@@ -21,7 +21,7 @@ public static class ConfirmationHelper
     {
         if (elementCount <= 0) return true; // Nothing to do
 
-        var dialog = new TaskDialog("RevitCortex Confirmation")
+        var dialog = new TaskDialog("RevitCortex Premium Confirmation")
         {
             MainInstruction = $"About to {action} ({elementCount} element(s))",
             CommonButtons = TaskDialogCommonButtons.None
@@ -62,7 +62,7 @@ public static class ConfirmationHelper
     {
         if (elementCount <= 0) return true;
 
-        var dialog = new TaskDialog("RevitCortex Confirmation")
+        var dialog = new TaskDialog("RevitCortex Premium Confirmation")
         {
             MainInstruction = $"About to {action} ({elementCount} element(s))",
             CommonButtons = TaskDialogCommonButtons.None
