@@ -41,11 +41,14 @@ public class TelemetrySender : IDisposable
         _http.DefaultRequestHeaders.Add("X-RC-Key", ClientKey);
     }
 
-    /// <summary>Start the periodic 5-minute flush timer.</summary>
+    /// <summary>Start the periodic 5-minute flush timer. Idempotent: a prior
+    /// timer (if any) is disposed first so calling Start() twice never
+    /// orphans a live timer.</summary>
     public void Start()
     {
         try
         {
+            _timer?.Dispose();
             _timer = new Timer(_ => FlushOnce(), null,
                 TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
         }
@@ -105,17 +108,45 @@ public class TelemetrySender : IDisposable
         {
             var parsed = JsonConvert.DeserializeObject<EventsResponse>(body);
             if (parsed?.KnownIssues == null) return;
+            var subscribers = KnownIssueMatched;
+            if (subscribers == null) return;
             foreach (var m in parsed.KnownIssues)
             {
-                try { KnownIssueMatched?.Invoke(m); } catch { }
+                // Invoke each subscriber individually (not via a single
+                // multicast Invoke) so one throwing subscriber cannot abort
+                // the delegate chain and skip subscribers registered after it.
+                foreach (Action<KnownIssueMatch> handler in subscribers.GetInvocationList())
+                {
+                    try { handler(m); } catch { }
+                }
             }
         }
         catch { }
     }
 
+    /// <summary>Disposes the timer, waiting (up to 6 s — just above the 5 s
+    /// HTTP timeout) for any in-flight callback to finish before disposing
+    /// the HttpClient. Timer.Dispose() alone does NOT wait for a running
+    /// callback, so without this an in-flight FlushOnce can still be inside
+    /// _http.PostAsync when _http.Dispose() runs (ObjectDisposedException).
+    /// Never throws.</summary>
     public void Dispose()
     {
-        try { _timer?.Dispose(); } catch { }
+        try
+        {
+            var timer = _timer;
+            _timer = null;
+            if (timer != null)
+            {
+                using (var waitHandle = new ManualResetEvent(false))
+                {
+                    // Dispose(WaitHandle) signals the handle once all in-flight callbacks finish.
+                    if (timer.Dispose(waitHandle))
+                        waitHandle.WaitOne(TimeSpan.FromSeconds(6));
+                }
+            }
+        }
+        catch { }
         try { FlushOnce(); } catch { }   // best-effort shutdown flush
         try { _http.Dispose(); } catch { }
     }

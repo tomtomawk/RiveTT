@@ -95,4 +95,49 @@ public class TelemetrySenderTests : IDisposable
         Assert.Single(matches);
         Assert.Equal("RC-014", matches[0].IssueId);
     }
+
+    [Fact]
+    public void FlushOnce_AllMalformedLines_DrainsQueue_NoRequest()
+    {
+        var (sender, queue, handler) = Make();
+        File.AppendAllText(Path.Combine(_dir, "queue.jsonl"), "this is not json\n");
+
+        Assert.True(sender.FlushOnce());
+        Assert.Null(handler.LastUrl);
+        Assert.Equal(0, queue.PendingLineCount);
+    }
+
+    [Fact]
+    public void FlushOnce_TrailingSlashEndpoint_PostsToSingleSlashUrl()
+    {
+        Directory.CreateDirectory(_dir);
+        var settingsPath = Path.Combine(_dir, "settings.json");
+        File.WriteAllText(settingsPath, "{\"TelemetryEndpoint\":\"https://example.test/\"}");
+
+        var config = TelemetryConfig.Load(settingsPath);
+        var queue = new TelemetryQueue(Path.Combine(_dir, "queue.jsonl"));
+        var handler = new FakeHandler();
+        var sender = new TelemetrySender(config, queue, handler);
+        queue.Enqueue(new TelemetryEvent { EventId = "e1", Fingerprint = "f1" });
+
+        Assert.True(sender.FlushOnce());
+        Assert.EndsWith("/v1/events", handler.LastUrl);
+        Assert.DoesNotContain("//v1/events", handler.LastUrl);
+        Assert.Equal("https://example.test/v1/events", handler.LastUrl);
+    }
+
+    [Fact]
+    public void FlushOnce_ThrowingSubscriber_DoesNotBreakLaterSubscribers()
+    {
+        var (sender, queue, handler) = Make();
+        handler.Body = "{\"accepted\":1,\"knownIssues\":[{\"fingerprint\":\"f1\",\"issueId\":\"RC-014\",\"status\":\"fixed\"}]}";
+        queue.Enqueue(new TelemetryEvent { EventId = "e1", Fingerprint = "f1" });
+
+        sender.KnownIssueMatched += _ => throw new InvalidOperationException("boom");
+        var recorded = new List<KnownIssueMatch>();
+        sender.KnownIssueMatched += recorded.Add;
+
+        Assert.True(sender.FlushOnce());
+        Assert.Single(recorded);
+    }
 }
