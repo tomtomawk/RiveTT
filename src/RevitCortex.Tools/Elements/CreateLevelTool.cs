@@ -35,7 +35,7 @@ public class CreateLevelTool : ICortexTool
         {
             return action switch
             {
-                "create" => CreateLevel(doc, input),
+                "create" => CreateLevel(doc, input, session),
                 "set"    => SetLevel(doc, input, session),
                 "rename" => RenameLevel(doc, input, session),
                 "delete" => DeleteLevel(doc, input, session),
@@ -49,7 +49,7 @@ public class CreateLevelTool : ICortexTool
         }
     }
 
-    private static CortexResult<object> CreateLevel(Document doc, JObject input)
+    private static CortexResult<object> CreateLevel(Document doc, JObject input, CortexSession session)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
@@ -70,6 +70,23 @@ public class CreateLevelTool : ICortexTool
             if (existing != null)
                 return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                     $"Level '{name}' already exists at elevation {existing.Elevation * MmPerFoot:F0} mm");
+
+            // Preview-first: dryRun (default true) reports what would be created without
+            // touching the model. Only after this do we confirm and open a transaction.
+            if (ToolHelpers.GetDryRun(input))
+                return CortexResult<object>.Ok(new
+                {
+                    dryRun = true,
+                    action = "create",
+                    name,
+                    elevationMm,
+                    isBuildingStory,
+                    createFloorPlan,
+                    createCeilingPlan
+                });
+
+            if (!session.RequestConfirmation("create level", 1, name))
+                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
             var warnings = new List<string>();
 
