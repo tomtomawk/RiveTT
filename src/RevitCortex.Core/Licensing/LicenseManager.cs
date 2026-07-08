@@ -34,6 +34,12 @@ public class LicenseManager
         ISystemClock clock,
         ILicenseBackend backend)
     {
+        if (store == null) throw new ArgumentNullException(nameof(store));
+        if (fingerprint == null) throw new ArgumentNullException(nameof(fingerprint));
+        if (verifier == null) throw new ArgumentNullException(nameof(verifier));
+        if (clock == null) throw new ArgumentNullException(nameof(clock));
+        if (backend == null) throw new ArgumentNullException(nameof(backend));
+
         _store = store;
         _fingerprint = fingerprint;
         _verifier = verifier;

@@ -16,6 +16,8 @@ public class LicenseManagerTests : IDisposable
     private static readonly DateTime Expiry = new DateTime(2026, 10, 8, 0, 0, 0, DateTimeKind.Utc);
     private static readonly List<string> MachineFp = new List<string> { "fpA", "fpB" };
 
+    private readonly LicenseManager Mgr;
+
     public LicenseManagerTests()
     {
         var pub = _key.ExportParameters(false);
@@ -27,6 +29,11 @@ public class LicenseManagerTests : IDisposable
             ExpiresAtUtc = Expiry,
             SeatLimit = 1,
         };
+
+        // Evaluate-only tests use this shared instance; the ctor now enforces non-null
+        // collaborators, so these are real (but unexercised outside Evaluate) doubles.
+        Mgr = new LicenseManager(
+            new InMemoryLicenseStore(), new FakeFingerprintProvider(), _verifier, new SystemClock(), _backend);
     }
 
     public void Dispose() => _key.Dispose();
@@ -39,9 +46,6 @@ public class LicenseManagerTests : IDisposable
         _backend.FingerprintHashes = tokenFingerprints ?? new List<string> { "fpA", "fpB" };
         return _verifier.Verify(_backend.Activate("K", MachineFp).Token!)!;
     }
-
-    private static readonly LicenseManager Mgr = new LicenseManager(
-        new InMemoryLicenseStore(), new FakeFingerprintProvider(), null!, new SystemClock(), null!);
 
     [Fact]
     public void Active_WithinExpiry_ReturnsActive()
@@ -231,5 +235,39 @@ public class LicenseManagerTests : IDisposable
         Assert.Equal(LicenseState.Grace, manager.State);
         // 10-day window from lastCheck; now is (Expiry+2) = lastCheck+5 -> 5 days used, 5 left.
         Assert.Equal(5, manager.GraceDaysRemaining);
+    }
+
+    // GraceDaysRemaining is 0 when the state is Active (only non-zero in Grace).
+    [Fact]
+    public void GraceDaysRemaining_IsZero_WhenActive()
+    {
+        var store = new InMemoryLicenseStore();
+        var fp = new FakeFingerprintProvider(MachineFp);
+        var clock = new TestClock(new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc));
+        _backend.State = "active";
+        _backend.FingerprintHashes = MachineFp;
+        var manager = new LicenseManager(store, fp, _verifier, clock, _backend);
+        var wire = _backend.Activate("K", MachineFp).Token!;
+        store.Save(new StoredLicenseState(wire, clock.UtcNow, clock.UtcNow));
+
+        manager.Refresh();
+
+        Assert.Equal(LicenseState.Active, manager.State);
+        Assert.Equal(0, manager.GraceDaysRemaining);
+    }
+
+    // Refresh with an empty store: state stays Invalid, display fields reset.
+    [Fact]
+    public void Refresh_NoStoredToken_StaysInvalid_DisplayReset()
+    {
+        var manager = new LicenseManager(
+            new InMemoryLicenseStore(), new FakeFingerprintProvider(MachineFp), _verifier, new SystemClock(), _backend);
+
+        manager.Refresh();
+
+        Assert.Equal(LicenseState.Invalid, manager.State);
+        Assert.Null(manager.ExpiresAtUtc);
+        Assert.Equal("", manager.LicenseIdTruncated);
+        Assert.Equal(0, manager.GraceDaysRemaining);
     }
 }
