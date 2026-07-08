@@ -12,6 +12,7 @@ using RevitCortex.Core.Discovery;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Security;
 using RevitCortex.Core.Session;
+using RevitCortex.Core.Telemetry;
 using RevitCortex.Core.Tools;
 using RevitCortex.Plugin.Threading;
 
@@ -23,6 +24,7 @@ public class CortexRouter
     private readonly CortexSession _session;
     private readonly IDocumentAnalyzer _analyzer;
     private readonly AuditLogger _auditLogger;
+    private readonly ErrorReporter? _errorReporter;
     // volatile: set once from OnStartup (UI thread) but read from the socket
     // worker thread inside Route. The cheap guarantee is a full acquire/release
     // barrier so the worker never sees a partially-initialised dispatcher.
@@ -69,11 +71,13 @@ public class CortexRouter
         "push_to_powerbi",
     };
 
-    public CortexRouter(CortexSession session, IDocumentAnalyzer analyzer, AuditLogger? auditLogger = null)
+    public CortexRouter(CortexSession session, IDocumentAnalyzer analyzer,
+        AuditLogger? auditLogger = null, ErrorReporter? errorReporter = null)
     {
         _session = session;
         _analyzer = analyzer;
         _auditLogger = auditLogger ?? new AuditLogger();
+        _errorReporter = errorReporter;
     }
 
     /// <summary>
@@ -241,6 +245,19 @@ public class CortexRouter
             codeSnippet: codeSnippet,
             codeHash: codeHash,
             errorMessage: result.Error?.Message);
+
+        try
+        {
+            // Telemetry rides the same single capture point as the audit log.
+            // Cache hits above return earlier on purpose: a cached failure is
+            // the same occurrence replayed, counting it would inflate stats.
+            _errorReporter?.Record(toolName, result.Success,
+                result.Error?.Code.ToString(), result.Error?.Message,
+                failureStage: "tool",
+                durationMs: stopwatch.ElapsedMilliseconds,
+                responseBytes: responseBytes);
+        }
+        catch { /* telemetry must never change the returned result */ }
 
         return result;
     }
