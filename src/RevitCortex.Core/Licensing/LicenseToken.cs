@@ -56,6 +56,8 @@ public class LicenseToken
                 (string?)o["licenseId"] ?? "",
                 (string?)o["state"] ?? "",
                 ReadUtc(o["expiresAtUtc"]),
+                // A present-but-non-numeric seatLimit throws on the (int) cast -> caught
+                // below -> whole token becomes null (fail-closed: gate sees no license).
                 o["seatLimit"] != null ? (int)o["seatLimit"]! : 0,
                 hashes,
                 ReadUtc(o["issuedAtUtc"]));
@@ -73,7 +75,16 @@ public class LicenseToken
     {
         if (token == null || token.Type == JTokenType.Null) return DateTime.MinValue;
         if (token.Type == JTokenType.Date)
-            return ((DateTime)token).ToUniversalTime();
+        {
+            var d = (DateTime)token;
+            // A "…Z" or explicit-offset date arrives as Utc/Local -> normalize to UTC.
+            // A date with no zone marker arrives as Unspecified; ToUniversalTime() would
+            // wrongly treat it as local (shifting by the machine's offset), so assume UTC
+            // to match the string-fallback path's AssumeUniversal behavior.
+            return d.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(d, DateTimeKind.Utc)
+                : d.ToUniversalTime();
+        }
 
         var s = (string?)token;
         if (string.IsNullOrEmpty(s)) return DateTime.MinValue;

@@ -95,4 +95,43 @@ public class LicenseTokenTests
         Assert.Null(LicenseToken.FromJson(""));
         Assert.Null(LicenseToken.FromJson(null!));
     }
+
+    // Fix (review): a date WITHOUT a zone marker arrives as an Unspecified-kind Date JValue;
+    // it must be assumed UTC (NOT shifted by the machine's local offset).
+    [Fact]
+    public void FromJson_DateWithoutZ_AssumedUtc_NotShifted()
+    {
+        const string json =
+            @"{""licenseId"":""x"",""state"":""active"",""expiresAtUtc"":""2026-05-04T03:02:01""," +
+            @"""seatLimit"":1,""fingerprintHashes"":[""h""],""issuedAtUtc"":""2026-05-01T00:00:00""}";
+
+        var token = LicenseToken.FromJson(json);
+
+        Assert.NotNull(token);
+        Assert.Equal(new DateTime(2026, 5, 4, 3, 2, 1, DateTimeKind.Utc), token!.ExpiresAtUtc);
+        Assert.Equal(DateTimeKind.Utc, token.ExpiresAtUtc.Kind);
+    }
+
+    [Fact]
+    public void FromJson_NonNumericSeatLimit_ReturnsNull()
+    {
+        const string json =
+            @"{""licenseId"":""x"",""state"":""active"",""expiresAtUtc"":""2026-05-04T03:02:01Z""," +
+            @"""seatLimit"":""unlimited"",""fingerprintHashes"":[""h""],""issuedAtUtc"":""2026-05-01T00:00:00Z""}";
+
+        Assert.Null(LicenseToken.FromJson(json));
+    }
+
+    [Fact]
+    public void FromJson_MissingSeatLimit_DefaultsToZero()
+    {
+        const string json =
+            @"{""licenseId"":""x"",""state"":""active"",""expiresAtUtc"":""2026-05-04T03:02:01Z""," +
+            @"""fingerprintHashes"":[""h""],""issuedAtUtc"":""2026-05-01T00:00:00Z""}";
+
+        var token = LicenseToken.FromJson(json);
+
+        Assert.NotNull(token);
+        Assert.Equal(0, token!.SeatLimit);
+    }
 }
