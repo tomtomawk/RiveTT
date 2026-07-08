@@ -1,5 +1,4 @@
 using System;
-using System.Security.Cryptography;
 using RevitCortex.Core.Hosting;
 using RevitCortex.Core.Licensing;
 
@@ -14,16 +13,6 @@ namespace RevitCortex.Plugin.Licensing;
 /// </summary>
 internal static class LicenseBootstrap
 {
-    // Fase 1 backend keypair (runtime-generated). In Fase 2 the client keeps ONLY the
-    // public half of the real backend key; the private half never ships. Kept static so
-    // the whole client path (activate -> verify -> gate) works end-to-end for dev/smoke.
-    private static readonly RSA _fakeKey = RSA.Create(2048);
-
-    /// <summary>Embedded PUBLIC key parameters. static readonly (fix #16) — a runtime
-    /// keypair is not a compile-time constant. Fase 1 placeholder: replace with the real
-    /// backend RSA-2048 public key in Fase 2.</summary>
-    public static readonly RSAParameters EmbeddedPublicKey = _fakeKey.ExportParameters(false);
-
     public static LicenseGate? Gate { get; private set; }
     public static LicenseManager? Manager { get; private set; }
     public static ILicenseBackend? Backend { get; private set; }
