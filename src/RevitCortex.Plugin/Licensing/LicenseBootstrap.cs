@@ -33,29 +33,37 @@ internal static class LicenseBootstrap
     {
         try
         {
-            if (env.IsDev)
-            {
-                // Dev: transparent gate, no token, no store, no fingerprint, no backend. D4.
-                Gate = new LicenseGate(() => LicenseState.Active, isDev: true);
-                return;
-            }
-
-            var storePath = System.IO.Path.Combine(env.RootFolder, "license.json");
-            var store = new FileLicenseStore(storePath);
+#if DEBUG
+            // DEBUG: real manager + DevLicenseBackend, EVEN for the dev profile. D4
+            // (IsDev => transparent) is deliberately suspended in Debug so the gate can be
+            // exercised live. Debug builds never ship. env.RootFolder keeps dev/prod profiles
+            // separate (dev => ~/.revitcortex-dev).
+            var store = new FileLicenseStore(System.IO.Path.Combine(env.RootFolder, "license.json"));
             var fingerprint = new WindowsFingerprintProvider();
             var clock = new AntiRollbackClock(
                 () => DateTime.UtcNow,
                 new RegistryHighWaterMarkStore(),
                 new ProgramDataHighWaterMarkStore());
-            var verifier = new LicenseTokenVerifier(EmbeddedPublicKey.Modulus!, EmbeddedPublicKey.Exponent!);
-            var backend = new FakeLicenseBackend(_fakeKey);
+            var keyStore = new FileDevKeyStore(System.IO.Path.Combine(env.RootFolder, "dev-license-key.json"));
+            var nodeLock = new FileDevNodeLockStore(System.IO.Path.Combine(env.RootFolder, "dev-node-lock.json"));
+            var devPub = keyStore.PublicOnly();
+            var verifier = new LicenseTokenVerifier(devPub.Modulus!, devPub.Exponent!);
+            var backend = new DevLicenseBackend(keyStore, nodeLock);
             var manager = new LicenseManager(store, fingerprint, verifier, clock, backend);
             manager.Refresh();
-
             Gate = new LicenseGate(() => manager.State, isDev: false);
             Manager = manager;
             Fingerprint = fingerprint;
             Backend = backend;
+#else
+            // RELEASE before the real backend: fail-closed-honest. No FakeLicenseBackend (it
+            // accepts any key). Gate null => NO gating => app runs full (like today's prod), but
+            // WITHOUT a fake licensing authority in a production binary. Real enforcement later.
+            Gate = null;
+            Manager = null;
+            Backend = null;
+            Fingerprint = null;
+#endif
         }
         catch (Exception ex)
         {
