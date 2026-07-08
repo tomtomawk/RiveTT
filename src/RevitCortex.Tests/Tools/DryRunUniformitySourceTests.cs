@@ -51,6 +51,42 @@ public class DryRunUniformitySourceTests
     }
 
     [Fact]
+    public void CreateLevel_CreateAction_ReadsDryRunBeforeOpeningTransaction()
+    {
+        // Regression: create_level ignored dryRun entirely — it opened the Transaction and
+        // committed regardless, so dryRun:true still created the level (confirmed live
+        // 2026-07-08). The create path must consult GetDryRun and return a preview BEFORE
+        // `new Transaction(`.
+        var src = ReadSource("RevitCortex.Tools", "Elements", "CreateLevelTool.cs");
+        Assert.Contains("ToolHelpers.GetDryRun(input)", src);
+
+        var createStart = src.IndexOf("private static CortexResult<object> CreateLevel(", System.StringComparison.Ordinal);
+        Assert.True(createStart >= 0, "CreateLevel method not found");
+        var createEnd = src.IndexOf("private static CortexResult<object> SetLevel(", createStart, System.StringComparison.Ordinal);
+        var createBody = createEnd > createStart ? src.Substring(createStart, createEnd - createStart) : src.Substring(createStart);
+
+        var dryRunIdx = createBody.IndexOf("ToolHelpers.GetDryRun(input)", System.StringComparison.Ordinal);
+        var txIdx = createBody.IndexOf("new Transaction(", System.StringComparison.Ordinal);
+        Assert.True(dryRunIdx >= 0, "CreateLevel create-action does not read GetDryRun");
+        Assert.True(txIdx >= 0, "CreateLevel does not open a Transaction (unexpected)");
+        Assert.True(dryRunIdx < txIdx, "CreateLevel reads dryRun AFTER opening the transaction — preview must come first");
+    }
+
+    [Fact]
+    public void CreateLevelServerWrapper_ForwardsDryRun()
+    {
+        // Regression: the create_level server wrapper had no dryRun parameter, so the MCP
+        // path could never send it (and could never actually execute — always preview).
+        var src = ReadSource("RevitCortex.Server", "Tools", "ProjectTools.cs");
+        var start = src.IndexOf("Name = \"create_level\"", System.StringComparison.Ordinal);
+        Assert.True(start >= 0, "create_level wrapper not found");
+        var end = src.IndexOf("[McpServerTool", start + 1, System.StringComparison.Ordinal);
+        var section = end > start ? src.Substring(start, end - start) : src.Substring(start);
+        Assert.Contains("dryRun", section);
+        Assert.Contains("p[\"dryRun\"] = dryRun", section);
+    }
+
+    [Fact]
     public void SteelServerWrappers_DocumentTheNewDefault_AndForwardDryRunForTheFiveTools()
     {
         var src = ReadSource("RevitCortex.Server", "Tools", "StructuralSteelTools.cs");

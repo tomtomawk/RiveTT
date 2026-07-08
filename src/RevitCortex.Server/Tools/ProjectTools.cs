@@ -218,6 +218,7 @@ public static class ProjectTools
         [Description("Level element id (identifies the target for set/rename/delete)")] long? levelId = null,
         [Description("Mark as a building story (create/set)")] bool? isBuildingStory = null,
         [Description("New name (for rename)")] string? newName = null,
+        [Description("Preview changes without applying. Default: true")] bool? dryRun = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -227,6 +228,7 @@ public static class ProjectTools
         if (levelId != null) p["levelId"] = levelId;
         if (isBuildingStory != null) p["isBuildingStory"] = isBuildingStory;
         if (newName != null) p["newName"] = newName;
+        if (dryRun != null) p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_level", p, ct);
         return result.ToString();
     }

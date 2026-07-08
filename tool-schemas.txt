@@ -38,7 +38,7 @@ create_floor(boundaryPoints:string,null, roomId:integer,null, floorTypeName:stri
 create_free_form_rebar(hostId:integer!, loops:string!, style:string, barTypeId:integer,null, barTypeName:string,null)
 create_generic_steel_connection(elementIds:string!, connectionName:string,null, dryRun:boolean,null)
 create_grid(action:string,null, xCount:integer,null, yCount:integer,null, xSpacing:number,null, ySpacing:number,null, xStartLabel:string,null, yStartLabel:string,null, gridId:integer,null, name:string,null, newName:string,null)
-create_level(name:string,null, elevation:number,null, action:string,null, levelId:integer,null, isBuildingStory:boolean,null, newName:string,null)
+create_level(name:string,null, elevation:number,null, action:string,null, levelId:integer,null, isBuildingStory:boolean,null, newName:string,null, dryRun:boolean,null)
 create_line_based_element(specs:string!)
 create_material(name:string!, materialClass:string,null, color:string,null)
 create_path_reinforcement(hostId:integer!, curves:string!, flip:boolean,null, barTypeId:integer,null, barTypeName:string,null, pathTypeId:integer,null, startHookId:integer,null, endHookId:integer,null)
