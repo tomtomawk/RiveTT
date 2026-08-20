@@ -1,72 +1,26 @@
-# 20 — New Tool Checklist
+# New tool checklist
 
-**Scope:** Aggiungere un nuovo `ICortexTool` al server RevitCortex.
-**Sources:** CLAUDE.md §"ICortexTool", src/RevitCortex.Core/Tools/ICortexTool.cs
-**Last verified:** 2026-05-25
+## Files
 
-## File da toccare
+- `src/RevitCortex.Tools/<Category>/<ToolName>Tool.cs`: `ICortexTool` implementation.
+- `src/RevitCortex.Server/Tools/<Category>Tools.cs`: typed MCP wrapper.
+- `src/RevitCortex.Tests`: unit, contract, or source tests.
+- `docs/USER_GUIDE.md` and the relevant operator reference when behavior is user-facing.
 
-| File | Responsabilità |
-|---|---|
-| `src/RevitCortex.Tools/<Category>/<ToolName>Tool.cs` | Implementazione `ICortexTool` |
-| `src/RevitCortex.Server/Tools/<Category>Tools.cs` | Definizione MCP (nome, descrizione, JsonSchema) |
-| `tool-schemas.txt` | Firma compatta (rigenerare con `node server/generate-tool-schemas-csharp.mjs`) |
-| `docs/USER_GUIDE.md` | Documentazione end-user |
-| `WORKFLOWS.md` | Se il tool fa parte di un workflow nuovo o esistente |
-| `CLAUDE.md` | Se introduce regole/anti-pattern specifici |
-| `ai-skills/revitcortex/references/operator_*.md` | Reference operativo se cambia un workflow |
+## Requirements
 
-## Naming
+- MCP name is `snake_case`; C# class is `PascalCaseTool`.
+- Validate input before touching the document.
+- Use `[ToolSafety]` with accurate read/write and destructive metadata.
+- Execute Revit API work through the plugin dispatcher.
+- Wrap writes in a transaction and surface failed commits as structured errors.
+- Keep `dryRun` preview behavior when relevant.
+- Return `CortexResult<object>.Ok(...)` or `.Fail(...)`; do not leak exceptions.
+- Add the matching `[McpServerTool]` wrapper and tests.
 
-- Nome MCP: `snake_case` (es. `get_element_parameters`)
-- Classe C#: `PascalCase` + suffisso `Tool` (es. `GetElementParametersTool`)
-- Categoria: PascalCase (es. "Elements", "Views", "Materials", "Ifc", "PowerBI")
+## Verification
 
-## Interfaccia minima
+    dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c Release
+    dotnet build RevitCortex.sln -c Release
 
-```csharp
-public class MyNewTool : ICortexTool
-{
-    public string Name => "my_new_tool";
-    public string Category => "Elements";
-    public bool RequiresDocument => true;
-    public bool IsDynamic => false;
-
-    public CortexResult<object> Execute(JObject input, CortexSession session)
-    {
-        // 1. Validare input
-        // 2. Se distruttivo: session.RequestConfirmation("action", count)
-        // 3. Eseguire dentro Transaction se modifica il doc
-        // 4. Ritornare CortexResult<object>.Ok(...) o .Fail(...)
-    }
-}
-```
-
-## RequiresDocument
-
-| Valore | Significato |
-|---|---|
-| `true` | Tool ha bisogno di un modello Revit aperto |
-| `false` | Tool meta (es. `say_hello`, capability check) |
-
-## IsDynamic
-
-Se `true`, il tool è registrato solo se `DocumentCapabilities` lo abilita. Vedi `developer_23_Dynamic_Tools_And_Capabilities.md`.
-
-## Required checks
-
-- [ ] `ICortexTool` implementato correttamente.
-- [ ] Naming convention rispettata.
-- [ ] Schema MCP definito in `<Category>Tools.cs`.
-- [ ] `tool-schemas.txt` rigenerato.
-- [ ] `USER_GUIDE.md` aggiornato.
-- [ ] Se distruttivo: `RequestConfirmation` chiamato.
-- [ ] Build R25 + R24 verde (vedi `developer_22`).
-- [ ] Test unitario in `RevitCortex.Tests/`.
-
-## Avoid
-
-- Non aggiungere un tool senza aggiornare `tool-schemas.txt`.
-- Non aggiungere un tool senza test.
-- Non dimenticare il `RequestConfirmation` per operazioni distruttive.
-- Non usare `record` types (vedi `developer_22`).
+The only supported target is Revit 2027 / .NET 10 / x64.

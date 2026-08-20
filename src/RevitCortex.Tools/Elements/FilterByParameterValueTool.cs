@@ -312,7 +312,7 @@ public class FilterByParameterValueTool : ICortexTool
         return typeElem;
     }
 
-    /// <summary>One parameter-value condition (net48-safe: class, not record).</summary>
+    /// <summary>One parameter-value condition.</summary>
     private sealed class FilterClause
     {
         public string ParameterName { get; }

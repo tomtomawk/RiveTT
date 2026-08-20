@@ -59,7 +59,7 @@ public class OverrideGraphicsTool : ICortexTool
             if (!session.RequestConfirmation("modify graphics for", elementIds.Count))
                 return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-            using var tx = new Transaction(doc, "RevitCortex: Override Graphics");
+            using var tx = new Transaction(doc, "MCPRVTT27: Override Graphics");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

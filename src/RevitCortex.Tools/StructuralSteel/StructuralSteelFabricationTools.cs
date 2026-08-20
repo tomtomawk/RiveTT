@@ -68,7 +68,7 @@ public class AddSteelFabricationInfoTool : ICortexTool
         if (!session.RequestConfirmation("add steel fabrication info", ids.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Add Steel Fabrication Info");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Add Steel Fabrication Info");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -190,7 +190,7 @@ public class SetSteelFabricationUniqueIdTool : ICortexTool
         if (!session.RequestConfirmation("set steel fabrication unique id", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Set Steel Fabrication Unique Id");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Set Steel Fabrication Unique Id");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try

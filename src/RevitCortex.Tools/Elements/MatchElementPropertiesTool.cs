@@ -61,7 +61,7 @@ public class MatchElementPropertiesTool : ICortexTool
             int totalCopied = 0;
             var results     = new List<object>();
 
-            using var tx = new Transaction(doc, "RevitCortex: Match Element Properties");
+            using var tx = new Transaction(doc, "MCPRVTT27: Match Element Properties");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

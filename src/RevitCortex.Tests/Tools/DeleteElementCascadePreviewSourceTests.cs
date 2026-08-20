@@ -23,12 +23,12 @@ public class DeleteElementCascadePreviewSourceTests
     public void DryRun_ProbesTheRealCascade_InsideARolledBackTransaction()
     {
         var src = ReadTool();
-        Assert.Contains("RevitCortex: Delete Preview", src);
+        Assert.Contains("MCPRVTT27: Delete Preview", src);
         Assert.Contains("probeTx.RollBack()", src);
         // The probe must run inside the dryRun branch, before the real-delete path.
         var dryRunIdx = src.IndexOf("if (dryRun)", System.StringComparison.Ordinal);
         var probeIdx = src.IndexOf("probeTx", System.StringComparison.Ordinal);
-        var realDeleteIdx = src.IndexOf("RevitCortex: Delete Elements", System.StringComparison.Ordinal);
+        var realDeleteIdx = src.IndexOf("MCPRVTT27: Delete Elements", System.StringComparison.Ordinal);
         Assert.True(dryRunIdx >= 0 && dryRunIdx < probeIdx && probeIdx < realDeleteIdx,
             "cascade probe must live inside the dryRun branch, before the real delete");
     }

@@ -94,7 +94,7 @@ public class DuplicateSystemTypeTool : ICortexTool
             }
 
             // Duplicate
-            using (var tx = new Transaction(doc, "RevitCortex: Duplicate System Type"))
+            using (var tx = new Transaction(doc, "MCPRVTT27: Duplicate System Type"))
             {
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
@@ -144,7 +144,7 @@ public class DuplicateSystemTypeTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         var oldName = type.Name;
-        using var tx = new Transaction(doc, "RevitCortex: Rename Type");
+        using var tx = new Transaction(doc, "MCPRVTT27: Rename Type");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         type.Name = newName;
@@ -165,7 +165,7 @@ public class DuplicateSystemTypeTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         var name = type!.Name;
-        using var tx = new Transaction(doc, "RevitCortex: Delete Type");
+        using var tx = new Transaction(doc, "MCPRVTT27: Delete Type");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         var deleted = doc.Delete(type.Id);

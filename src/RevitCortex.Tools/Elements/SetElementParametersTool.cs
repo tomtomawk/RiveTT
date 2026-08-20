@@ -38,7 +38,7 @@ public class SetElementParametersTool : ICortexTool
         if (!session.RequestConfirmation("modify parameters on", requests.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Set Parameters");
+        using var tx = new Transaction(doc, "MCPRVTT27: Set Parameters");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 

@@ -1,7 +1,7 @@
 # 06 — View & Annotation Workflows
 
 **Scope:** Tag, color, dimensions, view templates, viewports.
-**Sources:** CLAUDE.md §"Tool Behavioral Notes", WORKFLOWS.md §"Tagging/Colorazione/Quotatura"
+**Sources:** MCPRVTT27 view and annotation tools
 **Last verified:** 2026-05-25
 
 ## Decision rules

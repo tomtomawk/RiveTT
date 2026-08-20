@@ -43,7 +43,7 @@ public class PinUnpinLinkInstanceTool : ICortexTool
             var results = new List<object>();
             int successCount = 0;
 
-            using var tx = new Transaction(doc, $"RevitCortex: {(pin ? "Pin" : "Unpin")} Link Instance");
+            using var tx = new Transaction(doc, $"MCPRVTT27: {(pin ? "Pin" : "Unpin")} Link Instance");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

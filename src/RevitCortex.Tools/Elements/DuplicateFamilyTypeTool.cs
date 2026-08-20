@@ -84,7 +84,7 @@ public class DuplicateFamilyTypeTool : ICortexTool
                 });
             }
 
-            using (var tx = new Transaction(doc!, "RevitCortex: Duplicate Family Type"))
+            using (var tx = new Transaction(doc!, "MCPRVTT27: Duplicate Family Type"))
             {
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();

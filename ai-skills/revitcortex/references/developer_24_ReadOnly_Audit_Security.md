@@ -1,65 +1,28 @@
-# 24 — Read-Only Mode, Audit Log, Sandbox
+# Safety metadata, audit log, and sandbox
 
-**Scope:** Sicurezza non-funzionale del server RevitCortex.
-**Sources:** docs/SECURITY.md, CLAUDE.md §"Security Requirements (NFR)"
-**Last verified:** 2026-05-25
+## Tool safety metadata
 
-## Read-only mode
+`[ToolSafety(readOnly, destructive)]` describes a tool for routing, auditing,
+and agents. It is metadata in MCPRVTT27; there is no settings-based read-only
+profile. Keep names and attributes aligned.
 
-Quando `readOnlyMode: true` in `~/.revitcortex/settings.json`, `CortexRouter` rifiuta tutti i tool write con `CortexErrorCode.PermissionDenied`.
+## Audit
 
-### Naming convention
+Every routed call is appended to
+`%LOCALAPPDATA%\MCPRVTT27\audit.jsonl`. Preserve the router-wide backstop so
+successes and failures are both logged, including duration and response size.
 
-Sono **read-only** i tool che iniziano con:
-- `get_`, `list_`, `find_`, `analyze_`, `check_`, `measure_`, `audit_`, `export_`
-- `say_hello`
-- `clash_detection`
-- `lines_per_view_count`
+## `send_code_to_revit`
 
-Tutto il resto è considerato **write tool** e bloccato in read-only mode.
+`CodeSandbox.Validate` must run before compilation. It blocks filesystem and
+network access, process spawning, registry access, native interop, reflection
+emit, and related bypasses. The tool remains a last resort even though
+MCPRVTT27 has no confirmation dialogs.
 
-Implementazione in `CortexRouter.IsReadOnlyTool(string toolName)` (public static, testabile).
+## Checks
 
-## Audit log
-
-Ogni esecuzione tool è loggata in `~/.revitcortex/audit.jsonl` (append-only):
-
-```json
-{
-  "ts": "2026-05-25T10:30:00Z",
-  "tool": "tool_name",
-  "input_summary": "...",
-  "result": "ok|fail",
-  "error_code": null,
-  "elements_affected": 0
-}
-```
-
-`AuditLogger` in `RevitCortex.Core`. `CortexRouter` chiama `AuditLogger.Log()` dopo ogni invocazione.
-
-Audit v2 (Apr 2026) aggiunge `duration_ms` e altri campi async. Parser Python `rclog` aggiornato dopo i dati reali.
-
-## Sandbox send_code_to_revit
-
-Validazione in `CodeSandbox.Validate(string code)`. Namespace vietati:
-- `System.IO`
-- `System.Net`
-- `System.Diagnostics.Process`
-- `Microsoft.Win32`
-- `System.Reflection.Emit`
-- `System.Runtime.InteropServices`
-
-Bypass solo disabilitando `send_code_to_revit` interamente nelle settings.
-
-## Required checks
-
-- [ ] Tool naming rispetta convenzione read-only.
-- [ ] `IsReadOnlyTool` aggiornato per tool nuovi che non matchano i prefissi standard.
-- [ ] `AuditLogger.Log()` chiamato per ogni esecuzione.
-- [ ] Per `send_code_to_revit`: `CodeSandbox.Validate` chiamato prima dell'esecuzione.
-
-## Avoid
-
-- Non aggiungere tool write con prefisso `get_` (confonderebbe la convenzione).
-- Non skippare `AuditLogger.Log()` per "performance".
-- Non bypassare il sandbox.
+- Safety attribute matches actual behavior.
+- Every exception becomes a structured failure.
+- Audit logging remains best-effort and non-crashing.
+- Sandbox hardening tests remain enabled.
+- Dedicated tools are preferred over arbitrary code.

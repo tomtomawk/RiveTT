@@ -45,7 +45,7 @@ public class AuditFamiliesTool : ICortexTool
             // ── Loadable families ─────────────────────────────────────────
             var families = new FilteredElementCollector(doc).OfClass(typeof(Family)).Cast<Family>();
             if (filterCatId != null)
-                // Use .Equals() because ElementId does NOT overload == on net48 (R2023/R2024) —
+                // Use .Equals() for explicit ElementId value semantics —
                 // reference equality there silently excludes every family.
                 families = families.Where(f => f.FamilyCategory?.Id.Equals(filterCatId) == true);
 

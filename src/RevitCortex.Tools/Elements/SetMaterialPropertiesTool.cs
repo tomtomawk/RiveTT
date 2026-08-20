@@ -45,7 +45,7 @@ public class SetMaterialPropertiesTool : ICortexTool
                 if (!session.RequestConfirmation("modify material properties", requests.Count))
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-                using var tx = new Transaction(doc, "RevitCortex: Set Material Properties");
+                using var tx = new Transaction(doc, "MCPRVTT27: Set Material Properties");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
 

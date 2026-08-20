@@ -48,7 +48,7 @@ public class DuplicateViewTool : ICortexTool
         try
         {
             var results = new List<object>();
-            using var tx = new Transaction(doc, "RevitCortex: Duplicate Views");
+            using var tx = new Transaction(doc, "MCPRVTT27: Duplicate Views");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

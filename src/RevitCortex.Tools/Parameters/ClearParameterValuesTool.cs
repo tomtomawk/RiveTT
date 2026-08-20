@@ -62,7 +62,7 @@ public class ClearParameterValuesTool : ICortexTool
                 if (!session.RequestConfirmation("clear parameter values on", elements.Count()))
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-                using var tx = new Transaction(doc, "RevitCortex: Clear Parameter Values");
+                using var tx = new Transaction(doc, "MCPRVTT27: Clear Parameter Values");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
 

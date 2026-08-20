@@ -38,7 +38,7 @@ public class CreateViewTool : ICortexTool
 
         try
         {
-            using var tx = new Transaction(doc, "RevitCortex: Create View");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create View");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

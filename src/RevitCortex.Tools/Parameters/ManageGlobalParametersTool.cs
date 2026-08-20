@@ -104,7 +104,7 @@ public class ManageGlobalParametersTool : ICortexTool
         var dataType    = input["dataType"]?.Value<string>() ?? "text";
         var initialValue = input["value"]?.Value<string>();
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Global Parameter");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Global Parameter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
@@ -150,7 +150,7 @@ public class ManageGlobalParametersTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 $"Parameter '{name}' is driven by a formula and cannot be set directly");
 
-        using var tx = new Transaction(doc, "RevitCortex: Set Global Parameter Value");
+        using var tx = new Transaction(doc, "MCPRVTT27: Set Global Parameter Value");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         ApplyStringValue(gp, value);
@@ -176,7 +176,7 @@ public class ManageGlobalParametersTool : ICortexTool
         if (!session.RequestConfirmation("delete global parameter", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Delete Global Parameter");
+        using var tx = new Transaction(doc, "MCPRVTT27: Delete Global Parameter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         doc.Delete(gp.Id);
@@ -209,7 +209,7 @@ public class ManageGlobalParametersTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 $"A global parameter named '{newName}' already exists.");
 
-        using var tx = new Transaction(doc, "RevitCortex: Rename Global Parameter");
+        using var tx = new Transaction(doc, "MCPRVTT27: Rename Global Parameter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         gp.Name = newName;
@@ -242,7 +242,7 @@ public class ManageGlobalParametersTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                 $"Global parameter '{name}' not found");
 
-        using var tx = new Transaction(doc, "RevitCortex: Set Global Parameter Formula");
+        using var tx = new Transaction(doc, "MCPRVTT27: Set Global Parameter Formula");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -286,7 +286,7 @@ public class ManageGlobalParametersTool : ICortexTool
                 $"Global parameter '{name}' not found");
 
         bool moved;
-        using (var tx = new Transaction(doc, "RevitCortex: Reorder Global Parameter"))
+        using (var tx = new Transaction(doc, "MCPRVTT27: Reorder Global Parameter"))
         {
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -318,7 +318,7 @@ public class ManageGlobalParametersTool : ICortexTool
             ? ParametersOrder.Descending
             : ParametersOrder.Ascending;
 
-        using (var tx = new Transaction(doc, "RevitCortex: Sort Global Parameters"))
+        using (var tx = new Transaction(doc, "MCPRVTT27: Sort Global Parameters"))
         {
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();

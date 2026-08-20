@@ -154,7 +154,7 @@ public class CreateFloorTool : ICortexTool
                 }
             }
 
-            using var tx = new Transaction(doc, "RevitCortex: Create Floor");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Floor");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             var floor = Floor.Create(doc, loops, floorType.Id, level.Id);

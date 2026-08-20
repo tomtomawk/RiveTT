@@ -69,7 +69,7 @@ public class CreateGenericSteelConnectionTool : ICortexTool
         if (!session.RequestConfirmation("create generic steel connection", ids.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Create Generic Steel Connection");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Create Generic Steel Connection");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -150,7 +150,7 @@ public class CreateSteelConnectionTool : ICortexTool
         if (!session.RequestConfirmation("create steel connection", ids.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Create Steel Connection");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Create Steel Connection");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -273,7 +273,7 @@ public class ModifySteelConnectionInputsTool : ICortexTool
         if (!session.RequestConfirmation(isAdd ? "add elements to steel connection" : "remove elements from steel connection", ids.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Modify Steel Connection Inputs");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Modify Steel Connection Inputs");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -389,7 +389,7 @@ public class SetSteelConnectionTypeTool : ICortexTool
         if (!session.RequestConfirmation("change steel connection type", ids.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Change Steel Connection Type");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Change Steel Connection Type");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -483,7 +483,7 @@ public class SetSteelConnectionApprovalTool : ICortexTool
         if (!session.RequestConfirmation("set steel connection approval", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Set Steel Connection Approval");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Set Steel Connection Approval");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -580,7 +580,7 @@ public class SetSteelConnectionStatusTool : ICortexTool
         if (!session.RequestConfirmation("set steel connection status", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Set Steel Connection Status");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Set Steel Connection Status");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -625,7 +625,7 @@ public class SetSteelConnectionDefaultOrderTool : ICortexTool
         if (!session.RequestConfirmation("set steel connection default order", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Set Steel Connection Default Order");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Set Steel Connection Default Order");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -674,7 +674,7 @@ public class DeleteSteelConnectionTool : ICortexTool
         if (!session.RequestConfirmation("delete steel connection", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Delete Steel Connection");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Delete Steel Connection");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try

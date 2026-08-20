@@ -39,7 +39,7 @@ public class CreateDimensionsTool : ICortexTool
         var createdIds = new List<long>();
         var warnings = new List<string>();
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Dimensions");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Dimensions");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 

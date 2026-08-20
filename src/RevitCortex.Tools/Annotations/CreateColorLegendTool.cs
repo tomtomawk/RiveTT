@@ -80,7 +80,7 @@ public class CreateColorLegendTool : ICortexTool
 
             // Apply overrides
             int coloredCount = 0;
-            using var tx = new Transaction(doc, "RevitCortex: Create Color Legend");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Color Legend");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

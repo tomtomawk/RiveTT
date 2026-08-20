@@ -75,7 +75,7 @@ public class TagWallsTool : ICortexTool
             int taggedCount = 0;
             var warnings = new List<string>();
 
-            using var tx = new Transaction(doc, "RevitCortex: Tag Walls");
+            using var tx = new Transaction(doc, "MCPRVTT27: Tag Walls");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

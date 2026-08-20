@@ -122,7 +122,7 @@ public class AddSharedParameterTool : ICortexTool
                 ? (ElementBinding)app.Create.NewInstanceBinding(categorySet)
                 : (ElementBinding)app.Create.NewTypeBinding(categorySet);
 
-            using var tx = new Transaction(doc, "RevitCortex: Add Shared Parameter");
+            using var tx = new Transaction(doc, "MCPRVTT27: Add Shared Parameter");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

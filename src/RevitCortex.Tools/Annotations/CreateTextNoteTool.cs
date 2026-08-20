@@ -39,7 +39,7 @@ public class CreateTextNoteTool : ICortexTool
         var createdIds = new List<long>();
         var warnings = new List<string>();
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Text Notes");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Text Notes");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 

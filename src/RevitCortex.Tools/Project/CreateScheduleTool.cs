@@ -56,7 +56,7 @@ public class CreateScheduleTool : ICortexTool
                     suggestion: "Pass a valid categoryName (e.g. OST_Walls) or a localized category display name.");
             }
 
-            using var tx = new Transaction(doc, "RevitCortex: Create Schedule");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Schedule");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

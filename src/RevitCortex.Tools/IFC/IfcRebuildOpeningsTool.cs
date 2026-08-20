@@ -88,7 +88,7 @@ public class IfcRebuildOpeningsTool : ICortexTool
         // One TransactionGroup per invocation: the N per-element commits collapse
         // into a single undo step, and a mid-run failure can no longer leave a
         // fragmented undo stack behind.
-        using TransactionGroup? txGroup = dryRun ? null : new TransactionGroup(doc!, "RevitCortex: Rebuild Openings");
+        using TransactionGroup? txGroup = dryRun ? null : new TransactionGroup(doc!, "MCPRVTT27: Rebuild Openings");
         txGroup?.Start();
 
         foreach (var openingDs in openingCandidates)
@@ -137,7 +137,7 @@ public class IfcRebuildOpeningsTool : ICortexTool
 
             try
             {
-                using var tx = new Transaction(doc!, "RevitCortex: Create Opening");
+                using var tx = new Transaction(doc!, "MCPRVTT27: Create Opening");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
 

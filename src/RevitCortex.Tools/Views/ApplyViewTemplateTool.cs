@@ -85,7 +85,7 @@ public class ApplyViewTemplateTool : ICortexTool
         if (!session.RequestConfirmation("apply view template to", viewIds.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Apply View Template");
+        using var tx = new Transaction(doc, "MCPRVTT27: Apply View Template");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         int applied = 0;
@@ -113,7 +113,7 @@ public class ApplyViewTemplateTool : ICortexTool
         if (!session.RequestConfirmation("remove view template from", viewIds.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Remove View Template");
+        using var tx = new Transaction(doc, "MCPRVTT27: Remove View Template");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         int removed = 0;

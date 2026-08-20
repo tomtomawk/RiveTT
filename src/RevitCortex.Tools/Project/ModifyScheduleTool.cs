@@ -71,7 +71,7 @@ public class ModifyScheduleTool : ICortexTool
             if (!session.RequestConfirmation("modify schedule", 1, schedule.Name))
                 return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-            using var tx = new Transaction(doc, "RevitCortex: Modify Schedule");
+            using var tx = new Transaction(doc, "MCPRVTT27: Modify Schedule");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

@@ -46,7 +46,7 @@ public class BatchModifyViewRangeTool : ICortexTool
         try
         {
             var results = new List<object>();
-            using var tx = new Transaction(doc, "RevitCortex: Modify View Range");
+            using var tx = new Transaction(doc, "MCPRVTT27: Modify View Range");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

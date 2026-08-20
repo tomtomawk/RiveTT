@@ -44,7 +44,7 @@ public class DeleteSelectionTool : ICortexTool
             if (!session.RequestConfirmation("delete", 1))
                 return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-            using var tx = new Transaction(doc, "RevitCortex: Delete Selection");
+            using var tx = new Transaction(doc, "MCPRVTT27: Delete Selection");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             doc.Delete(filter.Id);

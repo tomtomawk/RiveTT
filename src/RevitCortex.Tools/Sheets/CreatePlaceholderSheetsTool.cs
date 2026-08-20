@@ -54,7 +54,7 @@ public class CreatePlaceholderSheetsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sheets array is required for create");
 
         var results = new List<object>();
-        using var tx = new Transaction(doc, "RevitCortex: Create Placeholder Sheets");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Placeholder Sheets");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
@@ -124,7 +124,7 @@ public class CreatePlaceholderSheetsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No title block found");
 
         var results = new List<object>();
-        using var tx = new Transaction(doc, "RevitCortex: Convert Placeholder Sheets");
+        using var tx = new Transaction(doc, "MCPRVTT27: Convert Placeholder Sheets");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
@@ -175,7 +175,7 @@ public class CreatePlaceholderSheetsTool : ICortexTool
         if (!session.RequestConfirmation("delete placeholder sheets", sheetIds.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Delete Placeholder Sheets");
+        using var tx = new Transaction(doc, "MCPRVTT27: Delete Placeholder Sheets");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         int deleted = 0;

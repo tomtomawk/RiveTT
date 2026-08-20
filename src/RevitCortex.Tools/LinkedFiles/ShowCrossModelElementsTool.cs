@@ -28,7 +28,7 @@ public class ShowCrossModelElementsTool : ICortexTool
     public string Description => "Select host elements plus elements in linked Revit models. Two strategies for visibility: (a) default — create red DirectShape markers in the host doc around each linked element's bounding box (synchronous, transactional, robust); (b) usePostCommandIsolate=true — use Revit's native IsolateElements via PostCommand after SetReferences (canonical Revit API pattern, but asynchronous: tool returns before isolate completes, and cannot be combined with section box / overrides in the same call).";
 
     private const double MmPerFoot = 304.8;
-    private const string MarkerCommentTag = "RevitCortex:CrossModelMarker";
+    private const string MarkerCommentTag = "MCPRVTT27:CrossModelMarker";
     private const double MarkerOffsetMm = 50.0;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
@@ -233,7 +233,7 @@ public class ShowCrossModelElementsTool : ICortexTool
                 if (createSectionBox || pendingMarkers.Count > 0)
                     targetView = GetOrActivate3DView(doc, uiDoc);
 
-                using (var tx = new Transaction(doc, "RevitCortex: Show Cross Model Elements"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Show Cross Model Elements"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();

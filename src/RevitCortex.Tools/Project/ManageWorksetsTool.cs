@@ -68,7 +68,7 @@ public class ManageWorksetsTool : ICortexTool
         if (!session.RequestConfirmation("create workset", 1, name))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Workset");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Workset");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         var workset = Workset.Create(doc, name);
@@ -102,7 +102,7 @@ public class ManageWorksetsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         var oldName = workset.Name;
-        using var tx = new Transaction(doc, "RevitCortex: Rename Workset");
+        using var tx = new Transaction(doc, "MCPRVTT27: Rename Workset");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         WorksetTable.RenameWorkset(doc, workset.Id, newName);
@@ -134,7 +134,7 @@ public class ManageWorksetsTool : ICortexTool
                 "Cannot delete the only user workset");
 
         var name = workset.Name;
-        using var tx = new Transaction(doc, "RevitCortex: Delete Workset");
+        using var tx = new Transaction(doc, "MCPRVTT27: Delete Workset");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         var settings = new DeleteWorksetSettings(DeleteWorksetOption.MoveElementsToWorkset, fallback.Id);

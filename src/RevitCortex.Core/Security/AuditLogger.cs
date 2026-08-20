@@ -1,13 +1,14 @@
 using System;
 using System.IO;
 using Newtonsoft.Json;
+using RevitCortex.Core.Hosting;
 using RevitCortex.Core.Results;
 
 namespace RevitCortex.Core.Security;
 
 /// <summary>
 /// Append-only audit logger for tool operations.
-/// Writes structured JSON lines to ~/.revitcortex/audit.jsonl.
+/// Writes structured JSON lines to %LOCALAPPDATA%\MCPRVTT27\audit.jsonl.
 /// Designed for ISO 19650 accountability: who did what, when, on which elements.
 /// </summary>
 public class AuditLogger
@@ -17,9 +18,7 @@ public class AuditLogger
 
     public AuditLogger(string? logPath = null)
     {
-        _logPath = logPath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".revitcortex", "audit.jsonl");
+        _logPath = logPath ?? CortexEnvironment.Current.AuditLogPath;
     }
 
     /// <summary>
@@ -89,7 +88,7 @@ public class AuditLogger
         {
             // Audit logging must never crash the application.
             System.Diagnostics.Trace.WriteLine(
-                $"[RevitCortex] Failed to write audit log entry for tool '{toolName}'");
+                $"[MCPRVTT27] Failed to write audit log entry for tool '{toolName}'");
         }
     }
 

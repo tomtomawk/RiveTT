@@ -65,7 +65,7 @@ public class IfcTagUnreconstructableElementsTool : ICortexTool
         int tagged = 0;
         var results = new List<object>();
 
-        using var tx = new Transaction(doc!, "RevitCortex: Tag Unreconstructable");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Tag Unreconstructable");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 

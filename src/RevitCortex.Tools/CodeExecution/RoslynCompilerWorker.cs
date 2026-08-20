@@ -1,4 +1,3 @@
-#if REVIT2025_OR_GREATER
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -78,4 +77,3 @@ public static class RoslynCompilerWorker
         return ms.ToArray();
     }
 }
-#endif

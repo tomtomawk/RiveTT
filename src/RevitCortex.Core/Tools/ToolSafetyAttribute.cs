@@ -4,8 +4,7 @@ namespace RevitCortex.Core.Tools;
 
 /// <summary>
 /// Declares the safety contract for a RevitCortex tool.
-/// ReadOnly is authoritative for read-only mode; Destructive is metadata
-/// available to routing, auditing, and UI surfaces.
+/// ReadOnly and Destructive are metadata available to routing and auditing.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, Inherited = true)]
 public sealed class ToolSafetyAttribute : Attribute

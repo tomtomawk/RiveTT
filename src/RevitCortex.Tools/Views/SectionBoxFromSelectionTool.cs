@@ -68,7 +68,7 @@ public class SectionBoxFromSelectionTool : ICortexTool
                 Max = new XYZ(maxPt.X + offset, maxPt.Y + offset, maxPt.Z + offset)
             };
 
-            using var tx = new Transaction(doc, "RevitCortex: Section Box From Selection");
+            using var tx = new Transaction(doc, "MCPRVTT27: Section Box From Selection");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

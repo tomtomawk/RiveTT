@@ -82,7 +82,7 @@ public class IfcReloadLinkTool : ICortexTool
                 // CreateFromIFC modifies the document and must run inside a transaction
                 // (mirrors IfcLinkTool). Without it Revit throws "Cannot modify the document
                 // outside of a transaction" (ultrareview C6).
-                using (var tx = new Transaction(doc!, "RevitCortex: Reload IFC Link"))
+                using (var tx = new Transaction(doc!, "MCPRVTT27: Reload IFC Link"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();

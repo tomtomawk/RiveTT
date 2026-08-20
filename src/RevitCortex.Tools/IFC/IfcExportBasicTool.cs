@@ -88,7 +88,7 @@ public class IfcExportBasicTool : ICortexTool, ICommandTimeoutTool
             if (!string.IsNullOrWhiteSpace(mappingFile) && File.Exists(mappingFile))
                 options.FamilyMappingFile = mappingFile;
 
-            using var tx = new Transaction(doc!, "RevitCortex: Export IFC");
+            using var tx = new Transaction(doc!, "MCPRVTT27: Export IFC");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             var exportResult = doc!.Export(outputDirectory, fileName, options);

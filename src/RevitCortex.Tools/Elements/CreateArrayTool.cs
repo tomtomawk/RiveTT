@@ -69,7 +69,7 @@ public class CreateArrayTool : ICortexTool
                     return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                         "Associative arrays need an active view. Activate a view, or pass associative=false for loose copies.");
 
-                using var atx = new Transaction(doc, "RevitCortex: Create Array (associative)");
+                using var atx = new Transaction(doc, "MCPRVTT27: Create Array (associative)");
                 var atxFailures = TransactionFailureHandling.SuppressWarnings(atx);
                 atx.Start();
                 ElementId arrayId;
@@ -108,7 +108,7 @@ public class CreateArrayTool : ICortexTool
                 });
             }
 
-            using var tx = new Transaction(doc, "RevitCortex: Create Array");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Array");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

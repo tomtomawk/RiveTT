@@ -1,36 +1,22 @@
-# 03 — Destructive Operations & DryRun
+# Destructive operations and dry-run
 
-**Scope:** Qualsiasi tool che cancella, modifica massivamente o sovrascrive dati.
-**Sources:** CLAUDE.md §"Confirmation Dialogs", WORKFLOWS.md §"Operazioni Distruttive"
-**Last verified:** 2026-05-25
-
-## Tool con conferma nativa Revit
-
-`delete_element`, `delete_selection`, `delete_material`, `purge_unused`, `wipe_empty_tags`, `set_element_parameters`, `set_compound_structure`, `batch_rename`, `override_graphics`, `set_element_phase`, `set_element_workset`, `change_element_type`, `load_family`.
-
-Tutti questi mostrano un TaskDialog nativo prima dell'esecuzione.
+MCPRVTT27 is permanently automatic and never opens an authorization dialog.
+Safety therefore comes from explicit preview, narrow inputs, Revit
+transactions, structured errors, validation, and post-write verification.
 
 ## Decision rules
 
-1. Per tool con flag `dryRun`: **sempre** prima call con `dryRun: true`.
-2. Leggere SOLO i contatori (`modifiedCount`, `skippedCount`, `plannedCount`) dal dryRun, non la lista elementi.
-3. Eseguire la versione reale solo dopo aver mostrato l'anteprima all'utente o aver ottenuto consenso esplicito.
-4. Se l'utente annulla, il tool restituisce `CortexErrorCode.Cancelled`:
-   ```json
-   {"success": false, "error": {"code": "Cancelled", "message": "Operation cancelled by user"}}
-   ```
-5. Non ripetere automaticamente un'operazione cancellata: chiedere all'utente cosa fare.
+1. If a tool supports `dryRun`, call it first with `dryRun: true`.
+2. Summarize counts and important warnings without flooding the context.
+3. Execute with `dryRun: false` only when the user's request authorizes the
+   write and the preview matches the intended scope.
+4. Verify the result with a read tool after execution.
+5. Do not use `send_code_to_revit` to bypass a dedicated tool or dry-run.
 
-## Required checks
+## Checks
 
-- [ ] DryRun eseguito.
-- [ ] Contatori letti, non lista elementi.
-- [ ] Conferma esplicita dell'utente prima dell'esecuzione reale.
-- [ ] Gestione `Cancelled`.
-
-## Avoid
-
-- Non eseguire operazioni distruttive senza dryRun.
-- Non leggere l'intera lista elementi dal dryRun (spreca token).
-- Non chiamare il tool una seconda volta automaticamente dopo `Cancelled`.
-- Non bypassare con `send_code_to_revit` per "saltare" la conferma.
+- Input IDs, categories, paths, types, and levels are explicit.
+- Preview scope matches the request.
+- The real call uses the same inputs except for `dryRun`.
+- Transaction failures and partial skips are reported.
+- The final state is verified.

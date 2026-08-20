@@ -47,7 +47,7 @@ public class SetElementWorksetTool : ICortexTool
         if (!session.RequestConfirmation("change workset for", requests.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Set Element Workset");
+        using var tx = new Transaction(doc, "MCPRVTT27: Set Element Workset");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 

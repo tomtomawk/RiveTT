@@ -84,7 +84,7 @@ public class BulkModifyParameterValuesTool : ICortexTool
                 if (!session.RequestConfirmation("modify parameters on", elementList.Count))
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-                using var tx = new Transaction(doc, "RevitCortex: Bulk Modify Parameters");
+                using var tx = new Transaction(doc, "MCPRVTT27: Bulk Modify Parameters");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 ProcessElements(elementList, parameterName!, operation, value, findText, replaceText, onlyEmpty, modified, ref skipped, failures);

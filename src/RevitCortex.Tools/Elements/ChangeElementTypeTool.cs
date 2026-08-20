@@ -56,7 +56,7 @@ public class ChangeElementTypeTool : ICortexTool
             if (!session.RequestConfirmation("change type for", elementIds.Length))
                 return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-            using var tx = new Transaction(doc, "RevitCortex: Change Element Type");
+            using var tx = new Transaction(doc, "MCPRVTT27: Change Element Type");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             try

@@ -66,7 +66,7 @@ public class CreateGridTool : ICortexTool
                     .Cast<Grid>().Select(g => g.Name),
                 StringComparer.OrdinalIgnoreCase);
 
-            using var tx = new Transaction(doc, "RevitCortex: Create Grid");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Grid");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
@@ -162,7 +162,7 @@ public class CreateGridTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         var oldName = grid.Name;
-        using var tx = new Transaction(doc, "RevitCortex: Rename Grid");
+        using var tx = new Transaction(doc, "MCPRVTT27: Rename Grid");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         grid.Name = newName;
@@ -183,7 +183,7 @@ public class CreateGridTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         var name = grid!.Name;
-        using var tx = new Transaction(doc, "RevitCortex: Delete Grid");
+        using var tx = new Transaction(doc, "MCPRVTT27: Delete Grid");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         doc.Delete(grid.Id);

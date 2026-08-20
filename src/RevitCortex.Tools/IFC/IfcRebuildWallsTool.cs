@@ -76,7 +76,7 @@ public class IfcRebuildWallsTool : ICortexTool
         // One TransactionGroup per invocation: the N per-element commits collapse
         // into a single undo step, and a mid-run failure can no longer leave a
         // fragmented undo stack behind.
-        using TransactionGroup? txGroup = dryRun ? null : new TransactionGroup(doc!, "RevitCortex: Rebuild Walls");
+        using TransactionGroup? txGroup = dryRun ? null : new TransactionGroup(doc!, "MCPRVTT27: Rebuild Walls");
         txGroup?.Start();
 
         foreach (var ds in candidates)
@@ -145,7 +145,7 @@ public class IfcRebuildWallsTool : ICortexTool
             // Actually rebuild
             try
             {
-                using var tx = new Transaction(doc!, "RevitCortex: Rebuild Wall");
+                using var tx = new Transaction(doc!, "MCPRVTT27: Rebuild Wall");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
 

@@ -131,7 +131,7 @@ public class SetCompoundStructureTool : ICortexTool
         if (!session.RequestConfirmation("replace compound structure", 1, desc))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using (var tx = new Transaction(doc, "RevitCortex: Replace Compound Structure"))
+        using (var tx = new Transaction(doc, "MCPRVTT27: Replace Compound Structure"))
         {
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -213,7 +213,7 @@ public class SetCompoundStructureTool : ICortexTool
 
         existingLayers.Insert(insertAt, newLayer);
 
-        using (var tx = new Transaction(doc, "RevitCortex: Add Compound Structure Layer"))
+        using (var tx = new Transaction(doc, "MCPRVTT27: Add Compound Structure Layer"))
         {
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -274,7 +274,7 @@ public class SetCompoundStructureTool : ICortexTool
 
         existingLayers.RemoveAt(layerIndex.Value);
 
-        using (var tx = new Transaction(doc, "RevitCortex: Remove Compound Structure Layer"))
+        using (var tx = new Transaction(doc, "MCPRVTT27: Remove Compound Structure Layer"))
         {
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -381,7 +381,7 @@ public class SetCompoundStructureTool : ICortexTool
         if (!session.RequestConfirmation("modify compound structure layer", 1, modifyDesc))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using (var tx = new Transaction(doc, "RevitCortex: Modify Compound Structure Layer"))
+        using (var tx = new Transaction(doc, "MCPRVTT27: Modify Compound Structure Layer"))
         {
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -466,7 +466,7 @@ public class SetCompoundStructureTool : ICortexTool
         if (!session.RequestConfirmation("set compound structure wrapping", 1, hostType.Name))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using (var tx = new Transaction(doc, "RevitCortex: Set Compound Structure Wrapping"))
+        using (var tx = new Transaction(doc, "MCPRVTT27: Set Compound Structure Wrapping"))
         {
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();

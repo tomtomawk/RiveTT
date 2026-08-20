@@ -86,13 +86,18 @@ public class CreatePointBasedElementTool : ICortexTool
         var requestedTypeId = item["typeId"]?.Value<long?>() ?? -1;
         var baseLevelMm     = item["baseLevel"]?.Value<double?>() ?? 0.0;
         var baseOffsetMm    = item["baseOffset"]?.Value<double?>() ?? 0.0;
+        var levelId         = item["levelId"]?.Value<long?>() ?? -1;
         var rotationDeg     = item["rotation"]?.Value<double?>() ?? 0.0;
         var hostWallId      = item["hostWallId"]?.Value<long?>() ?? -1;
         var facingFlipped   = item["facingFlipped"]?.Value<bool?>() ?? false;
+        var handFlipped     = item["handFlipped"]?.Value<bool?>() ?? false;
+        var strictType      = item["strictType"]?.Value<bool?>() ?? false;
 
         // Resolve levels
         var baseLevelFt = baseLevelMm / MmPerFoot;
-        var baseLevel   = FindNearestLevel(doc, baseLevelFt);
+        var baseLevel   = levelId > 0
+            ? doc.GetElement(ToolHelpers.ToElementId(levelId)) as Level
+            : FindNearestLevel(doc, baseLevelFt);
         if (baseLevel == null)
         {
             warnings.Add("No levels found in document");
@@ -128,6 +133,11 @@ public class CreatePointBasedElementTool : ICortexTool
 
         if (symbol == null)
         {
+            if (strictType)
+            {
+                warnings.Add($"A valid typeId is required; {requestedTypeId} was not found.");
+                return;
+            }
             // Fallback: prefer active symbol
             symbol = new FilteredElementCollector(doc)
                 .OfClass(typeof(FamilySymbol))
@@ -149,7 +159,7 @@ public class CreatePointBasedElementTool : ICortexTool
                 warnings.Add($"Requested typeId {requestedTypeId} not found. Defaulted to '{symbol.FamilyName}: {symbol.Name}' (ID: {ToolHelpers.GetElementIdValue(symbol.Id)})");
         }
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Point-Based Element");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Point-Based Element");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -233,6 +243,11 @@ public class CreatePointBasedElementTool : ICortexTool
                     if (shouldFlip)
                     {
                         instance.flipFacing();
+                        doc.Regenerate();
+                    }
+                    if (handFlipped && instance.CanFlipHand)
+                    {
+                        instance.flipHand();
                         doc.Regenerate();
                     }
                 }

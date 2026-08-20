@@ -55,7 +55,7 @@ public class LoadFamilyTool : ICortexTool
         if (!session.RequestConfirmation("load family", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Load Family");
+        using var tx = new Transaction(doc, "MCPRVTT27: Load Family");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
@@ -126,7 +126,7 @@ public class LoadFamilyTool : ICortexTool
         if (sourceType == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Source family type not found");
 
-        using var tx = new Transaction(doc, "RevitCortex: Duplicate Family Type");
+        using var tx = new Transaction(doc, "MCPRVTT27: Duplicate Family Type");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         var newType = sourceType.Duplicate(newTypeName) as FamilySymbol;

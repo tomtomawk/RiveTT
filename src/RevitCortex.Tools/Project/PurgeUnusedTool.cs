@@ -120,7 +120,7 @@ public class PurgeUnusedTool : ICortexTool
                 if (!session.RequestConfirmation("purge", purgeableCount))
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-                using var tx = new Transaction(doc, "RevitCortex: Purge Unused");
+                using var tx = new Transaction(doc, "MCPRVTT27: Purge Unused");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 int deletedTypes = 0, deletedMaterials = 0, deletedTemplates = 0, deletedFilters = 0;

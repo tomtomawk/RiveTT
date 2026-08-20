@@ -75,7 +75,7 @@ public class CreateSheetTool : ICortexTool
                 if (first != null) tbId = first.Id;
             }
 
-            using var tx = new Transaction(doc, "RevitCortex: Create Sheet");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Sheet");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

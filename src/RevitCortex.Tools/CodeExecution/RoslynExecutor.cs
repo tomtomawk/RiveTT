@@ -1,4 +1,3 @@
-#if REVIT2025_OR_GREATER
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +13,7 @@ using RevitCortex.Tools.Utilities;
 namespace RevitCortex.Tools.CodeExecution;
 
 /// <summary>
-/// Compiles and executes C# code snippets inside the Revit process. Requires Revit 2025+ (net8).
+/// Compiles and executes C# code snippets inside the Revit 2027 process.
 ///
 /// Roslyn isolation: Revit hosts every add-in in ONE shared AssemblyLoadContext, and sibling
 /// add-ins ship older System.Collections.Immutable / System.Reflection.Metadata copies. Simple-name
@@ -83,7 +82,7 @@ public static class RoslynExecutor
             }
             else if (transactionMode == "group")
             {
-                using var txGroup = new TransactionGroup(globals.document, "RevitCortex: Script Group");
+                using var txGroup = new TransactionGroup(globals.document, "MCPRVTT27: Script Group");
                 txGroup.Start();
                 try
                 {
@@ -106,7 +105,7 @@ public static class RoslynExecutor
             }
             else
             {
-                using var tx = new Transaction(globals.document, "RevitCortex: Script");
+                using var tx = new Transaction(globals.document, "MCPRVTT27: Script");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 try
@@ -167,7 +166,7 @@ public static class RoslynExecutor
                 dir = AppContext.BaseDirectory;
 
             var alc = new RoslynLoadContext(dir!);
-            var toolsAsm = alc.LoadFromAssemblyPath(Path.Combine(dir!, "RevitCortex.Tools.dll"));
+            var toolsAsm = alc.LoadFromAssemblyPath(Path.Combine(dir!, "MCPRVTT27.Tools.dll"));
             var workerType = toolsAsm.GetType("RevitCortex.Tools.CodeExecution.RoslynCompilerWorker", throwOnError: true)!;
             _compileMethod = workerType.GetMethod("Compile", BindingFlags.Public | BindingFlags.Static)
                 ?? throw new InvalidOperationException("RoslynCompilerWorker.Compile not found");
@@ -177,7 +176,7 @@ public static class RoslynExecutor
 
     /// <summary>
     /// AssemblyLoadContext that serves Roslyn (Microsoft.CodeAnalysis*) and its 8.0 dependencies
-    /// (System.Collections.Immutable / System.Reflection.Metadata) plus RevitCortex.Tools from the
+    /// (System.Collections.Immutable / System.Reflection.Metadata) plus MCPRVTT27.Tools from the
     /// plugin folder, and defers everything else (Revit API, RevitCortex.Core, the .NET runtime) to
     /// the default ALC so those types stay shared.
     /// </summary>
@@ -199,7 +198,7 @@ public static class RoslynExecutor
             bool isolate = name!.StartsWith("Microsoft.CodeAnalysis", StringComparison.Ordinal)
                 || name == "System.Collections.Immutable"
                 || name == "System.Reflection.Metadata"
-                || name == "RevitCortex.Tools";
+                || name == "MCPRVTT27.Tools";
 
             if (isolate)
             {
@@ -348,13 +347,8 @@ public static class RoslynExecutor
         if (result is string or int or long or double or float or bool or decimal)
             return new { result };
 
-#if REVIT2024_OR_GREATER
         if (result is Element elem)
             return new { elementId = elem.Id.Value, name = elem.Name, category = elem.Category?.Name };
-#else
-        if (result is Element elem)
-            return new { elementId = elem.Id.IntegerValue, name = elem.Name, category = elem.Category?.Name };
-#endif
 
         try
         {
@@ -376,4 +370,3 @@ public static class RoslynExecutor
         }
     }
 }
-#endif

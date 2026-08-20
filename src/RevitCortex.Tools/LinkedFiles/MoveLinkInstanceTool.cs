@@ -71,7 +71,7 @@ public class MoveLinkInstanceTool : ICortexTool
                 translation = new XYZ(x / MmPerFoot, y / MmPerFoot, z / MmPerFoot);
             }
 
-            using var tx = new Transaction(doc, "RevitCortex: Move Link Instance");
+            using var tx = new Transaction(doc, "MCPRVTT27: Move Link Instance");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             ElementTransformUtils.MoveElement(doc, linkInstance.Id, translation);

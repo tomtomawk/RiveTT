@@ -64,7 +64,7 @@ public class AddPrefixSuffixTool : ICortexTool
                 if (!session.RequestConfirmation("modify parameters on", elements.Count))
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-                tx = new Transaction(doc, "RevitCortex: Add Prefix/Suffix");
+                tx = new Transaction(doc, "MCPRVTT27: Add Prefix/Suffix");
                 txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
             }

@@ -79,7 +79,7 @@ public class DuplicateSheetWithContentTool : ICortexTool
 
             var results = new List<object>();
 
-            using var tx = new Transaction(doc, "RevitCortex: Duplicate Sheet With Content");
+            using var tx = new Transaction(doc, "MCPRVTT27: Duplicate Sheet With Content");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

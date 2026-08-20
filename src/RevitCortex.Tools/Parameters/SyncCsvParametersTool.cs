@@ -40,7 +40,7 @@ public class SyncCsvParametersTool : ICortexTool
 
             if (!dryRun)
             {
-                using var tx = new Transaction(doc, "RevitCortex: Sync CSV Parameters");
+                using var tx = new Transaction(doc, "MCPRVTT27: Sync CSV Parameters");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
 

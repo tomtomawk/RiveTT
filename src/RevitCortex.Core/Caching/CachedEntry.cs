@@ -5,7 +5,7 @@ namespace RevitCortex.Core.Caching;
 
 /// <summary>
 /// One slot in the tool-result cache. Constructor + readonly properties so it
-/// works on netstandard2.0 / net48 without C# 9 features.
+/// keeps cache entries immutable without depending on record semantics.
 /// </summary>
 public class CachedEntry
 {

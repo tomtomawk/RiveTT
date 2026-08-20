@@ -75,7 +75,7 @@ public class CreateRevisionTool : ICortexTool
         var issuedBy = input["issuedBy"]?.Value<string>();
         var issuedTo = input["issuedTo"]?.Value<string>();
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Revision");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Revision");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
@@ -112,7 +112,7 @@ public class CreateRevisionTool : ICortexTool
         if (revision == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Revision {revisionIdLong} not found");
 
-        using var tx = new Transaction(doc, "RevitCortex: Update Revision");
+        using var tx = new Transaction(doc, "MCPRVTT27: Update Revision");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
@@ -186,7 +186,7 @@ public class CreateRevisionTool : ICortexTool
             revisionId = allRevIds.Last();
         }
 
-        using var tx = new Transaction(doc, "RevitCortex: Add Revision to Sheets");
+        using var tx = new Transaction(doc, "MCPRVTT27: Add Revision to Sheets");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 

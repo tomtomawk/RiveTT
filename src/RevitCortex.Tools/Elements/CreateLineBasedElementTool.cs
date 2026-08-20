@@ -117,18 +117,28 @@ public class CreateLineBasedElementTool : ICortexTool
         var heightMm       = item["height"]?.Value<double?>() ?? 3000.0;
         var baseLevelMm    = item["baseLevel"]?.Value<double?>() ?? 0.0;
         var baseOffsetMm   = item["baseOffset"]?.Value<double?>() ?? 0.0;
+        var baseLevelId    = item["baseLevelId"]?.Value<long?>() ?? -1;
+        var topLevelId     = item["topLevelId"]?.Value<long?>() ?? -1;
+        var topOffsetMm    = item["topOffset"]?.Value<double?>() ?? 0.0;
+        var strictType     = item["strictType"]?.Value<bool?>() ?? false;
 
         var baseLevelFt = baseLevelMm / MmPerFoot;
         var heightFt    = heightMm / MmPerFoot;
 
         // Resolve nearest level
-        var baseLevel = FindNearestLevel(doc, baseLevelFt);
+        var baseLevel = baseLevelId > 0
+            ? doc.GetElement(ToolHelpers.ToElementId(baseLevelId)) as Level
+            : FindNearestLevel(doc, baseLevelFt);
         if (baseLevel == null)
         {
             warnings.Add("No levels found in document");
             return;
         }
-        var baseOffset = (baseOffsetMm + baseLevelMm) / MmPerFoot - baseLevel.Elevation;
+        // With an explicit level ID, baseOffset is relative to that level.
+        // The legacy elevation-based schema keeps its absolute-Z conversion.
+        var baseOffset = baseLevelId > 0
+            ? baseOffsetMm / MmPerFoot
+            : (baseOffsetMm + baseLevelMm) / MmPerFoot - baseLevel.Elevation;
 
         // Resolve type
         FamilySymbol? symbol = null;
@@ -167,6 +177,11 @@ public class CreateLineBasedElementTool : ICortexTool
             case BuiltInCategory.OST_Walls:
                 if (wallType == null)
                 {
+                    if (strictType)
+                    {
+                        warnings.Add($"A valid wall typeId is required; {requestedTypeId} was not found.");
+                        return;
+                    }
                     wallType = new FilteredElementCollector(doc)
                         .OfClass(typeof(WallType))
                         .Cast<WallType>()
@@ -180,7 +195,7 @@ public class CreateLineBasedElementTool : ICortexTool
                         warnings.Add($"Requested wall typeId {requestedTypeId} not found. Defaulted to '{wallType.Name}' (ID: {ToolHelpers.GetElementIdValue(wallType.Id)})");
                 }
 
-                using (var tx = new Transaction(doc, "RevitCortex: Create Wall"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Create Wall"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -188,7 +203,26 @@ public class CreateLineBasedElementTool : ICortexTool
                     {
                         var wall = Wall.Create(doc, locationLine, wallType.Id, baseLevel.Id, heightFt, baseOffset, false, false);
                         if (wall != null)
+                        {
+                            if (topLevelId > 0)
+                            {
+                                var topLevel = doc.GetElement(ToolHelpers.ToElementId(topLevelId)) as Level;
+                                if (topLevel == null)
+                                {
+                                    warnings.Add($"topLevelId {topLevelId} is not a valid level; wall kept unconnected.");
+                                }
+                                else
+                                {
+                                    var topConstraint = wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE);
+                                    var topOffset = wall.get_Parameter(BuiltInParameter.WALL_TOP_OFFSET);
+                                    if (topConstraint != null && !topConstraint.IsReadOnly)
+                                        topConstraint.Set(topLevel.Id);
+                                    if (topOffset != null && !topOffset.IsReadOnly)
+                                        topOffset.Set(topOffsetMm / MmPerFoot);
+                                }
+                            }
                             createdIds.Add(ToolHelpers.GetElementIdValue(wall.Id));
+                        }
                         if (tx.Commit() != TransactionStatus.Committed)
                             warnings.Add($"Revit rolled back the wall transaction: {TransactionFailureHandling.Describe(txFailures)}");
                     }
@@ -204,6 +238,11 @@ public class CreateLineBasedElementTool : ICortexTool
                 // Generic line-based family instance (structural framing, etc.)
                 if (symbol == null)
                 {
+                    if (strictType)
+                    {
+                        warnings.Add($"A valid typeId is required; {requestedTypeId} was not found.");
+                        return;
+                    }
                     symbol = new FilteredElementCollector(doc)
                         .OfClass(typeof(FamilySymbol))
                         .OfCategory(builtInCategory)
@@ -224,7 +263,7 @@ public class CreateLineBasedElementTool : ICortexTool
                         warnings.Add($"Requested typeId {requestedTypeId} not found. Defaulted to '{symbol.FamilyName}: {symbol.Name}' (ID: {ToolHelpers.GetElementIdValue(symbol.Id)})");
                 }
 
-                using (var tx2 = new Transaction(doc, "RevitCortex: Create Line-Based Element"))
+                using (var tx2 = new Transaction(doc, "MCPRVTT27: Create Line-Based Element"))
                 {
                     var tx2Failures = TransactionFailureHandling.SuppressWarnings(tx2);
                     tx2.Start();

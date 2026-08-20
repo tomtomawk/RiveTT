@@ -145,7 +145,7 @@ public class OperateElementTool : ICortexTool
             case "setcolor":
                 var colorToken = data["colorValue"];
                 int[] colorValue = ParseColorArray(colorToken);
-                using (var tx = new Transaction(doc, "RevitCortex: Set Element Color"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Set Element Color"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -159,7 +159,7 @@ public class OperateElementTool : ICortexTool
             case "settransparency":
                 var transparencyToken = data["transparencyValue"];
                 int transparency = Math.Max(0, Math.Min(100, transparencyToken?.Value<int>() ?? 50));
-                using (var tx = new Transaction(doc, "RevitCortex: Set Element Transparency"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Set Element Transparency"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -173,7 +173,7 @@ public class OperateElementTool : ICortexTool
                 return $"Set transparency to {transparency}% on {elementIds.Count} element(s)";
 
             case "hide":
-                using (var tx = new Transaction(doc, "RevitCortex: Hide Elements"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Hide Elements"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -184,7 +184,7 @@ public class OperateElementTool : ICortexTool
                 return $"Hidden {elementIds.Count} element(s)";
 
             case "temphide":
-                using (var tx = new Transaction(doc, "RevitCortex: Temp Hide Elements"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Temp Hide Elements"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -195,7 +195,7 @@ public class OperateElementTool : ICortexTool
                 return $"Temporarily hidden {elementIds.Count} element(s)";
 
             case "isolate":
-                using (var tx = new Transaction(doc, "RevitCortex: Isolate Elements"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Isolate Elements"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -206,7 +206,7 @@ public class OperateElementTool : ICortexTool
                 return $"Isolated {elementIds.Count} element(s)";
 
             case "unhide":
-                using (var tx = new Transaction(doc, "RevitCortex: Unhide Elements"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Unhide Elements"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -217,7 +217,7 @@ public class OperateElementTool : ICortexTool
                 return $"Unhidden {elementIds.Count} element(s)";
 
             case "resetisolate":
-                using (var tx = new Transaction(doc, "RevitCortex: Reset Isolation"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Reset Isolation"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -228,7 +228,7 @@ public class OperateElementTool : ICortexTool
                 return "Isolation reset on active view";
 
             case "delete":
-                using (var tx = new Transaction(doc, "RevitCortex: Delete Elements"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Delete Elements"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -319,7 +319,7 @@ public class OperateElementTool : ICortexTool
         boundingBox.Min = new XYZ(boundingBox.Min.X - offset, boundingBox.Min.Y - offset, boundingBox.Min.Z - offset);
         boundingBox.Max = new XYZ(boundingBox.Max.X + offset, boundingBox.Max.Y + offset, boundingBox.Max.Z + offset);
 
-        using (var tx = new Transaction(doc, "RevitCortex: Create Section Box"))
+        using (var tx = new Transaction(doc, "MCPRVTT27: Create Section Box"))
         {
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();

@@ -1,7 +1,7 @@
 # 05 — Model Health, Warnings, Clash
 
 **Scope:** Controlli rapidi sul modello e clash detection.
-**Sources:** CLAUDE.md §"Session A — Morning Check", WORKFLOWS.md §"Controllo Qualita Mattutino"
+**Sources:** MCPRVTT27 health, warning, and clash tools
 **Last verified:** 2026-05-25
 
 ## Decision rules

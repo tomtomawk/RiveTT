@@ -75,7 +75,7 @@ public class TagRoomsTool : ICortexTool
             int skippedCount = 0;
             var warnings = new List<string>();
 
-            using var tx = new Transaction(doc, "RevitCortex: Tag Rooms");
+            using var tx = new Transaction(doc, "MCPRVTT27: Tag Rooms");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

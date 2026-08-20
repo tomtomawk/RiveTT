@@ -86,7 +86,7 @@ public class CreateStructuralFramingSystemTool : ICortexTool
                     Line.CreateBound(p01, p00),
                 };
 
-                using var btx = new Transaction(doc, "RevitCortex: Create Beam System");
+                using var btx = new Transaction(doc, "MCPRVTT27: Create Beam System");
                 var btxFailures = TransactionFailureHandling.SuppressWarnings(btx);
                 btx.Start();
                 if (!beamType.IsActive) beamType.Activate();
@@ -121,7 +121,7 @@ public class CreateStructuralFramingSystemTool : ICortexTool
                 });
             }
 
-            using var tx = new Transaction(doc, "RevitCortex: Create Structural Framing System");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Structural Framing System");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

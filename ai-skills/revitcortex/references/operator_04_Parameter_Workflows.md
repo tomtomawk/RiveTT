@@ -1,7 +1,7 @@
 # 04 — Parameter Workflows
 
 **Scope:** Read/Write parametri Revit (single, bulk, CSV-based, copy).
-**Sources:** CLAUDE.md §"Modifying parameters", WORKFLOWS.md §"Aggiornamento Parametri"
+**Sources:** MCPRVTT27 parameter tools
 **Last verified:** 2026-05-25
 
 ## Decision rules

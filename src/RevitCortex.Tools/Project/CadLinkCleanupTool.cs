@@ -95,7 +95,7 @@ public class CadLinkCleanupTool : ICortexTool
             if (!session.RequestConfirmation("delete CAD imports/links", targets.Count))
                 return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-            using var tx = new Transaction(doc, "RevitCortex: CAD Link Cleanup");
+            using var tx = new Transaction(doc, "MCPRVTT27: CAD Link Cleanup");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             int deleted = 0;

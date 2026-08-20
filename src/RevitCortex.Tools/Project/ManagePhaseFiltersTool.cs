@@ -128,7 +128,7 @@ public class ManagePhaseFiltersTool : ICortexTool
         if (!session.RequestConfirmation("modify phase filter", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Modify Phase Filter");
+        using var tx = new Transaction(doc, "MCPRVTT27: Modify Phase Filter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         filter.SetPhaseStatusPresentation(statusEnum, presentationEnum);
@@ -179,7 +179,7 @@ public class ManagePhaseFiltersTool : ICortexTool
         if (!session.RequestConfirmation("create phase filter", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Phase Filter");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Phase Filter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         var created = PhaseFilter.Create(doc, name!);

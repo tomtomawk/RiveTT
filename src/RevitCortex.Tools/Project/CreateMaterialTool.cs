@@ -44,7 +44,7 @@ public class CreateMaterialTool : ICortexTool
         {
             ElementId newMatId;
 
-            using (var tx = new Transaction(doc, "RevitCortex: Create Material"))
+            using (var tx = new Transaction(doc, "MCPRVTT27: Create Material"))
             {
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();

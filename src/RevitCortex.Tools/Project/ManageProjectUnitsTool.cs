@@ -136,7 +136,7 @@ public class ManageProjectUnitsTool : ICortexTool
         if (!session.RequestConfirmation("set project units", 1, $"{specType} -> {unit}"))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Set Project Units");
+        using var tx = new Transaction(doc, "MCPRVTT27: Set Project Units");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         doc.SetUnits(units);

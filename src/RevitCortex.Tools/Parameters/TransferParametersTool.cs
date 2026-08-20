@@ -77,7 +77,7 @@ public class TransferParametersTool : ICortexTool
                 if (!session.RequestConfirmation("transfer parameters to", targetIds.Count))
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-                using var tx = new Transaction(doc, "RevitCortex: Transfer Parameters");
+                using var tx = new Transaction(doc, "MCPRVTT27: Transfer Parameters");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 results = TransferToTargets(doc, targetIds, sourceValues, includeType);

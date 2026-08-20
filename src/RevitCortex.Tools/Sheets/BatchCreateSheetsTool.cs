@@ -39,7 +39,7 @@ public class BatchCreateSheetsTool : ICortexTool
             var defaultTbId = ResolveTitleBlock(doc, defaultTitleBlockName);
 
             var results = new List<object>();
-            using var tx = new Transaction(doc, "RevitCortex: Batch Create Sheets");
+            using var tx = new Transaction(doc, "MCPRVTT27: Batch Create Sheets");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

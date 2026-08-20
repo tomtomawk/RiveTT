@@ -67,7 +67,7 @@ public class DeleteMaterialTool : ICortexTool
             if (!session.RequestConfirmation("delete material", 1))
                 return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-            using (var tx = new Transaction(doc, "RevitCortex: Delete Material"))
+            using (var tx = new Transaction(doc, "MCPRVTT27: Delete Material"))
             {
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();

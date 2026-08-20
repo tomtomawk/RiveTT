@@ -9,10 +9,10 @@ namespace RevitCortex.Server.Tools;
 [McpServerToolType]
 public static class CreationTools
 {
-    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements (floors, ceilings). Pass a JSON array of creation specs: [{category, boundaryPoints:[{x,y,z}], typeName, levelId|levelName, ...}].")]
+    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements (floors, ceilings). Pass [{category, boundary:[{x,y,z}], typeId?, baseLevel?, baseOffset?}].")]
     public static async Task<string> CreateSurfaceBasedElement(
         RevitConnectionManager revit,
-        [Description("JSON array of creation specs: [{category, boundaryPoints, typeName, levelId|levelName, ...}]")] string specs,
+        [Description("JSON array of creation specs: [{category, boundary, typeId?, baseLevel?, baseOffset?}]")] string specs,
         CancellationToken ct = default)
     {
         var p = new JObject { ["data"] = JArray.Parse(specs) };
@@ -31,10 +31,10 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_point_based_element"), Description("Create point-based elements (columns, furniture). Pass a JSON array of creation specs: [{category, location:{x,y,z}, typeName, levelId|levelName, rotation?, ...}].")]
+    [McpServerTool(Name = "create_point_based_element"), Description("Create point-based elements. Pass [{category, locationPoint:{x,y,z}, typeId?, levelId?, baseLevel?, hostWallId?, facingFlipped?, handFlipped?, rotation?}]. Use create_door or create_window for hosted openings.")]
     public static async Task<string> CreatePointBasedElement(
         RevitConnectionManager revit,
-        [Description("JSON array of creation specs: [{category, location, typeName, levelId|levelName, rotation?, ...}]")] string specs,
+        [Description("JSON array of creation specs: [{category, locationPoint, typeId?, levelId?, baseLevel?, hostWallId?, facingFlipped?, handFlipped?, rotation?}]")] string specs,
         CancellationToken ct = default)
     {
         var p = new JObject { ["data"] = JArray.Parse(specs) };

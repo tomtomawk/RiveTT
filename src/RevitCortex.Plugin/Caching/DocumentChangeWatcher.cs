@@ -61,7 +61,7 @@ public class DocumentChangeWatcher : IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Trace.WriteLine(
-                $"[RevitCortex] Cache invalidation failed on DocumentChanged: {ex.Message}");
+                $"[MCPRVTT27] Cache invalidation failed on DocumentChanged: {ex.Message}");
         }
     }
 
@@ -71,7 +71,7 @@ public class DocumentChangeWatcher : IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Trace.WriteLine(
-                $"[RevitCortex] Cache invalidation failed on DocumentSaved: {ex.Message}");
+                $"[MCPRVTT27] Cache invalidation failed on DocumentSaved: {ex.Message}");
         }
     }
 
@@ -81,7 +81,7 @@ public class DocumentChangeWatcher : IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Trace.WriteLine(
-                $"[RevitCortex] Cache invalidation failed on DocumentSynchronized: {ex.Message}");
+                $"[MCPRVTT27] Cache invalidation failed on DocumentSynchronized: {ex.Message}");
         }
     }
 }

@@ -36,72 +36,6 @@ public class CortexSession
     /// </summary>
     public long BumpDocumentVersion() => Interlocked.Increment(ref _documentVersion);
 
-    /// <summary>
-    /// Confirmation callback for destructive operations.
-    /// Set by Plugin layer to show TaskDialog. Tools call this before
-    /// destructive actions. Returns true to proceed, false to cancel.
-    /// Parameters: (actionVerb, elementCount, description) → bool? (null = "Yes to All" was clicked).
-    /// If null callback, operation proceeds without confirmation.
-    /// </summary>
-    public Func<string, int, string?, bool?>? ConfirmAction { get; set; }
-
-    /// <summary>
-    /// Confirmation callback for critical operations. Critical operations must
-    /// not expose batch approval modes such as "Yes to All" or "Auto"; null/false
-    /// both cancel.
-    /// </summary>
-    public Func<string, int, string?, bool?>? CriticalConfirmAction { get; set; }
-
-    /// <summary>
-    /// When true, all subsequent confirmations are auto-approved until timeout.
-    /// Set by "Yes to All" in the confirmation dialog. Expires after 120 seconds.
-    /// The flag+timestamp pair must be read/written as a unit, otherwise a
-    /// reader on a different thread can see the flag flipped to true while
-    /// the timestamp is still the default DateTime.MinValue — which makes
-    /// <c>(now - timestamp).TotalSeconds</c> huge and the check misfires.
-    /// </summary>
-    public bool ApproveAll
-    {
-        get
-        {
-            lock (_approveAllLock)
-            {
-                return _approveAll && (DateTime.UtcNow - _approveAllTimestamp).TotalSeconds < 120;
-            }
-        }
-        set
-        {
-            lock (_approveAllLock)
-            {
-                _approveAll = value;
-                if (value) _approveAllTimestamp = DateTime.UtcNow;
-            }
-        }
-    }
-    private readonly object _approveAllLock = new();
-    private bool _approveAll;
-    private DateTime _approveAllTimestamp;
-
-    /// <summary>
-    /// When true, all subsequent confirmations are auto-approved. Set by "Auto"
-    /// in the confirmation dialog. Cleared by the user (Stop Auto / closing the
-    /// Auto mode window), or on document close (Reinitialize). Unlike ApproveAll
-    /// (a fixed 120 s wall-clock window), AutoMode has no timeout and continues
-    /// until an explicit stop path.
-    /// </summary>
-    public bool AutoMode
-    {
-        get { lock (_approveAllLock) { return _autoMode; } }
-        set { lock (_approveAllLock) { _autoMode = value; } }
-    }
-    private bool _autoMode;
-
-    /// <summary>
-    /// Raised every time a destructive operation is auto-approved because
-    /// AutoMode is on. Core stays Revit-agnostic: UI layers can use this for
-    /// status updates without changing the lifetime of Auto mode.
-    /// </summary>
-    public event Action? AutoModeActivity;
 
     public CortexSession(ISessionStore store)
         : this(store, new ToolResultCache())
@@ -128,67 +62,19 @@ public class CortexSession
         // drop them all on document boundary.
         Cache.InvalidateAll();
         BumpDocumentVersion();
-        AutoMode = false;
     }
 
     /// <summary>
-    /// Ask user to confirm a destructive operation. Returns true if confirmed or no callback set.
-    /// If "Yes to All" was previously clicked, auto-approves for 120 s.
-    /// If "Auto" mode is active, auto-approves indefinitely until the user clicks Stop Auto.
-    /// Critical confirmations ignore automatic approval modes and require a real callback.
+    /// MCPRVTT27 has one always-on automatic mode. Existing tools call this
+    /// compatibility method, but it deliberately never creates UI or blocks an
+    /// operation. Transactions, audit logging and the code sandbox remain active.
     /// </summary>
-    /// <param name="action">Action verb: "delete", "rename", "replace compound structure", etc.</param>
-    /// <param name="elementCount">Number of elements affected.</param>
-    /// <param name="description">Optional detailed description of what will happen.</param>
-    /// <param name="critical">If true, bypasses ApproveAll and fails closed when no callback is available.</param>
     public bool RequestConfirmation(
         string action,
         int elementCount,
         string? description = null,
         bool critical = false)
     {
-        if (elementCount <= 0) return true;
-        if (!critical && AutoMode)
-        {
-            // Auto-approved by Auto mode. Signal activity so the UI keeps the
-            // Auto mode window alive through this burst of operations.
-            AutoModeActivity?.Invoke();
-            return true;
-        }
-        if (!critical && ApproveAll) return true;
-        if (critical)
-        {
-            if (CriticalConfirmAction == null) return false;
-            var criticalResult = CriticalConfirmAction.Invoke(action, elementCount, description);
-            return criticalResult == true;
-        }
-
-        var result = ConfirmAction?.Invoke(action, elementCount, description);
-        if (result == null)
-        {
-            // null = "Yes to All" was clicked. Critical confirmations may
-            // proceed for this explicit click, but must not arm future approval.
-            if (!critical) ApproveAll = true;
-            return true;
-        }
-        if (result == false) return false;
-
-        // Check for Auto sentinel: ConfirmAction returns false with a special
-        // convention would be complex — instead ConfirmationHelper sets AutoMode
-        // directly on the session. Check again after the dialog.
-        if (!critical && AutoMode) return true;
-
-        return result.Value;
-    }
-
-    /// <summary>
-    /// Resets both transient confirmation modes. Use this only for explicit stop
-    /// or session-boundary paths; the router clears ApproveAll directly after
-    /// each tool so AutoMode can remain active.
-    /// </summary>
-    public void ResetApproveAll()
-    {
-        ApproveAll = false;
-        AutoMode = false;
+        return true;
     }
 }

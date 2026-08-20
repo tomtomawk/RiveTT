@@ -34,7 +34,7 @@ public class CreatePresetScheduleTool : ICortexTool
 
         try
         {
-            using var tx = new Transaction(doc, "RevitCortex: Create Preset Schedule");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Preset Schedule");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

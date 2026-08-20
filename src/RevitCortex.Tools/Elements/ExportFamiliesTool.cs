@@ -57,7 +57,7 @@ public class ExportFamiliesTool : ICortexTool
                 var catIds = categories
                     .Select(c => Utilities.CategoryResolver.ResolveToId(doc, c))
                     // C7: ResolveToId returns null for unrecognized names; guard before the
-                    // InvalidElementId comparison (on net48 ElementId is a reference type).
+                    // Use the API value equality semantics for InvalidElementId.
                     .Where(id => id != null && id != ElementId.InvalidElementId)
                     .ToHashSet();
                 families = families.Where(f => f.FamilyCategory != null && catIds.Contains(f.FamilyCategory.Id));

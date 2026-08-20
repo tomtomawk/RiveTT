@@ -69,7 +69,7 @@ public class ManageViewTemplatesTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "templateIds required");
 
         var results = new List<object>();
-        using var tx = new Transaction(doc, "RevitCortex: Duplicate View Templates");
+        using var tx = new Transaction(doc, "MCPRVTT27: Duplicate View Templates");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         foreach (var tid in templateIds)
@@ -113,7 +113,7 @@ public class ManageViewTemplatesTool : ICortexTool
         var templateIds = input["templateIds"]?.ToObject<List<long>>() ?? new List<long>();
         if (!session.RequestConfirmation("delete view template(s)", templateIds.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
-        using var tx = new Transaction(doc, "RevitCortex: Delete View Templates");
+        using var tx = new Transaction(doc, "MCPRVTT27: Delete View Templates");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         int deleted = 0;
@@ -148,7 +148,7 @@ public class ManageViewTemplatesTool : ICortexTool
         if (template == null || !template.IsTemplate)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View template not found");
 
-        using var tx = new Transaction(doc, "RevitCortex: Rename View Template");
+        using var tx = new Transaction(doc, "MCPRVTT27: Rename View Template");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         var oldName = template.Name;

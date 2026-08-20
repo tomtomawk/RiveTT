@@ -61,7 +61,7 @@ public class AlignLinkToHostTool : ICortexTool
                 z = Math.Round(currentTransform.Origin.Z * MmPerFoot, 1)
             };
 
-            using var tx = new Transaction(doc, "RevitCortex: Align Link To Host");
+            using var tx = new Transaction(doc, "MCPRVTT27: Align Link To Host");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

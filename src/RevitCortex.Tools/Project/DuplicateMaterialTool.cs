@@ -69,7 +69,7 @@ public class DuplicateMaterialTool : ICortexTool
 
             ElementId newMatId;
 
-            using (var tx = new Transaction(doc, "RevitCortex: Duplicate Material"))
+            using (var tx = new Transaction(doc, "MCPRVTT27: Duplicate Material"))
             {
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();

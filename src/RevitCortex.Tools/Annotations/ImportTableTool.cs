@@ -83,7 +83,7 @@ public class ImportTableTool : ICortexTool
                 colWidths[c] = maxLen * charWidthFt + cellPaddingFt;
             }
 
-            using var tx = new Transaction(doc, "RevitCortex: Import Table");
+            using var tx = new Transaction(doc, "MCPRVTT27: Import Table");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

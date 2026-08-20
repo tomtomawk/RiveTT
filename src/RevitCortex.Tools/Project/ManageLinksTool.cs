@@ -105,7 +105,7 @@ public class ManageLinksTool : ICortexTool
         if (!session.RequestConfirmation("reload link", 1, linkInstance.Name))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Reload Link");
+        using var tx = new Transaction(doc, "MCPRVTT27: Reload Link");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         linkType.Reload();
@@ -137,7 +137,7 @@ public class ManageLinksTool : ICortexTool
         if (!session.RequestConfirmation("unload link", 1, linkInstance.Name))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Unload Link");
+        using var tx = new Transaction(doc, "MCPRVTT27: Unload Link");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         linkType.Unload(null);
@@ -172,7 +172,7 @@ public class ManageLinksTool : ICortexTool
 
         var modelPath = ModelPathUtils.ConvertUserVisiblePathToModelPath(newPath);
 
-        using var tx = new Transaction(doc, "RevitCortex: Reload Link From");
+        using var tx = new Transaction(doc, "MCPRVTT27: Reload Link From");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         linkType.LoadFrom(modelPath, new WorksetConfiguration());
@@ -201,7 +201,7 @@ public class ManageLinksTool : ICortexTool
         // Delete the link instance and, if no other instances reference the type, the type too.
         var typeId = element is RevitLinkInstance rli ? rli.GetTypeId() : ElementId.InvalidElementId;
 
-        using var tx = new Transaction(doc, "RevitCortex: Remove Link");
+        using var tx = new Transaction(doc, "MCPRVTT27: Remove Link");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         doc.Delete(element.Id);

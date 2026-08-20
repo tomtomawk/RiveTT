@@ -106,7 +106,7 @@ public class CreateSteelStructuralConnectionTypeTool : ICortexTool
         if (!session.RequestConfirmation("create steel connection type", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Steel Connection Type");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Steel Connection Type");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -180,7 +180,7 @@ public class CreateSteelConnectionHandlerTypeTool : ICortexTool
         if (!session.RequestConfirmation("create steel connection handler type", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Create Steel Connection Handler Type");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Create Steel Connection Handler Type");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -237,7 +237,7 @@ public class CreateDefaultSteelConnectionHandlerTypeTool : ICortexTool
         if (!session.RequestConfirmation("create default steel connection handler type", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Create Default Steel Connection Handler Type");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Create Default Steel Connection Handler Type");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -324,7 +324,7 @@ public class SetSteelConnectionTypeFamilySymbolTool : ICortexTool
         if (!session.RequestConfirmation("set steel connection type family symbol", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Set Steel Connection Type Family Symbol");
+        using var tx = new Transaction(doc, "MCPRVTT27: Set Steel Connection Type Family Symbol");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -423,7 +423,7 @@ public class ManageSteelApprovalTypeTool : ICortexTool
         if (!session.RequestConfirmation("create steel approval type", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Steel Approval Type");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Steel Approval Type");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try

@@ -51,7 +51,7 @@ public class WorkflowSheetSetTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No title block found");
 
             var results = new List<object>();
-            using var tx = new Transaction(doc, "RevitCortex: Workflow Sheet Set");
+            using var tx = new Transaction(doc, "MCPRVTT27: Workflow Sheet Set");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

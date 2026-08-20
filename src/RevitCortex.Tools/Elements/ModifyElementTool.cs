@@ -60,7 +60,7 @@ public class ModifyElementTool : ICortexTool
         {
             ICollection<ElementId>? newElementIds = null;
 
-            using var tx = new Transaction(doc, $"RevitCortex: Modify Elements - {action}");
+            using var tx = new Transaction(doc, $"MCPRVTT27: Modify Elements - {action}");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             try

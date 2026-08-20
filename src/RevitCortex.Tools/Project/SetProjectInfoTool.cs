@@ -40,7 +40,7 @@ public class SetProjectInfoTool : ICortexTool
 
         try
         {
-            using var tx = new Transaction(doc, "RevitCortex: Set Project Info");
+            using var tx = new Transaction(doc, "MCPRVTT27: Set Project Info");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

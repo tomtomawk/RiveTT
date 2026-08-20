@@ -14,17 +14,16 @@ namespace RevitCortex.Tools.Elements;
 
 /// <summary>
 /// Executes custom C# code snippets in the Revit context.
-/// Uses Roslyn (net8) on Revit 2025+, CSharpCodeProvider (net48) on Revit 2023/2024.
-/// HARD-GATED by CortexSettings.EnableCodeExecution — default false.
+/// Uses Roslyn on Revit 2027. The sandbox remains active, but script execution
+/// never asks for user authorization in MCPRVTT27.
 /// CortexRouter records every invocation in audit.jsonl with code snippet + SHA-256.
-/// Scripts are persisted to ~/.revitcortex/scripts/ and cleaned up at Revit shutdown
+/// Scripts are persisted to %LOCALAPPDATA%/MCPRVTT27/scripts/ and cleaned up at Revit shutdown
 /// unless marked as reusable.
 /// </summary>
 [ToolSafety(false, true)]
 public class SendCodeToRevitTool : ICortexTool
 {
-    // Profile-scoped scripts folder (~/.revitcortex-dev/scripts in dev): must
-    // stay in lockstep with RevitCortexApp.CleanupTempScripts, which deletes
+    // Must stay in lockstep with RevitCortexApp.CleanupTempScripts, which deletes
     // TEMP scripts from this same folder at Revit shutdown.
     public static string ScriptsFolder => CortexEnvironment.Current.ScriptsFolder;
 
@@ -32,20 +31,10 @@ public class SendCodeToRevitTool : ICortexTool
     public string Category => "Code";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "LAST RESORT ONLY — execute custom C# code in the Revit context. Prefer dedicated tools always; use ONLY when no dedicated tool covers the operation and after proposing the dedicated-tool alternative and obtaining explicit user consent. Globals: document (Document), uiDocument (UIDocument), app (Application). REQUIRES EnableCodeExecution=true in ~/.revitcortex/settings.json.";
+    public string Description => "LAST RESORT ONLY — execute sandboxed custom C# code in the Revit 2027 context. Prefer dedicated tools. Globals: document (Document), uiDocument (UIDocument), app (Application).";
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
-        // Gate 1: settings flag must be explicitly enabled
-        var settings = CortexSettings.Load();
-        if (!settings.EnableCodeExecution)
-        {
-            return CortexResult<object>.Fail(
-                CortexErrorCode.PermissionDenied,
-                "send_code_to_revit is disabled in this installation. STOP: do NOT retry this tool. Ask the user to enable code execution via Settings > Tools (or \"EnableCodeExecution\": true in ~/.revitcortex/settings.json), or solve the task with dedicated tools instead.",
-                suggestion: "Do not retry send_code_to_revit. Either ask the user to enable it in Settings, or use native tools (ai_element_filter, export_elements_data, bulk_modify_parameter_values, etc.) for the same task.");
-        }
-
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
@@ -58,18 +47,14 @@ public class SendCodeToRevitTool : ICortexTool
         if (string.IsNullOrEmpty(code))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "code is required");
 
-        // Gate 2: sandbox validation
+        // Sandbox validation is a technical boundary, not an authorization flow.
         var sandboxResult = CodeSandbox.Validate(code!);
         if (sandboxResult != null)
         {
             return sandboxResult;
         }
 
-        // Gate 3: explicit user confirmation before any script execution
-        if (!session.RequestConfirmation("execute C# script", 1, critical: true))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Script execution cancelled by user");
-
-        // Persist script to ~/.revitcortex/scripts/
+        // Persist script to the local MCPRVTT27 directory.
         var scriptPath = PersistScript(code!, scriptName, reusable);
 
         // Build globals from session
@@ -88,11 +73,7 @@ public class SendCodeToRevitTool : ICortexTool
         };
 
         CortexResult<object> result;
-#if REVIT2025_OR_GREATER
         result = RoslynExecutor.Execute(code!, globals, transactionMode);
-#else
-        result = CodeDomExecutor.Execute(code!, globals, transactionMode);
-#endif
 
         // Attach script path to result so the caller knows where it was saved
         if (result.Success && result.Data is not null)
@@ -107,7 +88,7 @@ public class SendCodeToRevitTool : ICortexTool
     }
 
     /// <summary>
-    /// Saves the script to ~/.revitcortex/scripts/ with a TEMP or REUSABLE header.
+    /// Saves the script to the local MCPRVTT27 scripts directory with a TEMP or REUSABLE header.
     /// Returns the full path of the saved file.
     /// </summary>
     private static string PersistScript(string code, string scriptName, bool reusable)
@@ -135,7 +116,7 @@ public class SendCodeToRevitTool : ICortexTool
         }
     }
 
-    /// <summary>Removes all TEMP scripts from ~/.revitcortex/scripts/.</summary>
+    /// <summary>Removes all TEMP scripts from %LOCALAPPDATA%\MCPRVTT27\scripts.</summary>
     public static void CleanupTempScripts()
     {
         if (!Directory.Exists(ScriptsFolder)) return;

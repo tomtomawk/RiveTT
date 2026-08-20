@@ -80,7 +80,7 @@ public class CreateViewFilterTool : ICortexTool
         if (catIds.Count == 0)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No valid categories resolved");
 
-        using var tx = new Transaction(doc, "RevitCortex: Create View Filter");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create View Filter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
@@ -175,7 +175,7 @@ public class CreateViewFilterTool : ICortexTool
         if (filter == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Filter not found");
         if (view == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View not found");
 
-        using var tx = new Transaction(doc, "RevitCortex: Apply View Filter");
+        using var tx = new Transaction(doc, "MCPRVTT27: Apply View Filter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 

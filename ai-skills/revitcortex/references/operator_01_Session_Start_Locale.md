@@ -1,7 +1,7 @@
 # 01 — Session Start & Locale Detection
 
 **Scope:** Prima chiamata MCP di una sessione su modello aperto.
-**Sources:** CLAUDE.md §"IMPORTANT: Detect Revit Language First", WORKFLOWS.md §"Rilevamento Lingua Revit"
+**Sources:** MCPRVTT27 model-operation guidance
 **Last verified:** 2026-05-25
 
 ## Decision rules

@@ -63,7 +63,7 @@ public class SaveSelectionTool : ICortexTool
                 .Cast<SelectionFilterElement>()
                 .FirstOrDefault(sf => sf.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
-            using var tx = new Transaction(doc, "RevitCortex: Save Selection");
+            using var tx = new Transaction(doc, "MCPRVTT27: Save Selection");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

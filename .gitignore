@@ -9,6 +9,10 @@ server/build/
 release/
 publish/
 *.zip
+distribution/plugin/
+distribution/server/
+distribution/MCPRVTT27.addin
+.claude/
 
 # Inno Setup compiled installer output (generated from installer/RevitCortex.iss)
 installer/Output/

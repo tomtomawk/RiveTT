@@ -6,7 +6,7 @@ namespace RevitCortex.Tools.CodeExecution;
 /// <summary>
 /// Variables injected into every script executed by send_code_to_revit.
 /// Property names are lowercase to match CLAUDE.md conventions.
-/// Works on both net48 (CodeDom) and net8+ (Roslyn).
+/// Used by the .NET 10 Roslyn execution path.
 /// </summary>
 public class ScriptGlobals
 {

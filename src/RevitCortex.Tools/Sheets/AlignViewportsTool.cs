@@ -53,7 +53,7 @@ public class AlignViewportsTool : ICortexTool
             var sourceAnchor = useModel ? sourceVp.GetBoxOutline().MinimumPoint : sourceCenter;
             var results = new List<object>();
 
-            using var tx = new Transaction(doc, "RevitCortex: Align Viewports");
+            using var tx = new Transaction(doc, "MCPRVTT27: Align Viewports");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

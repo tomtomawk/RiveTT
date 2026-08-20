@@ -89,7 +89,7 @@ public class DuplicateSheetWithViewsTool : ICortexTool
 
             var results = new List<object>();
 
-            using var tx = new Transaction(doc, "RevitCortex: Duplicate Sheet With Views");
+            using var tx = new Transaction(doc, "MCPRVTT27: Duplicate Sheet With Views");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

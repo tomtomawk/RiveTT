@@ -67,8 +67,8 @@ public static class PathSafety
     /// <param name="resolvedPath">The canonical absolute path, when valid.</param>
     /// <param name="error">A human-readable reason when invalid.</param>
     /// <param name="allowUnc">Accept UNC/network paths (\\host\share). Reserved for link
-    /// tools, where loading models from network shares is a standard BIM workflow and
-    /// every call is already gated by a user confirmation dialog showing the path.
+    /// tools, where loading models from network shares is a standard BIM workflow.
+    /// Callers must opt in explicitly and the resolved path is recorded by the audit log.
     /// Local paths stay restricted to the allowed user directories regardless.</param>
     public static bool TryResolveSafe(string? userPath, out string resolvedPath, out string error, bool allowUnc = false)
     {

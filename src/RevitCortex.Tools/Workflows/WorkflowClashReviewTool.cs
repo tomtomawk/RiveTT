@@ -83,7 +83,7 @@ public class WorkflowClashReviewTool : ICortexTool
             long? sectionBoxViewId = null;
             if (createSectionBox && clashes.Count > 0 && minPt != null && maxPt != null)
             {
-                using var tx = new Transaction(doc, "RevitCortex: Clash Review Section Box");
+                using var tx = new Transaction(doc, "MCPRVTT27: Clash Review Section Box");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 var vft = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()

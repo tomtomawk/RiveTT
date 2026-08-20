@@ -1,7 +1,7 @@
 # 02 — Tool Selection Hierarchy
 
 **Scope:** Scegliere il tool con minor costo token che risolve il task.
-**Sources:** CLAUDE.md §"Tool Selection Hierarchy", WORKFLOWS.md §"Verifica Stato Modello", WORKFLOWS.md §"Ricerca Elementi"
+**Sources:** MCPRVTT27 tool catalog and model-operation guidance
 **Last verified:** 2026-05-25
 
 ## Decision rules

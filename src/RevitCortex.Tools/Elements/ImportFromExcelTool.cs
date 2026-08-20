@@ -79,7 +79,7 @@ public class ImportFromExcelTool : ICortexTool
 
             if (!dryRun)
             {
-                using var tx = new Transaction(doc, "RevitCortex: Import From Excel");
+                using var tx = new Transaction(doc, "MCPRVTT27: Import From Excel");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
 

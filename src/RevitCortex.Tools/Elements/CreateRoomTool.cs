@@ -69,7 +69,7 @@ public class CreateRoomTool : ICortexTool
             if (level == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No levels found in document");
 
-            using var tx = new Transaction(doc, "RevitCortex: Create Room");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Room");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

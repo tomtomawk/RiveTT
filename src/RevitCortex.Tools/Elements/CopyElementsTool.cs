@@ -88,7 +88,7 @@ public class CopyElementsTool : ICortexTool
                     return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                         "targetDocumentTitle is the active document — omit it for a same-document copy");
 
-                using var tx = new Transaction(destDoc, "RevitCortex: Copy Elements Across Documents");
+                using var tx = new Transaction(destDoc, "MCPRVTT27: Copy Elements Across Documents");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 try
@@ -146,7 +146,7 @@ public class CopyElementsTool : ICortexTool
                     return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                         $"Target view with ID {targetViewId} not found");
 
-                using var tx = new Transaction(doc, "RevitCortex: Copy Elements Between Views");
+                using var tx = new Transaction(doc, "MCPRVTT27: Copy Elements Between Views");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 try
@@ -168,7 +168,7 @@ public class CopyElementsTool : ICortexTool
             else
             {
                 // Simple in-place copy with optional offset
-                using var tx = new Transaction(doc, "RevitCortex: Copy Elements");
+                using var tx = new Transaction(doc, "MCPRVTT27: Copy Elements");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 try

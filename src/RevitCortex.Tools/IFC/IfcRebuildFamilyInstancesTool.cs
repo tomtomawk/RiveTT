@@ -75,7 +75,7 @@ public class IfcRebuildFamilyInstancesTool : ICortexTool
         // One TransactionGroup per invocation: the N per-element commits collapse
         // into a single undo step, and a mid-run failure can no longer leave a
         // fragmented undo stack behind.
-        using TransactionGroup? txGroup = dryRun ? null : new TransactionGroup(doc!, "RevitCortex: Rebuild Family Instances");
+        using TransactionGroup? txGroup = dryRun ? null : new TransactionGroup(doc!, "MCPRVTT27: Rebuild Family Instances");
         txGroup?.Start();
 
         foreach (var ds in candidates)
@@ -168,7 +168,7 @@ public class IfcRebuildFamilyInstancesTool : ICortexTool
 
             try
             {
-                using var tx = new Transaction(doc!, "RevitCortex: Place Family Instance");
+                using var tx = new Transaction(doc!, "MCPRVTT27: Place Family Instance");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 // H-IFC-ACT: Activate() writes to the document — must run inside the transaction.

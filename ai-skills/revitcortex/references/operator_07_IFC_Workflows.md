@@ -1,7 +1,7 @@
 # 07 — IFC Workflows
 
 **Scope:** Link, rebuild, export IFC. Pattern dryRun obbligatorio per rebuild.
-**Sources:** docs/RevitCortex_IFC_Guide.md, WORKFLOWS.md §"IFC"
+**Sources:** docs/MCPRVTT27_IFC_GUIDE.md
 **Last verified:** 2026-05-25
 
 ## Decision rules

@@ -56,7 +56,7 @@ public class CreateViewsFromRoomsTool : ICortexTool
             var createdViews = new List<object>();
             var warnings = new List<string>();
 
-            using var tx = new Transaction(doc, "RevitCortex: Create Views From Rooms");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Views From Rooms");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

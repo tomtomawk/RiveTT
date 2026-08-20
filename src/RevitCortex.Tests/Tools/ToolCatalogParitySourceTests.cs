@@ -9,6 +9,15 @@ namespace RevitCortex.Tests.Tools;
 
 public class ToolCatalogParitySourceTests
 {
+    // Typed MCP aliases that intentionally compose an existing generic plugin
+    // tool rather than requiring a duplicate ICortexTool implementation.
+    private static readonly HashSet<string> ComposedAliases = new(StringComparer.Ordinal)
+    {
+        "create_wall",
+        "create_door",
+        "create_window"
+    };
+
     private static string ProjectPath(string project, params string[] relativeParts)
     {
         var parts = new List<string> { "..", "..", "..", "..", project };
@@ -56,7 +65,7 @@ public class ToolCatalogParitySourceTests
         Assert.NotEmpty(pluginNames);
 
         var missing = mcpNames
-            .Where(name => !pluginNames.Contains(name))
+            .Where(name => !pluginNames.Contains(name) && !ComposedAliases.Contains(name))
             .OrderBy(name => name)
             .ToList();
 

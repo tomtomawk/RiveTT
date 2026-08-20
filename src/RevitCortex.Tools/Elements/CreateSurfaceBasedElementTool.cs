@@ -234,7 +234,7 @@ public class CreateSurfaceBasedElementTool : ICortexTool
                 return;
         }
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Surface Element");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Surface Element");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try

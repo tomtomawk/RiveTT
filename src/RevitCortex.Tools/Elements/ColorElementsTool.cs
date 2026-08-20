@@ -91,7 +91,7 @@ public class ColorElementsTool : ICortexTool
             // ── Reset action: clear overrides on the category's elements ──────────
             if (action == "reset")
             {
-                using var resetTx = new Transaction(doc, "RevitCortex: Reset Element Colors");
+                using var resetTx = new Transaction(doc, "MCPRVTT27: Reset Element Colors");
                 var resetTxFailures = TransactionFailureHandling.SuppressWarnings(resetTx);
                 resetTx.Start();
                 var blank = new OverrideGraphicSettings();
@@ -133,7 +133,7 @@ public class ColorElementsTool : ICortexTool
             var solidFillId = FindSolidFillPatternId(doc);
 
             // Apply overrides inside a transaction
-            using var tx = new Transaction(doc, "RevitCortex: Color Elements");
+            using var tx = new Transaction(doc, "MCPRVTT27: Color Elements");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

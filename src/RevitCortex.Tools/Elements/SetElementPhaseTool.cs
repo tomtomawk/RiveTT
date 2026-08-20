@@ -43,7 +43,7 @@ public class SetElementPhaseTool : ICortexTool
         if (!session.RequestConfirmation("change phase for", requests.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Set Element Phase");
+        using var tx = new Transaction(doc, "MCPRVTT27: Set Element Phase");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 

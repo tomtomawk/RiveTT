@@ -1,7 +1,7 @@
 # 21 — CortexResult & Error Codes
 
 **Scope:** Envelope unificato per tutti i tool RevitCortex.
-**Sources:** CLAUDE.md §"CortexResult<T>", src/RevitCortex.Core/Results/CortexResult.cs
+**Sources:** src/RevitCortex.Core/Results/CortexResult.cs
 **Last verified:** 2026-05-25
 
 ## Regola fondamentale
@@ -31,7 +31,7 @@ return CortexResult<object>.Fail(
 | Code | Numerico | Quando |
 |---|---|---|
 | `ElementNotFound` | 100 | ID non esiste, elemento eliminato |
-| `PermissionDenied` | 200 | Read-only mode, sandbox negato |
+| `PermissionDenied` | 200 | Sandbox or operation denied |
 | `TransactionFailed` | 300 | Transaction commit failed |
 | `InvalidInput` | 400 | Parametri input malformati |
 | `Timeout` | 500 | Operation > timeout limit |
@@ -40,7 +40,7 @@ return CortexResult<object>.Fail(
 
 ## Propagazione errori dal Plugin al Server
 
-`RevitBridge` (server) trasforma `CortexResult.Fail` in payload JSON strutturato senza lanciare eccezioni. Verificato live 2026-05-15.
+`RevitPipeBridge` trasforma `CortexResult.Fail` in un payload JSON strutturato senza rilanciare eccezioni.
 
 Esempio payload:
 ```json

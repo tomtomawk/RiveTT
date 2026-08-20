@@ -77,7 +77,7 @@ public class IfcRebuildStructuralMembersTool : ICortexTool
         // One TransactionGroup per invocation: the N per-element commits collapse
         // into a single undo step, and a mid-run failure can no longer leave a
         // fragmented undo stack behind.
-        using TransactionGroup? txGroup = dryRun ? null : new TransactionGroup(doc!, "RevitCortex: Rebuild Structural Members");
+        using TransactionGroup? txGroup = dryRun ? null : new TransactionGroup(doc!, "MCPRVTT27: Rebuild Structural Members");
         txGroup?.Start();
 
         foreach (var ds in candidates)
@@ -149,7 +149,7 @@ public class IfcRebuildStructuralMembersTool : ICortexTool
                         continue;
                     }
 
-                    using var tx = new Transaction(doc!, "RevitCortex: Rebuild Column");
+                    using var tx = new Transaction(doc!, "MCPRVTT27: Rebuild Column");
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
                     // H-IFC-ACT: Activate() writes to the document — must run inside the transaction.
@@ -238,7 +238,7 @@ public class IfcRebuildStructuralMembersTool : ICortexTool
                         continue;
                     }
 
-                    using var tx = new Transaction(doc!, "RevitCortex: Rebuild Beam");
+                    using var tx = new Transaction(doc!, "MCPRVTT27: Rebuild Beam");
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
                     // H-IFC-ACT: Activate() writes to the document — must run inside the transaction.

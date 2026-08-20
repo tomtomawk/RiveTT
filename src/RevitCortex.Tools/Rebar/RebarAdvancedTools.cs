@@ -114,7 +114,7 @@ public class CreateRebarCouplerTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         // Activate the coupler symbol if needed (must be inside the transaction).
-        using var tx = new Transaction(doc, "RevitCortex: Create Rebar Coupler");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Rebar Coupler");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -210,7 +210,7 @@ public class SetRebarCouplerVisibilityTool : ICortexTool
         if (!session.RequestConfirmation("set coupler visibility", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Set Coupler Visibility");
+        using var tx = new Transaction(doc, "MCPRVTT27: Set Coupler Visibility");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -320,7 +320,7 @@ public class ManageRebarConstraintsTool : ICortexTool
                 if (!session.RequestConfirmation("set preferred rebar constraint", 1))
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-                using (var tx = new Transaction(doc, "RevitCortex: Set Preferred Rebar Constraint"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Set Preferred Rebar Constraint"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -358,7 +358,7 @@ public class ManageRebarConstraintsTool : ICortexTool
                 if (!session.RequestConfirmation("remove preferred rebar constraint", 1))
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-                using (var tx = new Transaction(doc, "RevitCortex: Remove Preferred Rebar Constraint"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Remove Preferred Rebar Constraint"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -393,7 +393,7 @@ public class ManageRebarConstraintsTool : ICortexTool
                     return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "Constraints on this rebar cannot be edited.");
                 if (!session.RequestConfirmation("recompute rebar constraints", handles.Count))
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
-                using (var tx = new Transaction(doc, "RevitCortex: Recompute Rebar Constraints"))
+                using (var tx = new Transaction(doc, "MCPRVTT27: Recompute Rebar Constraints"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
@@ -542,7 +542,7 @@ public class UnifyRebarsTool : ICortexTool
         if (!session.RequestConfirmation("unify rebars", ids.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Unify Rebars");
+        using var tx = new Transaction(doc, "MCPRVTT27: Unify Rebars");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -626,7 +626,7 @@ public class TransferRebarAnnotationsTool : ICortexTool
         if (!session.RequestConfirmation("transfer rebar annotations", rebars.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Transfer Rebar Annotations");
+        using var tx = new Transaction(doc, "MCPRVTT27: Transfer Rebar Annotations");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -860,7 +860,7 @@ public class SpliceRebarTool : ICortexTool
         if (!session.RequestConfirmation("splice rebar", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Splice Rebar");
+        using var tx = new Transaction(doc, "MCPRVTT27: Splice Rebar");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -945,7 +945,7 @@ public class RemoveRebarSpliceTool : ICortexTool
         if (!session.RequestConfirmation("remove rebar splice", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Remove Rebar Splice");
+        using var tx = new Transaction(doc, "MCPRVTT27: Remove Rebar Splice");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try

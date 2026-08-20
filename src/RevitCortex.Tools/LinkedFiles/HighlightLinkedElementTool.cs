@@ -111,7 +111,7 @@ public class HighlightLinkedElementTool : ICortexTool
 
                 if (targetView != null)
                 {
-                    using var tx = new Transaction(doc, "RevitCortex: Highlight Linked Element");
+                    using var tx = new Transaction(doc, "MCPRVTT27: Highlight Linked Element");
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
 

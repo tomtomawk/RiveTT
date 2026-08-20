@@ -99,7 +99,7 @@ public class ManageAdditionalSettingsTool : ICortexTool
         if (!session.RequestConfirmation("create line style", 1, name))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Create Line Style");
+        using var tx = new Transaction(doc, "MCPRVTT27: Create Line Style");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
@@ -144,7 +144,7 @@ public class ManageAdditionalSettingsTool : ICortexTool
         if (!session.RequestConfirmation("modify line style", 1, name))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Modify Line Style");
+        using var tx = new Transaction(doc, "MCPRVTT27: Modify Line Style");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         ApplyLineStyleOverrides(doc, target, input);
@@ -324,7 +324,7 @@ public class ManageAdditionalSettingsTool : ICortexTool
         if (!session.RequestConfirmation("set halftone/underlay settings", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc, "RevitCortex: Set Halftone/Underlay Settings");
+        using var tx = new Transaction(doc, "MCPRVTT27: Set Halftone/Underlay Settings");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         setMethod.Invoke(null, new[] { doc, settings });

@@ -1,7 +1,7 @@
 # 10 — send_code_to_revit Escalation
 
 **Scope:** Quando proporre uno script C# custom invece dei tool nativi.
-**Sources:** CLAUDE.md §"send_code_to_revit", docs/SECURITY.md §"Sandbox"
+**Sources:** docs/SECURITY.md, src/RevitCortex.Core/Security/CodeSandbox.cs
 **Last verified:** 2026-05-25
 
 ## Regola fondamentale
@@ -18,7 +18,7 @@ Solo dopo risposta affermativa, procedere con lo script.
 
 Motivi per cui chiedere e non assumere:
 
-1. Gli script bypassano il safety layer nativo (dryRun, conferme).
+1. Gli script bypassano gli schemi dedicati e il relativo `dryRun`.
 2. DLL conflicts (archintelligence, BIM360, altri add-in) possono crashare silenziosamente `send_code_to_revit`.
 3. L'utente può preferire tracciabilità via discrete tool calls.
 4. **NON chiamare `Document.EditFamily` da `ExternalEvent`**: i dialog modali deadlockano Revit (riferimento: incident b292ace su Snowdon Towers).
@@ -39,7 +39,7 @@ Validazione in `CodeSandbox.Validate(string code)` (`RevitCortex.Core`).
 
 - Document: `document` (non `doc`, `Doc`, `uidoc`).
 - UIDocument: `new UIDocument(document)`.
-- ElementId: `.Value` su R2024+, `.IntegerValue` su R2023.
+- ElementId: `.Value` (Revit 2027).
 
 ## Required checks
 

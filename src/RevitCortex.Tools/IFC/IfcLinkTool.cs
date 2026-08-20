@@ -73,7 +73,7 @@ public class IfcLinkTool : ICortexTool
             var options = new RevitLinkOptions(false);
 
             ElementId linkTypeId;
-            using (var tx = new Transaction(doc!, "RevitCortex: Link IFC"))
+            using (var tx = new Transaction(doc!, "MCPRVTT27: Link IFC"))
             {
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
@@ -94,7 +94,7 @@ public class IfcLinkTool : ICortexTool
             }
 
             RevitLinkInstance instance;
-            using (var tx2 = new Transaction(doc!, "RevitCortex: Place IFC Link"))
+            using (var tx2 = new Transaction(doc!, "MCPRVTT27: Place IFC Link"))
             {
                 var txFailures2 = TransactionFailureHandling.SuppressWarnings(tx2);
                 tx2.Start();

@@ -70,7 +70,7 @@ public class ManageUnplacedViewsTool : ICortexTool
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled,
                         "Operation cancelled by user");
 
-                using var tx = new Transaction(doc, "RevitCortex: Delete Unplaced Views");
+                using var tx = new Transaction(doc, "MCPRVTT27: Delete Unplaced Views");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 int deleted = 0;

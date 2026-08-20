@@ -90,7 +90,7 @@ public class CreateLevelTool : ICortexTool
 
             var warnings = new List<string>();
 
-            using var tx = new Transaction(doc, "RevitCortex: Create Level");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Level");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 
@@ -155,7 +155,7 @@ public class CreateLevelTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         var changed = new List<string>();
-        using var tx = new Transaction(doc, "RevitCortex: Set Level");
+        using var tx = new Transaction(doc, "MCPRVTT27: Set Level");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
@@ -210,7 +210,7 @@ public class CreateLevelTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         var oldName = level.Name;
-        using var tx = new Transaction(doc, "RevitCortex: Rename Level");
+        using var tx = new Transaction(doc, "MCPRVTT27: Rename Level");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         level.Name = newName;
@@ -231,7 +231,7 @@ public class CreateLevelTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         var name = level!.Name;
-        using var tx = new Transaction(doc, "RevitCortex: Delete Level");
+        using var tx = new Transaction(doc, "MCPRVTT27: Delete Level");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         doc.Delete(level.Id);

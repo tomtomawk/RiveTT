@@ -103,7 +103,7 @@ public class CreateFilledRegionTool : ICortexTool
                 }
             }
 
-            using var tx = new Transaction(doc, "RevitCortex: Create Filled Region");
+            using var tx = new Transaction(doc, "MCPRVTT27: Create Filled Region");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             var region = FilledRegion.Create(doc, regionType.Id, view.Id, loops);

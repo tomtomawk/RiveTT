@@ -56,7 +56,7 @@ public class DeleteScheduleTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
             var name = schedule.Name;
-            using var tx = new Transaction(doc, "RevitCortex: Delete Schedule");
+            using var tx = new Transaction(doc, "MCPRVTT27: Delete Schedule");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             doc.Delete(schedule.Id);

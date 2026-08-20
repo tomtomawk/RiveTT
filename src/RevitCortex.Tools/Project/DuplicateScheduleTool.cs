@@ -56,7 +56,7 @@ public class DuplicateScheduleTool : ICortexTool
             if (schedule == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Schedule not found");
 
-            using var tx = new Transaction(doc, "RevitCortex: Duplicate Schedule");
+            using var tx = new Transaction(doc, "MCPRVTT27: Duplicate Schedule");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             var newId = schedule.Duplicate(ViewDuplicateOption.Duplicate);

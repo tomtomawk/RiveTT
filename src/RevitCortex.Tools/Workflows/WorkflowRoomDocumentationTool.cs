@@ -53,7 +53,7 @@ public class WorkflowRoomDocumentationTool : ICortexTool
             var createdViews = new List<object>();
             var failures = new List<object>();
 
-            using var tx = new Transaction(doc, "RevitCortex: Room Documentation");
+            using var tx = new Transaction(doc, "MCPRVTT27: Room Documentation");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
 

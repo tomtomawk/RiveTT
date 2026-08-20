@@ -4,11 +4,10 @@
 
 name: revitcortex
 description: |
-  Use when working with RevitCortex operations, MCP tool workflows,
-  Revit model automation, or RevitCortex C# development. Routes Codex
-  to focused references for model operations, safe write workflows,
-  send_code_to_revit escalation, IFC, PowerBI, Obsidian, tool development,
-  net48/net8 compatibility, audit/read-only security, and build/test checks.
+  Use when working with MCPRVTT27/RevitCortex operations, Revit 2027
+  model automation, MCP tool workflows, or C# development. Routes Codex
+  to safe writes, send_code_to_revit escalation, IFC, tool development,
+  audit security, and .NET 10 build/test checks.
 
 references_dir: references
 entrypoint: SKILL.md

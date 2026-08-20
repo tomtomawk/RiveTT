@@ -1,7 +1,7 @@
 # 23 — Dynamic Tools & DocumentCapabilities
 
 **Scope:** Tool che si abilitano solo quando il modello soddisfa prerequisiti.
-**Sources:** CLAUDE.md §"IsDynamic Convention", src/RevitCortex.Core/Discovery/
+**Sources:** src/RevitCortex.Core/Discovery/, src/RevitCortex.Plugin/CortexRouter.cs
 **Last verified:** 2026-05-25
 
 ## Pattern
@@ -26,7 +26,6 @@ Un tool con `IsDynamic = true` è esposto al client MCP solo se `DocumentCapabil
 | `get_element_parameters` | false | Funziona su qualsiasi modello |
 | `ifc_link` | true | Richiede `revit-ifc` installato |
 | `set_element_phase` | true | Solo se `doc.Phases.Size > 0` |
-| `pbi_publish_elements` | true | Solo se PBI workspace configurato |
 
 ## Verifica capabilities
 

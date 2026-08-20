@@ -138,7 +138,7 @@ public class WipeEmptyTagsTool : ICortexTool
                 if (!session.RequestConfirmation("delete empty tags from", emptyTags.Count))
                     return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-                using var tx = new Transaction(doc, "RevitCortex: Wipe Empty Tags");
+                using var tx = new Transaction(doc, "MCPRVTT27: Wipe Empty Tags");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 int deleted = 0;

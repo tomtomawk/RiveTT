@@ -59,7 +59,7 @@ public class PlaceViewportTool : ICortexTool
 
             var position = new XYZ(posXMm / MmPerFoot, posYMm / MmPerFoot, 0);
 
-            using var tx = new Transaction(doc, "RevitCortex: Place Viewport");
+            using var tx = new Transaction(doc, "MCPRVTT27: Place Viewport");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             var viewport = Viewport.Create(doc, sheetEid, viewEid, position);

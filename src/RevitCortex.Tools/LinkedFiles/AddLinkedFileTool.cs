@@ -62,7 +62,7 @@ public class AddLinkedFileTool : ICortexTool
             // MoveElement requires a Transaction
             if (Math.Abs(positionX) > 0.001 || Math.Abs(positionY) > 0.001 || Math.Abs(positionZ) > 0.001)
             {
-                using var tx = new Transaction(doc, "RevitCortex: Position Linked File");
+                using var tx = new Transaction(doc, "MCPRVTT27: Position Linked File");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 var offset = new XYZ(positionX / MmPerFoot, positionY / MmPerFoot, positionZ / MmPerFoot);

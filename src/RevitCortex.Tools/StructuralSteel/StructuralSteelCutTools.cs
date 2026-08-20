@@ -79,7 +79,7 @@ public class AddSteelSolidCutTool : ICortexTool
         if (!session.RequestConfirmation("add solid cut", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Add Solid Cut");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Add Solid Cut");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -186,7 +186,7 @@ public class RemoveSteelSolidCutTool : ICortexTool
         if (!session.RequestConfirmation("remove solid cut", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Remove Solid Cut");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Remove Solid Cut");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -243,7 +243,7 @@ public class SetSteelSolidCutFaceSplittingTool : ICortexTool
         if (!session.RequestConfirmation("set solid cut face splitting", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Set Solid Cut Face Splitting");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Set Solid Cut Face Splitting");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -315,7 +315,7 @@ public class AddSteelInstanceVoidCutTool : ICortexTool
         if (!session.RequestConfirmation("add instance void cut", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Add Instance Void Cut");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Add Instance Void Cut");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try
@@ -376,7 +376,7 @@ public class RemoveSteelInstanceVoidCutTool : ICortexTool
         if (!session.RequestConfirmation("remove instance void cut", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
-        using var tx = new Transaction(doc!, "RevitCortex: Remove Instance Void Cut");
+        using var tx = new Transaction(doc!, "MCPRVTT27: Remove Instance Void Cut");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         try

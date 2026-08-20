@@ -97,7 +97,7 @@ public class DeleteElementTool : ICortexTool
                 try
                 {
                     List<ElementId> wouldDeleteIds;
-                    using (var probeTx = new Transaction(doc, "RevitCortex: Delete Preview"))
+                    using (var probeTx = new Transaction(doc, "MCPRVTT27: Delete Preview"))
                     {
                         TransactionFailureHandling.SuppressWarnings(probeTx);
                         probeTx.Start();
@@ -157,7 +157,7 @@ public class DeleteElementTool : ICortexTool
         try
         {
             ICollection<ElementId> deletedIds;
-            using var tx = new Transaction(doc, "RevitCortex: Delete Elements");
+            using var tx = new Transaction(doc, "MCPRVTT27: Delete Elements");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             try
