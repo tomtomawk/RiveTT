@@ -2,6 +2,29 @@
 
 Ce document consigne les comportements observés lors d'un test d'interaction entre un agent Codex, le serveur MCPRVTT27 et un projet Revit 2027.
 
+## État d'implémentation — 20 août 2026
+
+| # | Sujet | État |
+|---|---|---|
+| 1 | Murs et coordonnées verticales | Implémenté : aperçu, convention explicite et géométrie réellement appliquée |
+| 2 | Sélection persistante | Implémenté : `elementIds`, `capture_selection`, jeton expirant, sélections enregistrées et `last_filter` |
+| 3 | Paramètres localisés | Implémenté : résolveur commun et `parameterMap` vers `BuiltInParameter` |
+| 4 | Taille des réponses | Implémenté sur les workflows volumineux : résumé par défaut, détails et limites explicites |
+| 5 | Mode automatique et audit | Implémenté : `get_server_capabilities`, métadonnées d'exécution et audit entrée/sortie |
+| 6 | Ouverture de document | Non exposé volontairement ; la limitation `ExternalEvent` est publiée dans les capacités |
+| 7 | Marque MCPRVTT27 | Implémenté dans les transactions, traces et réponses |
+| 8 | Édition de familles | Non exposé volontairement ; nécessite un orchestrateur modal distinct |
+| 9 | Fiabilité `dryRun` | Implémenté pour toutes les actions de niveau et les nouveaux outils ; chaque aperçu retourne `mutated:false` |
+| 10 | Duplication d'étage | Implémenté par `duplicate_storey`, transaction group et analyse préalable des dépendances |
+| 11 | Murs et groupes | Implémenté par `detach_wall_constraint` et `manage_model_groups` |
+| 12 | Échecs Revit | Implémenté : erreurs structurées, IDs concernés, rollback, conseils et politique d'avertissements |
+| 13 | Pagination | Implémenté sur `ai_element_filter` avec curseur invalidé à chaque changement du document |
+
+Les points 6 et 8 ne sont pas des outils manquants dans le dispatcher actuel :
+Autodesk interdit l'activation d'un document depuis un gestionnaire d'événement
+API, et les changements de contexte modaux doivent être orchestrés hors de
+l'`ExternalEvent`. Les exposer ici donnerait un outil instable ou bloquant.
+
 ## 1. Création de murs et coordonnées verticales
 
 ### Constat
@@ -21,8 +44,9 @@ Un mur peut être créé à une altitude inattendue et nécessiter une correctio
 ### État après nettoyage du 20 août 2026
 
 Le calcul a été corrigé lorsque `baseLevelId` est fourni : `baseOffset` est
-désormais relatif au niveau explicite. La validation géométrique après création
-reste à ajouter.
+désormais relatif au niveau explicite. L'aperçu valide la base, le sommet et la
+hauteur avant toute transaction ; la réponse d'écriture restitue ensuite les
+contraintes, décalages et hauteurs réellement appliqués par Revit.
 
 ## 2. Portée et persistance de la sélection
 

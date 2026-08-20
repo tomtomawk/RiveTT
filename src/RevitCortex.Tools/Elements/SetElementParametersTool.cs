@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
@@ -30,6 +31,53 @@ public class SetElementParametersTool : ICortexTool
         if (doc == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "No active document in session");
+
+        var dryRun = ToolHelpers.GetDryRun(input);
+        var includeDetails = input["includeDetails"]?.Value<bool>() ?? false;
+        var sampleLimit = Math.Clamp(input["sampleLimit"]?.Value<int>() ?? 20, 0, 500);
+        if (dryRun)
+        {
+            var preview = new List<object>();
+            var matched = 0;
+            var failed = 0;
+            foreach (var req in requests)
+            {
+                var element = doc.GetElement(ToolHelpers.ToElementId(req.ElementId));
+                if (element == null)
+                {
+                    failed++;
+                    preview.Add(new { elementId = req.ElementId, success = false, reason = "Element not found" });
+                    continue;
+                }
+                var parameter = ParameterLookup.FindParameter(element, req.ParameterName,
+                    req.BuiltInParameter, out var requested, out var builtIn);
+                var success = parameter != null && !parameter.IsReadOnly &&
+                              CanSetParameterValue(parameter, req.Value);
+                if (success) matched++; else failed++;
+                preview.Add(new
+                {
+                    elementId = req.ElementId,
+                    parameterName = requested,
+                    resolvedParameterName = parameter?.Definition?.Name,
+                    builtInParameter = builtIn,
+                    success,
+                    reason = parameter == null ? "Parameter not found" :
+                        parameter.IsReadOnly ? "Parameter is read-only" :
+                        success ? null : $"Value is invalid for {parameter.StorageType}"
+                });
+            }
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                processed = requests.Count,
+                modified = matched,
+                skipped = 0,
+                errors = failed,
+                includeDetails,
+                sampleLimit,
+                details = includeDetails ? preview.Take(sampleLimit).ToList() : null
+            });
+        }
 
         var results = new List<object>();
         var successCount = 0;
@@ -132,13 +180,19 @@ public class SetElementParametersTool : ICortexTool
         return CortexResult<object>.Ok(new
         {
             message = $"Set {successCount}/{requests.Count} parameters successfully",
+            processed = requests.Count,
+            modified = successCount,
+            skipped = 0,
+            errors = failCount,
             successCount,
             failCount,
-            results
+            includeDetails,
+            sampleLimit,
+            results = includeDetails ? results.Take(sampleLimit).ToList() : null
         });
     }
 
-    private static bool SetParameterValue(Parameter param, object? value)
+    public static bool SetParameterValue(Parameter param, object? value)
     {
         if (value == null) return false;
 
@@ -198,6 +252,24 @@ public class SetElementParametersTool : ICortexTool
             default:
                 return false;
         }
+    }
+
+    public static bool CanSetParameterValue(Parameter param, object? value)
+    {
+        if (value == null) return true;
+        var token = value as JToken ?? JToken.FromObject(value);
+        if (token.Type == JTokenType.Null) return true;
+        return param.StorageType switch
+        {
+            StorageType.String => true,
+            StorageType.Integer => token.Type == JTokenType.Boolean ||
+                                   int.TryParse(token.ToString(), out _),
+            StorageType.Double => token.Type == JTokenType.Integer ||
+                                  token.Type == JTokenType.Float ||
+                                  token.Type == JTokenType.String,
+            StorageType.ElementId => long.TryParse(token.ToString(), out _),
+            _ => false
+        };
     }
 
     /// <summary>

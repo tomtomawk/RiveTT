@@ -5,7 +5,7 @@ using Autodesk.Revit.DB.Structure;
 
 namespace RevitCortex.Tools.Elements;
 
-internal static class ParameterLookup
+public static class ParameterLookup
 {
     public static Parameter? FindParameter(
         Element element,
@@ -43,6 +43,14 @@ internal static class ParameterLookup
         return Enum.IsDefined(typeof(BuiltInParameter), builtInParameter)
             ? builtInParameter.ToString()
             : null;
+    }
+
+    public static Parameter? FindParameterOnElement(Element element, string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        if (TryParseBuiltInParameter(name, out var builtIn))
+            return element.get_Parameter(builtIn);
+        return element.LookupParameter(name.Trim());
     }
 
     private static Parameter? FindNamedParameter(Element element, string? parameterName)

@@ -8,6 +8,13 @@ namespace RevitCortex.Server.Tools;
 [McpServerToolType]
 public static class MetaTools
 {
+    [McpServerTool(Name = "get_server_capabilities"), Description("Report MCPRVTT27's effective automatic-mode, dry-run, audit, response, selection, document, and lifecycle capability contract.")]
+    public static async Task<string> GetServerCapabilities(
+        RevitConnectionManager revit, CancellationToken ct = default)
+    {
+        return (await revit.ExecuteAsync("get_server_capabilities", new JObject(), ct)).ToString();
+    }
+
     [McpServerTool(Name = "say_hello"), Description("Test MCP connection to RevitCortex. Displays a greeting in Revit.")]
     public static async Task<string> SayHello(RevitConnectionManager revit, CancellationToken ct)
     {

@@ -41,12 +41,14 @@ public class CreatePointBasedElementTool : ICortexTool
 
         var createdIds = new List<long>();
         var warnings   = new List<string>();
+        var details = new List<object>();
+        var dryRun = ToolHelpers.GetDryRun(input);
 
         foreach (var item in dataToken)
         {
             try
             {
-                ProcessPointElement(doc, (JObject)item, createdIds, warnings);
+                ProcessPointElement(doc, (JObject)item, createdIds, warnings, details, dryRun);
             }
             catch (Exception ex)
             {
@@ -54,18 +56,25 @@ public class CreatePointBasedElementTool : ICortexTool
             }
         }
 
-        var message = $"Successfully created {createdIds.Count} element(s).";
+        var message = dryRun
+            ? $"Previewed {details.Count} point-based element specification(s)."
+            : $"Successfully created {createdIds.Count} element(s).";
         if (warnings.Count > 0)
             message += "\n\nWarnings:\n  - " + string.Join("\n  - ", warnings);
 
         return CortexResult<object>.Ok(new
         {
             message,
-            createdElementIds = createdIds
+            dryRun,
+            processed = dataToken.Count(),
+            created = createdIds.Count,
+            createdElementIds = createdIds,
+            details
         });
     }
 
-    private static void ProcessPointElement(Document doc, JObject item, List<long> createdIds, List<string> warnings)
+    private static void ProcessPointElement(Document doc, JObject item, List<long> createdIds,
+        List<string> warnings, List<object> details, bool dryRun)
     {
         // Parse category (optional — inferred from typeId)
         var categoryStr = item["category"]?.Value<string>() ?? "";
@@ -157,6 +166,25 @@ public class CreatePointBasedElementTool : ICortexTool
             }
             if (requestedTypeId > 0)
                 warnings.Add($"Requested typeId {requestedTypeId} not found. Defaulted to '{symbol.FamilyName}: {symbol.Name}' (ID: {ToolHelpers.GetElementIdValue(symbol.Id)})");
+        }
+
+        if (dryRun)
+        {
+            details.Add(new
+            {
+                kind = "point_based_family_instance",
+                typeId = ToolHelpers.GetElementIdValue(symbol.Id),
+                familyName = symbol.FamilyName,
+                typeName = symbol.Name,
+                category = builtInCategory.ToString(),
+                levelId = ToolHelpers.GetElementIdValue(baseLevel.Id),
+                hostWallId = hostWallId > 0 ? (long?)hostWallId : null,
+                locationPointMm = locationPtToken.DeepClone(),
+                rotationDeg,
+                facingFlipped,
+                handFlipped
+            });
+            return;
         }
 
         using var tx = new Transaction(doc, "MCPRVTT27: Create Point-Based Element");
@@ -263,11 +291,24 @@ public class CreatePointBasedElementTool : ICortexTool
                     ElementTransformUtils.RotateElement(doc, instance.Id, rotAxis, angleRad);
                 }
 
-                createdIds.Add(ToolHelpers.GetElementIdValue(instance.Id));
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
                 warnings.Add($"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
+            else if (instance != null)
+            {
+                var instanceId = ToolHelpers.GetElementIdValue(instance.Id);
+                createdIds.Add(instanceId);
+                details.Add(new
+                {
+                    kind = "point_based_family_instance",
+                    elementId = instanceId,
+                    levelId = ToolHelpers.GetElementIdValue(instance.LevelId),
+                    hostId = ToolHelpers.GetElementIdValue(instance.Host?.Id),
+                    facingFlipped = instance.FacingFlipped,
+                    handFlipped = instance.HandFlipped
+                });
+            }
         }
         catch
         {

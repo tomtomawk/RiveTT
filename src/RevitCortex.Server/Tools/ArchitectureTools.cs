@@ -22,6 +22,7 @@ public static class ArchitectureTools
         [Description("Unconnected height in mm. Used only when topLevelId is omitted. Default: 3000")] double? height = null,
         [Description("Base offset in mm. Default: 0")] double? baseOffset = null,
         [Description("Top offset in mm. Default: 0")] double? topOffset = null,
+        [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var wall = new JObject
@@ -38,7 +39,8 @@ public static class ArchitectureTools
         if (topOffset != null) wall["topOffset"] = topOffset;
         return (await revit.ExecuteAsync("create_line_based_element", new JObject
         {
-            ["data"] = new JArray(wall)
+            ["data"] = new JArray(wall),
+            ["dryRun"] = dryRun
         }, ct)).ToString();
     }
 
@@ -51,9 +53,10 @@ public static class ArchitectureTools
         [Description("Level element ID")] long levelId,
         [Description("Flip the exterior/interior facing direction. Default false")] bool? facingFlipped = null,
         [Description("Flip the door hand. Default false")] bool? handFlipped = null,
+        [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
         => CreateHostedOpening(revit, "OST_Doors", typeId, hostWallId, locationPoint, levelId,
-            facingFlipped, handFlipped, ct);
+            facingFlipped, handFlipped, dryRun, ct);
 
     [McpServerTool(Name = "create_window"), Description("Place a selected window family type in a selected host wall. The instance is hosted and can be flipped toward the exterior.")]
     public static Task<string> CreateWindow(
@@ -63,9 +66,10 @@ public static class ArchitectureTools
         [Description("Insertion point JSON {x,y,z} in mm")] string locationPoint,
         [Description("Level element ID")] long levelId,
         [Description("Flip the exterior/interior facing direction. Default false")] bool? facingFlipped = null,
+        [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
         => CreateHostedOpening(revit, "OST_Windows", typeId, hostWallId, locationPoint, levelId,
-            facingFlipped, false, ct);
+            facingFlipped, false, dryRun, ct);
 
     [McpServerTool(Name = "create_railing"), Description("Create a native Revit guardrail from a connected horizontal path. The path JSON is [{x,y,z}, ...] in mm.")]
     public static async Task<string> CreateRailing(
@@ -73,13 +77,15 @@ public static class ArchitectureTools
         [Description("Railing type element ID")] long railingTypeId,
         [Description("Base level element ID")] long baseLevelId,
         [Description("Connected path JSON [{x,y,z}, ...] in mm")] string path,
+        [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         return (await revit.ExecuteAsync("create_railing", new JObject
         {
             ["railingTypeId"] = railingTypeId,
             ["baseLevelId"] = baseLevelId,
-            ["path"] = JArray.Parse(path)
+            ["path"] = JArray.Parse(path),
+            ["dryRun"] = dryRun
         }, ct)).ToString();
     }
 
@@ -89,17 +95,19 @@ public static class ArchitectureTools
         [Description("Wall to host")] long wallId,
         [Description("Host wall ID, or 0 to detach")] long hostWallId,
         [Description("Offset from host in mm. Default 0")] double? offsetFromHost = null,
+        [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var request = new JObject { ["wallId"] = wallId, ["hostWallId"] = hostWallId };
         if (offsetFromHost != null) request["offsetFromHost"] = offsetFromHost;
+        request["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("set_wall_host", request, ct)).ToString();
     }
 
     private static async Task<string> CreateHostedOpening(
         RevitConnectionManager revit, string category, long typeId, long hostWallId,
         string locationPoint, long levelId, bool? facingFlipped, bool? handFlipped,
-        CancellationToken ct)
+        bool dryRun, CancellationToken ct)
     {
         var spec = new JObject
         {
@@ -114,7 +122,8 @@ public static class ArchitectureTools
         if (handFlipped != null) spec["handFlipped"] = handFlipped;
         return (await revit.ExecuteAsync("create_point_based_element", new JObject
         {
-            ["data"] = new JArray(spec)
+            ["data"] = new JArray(spec),
+            ["dryRun"] = dryRun
         }, ct)).ToString();
     }
 }

@@ -3,6 +3,7 @@ using RevitCortex.Core.Discovery;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Plugin;
+using RevitCortex.Core.Tools;
 using Xunit;
 
 namespace RevitCortex.Tests.Router;
@@ -72,6 +73,38 @@ public class CortexRouterTests
     }
 
     [Fact]
+    public void Route_EnrichesEverySuccessWithExecutionContract()
+    {
+        var router = CreateRouter(out _);
+        router.RegisterTool(new FakeTool { Name = "write_fake" });
+
+        var result = router.Route("write_fake", new JObject { ["dryRun"] = true });
+
+        Assert.True(result.Success);
+        var data = Assert.IsType<JObject>(result.Data);
+        Assert.Equal("MCPRVTT27", data["execution"]!["connector"]!.Value<string>());
+        Assert.Equal("2027", data["execution"]!["revitVersion"]!.Value<string>());
+        Assert.Equal("automatic", data["execution"]!["mode"]!.Value<string>());
+        Assert.False(data["mutated"]!.Value<bool>());
+    }
+
+    [Fact]
+    public void Route_NormalizesTransactionFailuresForAgents()
+    {
+        var router = CreateRouter(out _);
+        router.RegisterTool(new TransactionFailingTool());
+
+        var result = router.Route("transaction_failing", new JObject());
+
+        Assert.False(result.Success);
+        Assert.Equal(CortexErrorCode.TransactionFailed, result.Error!.Code);
+        Assert.True((bool)result.Error.Context!["rolledBack"]);
+        Assert.NotNull(result.Error.Context["warnings"]);
+        Assert.NotNull(result.Error.Context["failedElementIds"]);
+        Assert.NotNull(result.Error.Context["repairHints"]);
+    }
+
+    [Fact]
     public void OnDocumentChanged_UpdatesCapabilities()
     {
         var analyzer = new FakeAnalyzer { HasWorksets = true };
@@ -117,6 +150,18 @@ public class CortexRouterTests
         var available = router.GetAvailableToolNames();
         Assert.Contains("always_on", available);
         Assert.DoesNotContain("workset_tool", available);
+    }
+
+    private sealed class TransactionFailingTool : ICortexTool
+    {
+        public string Name => "transaction_failing";
+        public string Category => "Test";
+        public bool RequiresDocument => false;
+        public bool IsDynamic => false;
+        public string Description => "test";
+        public CortexResult<object> Execute(JObject input, CortexSession session)
+            => CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                "Revit rejected the transaction", "Repair constraints");
     }
 
 }

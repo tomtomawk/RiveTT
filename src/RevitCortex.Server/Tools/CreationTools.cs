@@ -24,9 +24,10 @@ public static class CreationTools
     public static async Task<string> CreateLineBasedElement(
         RevitConnectionManager revit,
         [Description("JSON array of specs: [{category, locationLine:{p0, p1, pMid?}, typeId?, height?, baseLevel?, baseOffset?}]")] string specs,
+        [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["data"] = JArray.Parse(specs) };
+        var p = new JObject { ["data"] = JArray.Parse(specs), ["dryRun"] = dryRun };
         var result = await revit.ExecuteAsync("create_line_based_element", p, ct);
         return result.ToString();
     }
@@ -35,9 +36,10 @@ public static class CreationTools
     public static async Task<string> CreatePointBasedElement(
         RevitConnectionManager revit,
         [Description("JSON array of creation specs: [{category, locationPoint, typeId?, levelId?, baseLevel?, hostWallId?, facingFlipped?, handFlipped?, rotation?}]")] string specs,
+        [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["data"] = JArray.Parse(specs) };
+        var p = new JObject { ["data"] = JArray.Parse(specs), ["dryRun"] = dryRun };
         var result = await revit.ExecuteAsync("create_point_based_element", p, ct);
         return result.ToString();
     }

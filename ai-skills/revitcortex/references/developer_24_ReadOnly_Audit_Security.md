@@ -11,6 +11,9 @@ profile. Keep names and attributes aligned.
 Every routed call is appended to
 `%LOCALAPPDATA%\MCPRVTT27\audit.jsonl`. Preserve the router-wide backstop so
 successes and failures are both logged, including duration and response size.
+The router also records an output summary and derives the affected-element count
+from structured counters/ID arrays; previews are logged with `mutated:false` in
+their response contract.
 
 ## `send_code_to_revit`
 

@@ -12,6 +12,11 @@ transactions, structured errors, validation, and post-write verification.
    write and the preview matches the intended scope.
 4. Verify the result with a read tool after execution.
 5. Do not use `send_code_to_revit` to bypass a dedicated tool or dry-run.
+6. Require `mutated: false` in every preview response. Treat its absence as a
+   contract violation and do not proceed with the real write.
+7. For complex transactions, start with `warningPolicy: allow_list` when the
+   acceptable Autodesk FailureDefinition GUIDs are known; unknown warnings then
+   trigger a rollback instead of being hidden.
 
 ## Checks
 
@@ -19,4 +24,5 @@ transactions, structured errors, validation, and post-write verification.
 - Preview scope matches the request.
 - The real call uses the same inputs except for `dryRun`.
 - Transaction failures and partial skips are reported.
+- Rollbacks expose `warnings`, `errors`, `failedElementIds` and `repairHints`.
 - The final state is verified.

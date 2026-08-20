@@ -60,6 +60,8 @@ Esempio payload:
 - [ ] Errori usano `CortexErrorCode` enum, mai stringhe libere.
 - [ ] `suggestion` compilato quando utile per l'utente.
 - [ ] Nessun `throw` non gestito da `Execute`.
+- [ ] Gli errori `TransactionFailed` espongono `warnings`, `errors`,
+      `rolledBack`, `failedElementIds` e `repairHints` nel context.
 
 ## Avoid
 

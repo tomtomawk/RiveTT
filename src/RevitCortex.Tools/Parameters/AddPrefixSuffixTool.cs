@@ -7,6 +7,7 @@ using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
 using RevitCortex.Tools.Utilities;
+using RevitCortex.Tools.Elements;
 
 namespace RevitCortex.Tools.Parameters;
 
@@ -42,15 +43,21 @@ public class AddPrefixSuffixTool : ICortexTool
 
         var separator = input["separator"]?.Value<string>() ?? "";
         var categories = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
-        var scope = input["scope"]?.Value<string>() ?? "whole_model";
         var skipEmpty = input["skipEmpty"]?.Value<bool>() ?? true;
         var filterValue = input["filterValue"]?.Value<string>();
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
+        var includeDetails = input["includeDetails"]?.Value<bool>() ?? false;
+        var sampleLimit = Math.Clamp(input["sampleLimit"]?.Value<int>() ?? 20, 0, 500);
 
         try
         {
-            // Collect elements
-            var elements = CollectElements(doc, categories, scope);
+            var resolved = ElementScopeResolver.Resolve(doc, input, session,
+                out var resolvedScope, out var scopeError);
+            if (scopeError != null) return scopeError;
+            var elements = resolved.Where(e => e is not ElementType).ToList();
+            if (categories.Count > 0)
+                elements = elements.Where(e => e.Category != null &&
+                    categories.Any(c => CategoryResolver.CategoryMatches(doc, e, c))).ToList();
 
             int modified = 0;
             int skipped = 0;
@@ -73,7 +80,8 @@ public class AddPrefixSuffixTool : ICortexTool
             {
                 foreach (var elem in elements)
                 {
-                    var param = elem.LookupParameter(parameterName);
+                    var param = ParameterLookup.FindParameter(elem, parameterName, input["builtInParameter"]?.Value<string>(),
+                        out _, out _);
                     if (param == null || param.IsReadOnly)
                     {
                         skipped++;
@@ -143,11 +151,14 @@ public class AddPrefixSuffixTool : ICortexTool
                     ["modified"] = modified,
                     ["skipped"] = skipped,
                     ["errors"] = errors,
-                    ["totalProcessed"] = elements.Count
+                    ["totalProcessed"] = elements.Count,
+                    ["resolvedScope"] = resolvedScope
                 };
 
-                if (dryRun && preview.Count > 0)
-                    result["preview"] = preview.Take(100).ToList(); // Cap preview at 100
+                if (includeDetails && preview.Count > 0)
+                    result["details"] = preview.Take(sampleLimit).ToList();
+                result["includeDetails"] = includeDetails;
+                result["sampleLimit"] = sampleLimit;
 
                 return CortexResult<object>.Ok(result);
             }
@@ -169,36 +180,4 @@ public class AddPrefixSuffixTool : ICortexTool
         }
     }
 
-    private static List<Element> CollectElements(Document doc, List<string> categories, string scope)
-    {
-        FilteredElementCollector collector;
-        if (scope == "active_view")
-        {
-            collector = new FilteredElementCollector(doc, doc.ActiveView.Id);
-        }
-        else if (scope == "selection")
-        {
-            var uidoc = new Autodesk.Revit.UI.UIDocument(doc);
-            var selectedIds = uidoc.Selection.GetElementIds();
-            if (selectedIds.Count == 0)
-                return new List<Element>();
-            collector = new FilteredElementCollector(doc, selectedIds);
-        }
-        else
-        {
-            collector = new FilteredElementCollector(doc);
-        }
-
-        var elements = collector.WhereElementIsNotElementType().ToList();
-
-        if (categories.Count > 0)
-        {
-            elements = elements.Where(e =>
-                e.Category != null &&
-                categories.Any(c => CategoryResolver.CategoryMatches(doc, e, c)))
-                .ToList();
-        }
-
-        return elements;
-    }
 }

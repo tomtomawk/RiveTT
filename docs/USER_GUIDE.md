@@ -30,12 +30,50 @@ portée et vérifier leur résultat immédiatement.
 
 ## Outils spécifiques au fork
 
+- `get_server_capabilities` : contrat effectif du serveur, mode automatique,
+  audit, réponses, sélection et limitations de cycle de vie.
 - `create_wall` : type et niveau de base explicites, niveau supérieur et
-  offsets optionnels.
+  offsets optionnels. Les coordonnées de `locationLine` sont des coordonnées
+  projet absolues en millimètres ; `baseOffset` et `topOffset` sont relatifs à
+  leurs niveaux. L'outil prévisualise par défaut et retourne la base, le sommet
+  et les décalages réellement appliqués après exécution.
 - `create_door` / `create_window` : type, hôte et niveau explicites.
 - `create_railing` : garde-corps natif depuis un chemin horizontal.
 - `set_wall_host` : API de mur hôte de Revit 2027.
+- `capture_selection` : capture des IDs explicites ou de la sélection Revit
+  dans un jeton temporaire réutilisable. Les outils bulk acceptent aussi
+  `savedSelectionName`, `last_filter` et `elementIds`.
+- `duplicate_storey` : analyse puis duplication transactionnelle d'un étage,
+  avec catégories, groupes, niveau haut des murs et déplacement optionnel des
+  niveaux supérieurs.
+- `detach_wall_constraint` : retrait d'une contrainte haute de niveau ou d'une
+  attache haute/basse en conservant la hauteur non contrainte.
+- `manage_model_groups` : inventaire, duplication de type et dissociation
+  contrôlée des groupes de modèle.
 - `save_document` / `save_as_document` : sauvegarde du document actif.
+
+### Réponses et pagination
+
+Chaque succès contient `execution.connector`, `serverVersion`, `revitVersion`,
+`mode`, `readOnly` et `destructive`. Un aperçu d'écriture contient toujours
+`dryRun:true` et `mutated:false`.
+
+`ai_element_filter` utilise `responseMode: summary | idsOnly | details` et
+retourne `totalCount`, `returnedCount`, `appliedLimit` et `nextCursor`. Un
+curseur devient invalide dès que le document Revit change, afin d'éviter de
+mélanger deux états du modèle.
+
+Les erreurs de transaction fournissent `warnings`, `errors`, `rolledBack`,
+`failedElementIds` et `repairHints`. Les nouveaux workflows complexes acceptent
+`warningPolicy: suppress_all | allow_list` ; avec `allow_list`, tout
+avertissement non autorisé provoque un rollback silencieux.
+
+### Limites de cycle de vie
+
+`open_document` et `edit_family` ne sont pas exposés dans le dispatcher
+`ExternalEvent`. L'API Autodesk interdit l'activation d'un document depuis un
+gestionnaire d'événement API, et l'édition modale d'une famille nécessite un
+orchestrateur distinct pour ne pas bloquer Revit.
 
 Les autres outils sont exposés par les wrappers C# de
 `src/RevitCortex.Server/Tools`.

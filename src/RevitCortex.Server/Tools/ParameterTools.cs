@@ -13,6 +13,9 @@ public static class ParameterTools
     public static async Task<string> SetElementParameters(
         RevitConnectionManager revit,
         [Description("JSON-encoded array of set requests — pass as a string. Each item must have elementId, value, and either parameterName or builtInParameter. Use null to clear. For lengths/areas pass a unit string like \"3000 mm\" to avoid writing feet. Example: \"[{\\\"elementId\\\": 123, \\\"builtInParameter\\\": \\\"REBAR_SYSTEM_SPACING_TOP_DIR_1\\\", \\\"value\\\": \\\"200 mm\\\"}]\"")] string requests,
+        [Description("Preview without changing the model. Default: true")] bool dryRun = true,
+        [Description("Include per-request results. Default: false")] bool? includeDetails = null,
+        [Description("Maximum result rows when includeDetails=true. Default: 20")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
         JArray parsed;
@@ -21,7 +24,9 @@ public static class ParameterTools
         {
             return $"{{\"error\": \"requests must be a JSON array encoded as a string. Parse failed: {ex.Message}. Example: [{{\\\"elementId\\\": 123, \\\"parameterName\\\": \\\"Comments\\\", \\\"value\\\": \\\"test\\\"}}]\"}}";
         }
-        var p = new JObject { ["requests"] = parsed };
+        var p = new JObject { ["requests"] = parsed, ["dryRun"] = dryRun };
+        if (includeDetails != null) p["includeDetails"] = includeDetails;
+        if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         var result = await revit.ExecuteAsync("set_element_parameters", p, ct);
         return result.ToString();
     }
@@ -31,6 +36,10 @@ public static class ParameterTools
         RevitConnectionManager revit,
         [Description("Parameter name to modify")] string parameterName,
         [Description("Category name to filter elements (e.g. Walls, Doors)")] string? categoryName = null,
+        [Description("Explicit element IDs; takes precedence over categoryName")] long[]? elementIds = null,
+        [Description("Temporary token returned by capture_selection")] string? selectionToken = null,
+        [Description("Persistent Revit SelectionFilterElement name")] string? savedSelectionName = null,
+        [Description("Scope: selection | last_filter | active_view | whole_model")] string? scope = null,
         [Description("Operation to perform (e.g. set, find_replace). Default: set")] string? operation = "set",
         [Description("Value to set")] string? value = null,
         [Description("Text to find (for find_replace operation)")] string? findText = null,
@@ -45,6 +54,10 @@ public static class ParameterTools
             ["parameterName"] = parameterName,
         };
         if (categoryName != null) p["categoryName"] = categoryName;
+        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (selectionToken != null) p["selectionToken"] = selectionToken;
+        if (savedSelectionName != null) p["savedSelectionName"] = savedSelectionName;
+        if (scope != null) p["scope"] = scope;
         if (operation != null) p["operation"] = operation;
         if (value != null) p["value"] = value;
         if (findText != null) p["findText"] = findText;
@@ -67,6 +80,9 @@ public static class ParameterTools
         [Description("How to combine multiple conditions: and | or. Default: and")] string? logic = null,
         [Description("Parameter type: instance, type, or both. Default: both")] string? parameterType = "both",
         [Description("Scope: whole_model | active_view | selection. Default: whole_model")] string? scope = null,
+        [Description("Explicit element IDs; overrides scope")] long[]? elementIds = null,
+        [Description("Temporary token returned by capture_selection")] string? selectionToken = null,
+        [Description("Persistent saved selection name")] string? savedSelectionName = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -85,12 +101,18 @@ public static class ParameterTools
     [McpServerTool(Name = "sync_csv_parameters"), Description("Synchronize parameter values from CSV data into Revit elements.")]
     public static async Task<string> SyncCsvParameters(
         RevitConnectionManager revit,
-        [Description("JSON array of rows: [{elementId, paramName1: value, paramName2: value, ...}]")] string data,
+        [Description("JSON rows: [{elementId, paramName1:value}] or [{elementId, parameters:{...}}]")] string data,
         [Description("Preview changes without applying. Default: true")] bool? dryRun = true,
+        [Description("Map CSV headers to display names or BuiltInParameter values, e.g. {\"Numéro\":\"ROOM_NUMBER\"}")] string? parameterMap = null,
+        [Description("Include per-element diagnostics. Default: false")] bool? includeDetails = null,
+        [Description("Maximum detail rows when includeDetails=true. Default: 20")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["data"] = JArray.Parse(data) };
         if (dryRun != null) p["dryRun"] = dryRun;
+        if (parameterMap != null) p["parameterMap"] = JObject.Parse(parameterMap);
+        if (includeDetails != null) p["includeDetails"] = includeDetails;
+        if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         var result = await revit.ExecuteAsync("sync_csv_parameters", p, ct);
         return result.ToString();
     }
@@ -102,8 +124,13 @@ public static class ParameterTools
         [Description("Prefix to prepend")] string? prefix = null,
         [Description("Suffix to append")] string? suffix = null,
         [Description("Scope: whole_model or selection. Default: whole_model")] string? scope = "whole_model",
+        [Description("Explicit element IDs; overrides scope")] long[]? elementIds = null,
+        [Description("Temporary token returned by capture_selection")] string? selectionToken = null,
+        [Description("Persistent saved selection name")] string? savedSelectionName = null,
         [Description("JSON array of category names to filter, e.g. [\"OST_Doors\"]")] string? categories = null,
         [Description("Preview only when true (default). Set false to actually write the values.")] bool dryRun = true,
+        [Description("Include per-element details. Default: false")] bool? includeDetails = null,
+        [Description("Maximum detail rows. Default: 20")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -114,7 +141,12 @@ public static class ParameterTools
         if (prefix != null) p["prefix"] = prefix;
         if (suffix != null) p["suffix"] = suffix;
         if (scope != null) p["scope"] = scope;
+        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (selectionToken != null) p["selectionToken"] = selectionToken;
+        if (savedSelectionName != null) p["savedSelectionName"] = savedSelectionName;
         if (categories != null) p["categories"] = JArray.Parse(categories);
+        if (includeDetails != null) p["includeDetails"] = includeDetails;
+        if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         var result = await revit.ExecuteAsync("add_prefix_suffix", p, ct);
         return result.ToString();
     }
@@ -124,12 +156,24 @@ public static class ParameterTools
         RevitConnectionManager revit,
         [Description("Parameter name to clear")] string parameterName,
         [Description("Scope: whole_model or selection. Default: whole_model")] string? scope = "whole_model",
+        [Description("Explicit element IDs; overrides scope")] long[]? elementIds = null,
+        [Description("Temporary token returned by capture_selection")] string? selectionToken = null,
+        [Description("Persistent saved selection name")] string? savedSelectionName = null,
         [Description("JSON array of category names to filter")] string? categories = null,
+        [Description("Preview only. Default: true")] bool? dryRun = true,
+        [Description("Include per-element details. Default: false")] bool? includeDetails = null,
+        [Description("Maximum detail rows. Default: 20")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["parameterName"] = parameterName };
         if (scope != null) p["scope"] = scope;
+        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (selectionToken != null) p["selectionToken"] = selectionToken;
+        if (savedSelectionName != null) p["savedSelectionName"] = savedSelectionName;
         if (categories != null) p["categories"] = JArray.Parse(categories);
+        if (dryRun != null) p["dryRun"] = dryRun;
+        if (includeDetails != null) p["includeDetails"] = includeDetails;
+        if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         var result = await revit.ExecuteAsync("clear_parameter_values", p, ct);
         return result.ToString();
     }

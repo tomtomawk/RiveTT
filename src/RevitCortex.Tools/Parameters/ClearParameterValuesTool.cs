@@ -7,6 +7,7 @@ using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
 using RevitCortex.Tools.Utilities;
+using RevitCortex.Tools.Elements;
 
 namespace RevitCortex.Tools.Parameters;
 
@@ -29,21 +30,21 @@ public class ClearParameterValuesTool : ICortexTool
 
         var parameterName = input["parameterName"]?.Value<string>();
         var categories = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
-        var scope = input["scope"]?.Value<string>() ?? "whole_model";
         var filterValue = input["filterValue"]?.Value<string>();
         var parameterType = input["parameterType"]?.Value<string>() ?? "instance";
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
+        var includeDetails = input["includeDetails"]?.Value<bool>() ?? false;
+        var sampleLimit = Math.Clamp(input["sampleLimit"]?.Value<int>() ?? 20, 0, 500);
 
         if (string.IsNullOrEmpty(parameterName))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "parameterName is required");
 
         try
         {
-            var collector = scope == "active_view" && doc.ActiveView != null
-                ? new FilteredElementCollector(doc, doc.ActiveView.Id)
-                : new FilteredElementCollector(doc);
-
-            IEnumerable<Element> elements = collector.WhereElementIsNotElementType().ToList();
+            var resolved = ElementScopeResolver.Resolve(doc, input, session,
+                out var resolvedScope, out var scopeError);
+            if (scopeError != null) return scopeError;
+            IEnumerable<Element> elements = resolved.Where(e => e is not ElementType);
 
             if (categories.Count > 0)
             {
@@ -71,7 +72,8 @@ public class ClearParameterValuesTool : ICortexTool
                     var target = parameterType == "type" ? doc.GetElement(elem.GetTypeId()) : elem;
                     if (target == null) { skipped++; continue; }
 
-                    var param = target.LookupParameter(parameterName);
+                    var param = ParameterLookup.FindParameter(target, parameterName,
+                        input["builtInParameter"]?.Value<string>(), out _, out _);
                     if (param == null || param.IsReadOnly) { skipped++; continue; }
 
                     var oldValue = param.StorageType == StorageType.String ? param.AsString() ?? "" : param.AsValueString() ?? "";
@@ -93,7 +95,8 @@ public class ClearParameterValuesTool : ICortexTool
                     var target = parameterType == "type" ? doc.GetElement(elem.GetTypeId()) : elem;
                     if (target == null) { skipped++; continue; }
 
-                    var param = target.LookupParameter(parameterName);
+                    var param = ParameterLookup.FindParameter(target, parameterName,
+                        input["builtInParameter"]?.Value<string>(), out _, out _);
                     if (param == null || param.IsReadOnly) { skipped++; continue; }
 
                     var oldValue = param.StorageType == StorageType.String ? param.AsString() ?? "" : param.AsValueString() ?? "";
@@ -107,8 +110,12 @@ public class ClearParameterValuesTool : ICortexTool
             {
                 dryRun,
                 clearedCount = cleared.Count,
+                processedCount = elements.Count(),
                 skippedCount = skipped,
-                cleared = cleared.Take(100).ToList()
+                includeDetails,
+                sampleLimit,
+                details = includeDetails ? cleared.Take(sampleLimit).ToList() : null,
+                resolvedScope
             });
         }
         catch (Exception ex)

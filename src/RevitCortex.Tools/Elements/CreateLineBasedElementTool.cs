@@ -40,12 +40,14 @@ public class CreateLineBasedElementTool : ICortexTool
 
         var createdIds = new List<long>();
         var warnings = new List<string>();
+        var details = new List<object>();
+        var dryRun = ToolHelpers.GetDryRun(input);
 
         foreach (var item in dataToken)
         {
             try
             {
-                ProcessLineElement(doc, (JObject)item, createdIds, warnings);
+                ProcessLineElement(doc, (JObject)item, createdIds, warnings, details, dryRun);
             }
             catch (Exception ex)
             {
@@ -53,18 +55,26 @@ public class CreateLineBasedElementTool : ICortexTool
             }
         }
 
-        var message = $"Successfully created {createdIds.Count} element(s).";
+        var message = dryRun
+            ? $"Previewed {details.Count} line-based element specification(s)."
+            : $"Successfully created {createdIds.Count} element(s).";
         if (warnings.Count > 0)
             message += "\n\nWarnings:\n  - " + string.Join("\n  - ", warnings);
 
         return CortexResult<object>.Ok(new
         {
             message,
-            createdElementIds = createdIds
+            dryRun,
+            processed = dataToken.Count(),
+            created = createdIds.Count,
+            skipped = warnings.Count,
+            createdElementIds = createdIds,
+            details
         });
     }
 
-    private static void ProcessLineElement(Document doc, JObject item, List<long> createdIds, List<string> warnings)
+    private static void ProcessLineElement(Document doc, JObject item, List<long> createdIds,
+        List<string> warnings, List<object> details, bool dryRun)
     {
         // Parse category
         var categoryStr = item["category"]?.Value<string>() ?? "";
@@ -195,6 +205,25 @@ public class CreateLineBasedElementTool : ICortexTool
                         warnings.Add($"Requested wall typeId {requestedTypeId} not found. Defaulted to '{wallType.Name}' (ID: {ToolHelpers.GetElementIdValue(wallType.Id)})");
                 }
 
+                if (dryRun)
+                {
+                    details.Add(new
+                    {
+                        kind = "wall",
+                        wallTypeId = ToolHelpers.GetElementIdValue(wallType.Id),
+                        wallTypeName = wallType.Name,
+                        baseLevelId = ToolHelpers.GetElementIdValue(baseLevel.Id),
+                        baseLevelName = baseLevel.Name,
+                        baseLevelElevationMm = baseLevel.Elevation * MmPerFoot,
+                        requestedBaseOffsetMm = baseOffsetMm,
+                        resultingBaseElevationMm = (baseLevel.Elevation + baseOffset) * MmPerFoot,
+                        topLevelId = topLevelId > 0 ? (long?)topLevelId : null,
+                        requestedTopOffsetMm = topOffsetMm,
+                        unconnectedHeightMm = topLevelId > 0 ? (double?)null : heightMm
+                    });
+                    return;
+                }
+
                 using (var tx = new Transaction(doc, "MCPRVTT27: Create Wall"))
                 {
                     var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -221,10 +250,31 @@ public class CreateLineBasedElementTool : ICortexTool
                                         topOffset.Set(topOffsetMm / MmPerFoot);
                                 }
                             }
-                            createdIds.Add(ToolHelpers.GetElementIdValue(wall.Id));
                         }
                         if (tx.Commit() != TransactionStatus.Committed)
                             warnings.Add($"Revit rolled back the wall transaction: {TransactionFailureHandling.Describe(txFailures)}");
+                        else if (wall != null)
+                        {
+                            var actualBaseOffset = wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET)?.AsDouble() ?? baseOffset;
+                            var actualTopOffset = wall.get_Parameter(BuiltInParameter.WALL_TOP_OFFSET)?.AsDouble() ?? 0;
+                            var actualUnconnectedHeight = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM)?.AsDouble();
+                            var actualTopLevel = wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE)?.AsElementId();
+                            var wallId = ToolHelpers.GetElementIdValue(wall.Id);
+                            createdIds.Add(wallId);
+                            details.Add(new
+                            {
+                                kind = "wall",
+                                elementId = wallId,
+                                baseLevelId = ToolHelpers.GetElementIdValue(baseLevel.Id),
+                                baseElevationMm = (baseLevel.Elevation + actualBaseOffset) * MmPerFoot,
+                                baseOffsetMm = actualBaseOffset * MmPerFoot,
+                                topLevelId = ToolHelpers.GetElementIdValue(actualTopLevel),
+                                topOffsetMm = actualTopOffset * MmPerFoot,
+                                unconnectedHeightMm = actualUnconnectedHeight * MmPerFoot,
+                                coordinates = "absolute_project_coordinates_mm",
+                                offsets = "relative_to_constraint_level_mm"
+                            });
+                        }
                     }
                     catch
                     {
@@ -261,6 +311,20 @@ public class CreateLineBasedElementTool : ICortexTool
                     }
                     if (requestedTypeId > 0)
                         warnings.Add($"Requested typeId {requestedTypeId} not found. Defaulted to '{symbol.FamilyName}: {symbol.Name}' (ID: {ToolHelpers.GetElementIdValue(symbol.Id)})");
+                }
+
+                if (dryRun)
+                {
+                    details.Add(new
+                    {
+                        kind = "line_based_family_instance",
+                        typeId = ToolHelpers.GetElementIdValue(symbol.Id),
+                        familyName = symbol.FamilyName,
+                        typeName = symbol.Name,
+                        baseLevelId = ToolHelpers.GetElementIdValue(baseLevel.Id),
+                        baseOffsetMm = baseOffset * MmPerFoot
+                    });
+                    return;
                 }
 
                 using (var tx2 = new Transaction(doc, "MCPRVTT27: Create Line-Based Element"))
@@ -300,10 +364,15 @@ public class CreateLineBasedElementTool : ICortexTool
                                         freeOffset.Set(baseOffset);
                                 }
                             }
-                            createdIds.Add(ToolHelpers.GetElementIdValue(instance.Id));
                         }
                         if (tx2.Commit() != TransactionStatus.Committed)
                             warnings.Add($"Revit rolled back the line-based element transaction: {TransactionFailureHandling.Describe(tx2Failures)}");
+                        else if (instance != null)
+                        {
+                            var instanceId = ToolHelpers.GetElementIdValue(instance.Id);
+                            createdIds.Add(instanceId);
+                            details.Add(new { kind = "line_based_family_instance", elementId = instanceId });
+                        }
                     }
                     catch
                     {

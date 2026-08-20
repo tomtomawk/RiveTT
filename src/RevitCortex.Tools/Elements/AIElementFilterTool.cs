@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Newtonsoft.Json.Linq;
@@ -44,7 +45,16 @@ public class AIElementFilterTool : ICortexTool
         var includeTypes       = data["includeTypes"]?.Value<bool>() ?? false;
         var includeInstances   = data["includeInstances"]?.Value<bool>() ?? true;
         var filterVisibleInView = data["filterVisibleInCurrentView"]?.Value<bool>() ?? false;
-        var maxElements        = data["maxElements"]?.Value<int>() ?? 100;
+        var pageSize           = Math.Clamp(data["pageSize"]?.Value<int>()
+                                             ?? data["maxElements"]?.Value<int>() ?? 100, 1, 500);
+        var responseMode       = (data["responseMode"]?.Value<string>() ?? "summary").ToLowerInvariant();
+        if (responseMode is not ("summary" or "idsonly" or "details"))
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                "responseMode must be summary, idsOnly, or details");
+        if (!TryDecodeCursor(data["cursor"]?.Value<string>(), session.DocumentVersion,
+                out var offset, out var cursorError))
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, cursorError!,
+                suggestion: "Restart the search without a cursor because the document changed.");
 
         // Logical combination of the individual filters: "and" (default) or "or".
         var combineWith        = (data["combineWith"]?.Value<string>() ?? "and").ToLowerInvariant();
@@ -52,6 +62,17 @@ public class AIElementFilterTool : ICortexTool
         var invert             = data["invert"]?.Value<bool>() ?? false;
         // Optional level filter: {levelId} or {levelName} — instances on that level only.
         var levelFilterToken   = data["levelFilter"];
+        var groupStatus        = data["groupStatus"]?.Value<string>();
+        var wallConstraintStatus = data["wallConstraintStatus"]?.Value<string>();
+        if (!string.IsNullOrWhiteSpace(groupStatus) &&
+            !new[] { "grouped", "ungrouped" }.Contains(groupStatus, StringComparer.OrdinalIgnoreCase))
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                "groupStatus must be grouped or ungrouped");
+        if (!string.IsNullOrWhiteSpace(wallConstraintStatus) &&
+            !new[] { "level_constrained", "unconnected", "attached", "unattached" }
+                .Contains(wallConstraintStatus, StringComparer.OrdinalIgnoreCase))
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                "wallConstraintStatus must be level_constrained, unconnected, attached, or unattached");
 
         // Bounding box (coordinates in mm, matching the fork's convention)
         var bbMinToken = data["boundingBoxMin"];
@@ -68,9 +89,11 @@ public class AIElementFilterTool : ICortexTool
             string.IsNullOrWhiteSpace(filterElementType) &&
             filterFamilySymId <= 0 &&
             levelFilterToken == null &&
+            string.IsNullOrWhiteSpace(groupStatus) &&
+            string.IsNullOrWhiteSpace(wallConstraintStatus) &&
             bbMin == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                "Specify at least one filter: filterCategory, filterElementType, filterFamilySymbolId, levelFilter, or boundingBox",
+                "Specify at least one filter: filterCategory, filterElementType, filterFamilySymbolId, levelFilter, groupStatus, wallConstraintStatus, or boundingBox",
                 suggestion: "Use OST_* codes for filterCategory, e.g. OST_Walls, OST_Doors");
 
         if ((bbMin == null) != (bbMax == null))
@@ -107,21 +130,21 @@ public class AIElementFilterTool : ICortexTool
             {
                 var (cntInst, instList) = CollectByKind(doc, isElementType: false,
                     filterCategory, filterElementType, filterFamilySymId,
-                    filterVisibleInView, bbMin, bbMax, maxElements,
-                    combineWith, invert, levelFilterToken);
+                    filterVisibleInView, bbMin, bbMax, pageSize, offset,
+                    combineWith, invert, levelFilterToken, groupStatus, wallConstraintStatus);
                 elements.AddRange(instList);
                 totalCount += cntInst;
 
                 // For types we only need the remaining slots (if any); if caller
                 // wanted a hard cap we still report true totalCount below.
-                int remaining = maxElements > 0
-                    ? System.Math.Max(0, maxElements - elements.Count)
-                    : 0;
+                int remaining = Math.Max(0, pageSize - elements.Count);
+                int typeOffset = Math.Max(0, offset - cntInst);
                 var (cntType, typeList) = CollectByKind(doc, isElementType: true,
                     filterCategory, filterElementType, filterFamilySymId: -1,
                     filterVisibleInView: false, bbMin, bbMax,
-                    maxElements > 0 ? remaining : 0,
-                    combineWith, invert, levelFilter: null);
+                    remaining, typeOffset,
+                    combineWith, invert, levelFilter: null, groupStatus: groupStatus,
+                    wallConstraintStatus: wallConstraintStatus);
                 elements.AddRange(typeList);
                 totalCount += cntType;
             }
@@ -129,8 +152,8 @@ public class AIElementFilterTool : ICortexTool
             {
                 var (cnt, list) = CollectByKind(doc, isElementType: false,
                     filterCategory, filterElementType, filterFamilySymId,
-                    filterVisibleInView, bbMin, bbMax, maxElements,
-                    combineWith, invert, levelFilterToken);
+                    filterVisibleInView, bbMin, bbMax, pageSize, offset,
+                    combineWith, invert, levelFilterToken, groupStatus, wallConstraintStatus);
                 elements.AddRange(list);
                 totalCount = cnt;
             }
@@ -138,29 +161,34 @@ public class AIElementFilterTool : ICortexTool
             {
                 var (cnt, list) = CollectByKind(doc, isElementType: true,
                     filterCategory, filterElementType, filterFamilySymId: -1,
-                    filterVisibleInView: false, bbMin, bbMax, maxElements,
-                    combineWith, invert, levelFilter: null);
+                    filterVisibleInView: false, bbMin, bbMax, pageSize, offset,
+                    combineWith, invert, levelFilter: null, groupStatus: groupStatus,
+                    wallConstraintStatus: wallConstraintStatus);
                 elements.AddRange(list);
                 totalCount = cnt;
             }
-
-            // Apply limit note
-            string limitNote = string.Empty;
-            if (maxElements > 0 && totalCount > maxElements)
-                limitNote = $" (limited to {maxElements} of {totalCount} matches)";
-
-            // ── Build rich element info ────────────────────────────────────
-            var results = BuildElementInfoList(doc, elements);
 
             // Cache result IDs for follow-up operations
             var ids = elements.Select(GetElementIdLong).ToArray();
             session.Store.Set("lastFilterResults", ids);
 
+            var nextOffset = offset + ids.Length;
+            var nextCursor = nextOffset < totalCount
+                ? EncodeCursor(session.DocumentVersion, nextOffset)
+                : null;
+            var results = responseMode == "details"
+                ? BuildElementInfoList(doc, elements)
+                : null;
+
             return CortexResult<object>.Ok(new
             {
-                message = $"Found {totalCount} element(s), returning {results.Count}{limitNote}",
+                message = $"Found {totalCount} element(s), returning {ids.Length} from offset {offset}",
                 totalCount,
-                returnedCount = results.Count,
+                returnedCount = ids.Length,
+                appliedLimit = pageSize,
+                responseMode,
+                nextCursor,
+                elementIds = responseMode == "idsonly" ? ids : null,
                 elements = results
             });
         }
@@ -176,8 +204,9 @@ public class AIElementFilterTool : ICortexTool
     /// <summary>
     /// Build and execute a FilteredElementCollector.
     /// Returns (totalMatching, taken) where 'taken' contains at most maxElements
-    /// entries. When maxElements == 0 or > totalMatching, 'taken' contains all
-    /// matching elements. Avoids materializing the full result when a cap is set.
+    /// entries. A zero limit returns only the count, which lets a combined
+    /// instance/type query avoid materializing a second collection when its page
+    /// is already full. Avoids materializing the full result when a cap is set.
     /// </summary>
     private static (int total, List<Element> taken) CollectByKind(
         Document doc,
@@ -189,9 +218,12 @@ public class AIElementFilterTool : ICortexTool
         XYZ? bbMin,
         XYZ? bbMax,
         int maxElements = 0,
+        int offset = 0,
         string combineWith = "and",
         bool invert = false,
-        JToken? levelFilter = null)
+        JToken? levelFilter = null,
+        string? groupStatus = null,
+        string? wallConstraintStatus = null)
     {
         // Choose base collector (view-constrained or whole-model)
         FilteredElementCollector collector =
@@ -288,29 +320,86 @@ public class AIElementFilterTool : ICortexTool
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(groupStatus) || !string.IsNullOrWhiteSpace(wallConstraintStatus))
+        {
+            var matching = collector.Cast<Element>()
+                .Where(element => MatchesPostFilters(element, groupStatus, wallConstraintStatus))
+                .ToList();
+            return (matching.Count, matching.Skip(offset).Take(maxElements).ToList());
+        }
+
         // GetElementCount walks the filtered set without wrapping each entry in
         // a managed Element — much cheaper than ToElements() when we only need
         // the count + a small prefix.
         int total = collector.GetElementCount();
 
-        if (maxElements <= 0 || total <= maxElements)
-        {
-            // No cap (or cap >= total): materialize once, same semantics as before.
-            var all = collector.ToElements();
-            // ToElements returns IList<Element>; copy to avoid holding the collector ref.
-            var allList = new List<Element>(all.Count);
-            allList.AddRange(all);
-            return (total, allList);
-        }
-
-        // Early-exit: enumerate just enough to fill maxElements.
+        if (maxElements <= 0) return (total, new List<Element>());
+        if (offset >= total) return (total, new List<Element>());
         var taken = new List<Element>(capacity: maxElements);
+        var skipped = 0;
         foreach (var e in collector)
         {
+            if (skipped++ < offset) continue;
             taken.Add(e);
             if (taken.Count >= maxElements) break;
         }
         return (total, taken);
+    }
+
+    private static bool MatchesPostFilters(Element element, string? groupStatus,
+        string? wallConstraintStatus)
+    {
+        if (!string.IsNullOrWhiteSpace(groupStatus))
+        {
+            var grouped = element.GroupId != ElementId.InvalidElementId || element is Group;
+            if (groupStatus.Equals("grouped", StringComparison.OrdinalIgnoreCase) && !grouped) return false;
+            if (groupStatus.Equals("ungrouped", StringComparison.OrdinalIgnoreCase) && grouped) return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(wallConstraintStatus)) return true;
+        if (element is not Wall wall) return false;
+        var topLevel = wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE)?.AsElementId();
+        var levelConstrained = topLevel != null && topLevel != ElementId.InvalidElementId;
+        var attached = wall.GetAttachmentIds(AttachmentLocation.Top).Count > 0 ||
+                       wall.GetAttachmentIds(AttachmentLocation.Base).Count > 0;
+        return wallConstraintStatus.ToLowerInvariant() switch
+        {
+            "level_constrained" => levelConstrained,
+            "unconnected" => !levelConstrained,
+            "attached" => attached,
+            "unattached" => !attached,
+            _ => true
+        };
+    }
+
+    private static string EncodeCursor(long documentVersion, int offset)
+        => Convert.ToBase64String(Encoding.UTF8.GetBytes($"{documentVersion}:{offset}"));
+
+    private static bool TryDecodeCursor(string? cursor, long documentVersion,
+        out int offset, out string? error)
+    {
+        offset = 0;
+        error = null;
+        if (string.IsNullOrWhiteSpace(cursor)) return true;
+        try
+        {
+            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
+            var parts = decoded.Split(':');
+            if (parts.Length != 2 || !long.TryParse(parts[0], out var version) ||
+                !int.TryParse(parts[1], out offset) || offset < 0)
+                throw new FormatException();
+            if (version != documentVersion)
+            {
+                error = "The search cursor expired because the Revit document changed";
+                return false;
+            }
+            return true;
+        }
+        catch
+        {
+            error = "The search cursor is invalid";
+            return false;
+        }
     }
 
     // ── Element info builders ──────────────────────────────────────────────

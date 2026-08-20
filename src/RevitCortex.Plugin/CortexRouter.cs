@@ -167,12 +167,14 @@ public class CortexRouter
             {
                 stopwatch.Stop();
                 _auditLogger.LogWithPerf(toolName, BuildInputSummary(toolName, input),
-                    cached.Success, cached.Error?.Code, elementsAffected: 0,
+                    cached.Success, cached.Error?.Code,
+                    elementsAffected: EstimateElementsAffected(cached),
                     durationMs: stopwatch.ElapsedMilliseconds,
                     // The entry's stored estimate: re-serializing the result on every
                     // hit would defeat the point of caching it.
                     responseBytes: cachedBytes,
-                    errorMessage: cached.Error?.Message);
+                    errorMessage: cached.Error?.Message,
+                    outputSummary: BuildOutputSummary(cached));
                 return cached;
             }
         }
@@ -202,6 +204,8 @@ public class CortexRouter
                 $"Unhandled exception: {ex.Message}",
                 suggestion: "Retry the command; if it persists, inspect the local audit log.");
         }
+
+        result = EnrichResult(toolName, input, result);
         // One serialization serves both the audit byte count and the cache entry's
         // estimate — Set used to re-serialize the same result a second time.
         var responseBytes = EstimateResponseBytes(result);
@@ -232,14 +236,114 @@ public class CortexRouter
         }
 
         _auditLogger.LogWithPerf(toolName, inputSummary, result.Success,
-            result.Error?.Code, elementsAffected: 0,
+            result.Error?.Code, elementsAffected: EstimateElementsAffected(result),
             durationMs: stopwatch.ElapsedMilliseconds,
             responseBytes: responseBytes,
             codeSnippet: codeSnippet,
             codeHash: codeHash,
-            errorMessage: result.Error?.Message);
+            errorMessage: result.Error?.Message,
+            outputSummary: BuildOutputSummary(result));
 
         return result;
+    }
+
+    private CortexResult<object> EnrichResult(
+        string toolName, JObject input, CortexResult<object> result)
+    {
+        if (!result.Success)
+        {
+            if (result.Error?.Code != CortexErrorCode.TransactionFailed)
+                return result;
+
+            var context = result.Error.Context != null
+                ? new Dictionary<string, object>(result.Error.Context)
+                : new Dictionary<string, object>();
+            if (!context.ContainsKey("warnings")) context["warnings"] = Array.Empty<string>();
+            if (!context.ContainsKey("errors")) context["errors"] = new[] { result.Error.Message };
+            if (!context.ContainsKey("rolledBack")) context["rolledBack"] = true;
+            if (!context.ContainsKey("failedElementIds")) context["failedElementIds"] = Array.Empty<long>();
+            if (!context.ContainsKey("repairHints"))
+                context["repairHints"] = string.IsNullOrWhiteSpace(result.Error.Suggestion)
+                    ? Array.Empty<string>()
+                    : new[] { result.Error.Suggestion! };
+
+            return CortexResult<object>.Fail(
+                result.Error.Code, result.Error.Message, result.Error.Suggestion, context);
+        }
+
+        var data = result.Data == null
+            ? new JObject()
+            : JToken.FromObject(result.Data);
+        var obj = data as JObject ?? new JObject { ["value"] = data };
+        var isReadOnly = IsToolReadOnly(toolName);
+        var dryRun = input["dryRun"]?.Value<bool>() == true;
+
+        if (dryRun && !isReadOnly)
+        {
+            obj["dryRun"] = true;
+            obj["mutated"] = false;
+        }
+
+        obj["execution"] = new JObject
+        {
+            ["connector"] = "MCPRVTT27",
+            ["serverVersion"] = typeof(CortexRouter).Assembly.GetName().Version?.ToString() ?? "0.0.0.0",
+            ["revitVersion"] = "2027",
+            ["mode"] = "automatic",
+            ["readOnly"] = isReadOnly,
+            ["destructive"] = IsToolDestructive(toolName)
+        };
+        return CortexResult<object>.Ok(obj);
+    }
+
+    private static int EstimateElementsAffected(CortexResult<object> result)
+    {
+        if (!result.Success || result.Data == null) return 0;
+        try
+        {
+            var data = JToken.FromObject(result.Data);
+            foreach (var key in new[]
+                     {
+                         "modified", "modifiedCount", "successCount", "createdCount",
+                         "deletedCount", "processed", "processedCount", "elementCount"
+                     })
+            {
+                var count = data[key]?.Value<int?>();
+                if (count.HasValue) return Math.Max(0, count.Value);
+            }
+
+            foreach (var key in new[]
+                     {
+                         "createdElementIds", "modifiedElementIds", "deletedElementIds", "elementIds"
+                     })
+            {
+                if (data[key] is JArray ids) return ids.Count;
+            }
+        }
+        catch { }
+        return 0;
+    }
+
+    private static string BuildOutputSummary(CortexResult<object> result)
+    {
+        if (!result.Success)
+            return $"error={result.Error?.Code}; rolledBack={result.Error?.Context?.ContainsKey("rolledBack") == true}";
+        if (result.Data == null) return "(no data)";
+
+        try
+        {
+            var data = JToken.FromObject(result.Data);
+            if (data is not JObject obj) return FormatValue("result", data);
+            var parts = new List<string>();
+            foreach (var prop in obj.Properties())
+            {
+                if (prop.Name == "execution") continue;
+                parts.Add($"{prop.Name}={FormatValue(prop.Name, prop.Value)}");
+                if (parts.Count >= 12) break;
+            }
+            return parts.Count == 0 ? "(empty)" : string.Join(", ", parts);
+        }
+        catch { return "(unserializable)"; }
     }
 
     private static long EstimateResponseBytes(CortexResult<object> result)

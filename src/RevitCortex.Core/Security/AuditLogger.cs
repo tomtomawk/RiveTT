@@ -50,7 +50,7 @@ public class AuditLogger
         CortexErrorCode? errorCode = null, int elementsAffected = 0,
         long? durationMs = null, long? responseBytes = null,
         string? codeSnippet = null, string? codeHash = null,
-        string? errorMessage = null)
+        string? errorMessage = null, string? outputSummary = null)
     {
         WriteEntry(new AuditEntryV2
         {
@@ -64,6 +64,7 @@ public class AuditLogger
             ElementsAffected = elementsAffected,
             DurationMs = durationMs,
             ResponseBytes = responseBytes,
+            OutputSummary = Truncate(outputSummary ?? "", 500),
             CodeSnippet = codeSnippet,
             CodeHash = codeHash
         }, toolName);
@@ -125,6 +126,8 @@ public class AuditLogger
         public long? DurationMs { get; set; }
         [JsonProperty("response_bytes", NullValueHandling = NullValueHandling.Ignore)]
         public long? ResponseBytes { get; set; }
+        [JsonProperty("output_summary", NullValueHandling = NullValueHandling.Ignore)]
+        public string? OutputSummary { get; set; }
         [JsonProperty("code_snippet", NullValueHandling = NullValueHandling.Ignore)]
         public string? CodeSnippet { get; set; }
         [JsonProperty("code_hash", NullValueHandling = NullValueHandling.Ignore)]

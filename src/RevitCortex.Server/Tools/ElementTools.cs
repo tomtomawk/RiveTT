@@ -41,26 +41,34 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "ai_element_filter"), Description("Query elements by category, element class, family symbol, bounding box, or level. Filters combine with AND (default) or OR, and the whole set can be inverted (NOT). Supports type and instance filtering. For parameter-VALUE filtering use filter_by_parameter_value.")]
+    [McpServerTool(Name = "ai_element_filter"), Description("Paginated element query by category, class, family symbol, bounding box, or level. Returns totalCount, returnedCount, appliedLimit and nextCursor. responseMode=summary (default), idsOnly, or details.")]
     public static async Task<string> AIElementFilter(
         RevitConnectionManager revit,
         [Description("BuiltInCategory code, e.g. OST_Walls, OST_Doors")] string? filterCategory = null,
         [Description("Include type elements")] bool includeTypes = false,
         [Description("Include instance elements")] bool includeInstances = true,
-        [Description("Max elements to return")] int maxElements = 100,
+        [Description("Maximum elements in this page, 1-500. Default: 100")] int pageSize = 100,
+        [Description("Opaque cursor returned by the previous page")] string? cursor = null,
+        [Description("Response mode: summary | idsOnly | details. Default: summary")] string? responseMode = "summary",
         [Description("Combine the filters with: and | or. Default: and")] string? combineWith = null,
         [Description("Invert the combined filter (NOT) — return elements that do NOT match. Default: false")] bool? invert = null,
         [Description("Restrict instances to a level: JSON {\"levelId\":123} or {\"levelName\":\"L1\"}")] string? levelFilter = null,
+        [Description("Optional group filter: grouped | ungrouped")] string? groupStatus = null,
+        [Description("Optional wall constraint filter: level_constrained | unconnected | attached | unattached")] string? wallConstraintStatus = null,
         CancellationToken ct = default)
     {
         var data = new JObject();
         if (filterCategory != null) data["filterCategory"] = filterCategory;
         data["includeTypes"] = includeTypes;
         data["includeInstances"] = includeInstances;
-        data["maxElements"] = maxElements;
+        data["pageSize"] = pageSize;
+        if (cursor != null) data["cursor"] = cursor;
+        if (responseMode != null) data["responseMode"] = responseMode;
         if (combineWith != null) data["combineWith"] = combineWith;
         if (invert != null) data["invert"] = invert;
         if (levelFilter != null) data["levelFilter"] = JObject.Parse(levelFilter);
+        if (groupStatus != null) data["groupStatus"] = groupStatus;
+        if (wallConstraintStatus != null) data["wallConstraintStatus"] = wallConstraintStatus;
 
         var p = new JObject { ["data"] = data };
         var result = await revit.ExecuteAsync("ai_element_filter", p, ct);
@@ -74,6 +82,19 @@ public static class ElementTools
     {
         var result = await revit.ExecuteAsync("get_selected_elements", new JObject(), ct);
         return result.ToString();
+    }
+
+    [McpServerTool(Name = "capture_selection"), Description("Capture explicit element IDs or the current Revit selection as a reusable temporary token. Tokens expire and are scoped to the active document session.")]
+    public static async Task<string> CaptureSelection(
+        RevitConnectionManager revit,
+        [Description("Optional explicit element IDs; omit to capture the current Revit selection")] long[]? elementIds = null,
+        [Description("Token lifetime in minutes, 1-120. Default: 15")] int? ttlMinutes = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject();
+        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (ttlMinutes != null) p["ttlMinutes"] = ttlMinutes;
+        return (await revit.ExecuteAsync("capture_selection", p, ct)).ToString();
     }
 
     [McpServerTool(Name = "get_elements_by_unique_id"), Description("Resolve Revit UniqueId strings to ElementId records for cross-app workflows.")]

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
 using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
@@ -103,62 +102,13 @@ public class FilterByParameterValueTool : ICortexTool
                         $"None of the specified categories could be resolved: {string.Join(", ", categories)}");
             }
 
-            // Collect elements using Revit API category filter (much faster than post-filter)
-            List<Element> elements;
+            var scoped = ElementScopeResolver.Resolve(doc, input, session,
+                out var resolvedScope, out var scopeError, scope);
+            if (scopeError != null) return scopeError;
+            var elements = scoped.Where(element => element is not ElementType).ToList();
             if (resolvedCatIds.Count > 0)
-            {
-                elements = new List<Element>();
-                foreach (var catId in resolvedCatIds)
-                {
-                    FilteredElementCollector collector;
-                    switch (scope.ToLower())
-                    {
-                        case "active_view":
-                            collector = new FilteredElementCollector(doc, doc.ActiveView.Id);
-                            break;
-                        case "selection":
-                            var uiDoc = new UIDocument(doc);
-                            var selectedIds = uiDoc.Selection.GetElementIds();
-                            if (selectedIds.Count == 0)
-                                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                                    "No elements selected in Revit",
-                                    suggestion: "Select elements first, or use scope 'whole_model'");
-                            collector = new FilteredElementCollector(doc, selectedIds);
-                            break;
-                        default:
-                            collector = new FilteredElementCollector(doc);
-                            break;
-                    }
-                    elements.AddRange(collector.OfCategoryId(catId).WhereElementIsNotElementType().ToList());
-                }
-                // Deduplicate if multiple categories matched the same elements
-                if (resolvedCatIds.Count > 1)
-                    elements = elements.GroupBy(e => e.Id).Select(g => g.First()).ToList();
-            }
-            else
-            {
-                // No category filter: collect all (original behavior)
-                FilteredElementCollector collector;
-                switch (scope.ToLower())
-                {
-                    case "active_view":
-                        collector = new FilteredElementCollector(doc, doc.ActiveView.Id);
-                        break;
-                    case "selection":
-                        var uiDoc2 = new UIDocument(doc);
-                        var selectedIds2 = uiDoc2.Selection.GetElementIds();
-                        if (selectedIds2.Count == 0)
-                            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                                "No elements selected in Revit",
-                                suggestion: "Select elements first, or use scope 'whole_model'");
-                        collector = new FilteredElementCollector(doc, selectedIds2);
-                        break;
-                    default:
-                        collector = new FilteredElementCollector(doc);
-                        break;
-                }
-                elements = collector.WhereElementIsNotElementType().ToList();
-            }
+                elements = elements.Where(element => element.Category != null &&
+                    resolvedCatIds.Contains(element.Category.Id)).ToList();
 
             // Filter by parameter value (with type element cache)
             var matchedElements = new List<object>();
@@ -225,6 +175,7 @@ public class FilterByParameterValueTool : ICortexTool
             {
                 matchCount    = matchedElements.Count,
                 totalScanned  = elements.Count,
+                resolvedScope,
                 logic         = clauses.Count > 1 ? logic : null,
                 conditions    = clauses.Select(c => new { c.ParameterName, c.Condition, c.Value }).ToList(),
                 elements = matchedElements
@@ -244,13 +195,13 @@ public class FilterByParameterValueTool : ICortexTool
         bool checkType = paramType == "type" || paramType == "both";
 
         if (checkInstance)
-            param = elem.LookupParameter(paramName);
+            param = ParameterLookup.FindParameterOnElement(elem, paramName);
 
         if (param == null && checkType)
         {
             var typeElem = GetCachedTypeElement(doc, elem, typeCache);
             if (typeElem != null)
-                param = typeElem.LookupParameter(paramName);
+                param = ParameterLookup.FindParameterOnElement(typeElem, paramName);
         }
 
         if (param == null) return null;

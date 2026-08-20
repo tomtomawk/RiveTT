@@ -7,6 +7,7 @@ using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
 using RevitCortex.Tools.Utilities;
+using RevitCortex.Tools.Elements;
 
 namespace RevitCortex.Tools.Parameters;
 
@@ -27,7 +28,6 @@ public class BulkModifyParameterValuesTool : ICortexTool
         if (doc == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
 
-        var elementIds = input["elementIds"]?.ToObject<List<long>>() ?? new List<long>();
         var categoryName = input["categoryName"]?.Value<string>();
         var parameterName = input["parameterName"]?.Value<string>();
         var operation = input["operation"]?.Value<string>() ?? "set";
@@ -49,18 +49,14 @@ public class BulkModifyParameterValuesTool : ICortexTool
         {
             // Collect target elements
             IEnumerable<Element> elements;
-            if (elementIds.Count > 0)
+            string resolvedScope;
+            if (input["elementIds"] != null || input["selectionToken"] != null ||
+                input["savedSelectionName"] != null || input["scope"] != null)
             {
-                elements = elementIds
-                    .Select(id =>
-                    {
-#if REVIT2024_OR_GREATER
-                        return doc.GetElement(new ElementId(id));
-#else
-                        return doc.GetElement(new ElementId((int)id));
-#endif
-                    })
-                    .Where(e => e != null)!;
+                var resolved = ElementScopeResolver.Resolve(doc, input, session,
+                    out resolvedScope, out var scopeError);
+                if (scopeError != null) return scopeError;
+                elements = resolved;
             }
             else if (!string.IsNullOrEmpty(categoryName))
             {
@@ -68,10 +64,12 @@ public class BulkModifyParameterValuesTool : ICortexTool
                 if (catId == ElementId.InvalidElementId)
                     return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"Category not found: {categoryName}");
                 elements = new FilteredElementCollector(doc).OfCategoryId(catId).WhereElementIsNotElementType();
+                resolvedScope = "category";
             }
             else
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "elementIds or categoryName required");
+                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    "categoryName, elementIds, selectionToken, savedSelectionName, or scope is required");
             }
 
             var elementList = elements.ToList();
@@ -107,12 +105,14 @@ public class BulkModifyParameterValuesTool : ICortexTool
             {
                 dryRun,
                 modifiedCount = modified.Count,
+                processedCount = elementList.Count,
                 skippedCount = skipped,
                 failedCount = failures.Count,
                 failures = failures.Take(50).ToList(),
                 sampleIncluded = includeSample,
                 sampleLimit = includeSample ? (int?)sampleLimit : null,
-                modified = sample
+                modified = sample,
+                resolvedScope
             });
         }
         catch (Exception ex)
@@ -127,7 +127,7 @@ public class BulkModifyParameterValuesTool : ICortexTool
     {
         foreach (var elem in elements)
         {
-            var param = elem.LookupParameter(parameterName);
+            var param = ParameterLookup.FindParameter(elem, parameterName, null, out _, out _);
             if (param == null || param.IsReadOnly) { skipped++; continue; }
 
             var oldValue = param.StorageType == StorageType.String ? param.AsString() ?? "" : param.AsValueString() ?? "";

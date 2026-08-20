@@ -19,6 +19,15 @@ La fonte canonica delle signatures est le code du serveur C# ; aucun schéma gé
 | `cross_app_*` | NavisCortex bridge | `cross_app_selection` |
 | `say_hello`, `get_*` | Meta | Diagnostica, capabilities |
 
+## Contrats MCPRVTT27 ajoutés
+
+- `get_server_capabilities()`
+- `capture_selection(elementIds?, ttlMinutes?)`
+- `ai_element_filter(..., pageSize?, cursor?, responseMode?)`
+- `duplicate_storey(sourceLevelId|sourceLevelName, targetElevationMm, ..., dryRun=true)`
+- `detach_wall_constraint(wallIds, mode, dryRun=true)`
+- `manage_model_groups(action, ..., dryRun=true)`
+
 ## Aggiornamento
 
 Mettre à jour les descriptions directement sur les attributs `McpServerTool`.

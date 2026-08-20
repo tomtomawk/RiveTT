@@ -32,9 +32,20 @@ public sealed class SetWallHostTool : ICortexTool
         if (wall == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Wall {wallId} was not found");
 
+        if (ToolHelpers.GetDryRun(input))
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                wallId,
+                currentHostWallId = ToolHelpers.GetElementIdValue(wall.GetHostWallId()),
+                requestedHostWallId = hostWallId,
+                requestedOffsetFromHostMm = offsetMm
+            });
+
         try
         {
             using var transaction = new Transaction(document, "MCPRVTT27: Set Wall Host");
+            var failures = TransactionFailureHandling.FromInput(transaction, input);
             transaction.Start();
             var hostId = hostWallId > 0 ? ToolHelpers.ToElementId(hostWallId) : ElementId.InvalidElementId;
             wall.SetHostWallId(hostId);
@@ -42,7 +53,8 @@ public sealed class SetWallHostTool : ICortexTool
             if (offset != null && !offset.IsReadOnly)
                 offset.Set(offsetMm / MmPerFoot);
             if (transaction.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed, "Revit rolled back wall hosting");
+                return TransactionFailureHandling.ToFailure(failures,
+                    "Wall hosting was rolled back", "Verify that both walls support the hosted-wall relationship.");
             return CortexResult<object>.Ok(new
             {
                 wallId,

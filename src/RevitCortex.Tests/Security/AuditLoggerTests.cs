@@ -80,6 +80,17 @@ public class AuditLoggerTests : IDisposable
     }
 
     [Fact]
+    public void LogWithPerf_RecordsOutputSummaryAndAffectedCount()
+    {
+        _logger.LogWithPerf("bulk_modify_parameter_values", "scope=selection", true,
+            elementsAffected: 103, outputSummary: "modified=103, skipped=0");
+
+        var content = File.ReadAllText(_tempPath);
+        Assert.Contains("\"elements_affected\":103", content);
+        Assert.Contains("\"output_summary\":\"modified=103, skipped=0\"", content);
+    }
+
+    [Fact]
     public void LogWithPerf_WithCodeHashAndSnippet_PreservesBothFields()
     {
         _logger.LogWithPerf("send_code_to_revit", "code(42 chars)", false,

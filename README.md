@@ -17,10 +17,17 @@ transactions et sont consignées dans `%LOCALAPPDATA%\MCPRVTT27\audit.jsonl`.
 
 ## Fonctions ajoutées
 
-- création de murs avec niveaux bas/haut et décalage haut ;
+- capacités serveur et contrat d'exécution (`get_server_capabilities`) ;
+- création de murs avec aperçu et validation des niveaux/décalages réels ;
 - création de portes et fenêtres sur familles réellement présentes dans le projet ;
 - garde-corps natifs (`create_railing`) ;
 - association d'un mur à son mur hôte en Revit 2027 (`set_wall_host`) ;
+- sélection temporaire stable (`capture_selection`) et scopes bulk explicites ;
+- synchronisation localisée via `BuiltInParameter` ;
+- recherches paginées avec modes résumé, IDs et détails ;
+- duplication transactionnelle d'étage (`duplicate_storey`) ;
+- contraintes/attaches de murs et gestion contrôlée des groupes ;
+- diagnostics Revit normalisés et audit entrée/sortie ;
 - sauvegarde et sauvegarde sous du projet actif (`save_document`,
   `save_as_document`).
 

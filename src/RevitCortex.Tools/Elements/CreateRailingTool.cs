@@ -56,11 +56,24 @@ public sealed class CreateRailingTool : ICortexTool
             for (var index = 0; index < points.Count - 1; index++)
                 curveLoop.Append(Line.CreateBound(points[index], points[index + 1]));
 
+            if (ToolHelpers.GetDryRun(input))
+                return CortexResult<object>.Ok(new
+                {
+                    dryRun = true,
+                    railingTypeId,
+                    railingType = railingType.Name,
+                    baseLevelId,
+                    level = level.Name,
+                    segmentCount = points.Count - 1
+                });
+
             using var transaction = new Transaction(document, "MCPRVTT27: Create Railing");
+            var failures = TransactionFailureHandling.FromInput(transaction, input);
             transaction.Start();
             var railing = Railing.Create(document, curveLoop, railingType.Id, level.Id);
             if (transaction.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed, "Revit rolled back railing creation");
+                return TransactionFailureHandling.ToFailure(failures,
+                    "Railing creation was rolled back", "Check path continuity and railing constraints.");
 
             return CortexResult<object>.Ok(new
             {
