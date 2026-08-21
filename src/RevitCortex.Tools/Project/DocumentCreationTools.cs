@@ -183,6 +183,7 @@ public sealed class CreateDocumentTool : ICortexTool
 
             var activated = false;
             string? activationError = null;
+            IReadOnlyList<object> dismissedDialogs = Array.Empty<object>();
             if (activate)
             {
                 var uiApplication = uiApplicationAtEntry
@@ -195,8 +196,10 @@ public sealed class CreateDocumentTool : ICortexTool
                 {
                     try
                     {
+                        using var dialogs = new OpenDialogAutoAnswer(uiApplication);
                         uiApplication.OpenAndActivateDocument(targetPath);
                         activated = true;
+                        dismissedDialogs = dialogs.Answered;
                     }
                     catch (Exception exception)
                     {
@@ -219,7 +222,8 @@ public sealed class CreateDocumentTool : ICortexTool
                 levelCount,
                 fileSizeBytes = new FileInfo(targetPath).Length,
                 activated,
-                activationError
+                activationError,
+                dismissedDialogs
             });
         }
         catch (Exception exception)
@@ -321,6 +325,7 @@ public sealed class OpenDocumentTool : ICortexTool
                 "No UIApplication in session, so no document can be activated",
                 suggestion: "Activate any view in Revit once, then retry.");
 
+        using var dialogs = new OpenDialogAutoAnswer(uiApplication);
         try
         {
             if (detach)
@@ -340,12 +345,17 @@ public sealed class OpenDocumentTool : ICortexTool
             var opened = uiApplication.ActiveUIDocument?.Document;
             return CortexResult<object>.Ok(new
             {
-                message = $"Opened and activated '{Path.GetFileName(filePath)}'. All caches were flushed.",
+                message = $"Opened and activated '{Path.GetFileName(filePath)}'. All caches were flushed." +
+                          (dialogs.Answered.Count > 0
+                              ? $" {dialogs.Answered.Count} Revit dialog(s) were answered automatically."
+                              : ""),
                 path = opened?.PathName ?? filePath,
                 title = opened?.Title,
                 detachedFromCentral = detach,
                 isWorkshared = opened?.IsWorkshared ?? false,
-                cachesInvalidated = true
+                cachesInvalidated = true,
+                dismissedDialogs = dialogs.Answered,
+                warnings = dialogs.Warnings
             });
         }
         catch (Exception exception)

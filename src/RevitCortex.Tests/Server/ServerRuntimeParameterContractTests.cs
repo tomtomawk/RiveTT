@@ -213,6 +213,29 @@ public class ServerRuntimeParameterContractTests
     }
 
     [Fact]
+    public void OpeningADocument_AnswersRevitDialogsAndReportsThem()
+    {
+        var lifecycle = ReadRepo("RevitCortex.Tools", "Project", "DocumentCreationTools.cs");
+        var answer = ReadRepo("RevitCortex.Tools", "Project", "OpenDialogAutoAnswer.cs");
+
+        // A modal dialog during the open blocks the UI thread, which is the thread
+        // the ExternalEvent runs on: the pipe waits for a human to click. Opening the
+        // sandbox model raised "Revit could not find or read 1 references".
+        Assert.Contains("DialogBoxShowing", answer);
+        Assert.Contains("OverrideResult", answer);
+        Assert.Contains("new OpenDialogAutoAnswer(uiApplication)", lifecycle);
+        // Answering on the caller's behalf must never be invisible.
+        Assert.Contains("dismissedDialogs", lifecycle);
+    }
+
+    private static string ReadRepo(string project, params string[] parts)
+    {
+        var all = new List<string> { "..", "..", "..", "..", project };
+        all.AddRange(parts);
+        return File.ReadAllText(Path.GetFullPath(Path.Combine(all.ToArray())));
+    }
+
+    [Fact]
     public void SaveAs_InvalidatesEveryCachedRead()
     {
         var watcher = File.ReadAllText(RepoPath("RevitCortex.Plugin", "Caching", "DocumentChangeWatcher.cs"));
