@@ -23,7 +23,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Returns elements contained within a spatial volume: a room, an area, or a custom axis-aligned bounding box (mm). For rooms, true solid containment (Room ClosedShell) is used by default to avoid the over-reporting of an L-shaped room's bounding box; set useRoomSolid=false for the faster bbox approximation.";
+    public string Description => "Returns elements contained within a spatial volume: a room, an area, or a custom axis-aligned bounding box (mm). For rooms, true solid containment (Room ClosedShell) is used by default to avoid the over-reporting of an L-shaped room's bounding box; set useRoomSolid=false for the faster bbox approximation. Set containment=\"boundary\" to get the elements that BOUND the room (walls, columns, separation lines) instead of those inside it: solid containment excludes them by design, and the bounding box pulls in unrelated neighbours. Each volume reports the containment mode actually used.";
     // 1 foot = 304.8 mm — used for MM<->feet conversions
     private const double MmPerFoot = 304.8;
 
@@ -41,6 +41,16 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
         var maxElementsPerVolume = input["maxElementsPerVolume"]?.Value<int>() ?? 100;
         // For room volumes, confirm bbox candidates against the room's real solid.
         var useRoomSolid        = input["useRoomSolid"]?.Value<bool>() ?? true;
+        // "inside" (default) keeps the historical behavior; "boundary" answers the
+        // question the bounding box only approximated — which elements delimit this
+        // room. Asking for "the walls of the cafeteria" returned 0 with the solid
+        // filter (a bounding wall is not inside the room) and 12 unrelated walls
+        // with the bounding box once the room geometry changed.
+        var containment         = (input["containment"]?.Value<string>() ?? "inside")
+                                    .Trim().ToLowerInvariant();
+        if (containment is not ("inside" or "boundary"))
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                $"containment '{containment}' is not recognized. Use \"inside\" (default) or \"boundary\".");
 
         // Custom bounding box coordinates in mm
         var customMinX = input["customMinX"]?.Value<double>() ?? 0;
@@ -135,6 +145,19 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
                     // Skip rooms/areas with zero or negative area
                     if (spatial is Room room && room.Area <= 0) continue;
 
+                    if (containment == "boundary")
+                    {
+                        var boundaryResult = BuildBoundaryResult(
+                            doc, spatial, normalizedVolumeType, categoryFilter, maxElementsPerVolume,
+                            out var boundaryCount);
+                        if (boundaryResult != null)
+                        {
+                            totalElements += boundaryCount;
+                            volumeResults.Add(boundaryResult);
+                        }
+                        continue;
+                    }
+
                     var outline  = new Outline(bb.Min, bb.Max);
                     var bbFilter = new BoundingBoxIntersectsFilter(outline);
                     var collector = new FilteredElementCollector(doc)
@@ -205,6 +228,11 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
                         volumeId          = (long)spatial.Id.IntegerValue,
 #endif
                         volumeName,
+                        // State the geometry actually used: "solid" excludes bounding
+                        // elements, "boundingBox" over-reports, and the difference
+                        // explains most surprising result sets.
+                        containment       = "inside",
+                        geometryUsed      = useRoomSolid && spatial is Room ? "roomSolid" : "boundingBox",
                         elementCount      = elements.Count,
                         totalElementCount = totalInVolume,
                         truncated,
@@ -215,9 +243,11 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
 
             return CortexResult<object>.Ok(new
             {
-                message        = $"Found {totalElements} element(s) across {volumeResults.Count} volume(s)",
+                message        = $"Found {totalElements} element(s) across {volumeResults.Count} volume(s) " +
+                                 $"(containment={containment})",
                 totalElements,
                 volumeCount    = volumeResults.Count,
+                containment,
                 categoryFilter,
                 volumes        = volumeResults
             });
@@ -298,6 +328,108 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
             category   = e.Category?.Name ?? "Unknown",
             familyName = (e as FamilyInstance)?.Symbol?.FamilyName ?? "",
             typeName   = (e as FamilyInstance)?.Symbol?.Name ?? ""
+        };
+    }
+
+    /// <summary>
+    /// The elements that BOUND a room, from Revit's own boundary segments
+    /// (Room.GetBoundarySegments), not from a geometric guess. Walls, columns,
+    /// room separation lines and curtain panels come back with the boundary
+    /// length they contribute.
+    /// </summary>
+    private static object? BuildBoundaryResult(
+        Document doc,
+        Element spatial,
+        string volumeType,
+        List<string> categoryFilter,
+        int maxElements,
+        out int totalCount)
+    {
+        totalCount = 0;
+        if (spatial is not SpatialElement spatialElement) return null;
+
+        var contributions = new Dictionary<ElementId, double>();
+        try
+        {
+            var options = new SpatialElementBoundaryOptions
+            {
+                SpatialElementBoundaryLocation = SpatialElementBoundaryLocation.Finish
+            };
+
+            var loops = spatialElement.GetBoundarySegments(options);
+            if (loops == null) return null;
+
+            foreach (var loop in loops)
+            {
+                foreach (var segment in loop)
+                {
+                    var elementId = segment.ElementId;
+                    if (elementId == ElementId.InvalidElementId) continue;
+
+                    var length = 0.0;
+                    try { length = segment.GetCurve()?.Length ?? 0; } catch { }
+
+                    contributions[elementId] = contributions.TryGetValue(elementId, out var current)
+                        ? current + length
+                        : length;
+                }
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
+        var resolved = contributions
+            .Select(entry => new { element = doc.GetElement(entry.Key), lengthFt = entry.Value })
+            .Where(entry => entry.element != null)
+            .ToList();
+
+        if (categoryFilter.Count > 0)
+        {
+            var wanted = categoryFilter
+                .Select(name => CategoryResolver.ResolveToId(doc, name))
+                .Where(id => id != null && id != ElementId.InvalidElementId)
+                .ToHashSet();
+
+            if (wanted.Count > 0)
+                resolved = resolved
+                    .Where(entry => entry.element!.Category != null && wanted.Contains(entry.element!.Category.Id))
+                    .ToList();
+        }
+
+        totalCount = resolved.Count;
+        var truncated = resolved.Count > maxElements;
+        var page = resolved
+            .OrderByDescending(entry => entry.lengthFt)
+            .Take(maxElements)
+            .Select(entry => new
+            {
+                elementId = ToolHelpers.GetElementIdValue(entry.element!.Id),
+                name = entry.element!.Name,
+                category = entry.element.Category?.Name,
+                categoryBic = CategoryResolver.DescribeBuiltInCategory(entry.element.Category),
+                boundaryLengthMm = Math.Round(entry.lengthFt * 304.8, 1)
+            })
+            .ToList();
+
+        var roomLabel = spatial is Room room
+            ? (string.IsNullOrWhiteSpace(room.Number)
+                ? room.Name
+                : $"{room.Number} - {room.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? room.Name}")
+            : spatial.Name;
+
+        return new
+        {
+            volumeType,
+            volumeId = ToolHelpers.GetElementIdValue(spatial.Id),
+            volumeName = roomLabel,
+            containment = "boundary",
+            geometryUsed = "roomBoundarySegments",
+            elementCount = page.Count,
+            totalElementCount = totalCount,
+            truncated,
+            elements = page
         };
     }
 }

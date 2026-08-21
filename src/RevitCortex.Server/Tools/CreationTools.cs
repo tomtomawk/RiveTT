@@ -170,15 +170,25 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "export_room_data"), Description("Export room data including area, perimeter, level, and bounding elements.")]
+    [McpServerTool(Name = "export_room_data"), Description("Export room data (area in m2, perimeter, level, department). Filter inside Revit with levelName/levelId and nameFilter instead of returning every room of the model: matchedCount reports how many matched before truncation.")]
     public static async Task<string> ExportRoomData(
         RevitConnectionManager revit,
         [Description("Maximum number of rooms to return. Default: 20")] int? maxResults = 20,
+        [Description("Keep only the rooms of this level (accent- and case-insensitive name match)")] string? levelName = null,
+        [Description("Keep only the rooms of this level id")] long? levelId = null,
+        [Description("Substring filter on room name or number")] string? nameFilter = null,
+        [Description("Include unplaced rooms (area 0). Default: false")] bool? includeUnplacedRooms = null,
+        [Description("Include rooms that are not enclosed. Default: false")] bool? includeNotEnclosedRooms = null,
         [Description("Strip department/perimeterMm. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (maxResults != null) p["maxResults"] = maxResults;
+        if (levelName != null) p["levelName"] = levelName;
+        if (levelId != null) p["levelId"] = levelId;
+        if (nameFilter != null) p["nameFilter"] = nameFilter;
+        if (includeUnplacedRooms != null) p["includeUnplacedRooms"] = includeUnplacedRooms;
+        if (includeNotEnclosedRooms != null) p["includeNotEnclosedRooms"] = includeNotEnclosedRooms;
         var result = await revit.ExecuteAsync("export_room_data", p, ct);
         return ToolResponseShaper.Shape("export_room_data", result, compact, summaryOnly: false).ToString();
     }

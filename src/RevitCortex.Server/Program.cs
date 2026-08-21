@@ -14,7 +14,7 @@ builder.Services
         options.ServerInfo = new()
         {
             Name = "MCPRVTT27",
-            Version = "0.1.0"
+            Version = "0.2.0"
         };
         options.ServerInstructions =
             "MCPRVTT27 connects automatically to the active Revit 2027 session through a local Windows named pipe. " +

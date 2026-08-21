@@ -48,14 +48,15 @@ de l'hypothèse du rapport : elles sont signalées explicitement.
 | `duplicate_system_type` suggérant `get_available_family_types` | Suggestion corrigée vers `list_system_types(category)` |
 | Escalier, nouveau document, propagation d'armatures : recherche vaine dans le catalogue | `get_server_capabilities.lifecycleLimitations` les déclare, avec la raison technique ; `discoveryHints` explique les types système, l'équivalent de « créer similaire » (`copy_elements`) et les lignes de séparation |
 
+## Ajouts issus des demandes du rapport
+
+| Demande | Réalisation |
+|---|---|
+| Mode « éléments de contour d'une pièce » pour `get_elements_in_spatial_volume` | `containment: "inside" \| "boundary"`. Le mode `boundary` s'appuie sur `Room.GetBoundarySegments` (les segments de Revit, pas une approximation géométrique) et retourne murs, poteaux et lignes de séparation avec la longueur de contour qu'ils fournissent. Chaque volume indique `geometryUsed` (`roomSolid`, `boundingBox` ou `roomBoundarySegments`) : la différence entre les deux algorithmes explique la plupart des résultats surprenants |
+| Filtre de niveau natif sur `export_room_data` | `levelName` (insensible à la casse et aux accents), `levelId` et `nameFilter`, filtrés dans Revit ; `matchedCount` indique le nombre de correspondances avant troncature |
+
 ## Non retenu
 
-- **`get_elements_in_spatial_volume` — mode `roomBoundingElements`.** Le
-  comportement observé (`useRoomSolid: true` exclut les murs de contour,
-  `false` dépend de la boîte englobante) est conforme aux deux algorithmes. Un
-  mode « éléments de contour d'une pièce » est une vraie fonctionnalité à
-  spécifier (via `Room.GetBoundarySegments`), pas une correction de bug : à
-  traiter séparément.
 - **Création d'escalier.** `StairsEditScope` exige un éditeur modal, hors de
   portée d'un `ExternalEvent`. Documenté comme limitation.
 - **`create_document(templatePath)`.** Même contrainte que `open_document`
@@ -63,6 +64,8 @@ de l'hypothèse du rapport : elles sont signalées explicitement.
   un orchestrateur dédié, pas un outil de plus.
 
 ## Vérification
+
+Version du connecteur : **0.2.0** (plugin et serveur MCP).
 
     dotnet build .\RevitCortex.sln -c Release
     dotnet test .\src\RevitCortex.Tests\RevitCortex.Tests.csproj -c Release

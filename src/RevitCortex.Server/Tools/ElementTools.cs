@@ -338,6 +338,7 @@ public static class ElementTools
         [Description("Custom box max Y (when volumeType=custom)")] double? customMaxY = null,
         [Description("Custom box max Z (when volumeType=custom)")] double? customMaxZ = null,
         [Description("For volumeType=room, confirm containment against the real room solid (ClosedShell) instead of the room bounding box. Default: true.")] bool? useRoomSolid = null,
+        [Description("inside (default) = elements contained in the volume; boundary = elements that BOUND the room (walls, columns, separation lines), from Revit boundary segments")] string? containment = null,
         [Description("Strip per-element extras. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
@@ -347,6 +348,7 @@ public static class ElementTools
         if (categoryFilter != null) p["categoryFilter"] = new JArray(categoryFilter);
         if (maxElementsPerVolume != null) p["maxElementsPerVolume"] = maxElementsPerVolume;
         if (useRoomSolid != null) p["useRoomSolid"] = useRoomSolid;
+        if (containment != null) p["containment"] = containment;
         if (customMinX != null) p["customMinX"] = customMinX;
         if (customMinY != null) p["customMinY"] = customMinY;
         if (customMinZ != null) p["customMinZ"] = customMinZ;
