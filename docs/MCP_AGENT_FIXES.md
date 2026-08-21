@@ -82,6 +82,64 @@ occurrences, puisque Revit ne peut pas propager le changement.
   et `CreateSpiralRun` existent dans l'API : extension possible plus tard, non
   nécessaire pour une circulation verticale standard.
 
+## Campagne de validation en session live — 2026-08-21, build 0.2.0
+
+Menée sur `Saint-Malo_avenue aristide briand_46_V4.rvt` (bac à sable), Revit 2027,
+document en français. Éléments de test supprimés en fin de campagne.
+
+### Validé
+
+| Test | Preuve |
+|---|---|
+| `create_document` (aucun document ouvert) | `MCP_TEST_0.2.0_nouveau_projet.rvt` créé depuis le gabarit, 6 niveaux, 4,1 Mo, 1,86 s |
+| `open_document` à froid | V4 (217 Mo) ouvert et activé ; `get_project_info` renvoie ensuite ses 14 niveaux |
+| `list_system_types` | 8 types d'escalier et 18 cartouches avec `typeId`, `categoryBic`, `instanceCount` — inaccessibles auparavant |
+| `create_stair` | Escalier 11021980 : 18/18 contremarches, `reachesTopLevel: true`, giron 230 mm, contremarche 188,9 mm, largeur 1200 mm appliquée |
+| `create_sheet` avec cartouche | Feuille 11022139, `hasTitleBlock: true`, **420 × 297 mm** (A3) au lieu du 210 × 297 par défaut ; instance de cartouche confirmée indépendamment par `place_title_block` |
+| Unités explicites | `Hauteur d'escalier souhaitée` : `value 3.40` / `unit "meters"` / `internalValue 11.15` (pieds) |
+| `execution.cached` | Second `get_project_info` identique : `cached: true` |
+| `get_materials.nameFilter` | « béton » → 5 matériaux au lieu de 221 |
+| `export_room_data.levelName` | « RDC » → `matchedCount: 23` au lieu des 138 pièces du modèle |
+| `create_room_separation_line` | Ligne 11022146 créée dans le plan « RDC Travail » |
+| `delete_element` | 260 éléments : `deletedCount` = ids listés = 4 demandés + 256 dépendances **nommées** (volées, marches, garde-corps auto) |
+| Erreurs structurées | Aucune exception brute ; « No document open », « No UIApplication in session », rollback d'escalier avec le message Revit capturé |
+
+### Deux bugs transverses découverts en direct, corrigés
+
+| Bug | Détection | Portée |
+|---|---|---|
+| Un paramètre `bool?` fait échouer tout l'appel avant Revit | `list_system_types(category)` répond ; `list_system_types(category, includeLoadable: true)` échoue | 148 paramètres sur 110 outils, dont `dryRun` sur 15 outils d'écriture |
+| Un paramètre tableau **optionnel** échoue de même | `get_element_parameters(elementIds:[…])` (tableau requis) répond ; ajouter `parameterNames:[…]` casse le même appel | 55 paramètres sur 41 outils : plus aucun filtre de catégorie, d'ids ni de liste de champs |
+
+Ces deux défauts sont antérieurs aux ajouts de cette série et expliquent
+vraisemblablement une partie des « An error occurred invoking » inexpliqués du
+rapport de campagne. Deux bugs latents ont été trouvés au passage :
+`batch_rename` transmettait les **caractères** de la chaîne d'ids, et
+`filter_by_parameter_value` publiait `elementIds` sans jamais le transmettre.
+
+### Corrigé après observation
+
+- `create_stair` : l'avertissement inversait le sens (27 contremarches pour 18
+  = volée trop **longue**, il conseillait de l'allonger) ; il donne maintenant le
+  sens et la correction en mm.
+- `create_stair` : « already has associated railings » n'est plus une erreur —
+  la plupart des types créent leurs garde-corps, l'outil retourne leurs ids.
+- `create_stair` : le message de rollback nomme les deux causes réelles, dont les
+  types préfabriqués catalogués à hauteur fixe (Revit ne dit que « Impossible de
+  créer l'escalier »).
+- `get_element_parameters` en mode `compact` supprimait `unit` — exactement
+  l'ambiguïté que le travail sur les unités visait à supprimer.
+- La session perdait l'`UIApplication` à chaque fermeture de document, ce qui
+  rendait `create_document`/`open_document` inutilisables jusqu'à réouverture
+  manuelle d'un fichier.
+
+### Reste à valider (nécessite la build suivante)
+
+`export_elements_data` avec noms de paramètres anglais et avec `elementIds`,
+`get_elements_in_spatial_volume` avec `containment: boundary`, et
+`edit_group_members` — tous trois bloqués par le bug des tableaux optionnels
+jusqu'à réinstallation.
+
 ## Vérification
 
 Version du connecteur : **0.2.0** (plugin et serveur MCP).
