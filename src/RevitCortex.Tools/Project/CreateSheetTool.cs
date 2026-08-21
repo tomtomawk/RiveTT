@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
@@ -30,7 +31,14 @@ public class CreateSheetTool : ICortexTool
         var sheetName = input["sheetName"]?.Value<string>();
         var titleBlockFamilyName = input["titleBlockFamilyName"]?.Value<string>();
         var titleBlockTypeName = input["titleBlockTypeName"]?.Value<string>();
-        var titleBlockTypeId = input["titleBlockTypeId"]?.Value<long>() ?? -1;
+        // titleBlockId is the name the MCP surface has always used; titleBlockTypeId
+        // was the runtime name this tool read. Only the second one was honored, so
+        // every sheet came out with the default 210x297 "Sheet" type and no title
+        // block. Both names are accepted now.
+        var titleBlockTypeId = input["titleBlockId"]?.Value<long>()
+                               ?? input["titleBlockTypeId"]?.Value<long>()
+                               ?? -1;
+        var dryRun = input["dryRun"]?.Value<bool>() ?? false;
 
         try
         {
@@ -44,7 +52,26 @@ public class CreateSheetTool : ICortexTool
 #else
                 var elem = doc.GetElement(new ElementId((int)titleBlockTypeId));
 #endif
-                if (elem is FamilySymbol) tbId = elem.Id;
+                if (elem is FamilySymbol symbolCandidate &&
+                    symbolCandidate.Category?.Id == new ElementId(BuiltInCategory.OST_TitleBlocks))
+                {
+                    tbId = elem.Id;
+                }
+                else
+                {
+                    // An explicit id that cannot be used must fail loudly. Falling back
+                    // to "any title block" (or to none) silently produced a blank A4
+                    // sheet that looked like a success.
+                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                        $"titleBlockId {titleBlockTypeId} is not a title block type in this document " +
+                        $"(resolved to: {DescribeElement(doc, titleBlockTypeId)}).",
+                        suggestion: "Pass the ElementId of an OST_TitleBlocks FamilySymbol. " +
+                                    $"Available: {DescribeAvailableTitleBlocks(doc)}",
+                        context: new Dictionary<string, object>
+                        {
+                            ["availableTitleBlocks"] = ListTitleBlocks(doc)
+                        });
+                }
             }
 
             if (tbId == ElementId.InvalidElementId && !string.IsNullOrEmpty(titleBlockFamilyName))
@@ -66,6 +93,16 @@ public class CreateSheetTool : ICortexTool
                 if (match != null) tbId = match.Id;
             }
 
+            if (tbId == ElementId.InvalidElementId && !string.IsNullOrEmpty(titleBlockTypeName))
+            {
+                var byTypeName = new FilteredElementCollector(doc)
+                    .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                    .OfClass(typeof(FamilySymbol))
+                    .Cast<FamilySymbol>()
+                    .FirstOrDefault(s => s.Name.Equals(titleBlockTypeName, StringComparison.OrdinalIgnoreCase));
+                if (byTypeName != null) tbId = byTypeName.Id;
+            }
+
             if (tbId == ElementId.InvalidElementId)
             {
                 var first = new FilteredElementCollector(doc)
@@ -73,6 +110,29 @@ public class CreateSheetTool : ICortexTool
                     .OfClass(typeof(FamilySymbol))
                     .FirstOrDefault();
                 if (first != null) tbId = first.Id;
+            }
+
+            var resolvedTitleBlock = tbId == ElementId.InvalidElementId
+                ? null
+                : doc.GetElement(tbId) as FamilySymbol;
+
+            if (dryRun)
+            {
+                return CortexResult<object>.Ok(new
+                {
+                    message = resolvedTitleBlock == null
+                        ? "DryRun: sheet would be created WITHOUT a title block (none available in this document)."
+                        : $"DryRun: sheet would be created with title block '{resolvedTitleBlock.FamilyName} / {resolvedTitleBlock.Name}'.",
+                    sheetNumber,
+                    sheetName,
+                    titleBlockId = tbId == ElementId.InvalidElementId
+                        ? (long?)null
+                        : ToolHelpers.GetElementIdValue(tbId),
+                    titleBlockFamily = resolvedTitleBlock?.FamilyName,
+                    titleBlockType = resolvedTitleBlock?.Name,
+                    hasTitleBlock = resolvedTitleBlock != null,
+                    availableTitleBlocks = ListTitleBlocks(doc)
+                });
             }
 
             using var tx = new Transaction(doc, "MCPRVTT27: Create Sheet");
@@ -102,16 +162,81 @@ public class CreateSheetTool : ICortexTool
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
+            // Report the title block actually applied: a caller must be able to see,
+            // without a second read, whether the sheet has a frame or is a bare
+            // default 210x297 sheet.
+            var placedTitleBlock = new FilteredElementCollector(doc, sheet.Id)
+                .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                .WhereElementIsNotElementType()
+                .FirstOrDefault();
+
             return CortexResult<object>.Ok(new
             {
                 sheetId = ToolHelpers.GetElementIdValue(sheet.Id),
                 sheetNumber = sheet.SheetNumber,
-                sheetName = sheet.Name
+                sheetName = sheet.Name,
+                titleBlockId = placedTitleBlock == null
+                    ? (long?)null
+                    : ToolHelpers.GetElementIdValue(placedTitleBlock.GetTypeId()),
+                titleBlockFamily = resolvedTitleBlock?.FamilyName,
+                titleBlockType = resolvedTitleBlock?.Name,
+                hasTitleBlock = placedTitleBlock != null,
+                warnings = placedTitleBlock == null
+                    ? new[]
+                    {
+                        "No title block was placed: the sheet is the bare Revit sheet type (210x297 mm, no frame). " +
+                        "Load a title block family, then use place_title_block on this sheet."
+                    }
+                    : Array.Empty<string>()
             });
         }
         catch (Exception ex)
         {
             return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create sheet: {ex.Message}");
         }
+    }
+
+    private static string DescribeElement(Document doc, long rawId)
+    {
+#if REVIT2024_OR_GREATER
+        var element = doc.GetElement(new ElementId(rawId));
+#else
+        var element = doc.GetElement(new ElementId((int)rawId));
+#endif
+        if (element == null) return "no element with this id";
+        return $"{element.GetType().Name} '{element.Name}' (category {element.Category?.Name ?? "none"})";
+    }
+
+    internal static List<object> ListTitleBlocks(Document doc)
+    {
+        return new FilteredElementCollector(doc)
+            .OfCategory(BuiltInCategory.OST_TitleBlocks)
+            .OfClass(typeof(FamilySymbol))
+            .Cast<FamilySymbol>()
+            .OrderBy(s => s.FamilyName)
+            .ThenBy(s => s.Name)
+            .Select(s => (object)new
+            {
+                titleBlockId = ToolHelpers.GetElementIdValue(s.Id),
+                familyName = s.FamilyName,
+                typeName = s.Name
+            })
+            .ToList();
+    }
+
+    private static string DescribeAvailableTitleBlocks(Document doc)
+    {
+        var symbols = new FilteredElementCollector(doc)
+            .OfCategory(BuiltInCategory.OST_TitleBlocks)
+            .OfClass(typeof(FamilySymbol))
+            .Cast<FamilySymbol>()
+            .OrderBy(s => s.FamilyName)
+            .Take(15)
+            .Select(s => $"{ToolHelpers.GetElementIdValue(s.Id)}={s.FamilyName}/{s.Name}")
+            .ToList();
+
+        return symbols.Count == 0
+            ? "none loaded in this document"
+            : string.Join(", ", symbols);
     }
 }

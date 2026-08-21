@@ -233,13 +233,16 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_room"), Description("Create a new room in the Revit project.")]
+    [McpServerTool(Name = "create_room"), Description("Create a room at a point on a level. x/y are plan coordinates in mm; the level sets the elevation. The response reports enclosed and areaM2 - a point that is not inside a closed loop of room-bounding elements, or that falls in an existing room, yields an unusable room with area 0 and a warning. dryRun reports which room already occupies the point.")]
     public static async Task<string> CreateRoom(
         RevitConnectionManager revit,
         [Description("Level element ID where the room will be placed")] long levelId,
         [Description("X coordinate for room placement, in mm")] double x,
         [Description("Y coordinate for room placement, in mm")] double y,
         [Description("Room name")] string? name = null,
+        [Description("Room number")] string? number = null,
+        [Description("Department")] string? department = null,
+        [Description("Preview without creating: reports the room already occupying the point. Default: false")] bool? dryRun = null,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -248,6 +251,9 @@ public static class ProjectTools
             ["location"] = new JObject { ["x"] = x, ["y"] = y, ["z"] = 0 },
         };
         if (name != null) p["name"] = name;
+        if (number != null) p["number"] = number;
+        if (department != null) p["department"] = department;
+        if (dryRun != null) p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_room", p, ct);
         return result.ToString();
     }

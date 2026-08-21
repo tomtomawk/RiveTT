@@ -78,6 +78,9 @@ public class DeleteElementTool : ICortexTool
             elementId = GetElementIdLong(ve.Elem),
             name      = ve.Elem.Name,
             category  = ve.Elem.Category?.Name,
+            // French Revit calls the viewport category "Fenêtres " — the same label
+            // as windows. The OST_ code is the only unambiguous identification.
+            categoryBic = CategoryResolver.DescribeBuiltInCategory(ve.Elem.Category),
             uniqueId  = ve.Elem.UniqueId
         }).ToList();
 
@@ -157,12 +160,45 @@ public class DeleteElementTool : ICortexTool
         try
         {
             ICollection<ElementId> deletedIds;
+            var cascadeInfo = new List<object>();
             using var tx = new Transaction(doc, "MCPRVTT27: Delete Elements");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             try
             {
-                deletedIds = doc.Delete(validElements.Select(ve => ve.Id).ToList());
+                // Probe the cascade first, inside a rolled-back sub-transaction, so the
+                // implicitly removed elements (tags, sketches, dependent views) can be
+                // named while they still exist. deletedCount used to report 2 while
+                // deletedElements listed 1, with no way to know what the extra was.
+                var requestedIds = validElements.Select(ve => ve.Id).ToList();
+                try
+                {
+                    using var probe = new SubTransaction(doc);
+                    probe.Start();
+                    var probed = doc.Delete(requestedIds);
+                    probe.RollBack();
+
+                    var requestedSet = new HashSet<ElementId>(requestedIds);
+                    cascadeInfo = probed
+                        .Where(id => !requestedSet.Contains(id))
+                        .Select(id => doc.GetElement(id))
+                        .Where(element => element != null)
+                        .Select(element => (object)new
+                        {
+                            elementId = GetElementIdLong(element!),
+                            name = element!.Name,
+                            category = element.Category?.Name,
+                            categoryBic = CategoryResolver.DescribeBuiltInCategory(element.Category),
+                            reason = "removed as a dependency of a requested element"
+                        })
+                        .ToList();
+                }
+                catch
+                {
+                    // A probe failure must not block the delete the caller asked for.
+                }
+
+                deletedIds = doc.Delete(requestedIds);
                 if (tx.Commit() != TransactionStatus.Committed)
                     return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
                         $"Revit rolled back the deletion: {TransactionFailureHandling.Describe(txFailures)}",
@@ -175,21 +211,54 @@ public class DeleteElementTool : ICortexTool
                 throw;
             }
 
+            var deletedElementIds = deletedIds.Select(GetElementIdLongFromId).ToList();
+
             return CortexResult<object>.Ok(new
             {
-                message      = $"Deleted {deletedIds.Count} element(s) successfully.",
+                message      = cascadeInfo.Count == 0
+                    ? $"Deleted {deletedIds.Count} element(s) successfully."
+                    : $"Deleted {deletedIds.Count} element(s): {validInfo.Count} requested plus " +
+                      $"{cascadeInfo.Count} dependent element(s).",
                 dryRun       = false,
                 deletedCount = deletedIds.Count,
-                deletedElements = validInfo,
+                // deletedCount == requestedElements.Count + cascadedElements.Count,
+                // and deletedElementIds is the full list Revit actually removed.
+                deletedElementIds,
+                requestedElements = validInfo,
+                cascadedElements = cascadeInfo,
+                cascadedCount = cascadeInfo.Count,
                 invalidIds,
                 invalidCount = invalidIds.Count
             });
         }
         catch (Exception ex)
         {
+            // Document.Delete throws a bare ArgumentException ("One or more of the
+            // elementIds cannot be deleted") with no indication of which element or
+            // why. Name the likely cause so the caller is not left guessing.
             return CortexResult<object>.Fail(CortexErrorCode.Unknown,
-                $"Failed to delete elements: {ex.Message}");
+                $"Failed to delete elements: {ex.Message}",
+                suggestion: ex is ArgumentException
+                    ? "Revit refuses this deletion. Common causes: the element is the last sheet/view of its " +
+                      "kind, it is pinned, it is referenced by another element (a viewport, a dimension, a " +
+                      "group), or the document needs a regeneration after a previous delete. Delete the " +
+                      "referencing elements first, or re-read the element to confirm it still exists."
+                    : null,
+                context: new Dictionary<string, object>
+                {
+                    ["requestedIds"] = validElements.Select(ve => GetElementIdLong(ve.Elem)).ToList(),
+                    ["exceptionType"] = ex.GetType().Name
+                });
         }
+    }
+
+    private static long GetElementIdLongFromId(ElementId id)
+    {
+#if REVIT2024_OR_GREATER
+        return id.Value;
+#else
+        return id.IntegerValue;
+#endif
     }
 
     private static long GetElementIdLong(Element elem)

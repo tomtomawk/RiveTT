@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Elements;
 
@@ -15,7 +17,12 @@ public class GetElementParametersTool : ICortexTool
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Get Element Parameters";
+
+    public string Description =>
+        "Get parameters of elements by ID. Numeric values are returned in project display units with " +
+        "an explicit unit and the Revit internal value. Missing IDs are reported in notFoundIds, " +
+        "never as an element with empty parameters.";
+
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
         var elementIds = input["elementIds"]?.ToObject<long[]>();
@@ -25,6 +32,7 @@ public class GetElementParametersTool : ICortexTool
                 suggestion: "Provide an array of Revit element IDs, e.g. {\"elementIds\": [606873]}");
 
         var includeTypeParams = input["includeTypeParameters"]?.Value<bool>() ?? true;
+        var requestedNames = input["parameterNames"]?.ToObject<string[]>() ?? Array.Empty<string>();
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
@@ -32,6 +40,8 @@ public class GetElementParametersTool : ICortexTool
                 "No active document in session");
 
         var results = new List<object>();
+        var notFoundIds = new List<long>();
+        var unresolved = new List<object>();
         // Cache type elements to avoid repeated lookups when many elements share the same type
         var typeCache = new Dictionary<ElementId, Element?>();
 
@@ -45,35 +55,62 @@ public class GetElementParametersTool : ICortexTool
             var element = doc.GetElement(elementId);
             if (element == null)
             {
-                results.Add(new { elementId = id, error = $"Element {id} not found" });
+                // A deleted or foreign ID must never look like an element with no
+                // parameters: it gets found=false here and an entry in notFoundIds.
+                notFoundIds.Add(id);
+                results.Add(new
+                {
+                    elementId = id,
+                    found = false,
+                    error = $"Element {id} does not exist in this document (deleted, or from a linked model)."
+                });
                 continue;
             }
 
             var parameters = new List<object>();
 
-            // Instance parameters
-            foreach (Parameter param in element.Parameters)
+            if (requestedNames.Length > 0)
             {
-                parameters.Add(ExtractParameter(param, isType: false));
-            }
-
-            // Type parameters (with cache)
-            if (includeTypeParams)
-            {
-                var typeId = element.GetTypeId();
-                if (typeId != ElementId.InvalidElementId)
+                // Targeted mode: language-independent resolution, and every name that
+                // cannot be resolved is reported instead of returning an empty value.
+                foreach (var requested in requestedNames)
                 {
-                    if (!typeCache.TryGetValue(typeId, out var typeElement))
+                    var parameter = ParameterNameResolver.Resolve(element, requested, doc, out var matchedBy);
+                    if (parameter == null)
                     {
-                        typeElement = doc.GetElement(typeId);
-                        typeCache[typeId] = typeElement;
+                        unresolved.Add(new
+                        {
+                            elementId = id,
+                            requested,
+                            suggestions = ParameterNameResolver.Suggest(
+                                requested, ParameterNameResolver.AvailableNames(element, doc))
+                        });
+                        continue;
                     }
 
-                    if (typeElement != null)
+                    parameters.Add(ExtractParameter(parameter, isType: false, requested, matchedBy));
+                }
+            }
+            else
+            {
+                foreach (Parameter param in element.Parameters)
+                    parameters.Add(ExtractParameter(param, isType: false));
+
+                if (includeTypeParams)
+                {
+                    var typeId = element.GetTypeId();
+                    if (typeId != ElementId.InvalidElementId)
                     {
-                        foreach (Parameter param in typeElement.Parameters)
+                        if (!typeCache.TryGetValue(typeId, out var typeElement))
                         {
-                            parameters.Add(ExtractParameter(param, isType: true));
+                            typeElement = doc.GetElement(typeId);
+                            typeCache[typeId] = typeElement;
+                        }
+
+                        if (typeElement != null)
+                        {
+                            foreach (Parameter param in typeElement.Parameters)
+                                parameters.Add(ExtractParameter(param, isType: true));
                         }
                     }
                 }
@@ -86,45 +123,49 @@ public class GetElementParametersTool : ICortexTool
 #else
                 elementId = element.Id.IntegerValue,
 #endif
+                found = true,
                 elementName = element.Name,
                 category = element.Category?.Name,
+                categoryBic = CategoryResolver.DescribeBuiltInCategory(element.Category),
                 parameters
             });
         }
 
+        var foundCount = elementIds.Length - notFoundIds.Count;
+        var message = notFoundIds.Count == 0
+            ? $"Retrieved parameters for {foundCount} element(s)."
+            : $"Retrieved parameters for {foundCount} of {elementIds.Length} element(s); " +
+              $"{notFoundIds.Count} ID(s) do not exist in this document.";
+
         return CortexResult<object>.Ok(new
         {
-            message = $"Retrieved parameters for {results.Count} elements",
+            message,
+            requestedCount = elementIds.Length,
+            foundCount,
+            notFoundCount = notFoundIds.Count,
+            notFoundIds,
+            unresolvedParameterNames = unresolved,
+            unitPolicy = "value = project display units, unit names it, internalValue = Revit internal units (ft/ft²/ft³)",
             elements = results
         });
     }
 
-    private static object ExtractParameter(Parameter param, bool isType)
+    private static object ExtractParameter(
+        Parameter param, bool isType, string? requestedName = null, string? matchedBy = null)
     {
         var prefix = isType ? "[Type] " : "";
-        object? value = null;
-
-        if (param.HasValue)
-        {
-            value = param.StorageType switch
-            {
-                StorageType.String => param.AsString(),
-                StorageType.Integer => (object)param.AsInteger(),
-                StorageType.Double => param.AsDouble(),
-#if REVIT2024_OR_GREATER
-                StorageType.ElementId => param.AsElementId().Value,
-#else
-                StorageType.ElementId => (object)param.AsElementId().IntegerValue,
-#endif
-                _ => param.AsValueString()
-            };
-        }
+        var formatted = ParameterValueFormatter.Format(param);
 
         return new
         {
             name = prefix + (param.Definition?.Name ?? "Unknown"),
+            requestedName,
+            matchedBy,
             builtInParameter = ParameterLookup.GetBuiltInParameterName(param),
-            value,
+            value = formatted.Value,
+            displayValue = formatted.DisplayValue,
+            unit = formatted.Unit,
+            internalValue = formatted.InternalValue,
             hasValue = param.HasValue,
             isReadOnly = param.IsReadOnly,
             isShared = param.IsShared,

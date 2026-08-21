@@ -21,7 +21,7 @@ public class CreateRoomTool : ICortexTool
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Creates a room at the specified location point inside enclosed walls.";
+    public string Description => "Creates a room at the specified location point inside enclosed walls. Supports dryRun. The response reports whether the room is actually enclosed and its area.";
     private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
@@ -42,6 +42,7 @@ public class CreateRoomTool : ICortexTool
         var comments = input["comments"]?.Value<string>();
         var limitOffsetMm = input["limitOffset"]?.Value<double>() ?? 0;
         var baseOffsetMm = input["baseOffset"]?.Value<double>() ?? 0;
+        var dryRun = input["dryRun"]?.Value<bool>() ?? false;
 
         try
         {
@@ -68,6 +69,40 @@ public class CreateRoomTool : ICortexTool
 
             if (level == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No levels found in document");
+
+            // Placing a point inside an area an existing room already owns creates an
+            // unbounded, overlapping room that Revit accepts silently. Report the
+            // occupant up front instead of letting the caller discover a room whose
+            // Area/Perimeter/Volume are all null.
+            var occupant = FindRoomAt(doc, level, xFt, yFt, zFt);
+
+            if (dryRun)
+            {
+                return CortexResult<object>.Ok(new
+                {
+                    message = occupant == null
+                        ? $"DryRun: a room would be created on level '{level.Name}' at ({location["x"]}, {location["y"]}) mm."
+                        : $"DryRun: point already inside room '{DescribeRoom(occupant)}' — creating here would " +
+                          "produce an overlapping, unbounded room.",
+                    levelId = ToolHelpers.GetElementIdValue(level.Id),
+                    levelName = level.Name,
+                    locationMm = new { x = location["x"], y = location["y"], z = location["z"] },
+                    occupiedBy = occupant == null
+                        ? null
+                        : new
+                        {
+                            roomId = ToolHelpers.GetElementIdValue(occupant.Id),
+                            name = DescribeRoom(occupant)
+                        },
+                    warnings = occupant == null
+                        ? Array.Empty<string>()
+                        : new[]
+                        {
+                            "This point is inside an existing room. Split the space first " +
+                            "(create_wall or create_room_separation_line), then place the second room."
+                        }
+                });
+            }
 
             using var tx = new Transaction(doc, "MCPRVTT27: Create Room");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -121,17 +156,67 @@ public class CreateRoomTool : ICortexTool
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
+            // Enclosure is the whole point of a room. Report it in the creation
+            // response: an unbounded room reports Area = 0 and is useless downstream,
+            // and previously only a separate get_element_parameters call revealed it.
+            var areaFt2 = room.get_Parameter(BuiltInParameter.ROOM_AREA)?.AsDouble() ?? 0;
+            var enclosed = areaFt2 > 1e-6;
+            var areaM2 = Math.Round(areaFt2 * 0.09290304, 3);
+
             return CortexResult<object>.Ok(new
             {
                 roomId = ToolHelpers.GetElementIdValue(room.Id),
                 roomName = room.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? name,
                 roomNumber = room.get_Parameter(BuiltInParameter.ROOM_NUMBER)?.AsString() ?? "",
-                levelName = level.Name
+                levelName = level.Name,
+                levelId = ToolHelpers.GetElementIdValue(level.Id),
+                enclosed,
+                areaM2 = enclosed ? areaM2 : (double?)null,
+                warnings = enclosed
+                    ? Array.Empty<string>()
+                    : new[]
+                    {
+                        "The room was created but is NOT enclosed (area = 0): the point is not inside a closed " +
+                        "loop of room-bounding elements, or it falls inside a room that already exists. " +
+                        "Delete it, close the boundary, then place it again."
+                    }
             });
         }
         catch (Exception ex)
         {
             return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create room: {ex.Message}");
         }
+    }
+
+    /// <summary>The placed room whose boundary contains the point, if any.</summary>
+    private static Room? FindRoomAt(Document doc, Level level, double xFt, double yFt, double zFt)
+    {
+        try
+        {
+            var probe = new XYZ(xFt, yFt, Math.Abs(zFt) > 1e-9 ? zFt : level.Elevation + 0.1);
+            foreach (var element in new FilteredElementCollector(doc)
+                         .OfCategory(BuiltInCategory.OST_Rooms)
+                         .WhereElementIsNotElementType())
+            {
+                if (element is not Room room) continue;
+                if (room.Area <= 1e-6) continue;
+                if (room.LevelId != level.Id) continue;
+                if (room.IsPointInRoom(probe)) return room;
+            }
+        }
+        catch
+        {
+            // Point-in-room is geometry-dependent; a failure here must not block a
+            // legitimate creation.
+        }
+
+        return null;
+    }
+
+    private static string DescribeRoom(Room room)
+    {
+        var number = room.get_Parameter(BuiltInParameter.ROOM_NUMBER)?.AsString();
+        var name = room.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString();
+        return string.IsNullOrWhiteSpace(number) ? name ?? "" : $"{number} - {name}";
     }
 }

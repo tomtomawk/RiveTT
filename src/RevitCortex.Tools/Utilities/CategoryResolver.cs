@@ -110,6 +110,34 @@ public static class CategoryResolver
     }
 
     /// <summary>
+    /// The language-independent <c>OST_*</c> name of a category, or null when the
+    /// category is not built in.
+    ///
+    /// Always report this next to <c>Category.Name</c>: French Revit names the
+    /// viewport category "Fenêtres " — same word as the window category, with a
+    /// trailing space — so the localized label alone is genuinely ambiguous.
+    /// </summary>
+    public static string? DescribeBuiltInCategory(Category? category)
+    {
+        if (category == null) return null;
+        try
+        {
+#if REVIT2024_OR_GREATER
+            var raw = category.Id.Value;
+#else
+            var raw = (long)category.Id.IntegerValue;
+#endif
+            if (raw > int.MaxValue || raw < int.MinValue) return null;
+            var builtIn = (BuiltInCategory)(int)raw;
+            return Enum.IsDefined(typeof(BuiltInCategory), builtIn) ? builtIn.ToString() : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Check if an element's category matches the given name (language-independent).
     /// </summary>
     public static bool CategoryMatches(Document doc, Element element, string categoryName)
