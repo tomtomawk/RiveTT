@@ -29,11 +29,28 @@ public class CacheInvalidator
     }
 
     /// <summary>
-    /// Document persisted (no model change). Drops only Transaction entries.
+    /// Document persisted. Drops Transaction AND Document entries.
+    ///
+    /// Document scope used to survive a save, which was wrong for anything holding
+    /// document identity: after Save As, get_project_info replied from cache with
+    /// the OLD path in 0 ms, so a caller checking the result of its own Save As saw
+    /// the previous file and concluded the save had failed.
     /// </summary>
     public void OnDocumentSaved()
     {
         _session.Cache.InvalidateScope(CacheScope.Transaction);
+        _session.Cache.InvalidateScope(CacheScope.Document);
+    }
+
+    /// <summary>
+    /// Document saved under a new path (Save As), or the active document changed.
+    /// Everything cached describes the previous file — including Session-scope
+    /// entries, which are only immutable for as long as the document is the same.
+    /// </summary>
+    public void OnActiveDocumentReplaced()
+    {
+        _session.BumpDocumentVersion();
+        _session.Cache.InvalidateAll();
     }
 
     /// <summary>

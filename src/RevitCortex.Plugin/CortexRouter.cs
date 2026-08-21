@@ -42,6 +42,13 @@ public class CortexRouter
         "ifc_analyze_", "ifc_compare_"
     };
 
+    /// <summary>
+    /// Tools that change which file the session is working on. Their success must
+    /// flush every cache scope, Session included.
+    /// </summary>
+    private static readonly HashSet<string> LifecycleWriteTools =
+        new(StringComparer.OrdinalIgnoreCase) { "save_document", "save_as_document" };
+
     private sealed class ToolSafetyRegistration
     {
         public ToolSafetyRegistration(bool readOnly, bool destructive, bool declared)
@@ -163,8 +170,11 @@ public class CortexRouter
         {
             paramHash = HashParams(input);
             if (_session.Cache.TryGet(toolName, paramHash, cacheable.CacheScope,
-                    _session.DocumentVersion, out var cached, out var cachedBytes))
+                    _session.DocumentVersion, out var cachedResult, out var cachedBytes))
             {
+                // A cached answer must say so. A 0 ms reply carrying the pre-Save-As
+                // project path was indistinguishable from a fresh read of stale state.
+                var cached = MarkCached(cachedResult);
                 stopwatch.Stop();
                 _auditLogger.LogWithPerf(toolName, BuildInputSummary(toolName, input),
                     cached.Success, cached.Error?.Code,
@@ -203,6 +213,16 @@ public class CortexRouter
             result = CortexResult<object>.Fail(CortexErrorCode.Unknown,
                 $"Unhandled exception: {ex.Message}",
                 suggestion: "Retry the command; if it persists, inspect the local audit log.");
+        }
+
+        // Belt and braces around the Revit DocumentSavedAs/DocumentSaved events: a
+        // lifecycle write changes the document's identity, so nothing cached about
+        // the previous file may survive it, even if the event never reaches us.
+        if (result.Success && LifecycleWriteTools.Contains(toolName) &&
+            input["dryRun"]?.Value<bool>() != true)
+        {
+            _session.BumpDocumentVersion();
+            _session.Cache.InvalidateAll();
         }
 
         result = EnrichResult(toolName, input, result);
@@ -290,10 +310,40 @@ public class CortexRouter
             ["serverVersion"] = typeof(CortexRouter).Assembly.GetName().Version?.ToString() ?? "0.0.0.0",
             ["revitVersion"] = "2027",
             ["mode"] = "automatic",
-            ["readOnly"] = isReadOnly,
-            ["destructive"] = IsToolDestructive(toolName)
+            // toolReadOnly classifies THIS tool. It was named "readOnly", which read
+            // as a server-wide lock and made callers believe writes were forbidden.
+            // writesAllowed is the session-wide fact: MCPRVTT27 has no read-only mode.
+            ["toolReadOnly"] = isReadOnly,
+            ["toolDestructive"] = IsToolDestructive(toolName),
+            ["writesAllowed"] = true,
+            ["cached"] = false
         };
         return CortexResult<object>.Ok(obj);
+    }
+
+    /// <summary>
+    /// Flags a cache hit in the response's execution block. The stored entry is
+    /// left untouched — flipping the flag in place would make the next hit lie.
+    /// </summary>
+    private static CortexResult<object> MarkCached(CortexResult<object> cached)
+    {
+        try
+        {
+            if (JToken.FromObject(cached.Data ?? new JObject()) is not JObject data)
+                return cached;
+
+            var clone = (JObject)data.DeepClone();
+            if (clone["execution"] is JObject execution)
+                execution["cached"] = true;
+            else
+                clone["execution"] = new JObject { ["cached"] = true };
+
+            return CortexResult<object>.Ok(clone);
+        }
+        catch
+        {
+            return cached;
+        }
     }
 
     private static int EstimateElementsAffected(CortexResult<object> result)

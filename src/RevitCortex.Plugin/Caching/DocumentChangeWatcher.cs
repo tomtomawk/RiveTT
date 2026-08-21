@@ -30,6 +30,9 @@ public class DocumentChangeWatcher : IDisposable
         if (_attachedTo != null) return;
         application.DocumentChanged += OnRevitDocumentChanged;
         application.DocumentSaved += OnRevitDocumentSaved;
+        // Save As does NOT raise DocumentSaved. Without this subscription every
+        // cached read kept describing the file the project was saved *from*.
+        application.DocumentSavedAs += OnRevitDocumentSavedAs;
         application.DocumentSynchronizedWithCentral += OnRevitDocumentSynchronized;
         _attachedTo = application;
     }
@@ -47,6 +50,7 @@ public class DocumentChangeWatcher : IDisposable
         {
             app.DocumentChanged -= OnRevitDocumentChanged;
             app.DocumentSaved -= OnRevitDocumentSaved;
+            app.DocumentSavedAs -= OnRevitDocumentSavedAs;
             app.DocumentSynchronizedWithCentral -= OnRevitDocumentSynchronized;
         }
         catch
@@ -72,6 +76,16 @@ public class DocumentChangeWatcher : IDisposable
         {
             System.Diagnostics.Trace.WriteLine(
                 $"[MCPRVTT27] Cache invalidation failed on DocumentSaved: {ex.Message}");
+        }
+    }
+
+    private void OnRevitDocumentSavedAs(object? sender, DocumentSavedAsEventArgs e)
+    {
+        try { _invalidator.OnActiveDocumentReplaced(); }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine(
+                $"[MCPRVTT27] Cache invalidation failed on DocumentSavedAs: {ex.Message}");
         }
     }
 

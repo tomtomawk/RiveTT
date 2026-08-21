@@ -64,7 +64,7 @@ public class DocumentChangeWatcherTests
     }
 
     [Fact]
-    public void OnDocumentSaved_InvalidatesTransactionOnly_DoesNotBumpVersion()
+    public void OnDocumentSaved_InvalidatesTransactionAndDocument_DoesNotBumpVersion()
     {
         var (session, cache) = NewSession();
         var inv = new CacheInvalidator(session);
@@ -72,8 +72,27 @@ public class DocumentChangeWatcherTests
 
         inv.OnDocumentSaved();
 
-        Assert.Equal(new[] { CacheScope.Transaction }, cache.InvalidatedScopes);
+        // Document scope must go too: it holds document identity (path, title), and a
+        // Save As left get_project_info answering with the pre-save path.
+        Assert.Contains(CacheScope.Transaction, cache.InvalidatedScopes);
+        Assert.Contains(CacheScope.Document, cache.InvalidatedScopes);
+        Assert.DoesNotContain(CacheScope.Session, cache.InvalidatedScopes);
         Assert.Equal(v0, session.DocumentVersion);
+    }
+
+    [Fact]
+    public void OnActiveDocumentReplaced_InvalidatesEverything_AndBumpsVersion()
+    {
+        var (session, cache) = NewSession();
+        var inv = new CacheInvalidator(session);
+        var v0 = session.DocumentVersion;
+
+        inv.OnActiveDocumentReplaced();
+
+        // Save As changes which file the session describes, so even Session-scope
+        // entries ("immutable for the session") are about the wrong document now.
+        Assert.Equal(1, cache.InvalidateAllCount);
+        Assert.True(session.DocumentVersion > v0);
     }
 
     [Fact]
