@@ -17,6 +17,20 @@ transactions, structured errors, validation, and post-write verification.
 7. For complex transactions, start with `warningPolicy: allow_list` when the
    acceptable Autodesk FailureDefinition GUIDs are known; unknown warnings then
    trigger a rollback instead of being hidden.
+8. The lifecycle writes preview too: `save_document` and `save_as_document`
+   report paths, target existence, overwrite policy, directory writability, file
+   locks and unsaved changes without writing. Use it before a multi-hundred-MB
+   Save As. `save_as_document` DUPLICATES the open document — it is not a way to
+   start a blank project.
+9. `create_room` and `create_sheet` preview as well. Read what the response says
+   about the result, not just its success: `create_room` reports
+   `enclosed`/`areaM2` (an unenclosed room has area 0 and is unusable), and
+   `create_sheet` reports `hasTitleBlock` (a sheet without one is a bare
+   210x297 mm sheet with no frame).
+10. After a write, check the response's own report before re-reading the model:
+    `warnings`, `notFoundIds`, `unresolvedParameterNames`, `skippedFields`,
+    `cascadedElements`. A read that comes back with `execution.cached: true` is
+    a cached answer, not a fresh observation.
 
 ## Checks
 

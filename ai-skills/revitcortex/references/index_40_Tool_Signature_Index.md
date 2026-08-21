@@ -2,7 +2,7 @@
 
 **Scope:** Indice storico non più mantenuto in MCPRVTT27.
 **Sources:** Attributi `McpServerTool` nel progetto serveur C#.
-**Last verified:** 2026-08-19
+**Last verified:** 2026-08-21
 
 ## Come consultare
 
@@ -27,6 +27,27 @@ La fonte canonica delle signatures est le code du serveur C# ; aucun schéma gé
 - `duplicate_storey(sourceLevelId|sourceLevelName, targetElevationMm, ..., dryRun=true)`
 - `detach_wall_constraint(wallIds, mode, dryRun=true)`
 - `manage_model_groups(action, ..., dryRun=true)`
+- `list_system_types(category?, nameFilter?, includeLoadable?, limit?)`
+- `create_detail_line(path, viewId?, lineStyleName?, dryRun=true)`
+- `create_model_line(path, lineStyleName?, dryRun=true)`
+- `create_room_separation_line(path, viewId?, dryRun=true)`
+- `place_title_block(sheetId, titleBlockId?, dryRun=true)`
+- `create_sheet(sheetNumber, sheetName, titleBlockId?, titleBlockFamilyName?, titleBlockTypeName?, dryRun?)`
+- `save_document(dryRun?)` / `save_as_document(targetPath, overwrite?, dryRun?)`
+- `export_elements_data(..., elementIds?, countOnly?)`
+- `export_room_data(..., levelName?, levelId?, nameFilter?)`
+- `get_elements_in_spatial_volume(..., containment?)`
+- `get_element_parameters(elementIds, includeTypeParameters?, parameterNames?, compact?)`
+- `get_schedule_data(scheduleId, maxRows?, includeAvailableFields?)`
+- `get_materials(nameFilter?, materialClass?, compact?)`
+- `create_door(..., zMode?)` / `create_window(..., zMode?)`
+
+## Contrat de réponse (v0.2.0)
+
+Tout succès porte `execution.{connector, serverVersion, revitVersion, mode,
+toolReadOnly, toolDestructive, writesAllowed, cached}`. `toolReadOnly` classe
+l'outil, pas la session. Les anciens noms `readOnly`/`destructive` n'existent
+plus.
 
 ## Aggiornamento
 

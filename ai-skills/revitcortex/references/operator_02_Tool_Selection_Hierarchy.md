@@ -22,8 +22,27 @@
 | 1 parametro, valore esatto | `export_elements_data` con `filterParameterName`/`filterValue` | Veloce |
 | Range / AND-OR / multi-param | `ai_element_filter` | Wrappare in `{"data": {...}}` |
 | Elementi vista attiva | `get_current_view_elements` con `fields` e `limit` | |
-| Volume/stanza | `get_elements_in_spatial_volume` con `categoryFilter` | |
-| Parametro custom vuoto | NON guess: prima `get_element_parameters` su 1 elemento campione per scoprire i nomi | Mai assumere il formato del nome |
+| Volume/stanza | `get_elements_in_spatial_volume` con `categoryFilter` | `containment: inside` (default) = contenuti; `containment: boundary` = elementi che DELIMITANO la stanza |
+| Elementi precisi per id | `export_elements_data` con `elementIds` | Applicato prima della paginazione |
+| Stanze di un livello | `export_room_data` con `levelName` o `levelId` | Filtro eseguito in Revit |
+| Parametro custom vuoto | NON guess: prima `get_element_parameters` su 1 elemento campione per scoprire i nomi | I nomi standard si risolvono in EN o nella lingua del documento; un nome non risolto arriva in `unresolvedParameterNames` |
+
+### Trovare un tipo
+
+| Caso | Tool | Note |
+|---|---|---|
+| Tipo di famiglia caricabile (porta, finestra, cartiglio) | `get_available_family_types` | `kind: loadable` |
+| Tipo di sistema (muro, solaio, parapetto, scala, cartiglio) | `list_system_types(category)` | Senza categoria restituisce l'inventario con i codici `OST_*` |
+| Duplicare un tipo | `duplicate_family_type` (caricabile) / `duplicate_system_type` (sistema) | `duplicate_family_type` fallisce sui tipi di sistema |
+
+### Disegnare linee e dividere stanze
+
+| Caso | Tool |
+|---|---|
+| Linea 2D di vista | `create_detail_line` |
+| Linea 3D di modello | `create_model_line` |
+| Dividere una stanza senza muro fisico | `create_room_separation_line` |
+| Cartiglio su una tavola esistente | `place_title_block` |
 
 ### Modifica parametri
 
@@ -54,3 +73,11 @@
 - Non usare `ai_element_filter` con `maxElements: 1000` di default.
 - Non chiamare `audit_families` globale per cercare una singola categoria.
 - Non assumere nomi parametri custom (WBS_*, Code_*): scoprirli prima.
+- Non leggere una colonna vuota come un valore vuoto: senza
+  `unresolvedParameterNames` il nome è stato risolto, con esso no.
+- Non leggere un numero senza la sua `unit`: Revit conserva piedi, piedi² e
+  piedi³ qualunque siano le unità del progetto (`internalValue`).
+- Non cercare un tipo di sistema con `get_available_family_types` sperando in un
+  `familyName`: usare `list_system_types`.
+- Non cercare un tool per creare un documento vuoto o una scala: non esistono, e
+  `get_server_capabilities.lifecycleLimitations` lo dichiara.
