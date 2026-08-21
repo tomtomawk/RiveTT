@@ -30,6 +30,18 @@ public static class ParameterLookup
         if (TryParseBuiltInParameter(parameterName, out var implicitBuiltInParameter))
             return FindBuiltInParameter(element, implicitBuiltInParameter, out matchedBuiltInParameter);
 
+        // Last resort: English/French alias table and accent-insensitive matching.
+        // Without it every tool built on this helper (set_element_parameters,
+        // filter_by_parameter_value, bulk_modify_parameter_values, add_prefix_suffix,
+        // clear_parameter_values, sync_csv_parameters) failed on a localized document
+        // whenever the caller used the English API name.
+        var resolved = Utilities.ParameterNameResolver.Resolve(element, parameterName, element.Document);
+        if (resolved != null)
+        {
+            matchedBuiltInParameter = GetBuiltInParameterName(resolved);
+            return resolved;
+        }
+
         return null;
     }
 
@@ -49,8 +61,13 @@ public static class ParameterLookup
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
         if (TryParseBuiltInParameter(name, out var builtIn))
-            return element.get_Parameter(builtIn);
-        return element.LookupParameter(name.Trim());
+        {
+            var builtInMatch = element.get_Parameter(builtIn);
+            if (builtInMatch != null) return builtInMatch;
+        }
+
+        return element.LookupParameter(name!.Trim())
+               ?? Utilities.ParameterNameResolver.Resolve(element, name, element.Document);
     }
 
     private static Parameter? FindNamedParameter(Element element, string? parameterName)

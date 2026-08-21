@@ -105,10 +105,10 @@ public class SetCompoundStructureTool : ICortexTool
         var newLayers = new List<CompoundStructureLayer>();
         foreach (var lj in layersJson)
         {
-            var (ok, layer) = ParseLayer(doc, lj);
+            var (ok, layer, error) = ParseLayer(doc, lj);
             if (!ok || layer == null)
                 return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                    $"Invalid layer definition: {lj}. Required: function, widthMm or widthFt");
+                    $"Invalid layer definition: {error ?? "function and widthMm are required"} (layer: {lj})");
             newLayers.Add(layer);
         }
 
@@ -184,10 +184,10 @@ public class SetCompoundStructureTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "layer object is required for 'add' action");
 
-        var (ok, newLayer) = ParseLayer(doc, layerJson);
+        var (ok, newLayer, layerError) = ParseLayer(doc, layerJson);
         if (!ok || newLayer == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                "Invalid layer definition. Required: function, widthMm or widthFt");
+                $"Invalid layer definition: {layerError ?? "function and widthMm are required"}");
 
         var existingLayers = cs.GetLayers().ToList();
         int insertAt = position ?? existingLayers.Count;
@@ -486,11 +486,19 @@ public class SetCompoundStructureTool : ICortexTool
 
     // ── Helpers ────────────────────────────────────────────────────────
 
-    private static (bool ok, CompoundStructureLayer? layer) ParseLayer(Document doc, JObject lj)
+    /// <summary>
+    /// Parses one layer definition. Returns an explicit error string instead of a
+    /// bare false: an unknown materialName used to be accepted silently and produced
+    /// a layer with the right thickness and NO material — invisible until someone
+    /// read the structure back and saw materialName "(none)".
+    /// </summary>
+    private static (bool ok, CompoundStructureLayer? layer, string? error) ParseLayer(Document doc, JObject lj)
     {
         var funcStr = lj["function"]?.Value<string>();
-        if (string.IsNullOrEmpty(funcStr)) return (false, null);
-        if (!TryParseFunction(funcStr!, out var func)) return (false, null);
+        if (string.IsNullOrEmpty(funcStr))
+            return (false, null, "function is required (Structure, Substrate, Insulation, Finish1, Finish2, Membrane, StructuralDeck)");
+        if (!TryParseFunction(funcStr!, out var func))
+            return (false, null, $"function '{funcStr}' is not a Revit MaterialFunctionAssignment");
 
         var widthMm = lj["widthMm"]?.Value<double?>();
         var widthFt = lj["widthFt"]?.Value<double?>();
@@ -501,7 +509,7 @@ public class SetCompoundStructureTool : ICortexTool
         }
         else if (widthMm.HasValue) width = widthMm.Value / 304.8;
         else if (widthFt.HasValue) width = widthFt.Value;
-        else return (false, null);
+        else return (false, null, "widthMm (or widthFt) is required for a non-membrane layer");
 
         var materialId = ElementId.InvalidElementId;
         var matIdVal = lj["materialId"]?.Value<long?>();
@@ -514,17 +522,35 @@ public class SetCompoundStructureTool : ICortexTool
 #else
             materialId = new ElementId((int)matIdVal.Value);
 #endif
+            if (doc.GetElement(materialId) is not Material)
+                return (false, null,
+                    $"materialId {matIdVal.Value} is not a material in this document. " +
+                    "List the real ones with get_materials (nameFilter is supported).");
         }
         else if (!string.IsNullOrWhiteSpace(matName))
         {
-            var mat = new FilteredElementCollector(doc)
+            var materials = new FilteredElementCollector(doc)
                 .OfClass(typeof(Material))
                 .Cast<Material>()
-                .FirstOrDefault(m => m.Name.Equals(matName, StringComparison.OrdinalIgnoreCase));
-            if (mat != null) materialId = mat.Id;
+                .ToList();
+
+            var mat = materials.FirstOrDefault(m => m.Name.Equals(matName, StringComparison.OrdinalIgnoreCase))
+                      ?? materials.FirstOrDefault(m =>
+                          ParameterNameResolver.Normalize(m.Name) == ParameterNameResolver.Normalize(matName!));
+
+            if (mat == null)
+            {
+                var suggestions = ParameterNameResolver.Suggest(matName!, materials.Select(m => m.Name));
+                return (false, null,
+                    $"materialName '{matName}' does not exist in this document" +
+                    (suggestions.Count > 0 ? $" — did you mean: {string.Join(", ", suggestions)}?" : "") +
+                    " Use get_materials to list the project materials, or create_material first.");
+            }
+
+            materialId = mat.Id;
         }
 
-        return (true, new CompoundStructureLayer(width, func, materialId));
+        return (true, new CompoundStructureLayer(width, func, materialId), null);
     }
 
     private static bool TryParseFunction(string value, out MaterialFunctionAssignment result)

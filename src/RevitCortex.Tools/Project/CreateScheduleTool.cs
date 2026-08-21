@@ -136,30 +136,25 @@ public class CreateScheduleTool : ICortexTool
                         continue;
                     }
 
-                    var sf = schedulableFields.FirstOrDefault(f =>
-                        f.GetName(doc).Equals(paramName, StringComparison.OrdinalIgnoreCase));
-                    if (sf != null)
+                    // Language-independent resolution: an English name on a French
+                    // document must not be reported as "not schedulable".
+                    var resolution = SchedulableFieldResolver.Resolve(doc, schedulableFields, paramName!);
+                    if (resolution.Success)
                     {
-                        var field = schedule.Definition.AddField(sf);
+                        var field = schedule.Definition.AddField(resolution.Field!);
                         if (!string.IsNullOrEmpty(heading))
                             field.ColumnHeading = heading;
                         field.IsHidden = isHidden;
-                        addedFields.Add(paramName!);
+                        addedFields.Add(resolution.MatchedName ?? paramName!);
                     }
                     else
                     {
-                        // Find up to 3 closest matches (case-insensitive substring) so the
-                        // caller gets actionable hints instead of guessing localization issues.
-                        var hints = schedulableNames
-                            .Where(n => n.IndexOf(paramName!, StringComparison.OrdinalIgnoreCase) >= 0
-                                     || paramName!.IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0)
-                            .Take(3)
-                            .ToList();
                         skippedFields.Add(new
                         {
                             parameterName = paramName,
-                            reason = "NotSchedulableForCategory",
-                            suggestions = hints
+                            reason = resolution.Reason,
+                            explanation = SchedulableFieldResolver.Explain(resolution.Reason!, paramName!),
+                            suggestions = resolution.Suggestions
                         });
                     }
                 }

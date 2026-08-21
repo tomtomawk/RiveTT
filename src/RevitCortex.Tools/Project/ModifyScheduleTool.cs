@@ -117,16 +117,40 @@ public class ModifyScheduleTool : ICortexTool
         var schedulableFields = def.GetSchedulableFields();
         int added = 0;
 
+        var addedNames = new List<string>();
+        var skipped = new List<object>();
+
         foreach (var name in fieldNames)
         {
-            var field = schedulableFields.FirstOrDefault(f => f.GetName(schedule.Document).Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (field != null)
+            // Same language-independent resolution as create_schedule, and a skipped
+            // field now says why instead of vanishing from the count.
+            var resolution = SchedulableFieldResolver.Resolve(schedule.Document, schedulableFields, name);
+            if (resolution.Success)
             {
-                def.AddField(field);
+                def.AddField(resolution.Field!);
+                addedNames.Add(resolution.MatchedName ?? name);
                 added++;
             }
+            else
+            {
+                skipped.Add(new
+                {
+                    fieldName = name,
+                    reason = resolution.Reason,
+                    explanation = SchedulableFieldResolver.Explain(resolution.Reason!, name),
+                    suggestions = resolution.Suggestions
+                });
+            }
         }
-        return new { action = "add_field", addedCount = added };
+
+        return new
+        {
+            action = "add_field",
+            addedCount = added,
+            addedFields = addedNames,
+            skippedCount = skipped.Count,
+            skippedFields = skipped
+        };
     }
 
     private static object RemoveFields(ViewSchedule schedule, JObject input)
