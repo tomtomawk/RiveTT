@@ -221,34 +221,13 @@ public static class ParameterNameResolver
     }
 
     /// <summary>
-    /// Names an unresolved request could plausibly have meant, ordered by edit
-    /// distance. Feeds the <c>unresolvedParameterNames</c> block that tools return
-    /// instead of a silent empty column.
+    /// Names an unresolved request could plausibly have meant, ordered by
+    /// containment then edit distance. Feeds the <c>unresolvedParameterNames</c>
+    /// block tools return instead of a silent empty column.
     /// </summary>
     public static List<string> Suggest(
         string requestedName, IEnumerable<string> availableNames, int max = 5)
-    {
-        if (string.IsNullOrWhiteSpace(requestedName)) return new List<string>();
-        var target = Normalize(requestedName);
-
-        return availableNames
-            .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(candidate => new
-            {
-                candidate,
-                score = Distance(target, Normalize(candidate)),
-                contains = Normalize(candidate).Contains(target, StringComparison.Ordinal)
-            })
-            // A containing name ("ARC_PAR_Repère" for "Repère") is a better hint
-            // than a numerically closer but unrelated one.
-            .Where(x => x.contains || x.score <= Math.Max(3, target.Length / 2))
-            .OrderBy(x => x.contains ? 0 : 1)
-            .ThenBy(x => x.score)
-            .Take(max)
-            .Select(x => x.candidate)
-            .ToList();
-    }
+        => NameMatching.Suggest(requestedName, availableNames, max);
 
     /// <summary>
     /// Every parameter name visible on an element (instance + type), used to build
@@ -280,35 +259,9 @@ public static class ParameterNameResolver
 
     /// <summary>
     /// Lowercase, accent-stripped, punctuation-collapsed form used for matching.
-    /// "Hauteur d'allège" and "hauteur d allege" normalize identically.
+    /// See <see cref="NameMatching.Normalize"/>.
     /// </summary>
-    public static string Normalize(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return "";
-
-        var decomposed = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder(decomposed.Length);
-        var lastWasSeparator = false;
-
-        foreach (var character in decomposed)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
-                continue;
-
-            if (char.IsLetterOrDigit(character))
-            {
-                builder.Append(character);
-                lastWasSeparator = false;
-            }
-            else if (!lastWasSeparator && builder.Length > 0)
-            {
-                builder.Append(' ');
-                lastWasSeparator = true;
-            }
-        }
-
-        return builder.ToString().TrimEnd();
-    }
+    public static string Normalize(string value) => NameMatching.Normalize(value);
 
     /// <summary>True when the alias table knows this name in either language.</summary>
     public static bool IsKnownAlias(string name) => Aliases.ContainsKey(Normalize(name));
@@ -377,30 +330,5 @@ public static class ParameterNameResolver
 
         return Enum.TryParse(candidate, true, out builtInParameter)
                && Enum.IsDefined(typeof(BuiltInParameter), builtInParameter);
-    }
-
-    /// <summary>Levenshtein distance, capped allocation (two rolling rows).</summary>
-    private static int Distance(string left, string right)
-    {
-        if (left == right) return 0;
-        if (left.Length == 0) return right.Length;
-        if (right.Length == 0) return left.Length;
-
-        var previous = new int[right.Length + 1];
-        var current = new int[right.Length + 1];
-        for (var j = 0; j <= right.Length; j++) previous[j] = j;
-
-        for (var i = 1; i <= left.Length; i++)
-        {
-            current[0] = i;
-            for (var j = 1; j <= right.Length; j++)
-            {
-                var cost = left[i - 1] == right[j - 1] ? 0 : 1;
-                current[j] = Math.Min(Math.Min(current[j - 1] + 1, previous[j] + 1), previous[j - 1] + cost);
-            }
-            Array.Copy(current, previous, current.Length);
-        }
-
-        return previous[right.Length];
     }
 }

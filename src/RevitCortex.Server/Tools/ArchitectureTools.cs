@@ -12,7 +12,7 @@ namespace RevitCortex.Server.Tools;
 [McpServerToolType]
 public static class ArchitectureTools
 {
-    [McpServerTool(Name = "create_wall"), Description("Create one native Revit wall. wallTypeId and baseLevelId are required. Set topLevelId to constrain the wall to a level; topOffset is in mm and may be negative for partitions below a slab.")]
+    [McpServerTool(Name = "create_wall"), Description("Create one native Revit wall. wallTypeId and baseLevelId are required. Set topLevelId to constrain the wall to a level; topOffset is in mm and may be negative for partitions below a slab. ELEVATION: locationLine z values are IGNORED - baseLevelId plus baseOffset set the elevation. This differs from create_door/create_window, where locationPoint.z is an absolute project elevation unless zMode=relativeToLevel.")]
     public static async Task<string> CreateWall(
         RevitConnectionManager revit,
         [Description("Wall type element ID")] long wallTypeId,
@@ -44,7 +44,7 @@ public static class ArchitectureTools
         }, ct)).ToString();
     }
 
-    [McpServerTool(Name = "create_door"), Description("Place a selected door family type in a selected host wall. The instance is hosted, level-correct, and can independently flip facing and hand.")]
+    [McpServerTool(Name = "create_door"), Description("Place a door family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give z relative to levelId (z=0 = floor level), which is usually what you want. A point outside the host wall vertical range is refused with the valid range in mm, instead of Revit's 'instances do not cut anything'.")]
     public static Task<string> CreateDoor(
         RevitConnectionManager revit,
         [Description("Door family type element ID")] long typeId,
@@ -53,12 +53,13 @@ public static class ArchitectureTools
         [Description("Level element ID")] long levelId,
         [Description("Flip the exterior/interior facing direction. Default false")] bool? facingFlipped = null,
         [Description("Flip the door hand. Default false")] bool? handFlipped = null,
+        [Description("z semantics: absolute (default) | relativeToLevel")] string? zMode = null,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
         => CreateHostedOpening(revit, "OST_Doors", typeId, hostWallId, locationPoint, levelId,
-            facingFlipped, handFlipped, dryRun, ct);
+            facingFlipped, handFlipped, zMode, dryRun, ct);
 
-    [McpServerTool(Name = "create_window"), Description("Place a selected window family type in a selected host wall. The instance is hosted and can be flipped toward the exterior.")]
+    [McpServerTool(Name = "create_window"), Description("Place a window family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give z as a sill height above levelId. A point outside the host wall vertical range, or a type wider than the wall, is refused with the numbers in mm.")]
     public static Task<string> CreateWindow(
         RevitConnectionManager revit,
         [Description("Window family type element ID")] long typeId,
@@ -66,10 +67,11 @@ public static class ArchitectureTools
         [Description("Insertion point JSON {x,y,z} in mm")] string locationPoint,
         [Description("Level element ID")] long levelId,
         [Description("Flip the exterior/interior facing direction. Default false")] bool? facingFlipped = null,
+        [Description("z semantics: absolute (default) | relativeToLevel")] string? zMode = null,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
         => CreateHostedOpening(revit, "OST_Windows", typeId, hostWallId, locationPoint, levelId,
-            facingFlipped, false, dryRun, ct);
+            facingFlipped, false, zMode, dryRun, ct);
 
     [McpServerTool(Name = "create_railing"), Description("Create a native Revit guardrail from a connected horizontal path. The path JSON is [{x,y,z}, ...] in mm.")]
     public static async Task<string> CreateRailing(
@@ -107,7 +109,7 @@ public static class ArchitectureTools
     private static async Task<string> CreateHostedOpening(
         RevitConnectionManager revit, string category, long typeId, long hostWallId,
         string locationPoint, long levelId, bool? facingFlipped, bool? handFlipped,
-        bool dryRun, CancellationToken ct)
+        string? zMode, bool dryRun, CancellationToken ct)
     {
         var spec = new JObject
         {
@@ -120,6 +122,7 @@ public static class ArchitectureTools
         };
         if (facingFlipped != null) spec["facingFlipped"] = facingFlipped;
         if (handFlipped != null) spec["handFlipped"] = handFlipped;
+        if (zMode != null) spec["zMode"] = zMode;
         return (await revit.ExecuteAsync("create_point_based_element", new JObject
         {
             ["data"] = new JArray(spec),

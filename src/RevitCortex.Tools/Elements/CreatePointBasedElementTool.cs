@@ -101,6 +101,17 @@ public class CreatePointBasedElementTool : ICortexTool
         var facingFlipped   = item["facingFlipped"]?.Value<bool?>() ?? false;
         var handFlipped     = item["handFlipped"]?.Value<bool?>() ?? false;
         var strictType      = item["strictType"]?.Value<bool?>() ?? false;
+        // z semantics were the single most expensive ambiguity of the connector:
+        // create_wall ignores locationLine.z (baseLevelId governs) while a hosted
+        // insertion point needs an ABSOLUTE project elevation. Passing z=0 by
+        // analogy produced 9 consecutive failures whose only message was Revit's
+        // "instances do not cut anything", which never mentions elevation.
+        var zMode = (item["zMode"]?.Value<string>() ?? "absolute").Trim().ToLowerInvariant();
+        if (zMode is not ("absolute" or "relativetolevel"))
+        {
+            warnings.Add($"zMode '{zMode}' is not recognized. Use \"absolute\" (default) or \"relativeToLevel\".");
+            return;
+        }
 
         // Resolve levels
         var baseLevelFt = baseLevelMm / MmPerFoot;
@@ -111,6 +122,12 @@ public class CreatePointBasedElementTool : ICortexTool
         {
             warnings.Add("No levels found in document");
             return;
+        }
+
+        if (zMode == "relativetolevel")
+        {
+            locationPoint = new XYZ(locationPoint.X, locationPoint.Y,
+                baseLevel.Elevation + locationPoint.Z);
         }
 
         // Resolve family symbol
@@ -168,6 +185,28 @@ public class CreatePointBasedElementTool : ICortexTool
                 warnings.Add($"Requested typeId {requestedTypeId} not found. Defaulted to '{symbol.FamilyName}: {symbol.Name}' (ID: {ToolHelpers.GetElementIdValue(symbol.Id)})");
         }
 
+        // Resolve the requested host now: both the preview and the real call must
+        // validate the insertion point against it.
+        Wall? hostWall = null;
+        if (hostWallId > 0)
+        {
+            var hostElem = doc.GetElement(ToolHelpers.ToElementId(hostWallId));
+            if (hostElem is Wall resolvedWall)
+                hostWall = resolvedWall;
+            else
+                warnings.Add($"Requested hostWallId {hostWallId} is not a valid wall. Using auto-detection.");
+        }
+
+        if (hostWall != null)
+        {
+            var hostError = DescribeHostFit(hostWall, symbol, locationPoint, baseLevel);
+            if (hostError != null)
+            {
+                warnings.Add(hostError);
+                return;
+            }
+        }
+
         if (dryRun)
         {
             details.Add(new
@@ -178,8 +217,11 @@ public class CreatePointBasedElementTool : ICortexTool
                 typeName = symbol.Name,
                 category = builtInCategory.ToString(),
                 levelId = ToolHelpers.GetElementIdValue(baseLevel.Id),
+                levelElevationMm = Math.Round(baseLevel.Elevation * MmPerFoot, 1),
                 hostWallId = hostWallId > 0 ? (long?)hostWallId : null,
                 locationPointMm = locationPtToken.DeepClone(),
+                zMode,
+                resolvedZmm = Math.Round(locationPoint.Z * MmPerFoot, 1),
                 rotationDeg,
                 facingFlipped,
                 handFlipped
@@ -199,22 +241,6 @@ public class CreatePointBasedElementTool : ICortexTool
             }
 
             FamilyInstance? instance = null;
-
-            // Resolve explicit host wall
-            Wall? hostWall = null;
-            if (hostWallId > 0)
-            {
-#if REVIT2024_OR_GREATER
-                var hostElemId = new ElementId(hostWallId);
-#else
-                var hostElemId = new ElementId((int)hostWallId);
-#endif
-                var hostElem = doc.GetElement(hostElemId);
-                if (hostElem is Wall w)
-                    hostWall = w;
-                else
-                    warnings.Add($"Requested hostWallId {hostWallId} is not a valid wall. Using auto-detection.");
-            }
 
             // Create instance
             if (hostWall != null)
@@ -334,5 +360,71 @@ public class CreatePointBasedElementTool : ICortexTool
         var y = token["y"]?.Value<double>() ?? 0;
         var z = token["z"]?.Value<double>() ?? 0;
         return new XYZ(x / MmPerFoot, y / MmPerFoot, z / MmPerFoot);
+    }
+
+    /// <summary>
+    /// Explains, in millimetres, why an insertion point cannot work in this host —
+    /// before Revit answers with "instances do not cut anything" or "cannot cut
+    /// instance out of wall", messages that name neither the elevation nor the
+    /// width that was actually the problem. Returns null when the fit is plausible.
+    /// </summary>
+    private static string? DescribeHostFit(Wall hostWall, FamilySymbol symbol, XYZ point, Level level)
+    {
+        try
+        {
+            var box = hostWall.get_BoundingBox(null);
+            if (box != null)
+            {
+                var minZ = box.Min.Z;
+                var maxZ = box.Max.Z;
+                // Tolerance: an insertion exactly at the base or top is legitimate.
+                if (point.Z < minZ - 1e-6 || point.Z > maxZ + 1e-6)
+                {
+                    return $"Insertion point z={point.Z * MmPerFoot:F0} mm is outside the vertical range of " +
+                           $"host wall {ToolHelpers.GetElementIdValue(hostWall.Id)} " +
+                           $"({minZ * MmPerFoot:F0} mm to {maxZ * MmPerFoot:F0} mm). " +
+                           $"locationPoint.z is an ABSOLUTE project elevation: level '{level.Name}' sits at " +
+                           $"{level.Elevation * MmPerFoot:F0} mm, so pass that plus the sill height, " +
+                           "or set zMode=\"relativeToLevel\" to have z added to the level elevation.";
+                }
+            }
+
+            var openingWidthFt = OpeningWidthFt(symbol);
+            if (openingWidthFt > 0 && hostWall.Location is LocationCurve locationCurve)
+            {
+                var wallLengthFt = locationCurve.Curve.Length;
+                if (openingWidthFt >= wallLengthFt)
+                {
+                    return $"Opening '{symbol.FamilyName} / {symbol.Name}' is {openingWidthFt * MmPerFoot:F0} mm wide " +
+                           $"but host wall {ToolHelpers.GetElementIdValue(hostWall.Id)} is only " +
+                           $"{wallLengthFt * MmPerFoot:F0} mm long, so the cut cannot fit. " +
+                           "Pick a narrower type or lengthen the wall.";
+                }
+            }
+        }
+        catch
+        {
+            // A geometry probe must never block a placement Revit would accept.
+        }
+
+        return null;
+    }
+
+    private static double OpeningWidthFt(FamilySymbol symbol)
+    {
+        foreach (var builtIn in new[]
+                 {
+                     BuiltInParameter.DOOR_WIDTH,
+                     BuiltInParameter.WINDOW_WIDTH,
+                     BuiltInParameter.GENERIC_WIDTH,
+                     BuiltInParameter.FAMILY_WIDTH_PARAM
+                 })
+        {
+            var parameter = symbol.get_Parameter(builtIn);
+            if (parameter != null && parameter.HasValue && parameter.StorageType == StorageType.Double)
+                return parameter.AsDouble();
+        }
+
+        return 0;
     }
 }

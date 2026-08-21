@@ -571,4 +571,96 @@ public class ToolResponseShaperTests
         Assert.Equal("Doors", unused[0]!["category"]!.Value<string>());
         Assert.Null(unused[0]!["id"]);
     }
+
+    [Fact]
+    public void Shape_NeverShapesAFailurePayload()
+    {
+        // get_available_family_types returning an InvalidInput used to come back as
+        // {"count": 0} — an error rendered as a truthful-looking empty result, which
+        // is how "categoryList never filters" was diagnosed instead of "the shaper
+        // ate the error".
+        var payload = JObject.Parse("""
+        {
+          "success": false,
+          "error": { "code": "InvalidInput", "message": "Category 'Murs' could not be resolved" }
+        }
+        """);
+
+        var shaped = ToolResponseShaper.Shape("get_available_family_types", payload, compact: true, summaryOnly: false);
+
+        Assert.False(shaped["success"]!.Value<bool>());
+        Assert.Equal("InvalidInput", shaped["error"]!["code"]!.Value<string>());
+        Assert.Null(shaped["count"]);
+    }
+
+    [Fact]
+    public void ShapeAvailableFamilyTypes_UnderstandsTheRouterValueEnvelope()
+    {
+        // The router wraps a non-object result as {"value": [...]}, and JObject
+        // children are JProperty, not JObject — which is exactly why compact:true
+        // reported count 0 on a document full of wall types.
+        var payload = JObject.Parse("""
+        {
+          "value": [
+            { "familyTypeId": 7, "uniqueId": "u", "familyName": "Basic Wall", "typeName": "CLO_Cloison10", "category": "Murs", "kind": "system" }
+          ],
+          "execution": { "connector": "MCPRVTT27" }
+        }
+        """);
+
+        var shaped = ToolResponseShaper.Shape("get_available_family_types", payload, compact: true, summaryOnly: false);
+
+        Assert.Equal(1, shaped["count"]!.Value<int>());
+        Assert.Equal("CLO_Cloison10", shaped["items"]![0]!["typeName"]!.Value<string>());
+        Assert.Equal("system", shaped["items"]![0]!["kind"]!.Value<string>());
+        Assert.Null(shaped["items"]![0]!["uniqueId"]);
+    }
+
+    [Fact]
+    public void ShapeAvailableFamilyTypes_CarriesTheRuntimeCountersUnchanged()
+    {
+        var payload = JObject.Parse("""
+        {
+          "count": 2,
+          "totalCount": 137,
+          "truncated": true,
+          "items": [
+            { "familyTypeId": 1, "familyName": "A", "typeName": "T1", "category": "Murs" },
+            { "familyTypeId": 2, "familyName": "B", "typeName": "T2", "category": "Murs" }
+          ]
+        }
+        """);
+
+        var shaped = ToolResponseShaper.Shape("get_available_family_types", payload, compact: true, summaryOnly: false);
+
+        // Invariant 2: never recompute a counter from the trimmed list.
+        Assert.Equal(137, shaped["totalCount"]!.Value<int>());
+        Assert.True(shaped["truncated"]!.Value<bool>());
+    }
+
+    [Fact]
+    public void ShapeGetElementParameters_KeepsFoundAndErrorForMissingIds()
+    {
+        // A deleted id must not look like a live element with no parameters.
+        var payload = JObject.Parse("""
+        {
+          "message": "Retrieved parameters for 0 of 1 element(s); 1 ID(s) do not exist in this document.",
+          "requestedCount": 1,
+          "foundCount": 0,
+          "notFoundCount": 1,
+          "notFoundIds": [ 11020580 ],
+          "elements": [
+            { "elementId": 11020580, "found": false, "error": "Element 11020580 does not exist in this document" }
+          ]
+        }
+        """);
+
+        var shaped = ToolResponseShaper.Shape("get_element_parameters", payload, compact: true, summaryOnly: false);
+
+        var element = shaped["elements"]![0]!;
+        Assert.False(element["found"]!.Value<bool>());
+        Assert.Contains("does not exist", element["error"]!.Value<string>());
+        Assert.Equal(1, shaped["notFoundCount"]!.Value<int>());
+        Assert.Equal(11020580, ((JArray)shaped["notFoundIds"]!)[0].Value<long>());
+    }
 }
