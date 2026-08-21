@@ -545,17 +545,12 @@ public static class RebarTools
         return (await revit.ExecuteAsync("manage_rebar_constraints", p, ct)).ToString();
     }
 
-    [McpServerTool(Name = "propagate_rebar"), Description("Propagate rebar to similar hosts. NOTE: the Revit API exposes no rebar-propagation method on any supported version; this returns a structured 'unsupported' result. Provide rebarId, optional targetHostIds JSON array.")]
+    [McpServerTool(Name = "propagate_rebar"), Description("Reports that rebar propagation is unsupported: the Revit API exposes no propagation method on any supported version. Returns a structured 'unsupported' result for the given rebarId, with the manual alternative. There is no target-host parameter, because there is no operation to target.")]
     public static async Task<string> PropagateRebar(
         RevitConnectionManager revit,
         [Description("Rebar element id")] long rebarId,
-        [Description("Optional target host ids JSON array (e.g. [123,456])")] string? targetHostIds = null,
         CancellationToken ct = default)
-    {
-        var p = new JObject { ["rebarId"] = rebarId };
-        if (targetHostIds != null) p["targetHostIds"] = JArray.Parse(targetHostIds);
-        return (await revit.ExecuteAsync("propagate_rebar", p, ct)).ToString();
-    }
+        => (await revit.ExecuteAsync("propagate_rebar", new JObject { ["rebarId"] = rebarId }, ct)).ToString();
 
     [McpServerTool(Name = "unify_rebars"), Description("Unify compatible standalone bars into one (Revit 2025+). Provide rebarIds (JSON array of >=2 ids); bars are unified pairwise into a single rebar. Returns a version error on older targets.")]
     public static async Task<string> UnifyRebars(

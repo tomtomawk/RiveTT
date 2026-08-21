@@ -70,7 +70,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_current_view_elements"), Description("List elements visible in the currently active view.")]
+    [McpServerTool(Name = "get_current_view_elements"), Description("List elements visible in the currently active view. categoryFilter is a single-category shortcut (OST code, English name or localized label); modelCategoryList/annotationCategoryList take several.")]
     public static async Task<string> GetCurrentViewElements(
         RevitConnectionManager revit,
         [Description("Maximum number of elements to return")] int? limit = 50,
@@ -154,12 +154,15 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_sheet"), Description("Create a new sheet in the Revit project.")]
+    [McpServerTool(Name = "create_sheet"), Description("Create a sheet, with a title block. Pass titleBlockId (an OST_TitleBlocks family type id, from list_system_types or get_available_family_types) or a family/type name. Without any of them Revit creates a bare 210x297 mm sheet with no frame. The response reports the title block actually placed; an unusable titleBlockId is an error, not a silent fallback.")]
     public static async Task<string> CreateSheet(
         RevitConnectionManager revit,
         [Description("Sheet number (e.g. A101)")] string sheetNumber,
         [Description("Sheet name")] string sheetName,
-        [Description("Title block type element ID")] long? titleBlockId = null,
+        [Description("Title block family TYPE element ID (category OST_TitleBlocks)")] long? titleBlockId = null,
+        [Description("Title block family name, if you do not have the id")] string? titleBlockFamilyName = null,
+        [Description("Title block type name (e.g. A1 metric)")] string? titleBlockTypeName = null,
+        [Description("Preview the resolved title block without creating the sheet. Default: false")] bool? dryRun = null,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -168,6 +171,9 @@ public static class ViewTools
             ["sheetName"] = sheetName,
         };
         if (titleBlockId != null) p["titleBlockId"] = titleBlockId;
+        if (titleBlockFamilyName != null) p["titleBlockFamilyName"] = titleBlockFamilyName;
+        if (titleBlockTypeName != null) p["titleBlockTypeName"] = titleBlockTypeName;
+        if (dryRun != null) p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_sheet", p, ct);
         return result.ToString();
     }
@@ -216,15 +222,17 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_schedule_data"), Description("Export schedule data as JSON from an existing schedule view.")]
+    [McpServerTool(Name = "get_schedule_data"), Description("Export schedule data as JSON from an existing schedule view. availableFields is omitted unless includeAvailableFields=true: it lists every schedulable parameter of the project and used to dwarf a 10-row request.")]
     public static async Task<string> GetScheduleData(
         RevitConnectionManager revit,
         [Description("Schedule view element ID")] long scheduleId,
         [Description("Maximum number of body rows to return. Default: 500")] int? maxRows = null,
+        [Description("Also return every schedulable field of the project (hundreds of entries; ignores maxRows). Default: false")] bool? includeAvailableFields = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["scheduleId"] = scheduleId };
         if (maxRows != null) p["maxRows"] = maxRows;
+        if (includeAvailableFields != null) p["includeAvailableFields"] = includeAvailableFields;
         var result = await revit.ExecuteAsync("get_schedule_data", p, ct);
         return result.ToString();
     }

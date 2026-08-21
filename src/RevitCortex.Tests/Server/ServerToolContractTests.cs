@@ -59,7 +59,10 @@ namespace RevitCortex.Tests.Server
             Assert.True(GetParameter(method, "categoryFilter").HasDefaultValue);
             Assert.Null(GetParameter(method, "categoryFilter").DefaultValue);
 
-            AssertDescription(method, "List elements visible in the currently active view.");
+            AssertDescription(method,
+                "List elements visible in the currently active view. categoryFilter is a single-category " +
+                "shortcut (OST code, English name or localized label); modelCategoryList/" +
+                "annotationCategoryList take several.");
         }
 
         [Fact]
@@ -73,6 +76,7 @@ namespace RevitCortex.Tests.Server
                 name => Assert.Equal("revit", name),
                 name => Assert.Equal("scheduleId", name),
                 name => Assert.Equal("maxRows", name),
+                name => Assert.Equal("includeAvailableFields", name),
                 name => Assert.Equal("ct", name));
 
             Assert.Equal(typeof(long), GetParameter(method, "scheduleId").ParameterType);
@@ -80,7 +84,16 @@ namespace RevitCortex.Tests.Server
             Assert.True(GetParameter(method, "maxRows").HasDefaultValue);
             Assert.Null(GetParameter(method, "maxRows").DefaultValue);
 
-            AssertDescription(method, "Export schedule data as JSON from an existing schedule view.");
+            // availableFields is opt-in: it lists every schedulable parameter of the
+            // project and blew past the client output limit on a 10-row request.
+            Assert.Equal(typeof(bool?), GetParameter(method, "includeAvailableFields").ParameterType);
+            Assert.True(GetParameter(method, "includeAvailableFields").HasDefaultValue);
+            Assert.Null(GetParameter(method, "includeAvailableFields").DefaultValue);
+
+            AssertDescription(method,
+                "Export schedule data as JSON from an existing schedule view. availableFields is omitted " +
+                "unless includeAvailableFields=true: it lists every schedulable parameter of the project " +
+                "and used to dwarf a 10-row request.");
         }
 
         [Fact]

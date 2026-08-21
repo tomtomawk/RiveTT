@@ -19,7 +19,7 @@ public class GetScheduleDataTool : ICortexTool
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Lists all schedules (if no scheduleId) or retrieves headers/rows for a specific schedule.";
+    public string Description => "Lists all schedules (if no scheduleId) or retrieves headers/rows for a specific schedule. availableFields is NOT returned unless includeAvailableFields=true: on a real project it lists several hundred schedulable parameters and dwarfs the rows you asked for.";
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -29,13 +29,17 @@ public class GetScheduleDataTool : ICortexTool
 
         var scheduleId = input["scheduleId"]?.Value<long>() ?? 0;
         var maxRows    = input["maxRows"]?.Value<int>() ?? 500;
+        // availableFields is independent of maxRows and ran into hundreds of entries,
+        // so a 10-row request still blew past the client's output limit. Opt-in now;
+        // list_schedulable_fields is the dedicated tool for it.
+        var includeAvailableFields = input["includeAvailableFields"]?.Value<bool>() ?? false;
 
         try
         {
             if (scheduleId <= 0)
                 return ListAllSchedules(doc);
 
-            return GetScheduleRows(doc, scheduleId, maxRows);
+            return GetScheduleRows(doc, scheduleId, maxRows, includeAvailableFields);
         }
         catch (Exception ex)
         {
@@ -75,7 +79,8 @@ public class GetScheduleDataTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> GetScheduleRows(Document doc, long scheduleId, int maxRows)
+    private static CortexResult<object> GetScheduleRows(
+        Document doc, long scheduleId, int maxRows, bool includeAvailableFields)
     {
 #if REVIT2024_OR_GREATER
         var elem = doc.GetElement(new ElementId(scheduleId));
@@ -116,19 +121,23 @@ public class GetScheduleDataTool : ICortexTool
             rows.Add(row);
         }
 
-        // Available fields
-        var availableFields = definition.GetSchedulableFields()
-            .Select(f => new
-            {
-                name      = f.GetName(doc),
-                fieldType = f.FieldType.ToString(),
+        // Available fields — only when asked for.
+        var schedulableFields = definition.GetSchedulableFields();
+        var availableFields = includeAvailableFields
+            ? schedulableFields
+                .Select(f => new
+                {
+                    name      = f.GetName(doc),
+                    fieldType = f.FieldType.ToString(),
 #if REVIT2024_OR_GREATER
-                parameterId = f.ParameterId.Value
+                    parameterId = f.ParameterId.Value
 #else
-                parameterId = (long)f.ParameterId.IntegerValue
+                    parameterId = (long)f.ParameterId.IntegerValue
 #endif
-            })
-            .ToList();
+                })
+                .Cast<object>()
+                .ToList()
+            : null;
 
         return CortexResult<object>.Ok(new
         {
@@ -140,6 +149,8 @@ public class GetScheduleDataTool : ICortexTool
             fieldCount      = headers.Count,
             rowCount,
             returnedRows    = rows.Count,
+            truncated       = rowCount - bodySection.FirstRowNumber > rows.Count,
+            availableFieldCount = schedulableFields.Count,
             availableFields
         });
     }

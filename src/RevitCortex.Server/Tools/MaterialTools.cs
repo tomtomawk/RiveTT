@@ -9,13 +9,18 @@ namespace RevitCortex.Server.Tools;
 [McpServerToolType]
 public static class MaterialTools
 {
-    [McpServerTool(Name = "get_materials"), Description("List all materials in the active Revit document.")]
+    [McpServerTool(Name = "get_materials"), Description("List materials in the active Revit document. nameFilter and materialClass narrow the list inside Revit - a real project carries 200+ materials.")]
     public static async Task<string> GetMaterials(
         RevitConnectionManager revit,
+        [Description("Case- and accent-insensitive substring filter on the material name")] string? nameFilter = null,
+        [Description("Material class filter (e.g. Concrete, Insulation)")] string? materialClass = null,
         [Description("Strip numeric appearance props (transparency/shininess/smoothness). Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
-        var result = await revit.ExecuteAsync("get_materials", new JObject(), ct);
+        var p = new JObject();
+        if (nameFilter != null) p["nameFilter"] = nameFilter;
+        if (materialClass != null) p["materialClass"] = materialClass;
+        var result = await revit.ExecuteAsync("get_materials", p, ct);
         return ToolResponseShaper.Shape("get_materials", result, compact, summaryOnly: false).ToString();
     }
 

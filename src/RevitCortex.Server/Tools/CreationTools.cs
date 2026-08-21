@@ -336,7 +336,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "export_elements_data"), Description("Export element data by category as JSON or CSV. Supports parameter filtering and an optional parameter-based include filter.")]
+    [McpServerTool(Name = "export_elements_data"), Description("Export element data as JSON or CSV, by category and/or by explicit elementIds. Parameter names may be given in English or in the document language (Mark/Repere, Level/Niveau, Width/Largeur); names that resolve to nothing are listed in unresolvedParameterNames instead of producing a silently empty column. Filters on a Level-type parameter match the level NAME. Use countOnly=true first to size a large export.")]
     public static async Task<string> ExportElementsData(
         RevitConnectionManager revit,
         [Description("Categories to include (e.g. Walls, Doors)")] string[]? categories = null,
@@ -347,10 +347,14 @@ public static class CreationTools
         [Description("Max elements. Default: 100")] int? maxElements = null,
         [Description("Include only elements where this parameter matches filterValue")] string? filterParameterName = null,
         [Description("Value to match for filterParameterName")] string? filterValue = null,
-        [Description("Filter operator: equals | contains | startsWith | endsWith | is_empty | is_not_empty. Default: equals")] string? filterOperator = null,
+        [Description("Filter operator: equals | not_equals | contains | startsWith | endsWith | is_empty | is_not_empty | greater_than | less_than. Default: equals")] string? filterOperator = null,
+        [Description("Restrict the export to these element IDs. Applied before pagination")] long[]? elementIds = null,
+        [Description("Return counts and estimated column count only, no rows. Use it to size an export first. Default: false")] bool? countOnly = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
+        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (countOnly != null) p["countOnly"] = countOnly;
         if (categories != null) p["categories"] = new JArray(categories);
         if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
         if (includeTypeParameters != null) p["includeTypeParameters"] = includeTypeParameters;
@@ -381,15 +385,21 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "export_schedule"), Description("Export schedule to CSV/TSV or JSON")]
+    [McpServerTool(Name = "export_schedule"), Description("Export a schedule as JSON, or write it to a CSV/TSV file. Without exportPath the data comes back inline; with exportPath the file is written using delimiter (or format).")]
     public static async Task<string> ExportSchedule(
         RevitConnectionManager revit,
         [Description("Schedule element ID")] long scheduleId,
-        [Description("Export format (csv, tsv, json). Default: csv")] string? format = "csv",
+        [Description("Export format: csv | tsv | json. Default: json inline, csv when exportPath is set")] string? format = null,
+        [Description("Absolute output file path. Omit to get the data inline")] string? exportPath = null,
+        [Description("Field separator: Tab | Comma | Semicolon. Overrides format")] string? delimiter = null,
+        [Description("Write the header row. Default: true")] bool? includeHeaders = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["scheduleId"] = scheduleId };
         if (format != null) p["format"] = format;
+        if (exportPath != null) p["exportPath"] = exportPath;
+        if (delimiter != null) p["delimiter"] = delimiter;
+        if (includeHeaders != null) p["includeHeaders"] = includeHeaders;
         var result = await revit.ExecuteAsync("export_schedule", p, ct);
         return result.ToString();
     }

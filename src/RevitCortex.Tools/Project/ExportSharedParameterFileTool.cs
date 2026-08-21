@@ -27,7 +27,10 @@ public class ExportSharedParameterFileTool : ICortexTool
         if (doc == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
 
-        var filePath = input["filePath"]?.Value<string>();
+        // outputPath is the name the MCP surface publishes; filePath is the runtime
+        // name. Only filePath was read, so the export never wrote a file.
+        var filePath = input["filePath"]?.Value<string>()
+                       ?? input["outputPath"]?.Value<string>();
 
         // H25-wave: File.Copy below overwrites the destination — restrict it to
         // user-owned directories; reject traversal/UNC/system paths.

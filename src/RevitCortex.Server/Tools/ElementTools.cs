@@ -8,11 +8,12 @@ namespace RevitCortex.Server.Tools;
 [McpServerToolType]
 public static class ElementTools
 {
-    [McpServerTool(Name = "get_element_parameters"), Description("Get all parameters of specific elements by their Revit element IDs.")]
+    [McpServerTool(Name = "get_element_parameters"), Description("Get parameters of elements by Revit element ID. Numeric values come back in PROJECT display units with an explicit unit plus the Revit internal value (internalValue, in ft/ft2/ft3). IDs that no longer exist are listed in notFoundIds with found=false, never as an element with an empty parameter list.")]
     public static async Task<string> GetElementParameters(
         RevitConnectionManager revit,
         [Description("Array of Revit element IDs to query")] long[] elementIds,
         [Description("Include type-level parameters. Default: true")] bool includeTypeParameters = true,
+        [Description("Only these parameters, resolved in English or in the document language. Unresolved names are reported in unresolvedParameterNames")] string[]? parameterNames = null,
         [Description("Return compact parameter rows (name+value only) and skip empty params. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
@@ -21,6 +22,7 @@ public static class ElementTools
             ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()),
             ["includeTypeParameters"] = includeTypeParameters,
         };
+        if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
         var result = await revit.ExecuteAsync("get_element_parameters", p, ct);
         return ToolResponseShaper.Shape("get_element_parameters", result, compact, summaryOnly: false).ToString();
     }
@@ -274,15 +276,16 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "load_selection"), Description("List or load saved selections")]
+    [McpServerTool(Name = "load_selection"), Description("Load a saved selection by name, or list the saved selections when name is omitted.")]
     public static async Task<string> LoadSelection(
         RevitConnectionManager revit,
-        [Description("Action to perform (list or load). Default: list")] string action = "list",
-        [Description("Name of the selection to load")] string? name = null,
+        [Description("Name of the selection to load. Omit to list the saved selections")] string? name = null,
+        [Description("Select the elements in the active view. Default: true")] bool? selectInView = null,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["action"] = action };
+        var p = new JObject();
         if (name != null) p["name"] = name;
+        if (selectInView != null) p["selectInView"] = selectInView;
         var result = await revit.ExecuteAsync("load_selection", p, ct);
         return result.ToString();
     }

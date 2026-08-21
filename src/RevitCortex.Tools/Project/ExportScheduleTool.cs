@@ -30,7 +30,16 @@ public class ExportScheduleTool : ICortexTool
 
         var scheduleId = input["scheduleId"]?.Value<long>() ?? 0;
         var exportPath = input["exportPath"]?.Value<string>();
-        var delimiter = input["delimiter"]?.Value<string>() ?? "Tab";
+        // The MCP surface publishes `format` (csv|tsv|json); only `delimiter` was read,
+        // so the published parameter did nothing at all.
+        var format = input["format"]?.Value<string>()?.Trim().ToLowerInvariant();
+        var delimiter = input["delimiter"]?.Value<string>()
+                        ?? format switch
+                        {
+                            "csv" => "Comma",
+                            "tsv" => "Tab",
+                            _ => "Tab"
+                        };
         var includeHeaders = input["includeHeaders"]?.Value<bool>() ?? true;
 
         if (scheduleId <= 0)

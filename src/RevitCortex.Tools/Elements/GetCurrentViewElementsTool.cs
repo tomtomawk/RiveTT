@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
 using RevitCortex.Core.Session;
 using RevitCortex.Core.Tools;
+using RevitCortex.Tools.Utilities;
 
 namespace RevitCortex.Tools.Elements;
 
@@ -71,20 +72,27 @@ public class GetCurrentViewElementsTool : ICortexTool
         // ── Parse inputs ───────────────────────────────────────────────────
         var modelCategoryTokens      = input["modelCategoryList"]?.ToObject<string[]>();
         var annotationCategoryTokens = input["annotationCategoryList"]?.ToObject<string[]>();
+        // categoryFilter is a single-category shortcut published by the MCP schema;
+        // it used to be dropped on the floor here.
+        var categoryFilterToken      = input["categoryFilter"]?.Value<string>();
         var includeHidden            = input["includeHidden"]?.Value<bool>() ?? false;
         var limit                    = input["limit"]?.Value<int>() ?? 200;
         var fields                   = input["fields"]?.ToObject<string[]>();
 
         // Use defaults when no categories are specified
         IEnumerable<string> allCategories;
-        if (modelCategoryTokens == null && annotationCategoryTokens == null)
+        if (modelCategoryTokens == null && annotationCategoryTokens == null &&
+            string.IsNullOrWhiteSpace(categoryFilterToken))
         {
             allCategories = DefaultModelCategories.Concat(DefaultAnnotationCategories);
         }
         else
         {
             allCategories = (modelCategoryTokens ?? Array.Empty<string>())
-                .Concat(annotationCategoryTokens ?? Array.Empty<string>());
+                .Concat(annotationCategoryTokens ?? Array.Empty<string>())
+                .Concat(string.IsNullOrWhiteSpace(categoryFilterToken)
+                    ? Array.Empty<string>()
+                    : new[] { categoryFilterToken! });
         }
 
         try
@@ -93,19 +101,30 @@ public class GetCurrentViewElementsTool : ICortexTool
             var collector = new FilteredElementCollector(doc, activeView.Id)
                 .WhereElementIsNotElementType();
 
-            // Parse OST_* strings to BuiltInCategory
-            var builtInCategories = new List<BuiltInCategory>();
+            // Resolve category tokens the same way as every other tool: OST_ code,
+            // English friendly name, or localized display name. Enum.TryParse alone
+            // silently dropped "Walls" and "Murs", widening the query to everything.
+            var categoryIds = new List<ElementId>();
+            var unresolvedCategories = new List<string>();
             foreach (var catName in allCategories)
             {
-                if (Enum.TryParse(catName, out BuiltInCategory bic))
-                    builtInCategories.Add(bic);
+                var categoryId = CategoryResolver.ResolveToId(doc, catName);
+                if (categoryId != null && categoryId != ElementId.InvalidElementId)
+                    categoryIds.Add(categoryId);
+                else
+                    unresolvedCategories.Add(catName);
             }
+
+            if (unresolvedCategories.Count > 0 && categoryIds.Count == 0)
+                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    $"No requested category could be resolved: {string.Join(", ", unresolvedCategories)}",
+                    suggestion: "Use OST_* codes (OST_Walls), English names (Walls) or the exact localized label.");
 
             IList<Element> elements;
             int totalElementsInView;
-            if (builtInCategories.Count > 0)
+            if (categoryIds.Count > 0)
             {
-                var categoryFilter = new ElementMulticategoryFilter(builtInCategories);
+                var categoryFilter = new ElementMulticategoryFilter(categoryIds);
                 elements = new FilteredElementCollector(doc, activeView.Id)
                     .WhereElementIsNotElementType()
                     .WherePasses(categoryFilter)
@@ -153,6 +172,7 @@ public class GetCurrentViewElementsTool : ICortexTool
                 totalElementsInView,
                 filteredElementCount = filteredCount,
                 truncated,
+                unresolvedCategories,
                 elements             = elementInfos
             });
         }

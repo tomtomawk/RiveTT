@@ -34,21 +34,14 @@ public class GetAvailableFamilyTypesTool : ICortexTool
 
         try
         {
-            // Loadable families
-            var familySymbols = new FilteredElementCollector(doc)
-                .OfClass(typeof(FamilySymbol))
-                .Cast<FamilySymbol>()
+            // One pass over every ElementType in the document. The previous version
+            // enumerated FamilySymbol plus a hardcoded list of five system classes
+            // (wall/floor/roof/ceiling/curtain system), so railing, stair, ramp,
+            // viewport, text and title-block types were invisible — searching for a
+            // railing type returned nothing and looked like "no railings exist".
+            IEnumerable<ElementType> allElements = new FilteredElementCollector(doc)
+                .WhereElementIsElementType()
                 .Cast<ElementType>();
-
-            // System family types
-            var systemTypes = new List<ElementType>();
-            systemTypes.AddRange(new FilteredElementCollector(doc).OfClass(typeof(WallType)).Cast<ElementType>());
-            systemTypes.AddRange(new FilteredElementCollector(doc).OfClass(typeof(FloorType)).Cast<ElementType>());
-            systemTypes.AddRange(new FilteredElementCollector(doc).OfClass(typeof(RoofType)).Cast<ElementType>());
-            systemTypes.AddRange(new FilteredElementCollector(doc).OfClass(typeof(CeilingType)).Cast<ElementType>());
-            systemTypes.AddRange(new FilteredElementCollector(doc).OfClass(typeof(CurtainSystemType)).Cast<ElementType>());
-
-            IEnumerable<ElementType> allElements = familySymbols.Concat(systemTypes);
 
             // Category filter
             if (categoryList.Count > 0)
@@ -105,7 +98,8 @@ public class GetAvailableFamilyTypesTool : ICortexTool
                 });
             }
 
-            var result = allElements.Take(limit).Select(et =>
+            var matched = allElements.ToList();
+            var result = matched.Take(limit).Select(et =>
             {
                 var familyName = et is FamilySymbol fs
                     ? fs.FamilyName
@@ -122,11 +116,26 @@ public class GetAvailableFamilyTypesTool : ICortexTool
                     uniqueId   = et.UniqueId,
                     familyName,
                     typeName   = et.Name,
-                    category   = et.Category?.Name
+                    category   = et.Category?.Name,
+                    categoryBic = CategoryResolver.DescribeBuiltInCategory(et.Category),
+                    // System types cannot be duplicated with duplicate_family_type;
+                    // they need duplicate_system_type. Say which is which.
+                    kind = et is FamilySymbol ? "loadable" : "system",
+                    className = et.GetType().Name
                 };
             }).ToList();
 
-            return CortexResult<object>.Ok(result);
+            // A bare array response cannot carry counters, and the client-side
+            // compact shaper silently produced count:0 from it. The object form
+            // keeps totals truthful and makes truncation visible.
+            return CortexResult<object>.Ok(new
+            {
+                count = result.Count,
+                totalCount = matched.Count,
+                truncated = matched.Count > result.Count,
+                limit,
+                items = result
+            });
         }
         catch (Exception ex)
         {

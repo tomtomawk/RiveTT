@@ -28,6 +28,15 @@ public static class ToolResponseShaper
             return payload;
         }
 
+        // A failure must never be shaped. get_available_family_types returning an
+        // InvalidInput ("category X could not be resolved") came back through the
+        // compact path as {"count": 0} — an error rendered as a truthful-looking
+        // empty result, which is the worst possible outcome for a caller.
+        if (IsErrorPayload(payload))
+        {
+            return payload;
+        }
+
         return toolName switch
         {
             "get_available_family_types" => ShapeAvailableFamilyTypes(payload),
@@ -49,6 +58,33 @@ public static class ToolResponseShaper
         };
     }
 
+    /// <summary>
+    /// True when the payload is a structured failure (or carries an error field).
+    /// </summary>
+    private static bool IsErrorPayload(JToken payload)
+    {
+        if (payload is not JObject obj) return false;
+        if (obj["success"]?.Type == JTokenType.Boolean && obj["success"]!.Value<bool>() == false) return true;
+        return obj["error"] != null && obj["error"]!.Type != JTokenType.Null;
+    }
+
+    /// <summary>
+    /// The item array of a list-shaped payload, whatever envelope it arrived in:
+    /// a bare JSON array, the router's {"value": [...]} wrapper for non-object
+    /// results, or {"items": [...]}. Returning null means "shape unknown" and the
+    /// caller must pass the payload through untouched.
+    /// </summary>
+    private static JArray? FindItemArray(JToken payload, params string[] propertyNames)
+    {
+        if (payload is JArray array) return array;
+        if (payload is not JObject obj) return null;
+
+        foreach (var name in propertyNames)
+            if (obj[name] is JArray named) return named;
+
+        return obj["items"] as JArray ?? obj["value"] as JArray;
+    }
+
     private static JToken ShapeGetElementParameters(JToken payload)
     {
         var elements = payload["elements"]?.Children<JObject>().Select(el =>
@@ -62,20 +98,38 @@ public static class ToolResponseShaper
                 })
                 .ToArray() ?? System.Array.Empty<JObject>();
 
-            return new JObject
+            var shapedElement = new JObject
             {
                 ["elementId"] = el["elementId"],
                 ["elementName"] = el["elementName"],
                 ["category"] = el["category"],
                 ["parameters"] = new JArray(parameters)
             };
+
+            // found/error must survive compaction: without them a deleted id looked
+            // exactly like a live element carrying no parameters.
+            if (el["found"] != null) shapedElement["found"] = el["found"];
+            if (el["error"] != null) shapedElement["error"] = el["error"];
+            if (el["categoryBic"] != null) shapedElement["categoryBic"] = el["categoryBic"];
+            return shapedElement;
         }).ToArray() ?? System.Array.Empty<JObject>();
 
-        return new JObject
+        var result = new JObject
         {
             ["message"] = payload["message"],
             ["elements"] = new JArray(elements)
         };
+
+        foreach (var counter in new[]
+                 {
+                     "requestedCount", "foundCount", "notFoundCount", "notFoundIds",
+                     "unresolvedParameterNames", "unitPolicy"
+                 })
+        {
+            if (payload[counter] != null) result[counter] = payload[counter];
+        }
+
+        return result;
     }
 
     private static JToken ShapeAuditFamilies(JToken payload)
@@ -96,21 +150,42 @@ public static class ToolResponseShaper
 
     private static JToken ShapeAvailableFamilyTypes(JToken payload)
     {
-        var items = payload.Children<JObject>()
+        // The runtime now answers {count, totalCount, truncated, items}; it used to
+        // answer a bare array, and the router wraps a non-object result as
+        // {"value": [...]}. Children<JObject>() on any of those object envelopes
+        // yields nothing, which is how compact:true came to report count 0 on a
+        // document full of wall types.
+        var source = FindItemArray(payload, "items", "types", "familyTypes");
+        if (source == null) return payload;
+
+        var items = source.OfType<JObject>()
             .Select(item => new JObject
             {
                 ["familyTypeId"] = item["familyTypeId"],
                 ["familyName"] = item["familyName"],
                 ["typeName"] = item["typeName"],
-                ["category"] = item["category"]
+                ["category"] = item["category"],
+                ["categoryBic"] = item["categoryBic"],
+                ["kind"] = item["kind"]
             })
             .ToArray();
 
-        return new JObject
+        var result = new JObject
         {
             ["count"] = items.Length,
             ["items"] = new JArray(items)
         };
+
+        // Carry the original counters through: recomputing them from the trimmed
+        // list would silently rewrite the truth (shaper invariant 2). A bare-array
+        // payload has no counters to carry — indexing it by name would throw.
+        if (payload is JObject envelope)
+        {
+            if (envelope["totalCount"] != null) result["totalCount"] = envelope["totalCount"];
+            if (envelope["truncated"] != null) result["truncated"] = envelope["truncated"];
+        }
+
+        return result;
     }
 
     private static JToken ShapeSchedulableFields(JToken payload, bool summaryOnly)
