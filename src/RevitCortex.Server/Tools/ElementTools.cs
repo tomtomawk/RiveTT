@@ -13,7 +13,7 @@ public static class ElementTools
         RevitConnectionManager revit,
         [Description("Array of Revit element IDs to query")] long[] elementIds,
         [Description("Include type-level parameters. Default: true")] bool includeTypeParameters = true,
-        [Description("Only these parameters, resolved in English or in the document language. Unresolved names are reported in unresolvedParameterNames")] string[]? parameterNames = null,
+        [Description("Only these parameters, resolved in English or in the document language. Unresolved names are reported in unresolvedParameterNames. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
         [Description("Return compact parameter rows (name+value only) and skip empty params. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
@@ -22,7 +22,12 @@ public static class ElementTools
             ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()),
             ["includeTypeParameters"] = includeTypeParameters,
         };
-        if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
+        if (parameterNames != null)
+        {
+            if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
+                return JsonArrayParam.InvalidArrayResult("get_element_parameters", "parameterNames", parameterNames);
+            p["parameterNames"] = parameterNamesArray;
+        }
         var result = await revit.ExecuteAsync("get_element_parameters", p, ct);
         return ToolResponseShaper.Shape("get_element_parameters", result, compact, summaryOnly: false).ToString();
     }
@@ -89,12 +94,17 @@ public static class ElementTools
     [McpServerTool(Name = "capture_selection"), Description("Capture explicit element IDs or the current Revit selection as a reusable temporary token. Tokens expire and are scoped to the active document session.")]
     public static async Task<string> CaptureSelection(
         RevitConnectionManager revit,
-        [Description("Optional explicit element IDs; omit to capture the current Revit selection")] long[]? elementIds = null,
+        [Description("Optional explicit element IDs; omit to capture the current Revit selection. JSON array, e.g. [1,2]")] string? elementIds = null,
         [Description("Token lifetime in minutes, 1-120. Default: 15")] int? ttlMinutes = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("capture_selection", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
         if (ttlMinutes != null) p["ttlMinutes"] = ttlMinutes;
         return (await revit.ExecuteAsync("capture_selection", p, ct)).ToString();
     }
@@ -202,7 +212,7 @@ public static class ElementTools
         RevitConnectionManager revit,
         [Description("Source element ID")] long sourceElementId,
         [Description("Target element IDs")] long[] targetElementIds,
-        [Description("Parameter names to copy; if omitted, copies all writable parameters")] string[]? parameterNames = null,
+        [Description("Parameter names to copy; if omitted, copies all writable parameters. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
         [Description("Also copy type-level parameters. Default: false")] bool includeTypeParameters = false,
         CancellationToken ct = default)
     {
@@ -211,7 +221,12 @@ public static class ElementTools
             ["sourceElementId"] = sourceElementId,
             ["targetElementIds"] = new JArray(targetElementIds.Cast<object>().ToArray()),
         };
-        if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
+        if (parameterNames != null)
+        {
+            if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
+                return JsonArrayParam.InvalidArrayResult("match_element_properties", "parameterNames", parameterNames);
+            p["parameterNames"] = parameterNamesArray;
+        }
         p["includeTypeParameters"] = includeTypeParameters;
         var result = await revit.ExecuteAsync("match_element_properties", p, ct);
         return result.ToString();
@@ -240,7 +255,7 @@ public static class ElementTools
     [McpServerTool(Name = "renumber_elements"), Description("Renumber rooms/doors/windows by location or name. Writes into the specified parameter; supports prefix/suffix and start/increment.")]
     public static async Task<string> RenumberElements(
         RevitConnectionManager revit,
-        [Description("Element IDs to renumber (optional; omit to use targetCategory)")] long[]? elementIds = null,
+        [Description("Element IDs to renumber (optional; omit to use targetCategory). JSON array, e.g. [1,2]")] string? elementIds = null,
         [Description("Category to renumber when elementIds is empty (e.g. Rooms, Doors, Windows)")] string? targetCategory = null,
         [Description("Parameter name to write into (e.g. Number, Mark)")] string? parameterName = null,
         [Description("Starting number. Default: 1")] int? startNumber = null,
@@ -252,7 +267,12 @@ public static class ElementTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("renumber_elements", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
         if (targetCategory != null) p["targetCategory"] = targetCategory;
         if (parameterName != null) p["parameterName"] = parameterName;
         if (startNumber != null) p["startNumber"] = startNumber;
@@ -293,11 +313,16 @@ public static class ElementTools
     [McpServerTool(Name = "section_box_from_selection"), Description("Create a 3D section box from selected elements")]
     public static async Task<string> SectionBoxFromSelection(
         RevitConnectionManager revit,
-        [Description("Element IDs to create section box from")] long[]? elementIds = null,
+        [Description("Element IDs to create section box from. JSON array, e.g. [1,2]")] string? elementIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("section_box_from_selection", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
         var result = await revit.ExecuteAsync("section_box_from_selection", p, ct);
         return result.ToString();
     }
@@ -328,8 +353,8 @@ public static class ElementTools
     public static async Task<string> GetElementsInSpatialVolume(
         RevitConnectionManager revit,
         [Description("Volume type: room | custom. Default: room")] string? volumeType = null,
-        [Description("Room element IDs (when volumeType=room)")] long[]? volumeIds = null,
-        [Description("Category filter list (e.g. OST_Doors, OST_Walls)")] string[]? categoryFilter = null,
+        [Description("Room element IDs (when volumeType=room). JSON array, e.g. [1,2]")] string? volumeIds = null,
+        [Description("Category filter list (e.g. OST_Doors, OST_Walls). JSON array, e.g. [\"A\",\"B\"]")] string? categoryFilter = null,
         [Description("Max elements returned per volume. Default: 100")] int? maxElementsPerVolume = null,
         [Description("Custom box min X (when volumeType=custom)")] double? customMinX = null,
         [Description("Custom box min Y (when volumeType=custom)")] double? customMinY = null,
@@ -344,8 +369,18 @@ public static class ElementTools
     {
         var p = new JObject();
         if (volumeType != null) p["volumeType"] = volumeType;
-        if (volumeIds != null) p["volumeIds"] = new JArray(volumeIds.Cast<object>().ToArray());
-        if (categoryFilter != null) p["categoryFilter"] = new JArray(categoryFilter);
+        if (volumeIds != null)
+        {
+            if (!JsonArrayParam.TryParse(volumeIds, out var volumeIdsArray))
+                return JsonArrayParam.InvalidArrayResult("get_elements_in_spatial_volume", "volumeIds", volumeIds);
+            p["volumeIds"] = volumeIdsArray;
+        }
+        if (categoryFilter != null)
+        {
+            if (!JsonArrayParam.TryParse(categoryFilter, out var categoryFilterArray))
+                return JsonArrayParam.InvalidArrayResult("get_elements_in_spatial_volume", "categoryFilter", categoryFilter);
+            p["categoryFilter"] = categoryFilterArray;
+        }
         if (maxElementsPerVolume != null) p["maxElementsPerVolume"] = maxElementsPerVolume;
         p["useRoomSolid"] = useRoomSolid;
         if (containment != null) p["containment"] = containment;
@@ -363,15 +398,25 @@ public static class ElementTools
     public static async Task<string> GetLinkedElements(
         RevitConnectionManager revit,
         [Description("Name of the linked file (optional; omit to search all links)")] string? linkName = null,
-        [Description("Categories to include (OST_* codes or display names)")] string[]? categories = null,
-        [Description("Parameter names to extract; additive — without this only basic fields are returned")] string[]? parameterNames = null,
+        [Description("Categories to include (OST_* codes or display names). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
+        [Description("Parameter names to extract; additive — without this only basic fields are returned. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
         [Description("Max elements returned. Default: 5000")] int? maxElements = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (linkName != null) p["linkName"] = linkName;
-        if (categories != null) p["categories"] = new JArray(categories);
-        if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("get_linked_elements", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
+        if (parameterNames != null)
+        {
+            if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
+                return JsonArrayParam.InvalidArrayResult("get_linked_elements", "parameterNames", parameterNames);
+            p["parameterNames"] = parameterNamesArray;
+        }
         if (maxElements != null) p["maxElements"] = maxElements;
         var result = await revit.ExecuteAsync("get_linked_elements", p, ct);
         return result.ToString();
@@ -380,26 +425,41 @@ public static class ElementTools
     [McpServerTool(Name = "get_room_openings"), Description("Get doors/windows adjacent to rooms with dimensions. Filter by roomIds, roomNumbers, or levelName.")]
     public static async Task<string> GetRoomOpenings(
         RevitConnectionManager revit,
-        [Description("Room element IDs to query")] long[]? roomIds = null,
-        [Description("Room numbers to query")] string[]? roomNumbers = null,
+        [Description("Room element IDs to query. JSON array, e.g. [1,2]")] string? roomIds = null,
+        [Description("Room numbers to query. JSON array, e.g. [\"A\",\"B\"]")] string? roomNumbers = null,
         [Description("Level name filter")] string? levelName = null,
         [Description("Element type: doors | windows | both. Default: both")] string? elementType = null,
         [Description("Include room parameters in response. Default: false")] bool includeRoomParams = false,
         [Description("Include opening element parameters in response. Default: false")] bool includeElementParams = false,
-        [Description("Specific parameter names to extract")] string[]? parameterNames = null,
+        [Description("Specific parameter names to extract. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
         [Description("Max elements per room. Default: 100")] int? maxElementsPerRoom = null,
         [Description("Return a compact payload. Default: false")] bool compact = false,
         [Description("Return counts without nested opening arrays. Default: false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (roomIds != null) p["roomIds"] = new JArray(roomIds.Cast<object>().ToArray());
-        if (roomNumbers != null) p["roomNumbers"] = new JArray(roomNumbers);
+        if (roomIds != null)
+        {
+            if (!JsonArrayParam.TryParse(roomIds, out var roomIdsArray))
+                return JsonArrayParam.InvalidArrayResult("get_room_openings", "roomIds", roomIds);
+            p["roomIds"] = roomIdsArray;
+        }
+        if (roomNumbers != null)
+        {
+            if (!JsonArrayParam.TryParse(roomNumbers, out var roomNumbersArray))
+                return JsonArrayParam.InvalidArrayResult("get_room_openings", "roomNumbers", roomNumbers);
+            p["roomNumbers"] = roomNumbersArray;
+        }
         if (levelName != null) p["levelName"] = levelName;
         if (elementType != null) p["elementType"] = elementType;
         p["includeRoomParams"] = includeRoomParams;
         p["includeElementParams"] = includeElementParams;
-        if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
+        if (parameterNames != null)
+        {
+            if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
+                return JsonArrayParam.InvalidArrayResult("get_room_openings", "parameterNames", parameterNames);
+            p["parameterNames"] = parameterNamesArray;
+        }
         if (maxElementsPerRoom != null) p["maxElementsPerRoom"] = maxElementsPerRoom;
         var result = await revit.ExecuteAsync("get_room_openings", p, ct);
         return ToolResponseShaper.Shape("get_room_openings", result, compact, summaryOnly).ToString();

@@ -110,7 +110,7 @@ public static class LinkTools
     [McpServerTool(Name = "show_cross_model_elements"), Description("Select host elements plus elements in linked Revit models. Two strategies for visibility: (a) default — create red DirectShape markers in the host doc around each linked element's bounding box (synchronous, transactional, robust); (b) usePostCommandIsolate=true — use Revit's native IsolateElements via PostCommand after SetReferences (canonical Revit API pattern, but asynchronous: tool returns before isolate completes, and cannot be combined with section box / overrides in the same call).")]
     public static async Task<string> ShowCrossModelElements(
         RevitConnectionManager revit,
-        [Description("Host document element IDs to include")] long[]? hostElementIds = null,
+        [Description("Host document element IDs to include. JSON array, e.g. [1,2]")] string? hostElementIds = null,
         [Description("JSON array of linked targets: [{\"instanceId\":2409055,\"linkedElementId\":1413682}]")] string? linkedElements = null,
         [Description("Select host elements and linked-element references. Default: true")] bool select = true,
         [Description("Temporarily isolate host elements and link instances. Default: true")] bool isolate = true,
@@ -121,7 +121,12 @@ public static class LinkTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (hostElementIds != null) p["hostElementIds"] = new JArray(hostElementIds.Cast<object>().ToArray());
+        if (hostElementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(hostElementIds, out var hostElementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("show_cross_model_elements", "hostElementIds", hostElementIds);
+            p["hostElementIds"] = hostElementIdsArray;
+        }
         if (linkedElements != null) p["linkedElements"] = JArray.Parse(linkedElements);
         p["select"] = select;
         p["isolate"] = isolate;
@@ -203,14 +208,19 @@ public static class LinkTools
         [Description("Action: list | delete. Default: list")] string? action = null,
         [Description("Delete imported CAD instances. Default: false")] bool deleteImports = false,
         [Description("Delete linked CAD instances. Default: false")] bool deleteLinks = false,
-        [Description("Specific element IDs to target (optional)")] long[]? elementIds = null,
+        [Description("Specific element IDs to target (optional). JSON array, e.g. [1,2]")] string? elementIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (action != null) p["action"] = action;
         p["deleteImports"] = deleteImports;
         p["deleteLinks"] = deleteLinks;
-        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("cad_link_cleanup", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
         var result = await revit.ExecuteAsync("cad_link_cleanup", p, ct);
         return result.ToString();
     }

@@ -36,7 +36,7 @@ public static class ParameterTools
         RevitConnectionManager revit,
         [Description("Parameter name to modify")] string parameterName,
         [Description("Category name to filter elements (e.g. Walls, Doors)")] string? categoryName = null,
-        [Description("Explicit element IDs; takes precedence over categoryName")] long[]? elementIds = null,
+        [Description("Explicit element IDs; takes precedence over categoryName. JSON array, e.g. [1,2]")] string? elementIds = null,
         [Description("Temporary token returned by capture_selection")] string? selectionToken = null,
         [Description("Persistent Revit SelectionFilterElement name")] string? savedSelectionName = null,
         [Description("Scope: selection | last_filter | active_view | whole_model")] string? scope = null,
@@ -54,7 +54,12 @@ public static class ParameterTools
             ["parameterName"] = parameterName,
         };
         if (categoryName != null) p["categoryName"] = categoryName;
-        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("bulk_modify_parameter_values", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
         if (selectionToken != null) p["selectionToken"] = selectionToken;
         if (savedSelectionName != null) p["savedSelectionName"] = savedSelectionName;
         if (scope != null) p["scope"] = scope;
@@ -80,7 +85,7 @@ public static class ParameterTools
         [Description("How to combine multiple conditions: and | or. Default: and")] string? logic = null,
         [Description("Parameter type: instance, type, or both. Default: both")] string? parameterType = "both",
         [Description("Scope: whole_model | active_view | selection. Default: whole_model")] string? scope = null,
-        [Description("Explicit element IDs; overrides scope")] long[]? elementIds = null,
+        [Description("Explicit element IDs; overrides scope. JSON array, e.g. [1,2]")] string? elementIds = null,
         [Description("Temporary token returned by capture_selection")] string? selectionToken = null,
         [Description("Persistent saved selection name")] string? savedSelectionName = null,
         CancellationToken ct = default)
@@ -94,6 +99,12 @@ public static class ParameterTools
         if (logic != null) p["logic"] = logic;
         if (parameterType != null) p["parameterType"] = parameterType;
         if (scope != null) p["scope"] = scope;
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("filter_by_parameter_value", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
         var result = await revit.ExecuteAsync("filter_by_parameter_value", p, ct);
         return result.ToString();
     }
@@ -124,7 +135,7 @@ public static class ParameterTools
         [Description("Prefix to prepend")] string? prefix = null,
         [Description("Suffix to append")] string? suffix = null,
         [Description("Scope: whole_model or selection. Default: whole_model")] string? scope = "whole_model",
-        [Description("Explicit element IDs; overrides scope")] long[]? elementIds = null,
+        [Description("Explicit element IDs; overrides scope. JSON array, e.g. [1,2]")] string? elementIds = null,
         [Description("Temporary token returned by capture_selection")] string? selectionToken = null,
         [Description("Persistent saved selection name")] string? savedSelectionName = null,
         [Description("JSON array of category names to filter, e.g. [\"OST_Doors\"]")] string? categories = null,
@@ -141,7 +152,12 @@ public static class ParameterTools
         if (prefix != null) p["prefix"] = prefix;
         if (suffix != null) p["suffix"] = suffix;
         if (scope != null) p["scope"] = scope;
-        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("add_prefix_suffix", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
         if (selectionToken != null) p["selectionToken"] = selectionToken;
         if (savedSelectionName != null) p["savedSelectionName"] = savedSelectionName;
         if (categories != null) p["categories"] = JArray.Parse(categories);
@@ -156,7 +172,7 @@ public static class ParameterTools
         RevitConnectionManager revit,
         [Description("Parameter name to clear")] string parameterName,
         [Description("Scope: whole_model or selection. Default: whole_model")] string? scope = "whole_model",
-        [Description("Explicit element IDs; overrides scope")] long[]? elementIds = null,
+        [Description("Explicit element IDs; overrides scope. JSON array, e.g. [1,2]")] string? elementIds = null,
         [Description("Temporary token returned by capture_selection")] string? selectionToken = null,
         [Description("Persistent saved selection name")] string? savedSelectionName = null,
         [Description("JSON array of category names to filter")] string? categories = null,
@@ -167,7 +183,12 @@ public static class ParameterTools
     {
         var p = new JObject { ["parameterName"] = parameterName };
         if (scope != null) p["scope"] = scope;
-        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("clear_parameter_values", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
         if (selectionToken != null) p["selectionToken"] = selectionToken;
         if (savedSelectionName != null) p["savedSelectionName"] = savedSelectionName;
         if (categories != null) p["categories"] = JArray.Parse(categories);
@@ -212,9 +233,9 @@ public static class ParameterTools
         [Description("Parameter name (required for create/delete/modify/set_group/set_binding_type/rename). For set_group you can also pass parameterNames[].")] string? parameterName = null,
         [Description("Data type for create: Text | Integer | Number | Length | Area | Volume | Angle | YesNo | URL")] string? dataType = null,
         [Description("Instance (true) or type (false) binding. Used on 'create' and on 'set_binding_type' (the target binding type). Pass \"true\" or \"false\"; omit to leave unchanged.")] string? isInstance = null,
-        [Description("Categories list (OST_* codes or display names) — for create/modify")] string[]? categories = null,
+        [Description("Categories list (OST_* codes or display names) — for create/modify. JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
         [Description("How modify applies 'categories': add (default, union), remove (unbind listed), replace (set to exactly the listed). Ignored for other actions.")] string? categoriesMode = null,
-        [Description("Parameter names array — for set_group bulk operation, e.g. [\"BCA_RES_Stato-Conservazione\",\"BCA_CME_Codice-Tariffa\"]")] string[]? parameterNames = null,
+        [Description("Parameter names array — for set_group bulk operation, e.g. [\"BCA_RES_Stato-Conservazione\",\"BCA_CME_Codice-Tariffa\"]. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
         [Description("Target group for set_group action. Short names: IdentityData, Data, Constraints, Geometry, Graphics, Materials, Text, General, Phasing, Visibility, Construction, Electrical, ElectricalEngineering, ElectricalLighting, ElectricalLoads, Mechanical, MechanicalAirflow, Plumbing, FireProtection, Ifc, AnalysisResults, Structural, StructuralAnalysis. A full ForgeTypeId is also accepted.")] string? targetGroup = null,
         [Description("New name — only used by 'rename' (which returns API-limitation guidance for project parameters; use global parameters if you need rename).")] string? newName = null,
         [Description("Preview only (set_group). Default: true (preview); set false to apply the changes.")] bool dryRun = true,
@@ -229,9 +250,19 @@ public static class ParameterTools
                 return TriStateFlag.InvalidFlagResult("manage_project_parameters", "isInstance", isInstance);
             p["isInstance"] = isInstanceFlag;
         }
-        if (categories != null) p["categories"] = new JArray(categories);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("manage_project_parameters", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
         if (categoriesMode != null) p["categoriesMode"] = categoriesMode;
-        if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
+        if (parameterNames != null)
+        {
+            if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
+                return JsonArrayParam.InvalidArrayResult("manage_project_parameters", "parameterNames", parameterNames);
+            p["parameterNames"] = parameterNamesArray;
+        }
         if (targetGroup != null) p["targetGroup"] = targetGroup;
         if (newName != null) p["newName"] = newName;
         p["dryRun"] = dryRun;
@@ -244,7 +275,7 @@ public static class ParameterTools
         RevitConnectionManager revit,
         [Description("Source element ID")] long sourceElementId,
         [Description("Target element IDs (array of long)")] long[] targetElementIds,
-        [Description("Parameter names to copy; if empty, copies all writable parameters")] string[]? parameterNames = null,
+        [Description("Parameter names to copy; if empty, copies all writable parameters. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
         [Description("Also copy type-level parameters. Default: false")] bool includeType = false,
         [Description("Preview changes without applying. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
@@ -254,7 +285,12 @@ public static class ParameterTools
             ["sourceElementId"] = sourceElementId,
             ["targetElementIds"] = new JArray(targetElementIds.Cast<object>().ToArray()),
         };
-        if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
+        if (parameterNames != null)
+        {
+            if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
+                return JsonArrayParam.InvalidArrayResult("transfer_parameters", "parameterNames", parameterNames);
+            p["parameterNames"] = parameterNamesArray;
+        }
         p["includeType"] = includeType;
         p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("transfer_parameters", p, ct);

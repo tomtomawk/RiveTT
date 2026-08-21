@@ -145,9 +145,9 @@ public static class CreationTools
     [McpServerTool(Name = "export_to_excel"), Description("Export element data from a Revit category to an Excel file.")]
     public static async Task<string> ExportToExcel(
         RevitConnectionManager revit,
-        [Description("Categories to export (OST_* codes or display names)")] string[]? categories = null,
+        [Description("Categories to export (OST_* codes or display names). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
         [Description("Legacy single category alias; used only when categories is omitted")] string? category = null,
-        [Description("Specific parameter names to export")] string[]? parameterNames = null,
+        [Description("Specific parameter names to export. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
         [Description("Include type parameters. Default: false")] bool includeTypeParameters = false,
         [Description("Include element id column. Default: true")] bool includeElementId = true,
         [Description("Output file path for the Excel file")] string? filePath = null,
@@ -157,9 +157,19 @@ public static class CreationTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (categories != null) p["categories"] = new JArray(categories);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("export_to_excel", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
         else if (category != null) p["categories"] = new JArray(category);
-        if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
+        if (parameterNames != null)
+        {
+            if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
+                return JsonArrayParam.InvalidArrayResult("export_to_excel", "parameterNames", parameterNames);
+            p["parameterNames"] = parameterNamesArray;
+        }
         p["includeTypeParameters"] = includeTypeParameters;
         p["includeElementId"] = includeElementId;
         if (filePath != null) p["filePath"] = filePath;
@@ -229,7 +239,7 @@ public static class CreationTools
     public static async Task<string> CreateColorLegend(
         RevitConnectionManager revit,
         [Description("Parameter name to color by")] string parameterName,
-        [Description("Categories to include (e.g. Rooms, Walls)")] string[]? categories = null,
+        [Description("Categories to include (e.g. Rooms, Walls). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
         [Description("Color scheme: auto | rainbow | sequential | custom. Default: auto")] string? colorScheme = null,
         [Description("Custom colors as JSON array of hex strings (when colorScheme=custom)")] string? customColors = null,
         [Description("Create a legend view for the scheme. Default: true")] bool createLegendView = true,
@@ -238,7 +248,12 @@ public static class CreationTools
         CancellationToken ct = default)
     {
         var p = new JObject { ["parameterName"] = parameterName };
-        if (categories != null) p["categories"] = new JArray(categories);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("create_color_legend", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
         if (colorScheme != null) p["colorScheme"] = colorScheme;
         if (customColors != null) p["customColors"] = JArray.Parse(customColors);
         p["createLegendView"] = createLegendView;
@@ -313,7 +328,7 @@ public static class CreationTools
         [Description("Issued to (for create/set)")] string? issuedTo = null,
         [Description("Mark the revision issued (true) or not (false), for create/set Pass \"true\" or \"false\"; omit to leave unchanged.")] string? issued = null,
         [Description("Revision visibility: cloud_and_tag | tag_visible | none, for create/set")] string? visibility = null,
-        [Description("Sheet element IDs (for add_to_sheets)")] long[]? sheetIds = null,
+        [Description("Sheet element IDs (for add_to_sheets). JSON array, e.g. [1,2]")] string? sheetIds = null,
         [Description("Revision element ID (required for set and add_to_sheets)")] long? revisionId = null,
         CancellationToken ct = default)
     {
@@ -330,7 +345,12 @@ public static class CreationTools
             p["issued"] = issuedFlag;
         }
         if (visibility != null) p["visibility"] = visibility;
-        if (sheetIds != null) p["sheetIds"] = new JArray(sheetIds.Cast<object>().ToArray());
+        if (sheetIds != null)
+        {
+            if (!JsonArrayParam.TryParse(sheetIds, out var sheetIdsArray))
+                return JsonArrayParam.InvalidArrayResult("create_revision", "sheetIds", sheetIds);
+            p["sheetIds"] = sheetIdsArray;
+        }
         if (revisionId != null) p["revisionId"] = revisionId;
         var result = await revit.ExecuteAsync("create_revision", p, ct);
         return result.ToString();
@@ -354,8 +374,8 @@ public static class CreationTools
     [McpServerTool(Name = "export_elements_data"), Description("Export element data as JSON or CSV, by category and/or by explicit elementIds. Parameter names may be given in English or in the document language (Mark/Repere, Level/Niveau, Width/Largeur); names that resolve to nothing are listed in unresolvedParameterNames instead of producing a silently empty column. Filters on a Level-type parameter match the level NAME. Use countOnly=true first to size a large export.")]
     public static async Task<string> ExportElementsData(
         RevitConnectionManager revit,
-        [Description("Categories to include (e.g. Walls, Doors)")] string[]? categories = null,
-        [Description("Parameter names to extract (all writable when omitted)")] string[]? parameterNames = null,
+        [Description("Categories to include (e.g. Walls, Doors). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
+        [Description("Parameter names to extract (all writable when omitted). JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
         [Description("Include type-level parameters. Default: false")] bool includeTypeParameters = false,
         [Description("Include element IDs in output. Default: true")] bool includeElementId = true,
         [Description("Output format: json | csv. Default: json")] string? outputFormat = null,
@@ -363,15 +383,30 @@ public static class CreationTools
         [Description("Include only elements where this parameter matches filterValue")] string? filterParameterName = null,
         [Description("Value to match for filterParameterName")] string? filterValue = null,
         [Description("Filter operator: equals | not_equals | contains | startsWith | endsWith | is_empty | is_not_empty | greater_than | less_than. Default: equals")] string? filterOperator = null,
-        [Description("Restrict the export to these element IDs. Applied before pagination")] long[]? elementIds = null,
+        [Description("Restrict the export to these element IDs. Applied before pagination. JSON array, e.g. [1,2]")] string? elementIds = null,
         [Description("Return counts and estimated column count only, no rows. Use it to size an export first. Default: false")] bool countOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("export_elements_data", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
         p["countOnly"] = countOnly;
-        if (categories != null) p["categories"] = new JArray(categories);
-        if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("export_elements_data", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
+        if (parameterNames != null)
+        {
+            if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
+                return JsonArrayParam.InvalidArrayResult("export_elements_data", "parameterNames", parameterNames);
+            p["parameterNames"] = parameterNamesArray;
+        }
         p["includeTypeParameters"] = includeTypeParameters;
         p["includeElementId"] = includeElementId;
         if (outputFormat != null) p["outputFormat"] = outputFormat;
@@ -387,13 +422,18 @@ public static class CreationTools
     public static async Task<string> ExportFamilies(
         RevitConnectionManager revit,
         [Description("Output directory for the .rfa files")] string outputDirectory,
-        [Description("Categories to restrict the export")] string[]? categories = null,
+        [Description("Categories to restrict the export. JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
         [Description("Create one subfolder per category. Default: true")] bool groupByCategory = true,
         [Description("Overwrite existing files. Default: false")] bool overwrite = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["outputDirectory"] = outputDirectory };
-        if (categories != null) p["categories"] = new JArray(categories);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("export_families", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
         p["groupByCategory"] = groupByCategory;
         p["overwrite"] = overwrite;
         var result = await revit.ExecuteAsync("export_families", p, ct);
@@ -424,14 +464,24 @@ public static class CreationTools
         RevitConnectionManager revit,
         [Description("Output directory")] string outputDirectory,
         [Description("Export format: DWG | DXF | DGN | PDF | IMAGE. Default: DWG")] string? format = null,
-        [Description("Sheet IDs to export")] long[]? sheetIds = null,
-        [Description("View IDs to export")] long[]? viewIds = null,
+        [Description("Sheet IDs to export. JSON array, e.g. [1,2]")] string? sheetIds = null,
+        [Description("View IDs to export. JSON array, e.g. [1,2]")] string? viewIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["outputDirectory"] = outputDirectory };
         if (format != null) p["format"] = format;
-        if (sheetIds != null) p["sheetIds"] = new JArray(sheetIds.Cast<object>().ToArray());
-        if (viewIds != null) p["viewIds"] = new JArray(viewIds.Cast<object>().ToArray());
+        if (sheetIds != null)
+        {
+            if (!JsonArrayParam.TryParse(sheetIds, out var sheetIdsArray))
+                return JsonArrayParam.InvalidArrayResult("batch_export", "sheetIds", sheetIds);
+            p["sheetIds"] = sheetIdsArray;
+        }
+        if (viewIds != null)
+        {
+            if (!JsonArrayParam.TryParse(viewIds, out var viewIdsArray))
+                return JsonArrayParam.InvalidArrayResult("batch_export", "viewIds", viewIds);
+            p["viewIds"] = viewIdsArray;
+        }
         var result = await revit.ExecuteAsync("batch_export", p, ct);
         return result.ToString();
     }

@@ -92,14 +92,19 @@ public static class MaterialTools
     [McpServerTool(Name = "get_material_quantities"), Description("Calculate material area and volume across elements, optionally filtered by category or restricted to the current selection.")]
     public static async Task<string> GetMaterialQuantities(
         RevitConnectionManager revit,
-        [Description("Category filters (e.g. Walls, Floors)")] string[]? categoryFilters = null,
+        [Description("Category filters (e.g. Walls, Floors). JSON array, e.g. [\"A\",\"B\"]")] string? categoryFilters = null,
         [Description("Restrict to the current Revit selection. Default: false")] bool selectedElementsOnly = false,
         [Description("Max rows returned. Default: 50")] int? maxResults = null,
         [Description("Cap on elements processed (default 20000). Above the cap the tool fails with a structured error instead of freezing Revit — narrow with categoryFilters/selectedElementsOnly or raise this deliberately.")] int? maxElements = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (categoryFilters != null) p["categoryFilters"] = new JArray(categoryFilters);
+        if (categoryFilters != null)
+        {
+            if (!JsonArrayParam.TryParse(categoryFilters, out var categoryFiltersArray))
+                return JsonArrayParam.InvalidArrayResult("get_material_quantities", "categoryFilters", categoryFilters);
+            p["categoryFilters"] = categoryFiltersArray;
+        }
         p["selectedElementsOnly"] = selectedElementsOnly;
         if (maxResults != null) p["maxResults"] = maxResults;
         if (maxElements != null) p["maxElements"] = maxElements;

@@ -259,12 +259,17 @@ public static class IfcTools
     public static async Task<string> IfcRebuildOpenings(
         RevitConnectionManager revit,
         [Description("Element IDs of opening DirectShapes")] long[] elementIds,
-        [Description("Element IDs of host walls/floors where openings should be cut")] long[]? hostElementIds = null,
+        [Description("Element IDs of host walls/floors where openings should be cut. JSON array, e.g. [1,2]")] string? hostElementIds = null,
         [Description("Preview without cutting. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
-        if (hostElementIds != null) p["hostElementIds"] = new JArray(hostElementIds.Cast<object>().ToArray());
+        if (hostElementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(hostElementIds, out var hostElementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("ifc_rebuild_openings", "hostElementIds", hostElementIds);
+            p["hostElementIds"] = hostElementIdsArray;
+        }
         p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("ifc_rebuild_openings", p, ct);
         return result.ToString();

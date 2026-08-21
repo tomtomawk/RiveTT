@@ -174,8 +174,15 @@ public sealed class CreateStairTool : ICortexTool
                     scope = null;
                     return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
                         $"Revit rolled back the stair runs: {TransactionFailureHandling.Describe(txFailures)}",
-                        suggestion: "Check the run geometry: it must be inside the model and long enough for " +
-                                    "the height between the two levels.");
+                        // Both refusals observed in practice came from these two,
+                        // and the raw Revit text ("Impossible de créer l'escalier")
+                        // names neither.
+                        suggestion: "Two usual causes: (1) the run length does not fit the riser count needed " +
+                                    $"for {heightFt * MmPerFoot:F0} mm — allow roughly tread depth x " +
+                                    "(risers - 1); (2) the stair type is a catalogued precast type with a " +
+                                    "fixed height and step count, which refuses an arbitrary level-to-level " +
+                                    "height — pick a cast-in-place or assembled type from " +
+                                    "list_system_types(OST_Stairs).");
                 }
             }
 
@@ -190,10 +197,30 @@ public sealed class CreateStairTool : ICortexTool
             var desiredRisers = created?.DesiredRisersNumber ?? 0;
 
             // Railings are created OUTSIDE the edit scope, and Revit creates one per
-            // side of the stair.
+            // side of the stair. Most stair types create their own, in which case
+            // Railing.Create fails with "already has associated railings" — which
+            // reads as a tool error when it really means "nothing to do".
             var railingIds = new List<long>();
             string? railingError = null;
-            if (railingTypeId > 0)
+            var existingRailings = new List<long>();
+            try
+            {
+                if (created != null)
+                    existingRailings.AddRange(
+                        created.GetAssociatedRailings().Select(ToolHelpers.GetElementIdValue));
+            }
+            catch
+            {
+                // Reading the associated railings is context, never the answer.
+            }
+
+            if (railingTypeId > 0 && existingRailings.Count > 0)
+            {
+                railingIds.AddRange(existingRailings);
+                warnings.Add($"The stair type already created {existingRailings.Count} railing(s), so " +
+                             "railingTypeId was not applied. Retype them with change_element_type if needed.");
+            }
+            else if (railingTypeId > 0)
             {
                 try
                 {
@@ -211,13 +238,29 @@ public sealed class CreateStairTool : ICortexTool
                     railingError = exception.Message;
                 }
             }
+            else
+            {
+                railingIds.AddRange(existingRailings);
+            }
 
             if (actualRisers > 0 && desiredRisers > 0 && actualRisers != desiredRisers)
             {
-                warnings.Add(
-                    $"The stair has {actualRisers} risers but needs {desiredRisers} to reach " +
-                    $"'{topLevel.Name}': the runs are too short. Lengthen them or add a run — Revit created " +
-                    "the stair anyway and it does not reach the top level.");
+                // Direction matters: MORE risers than needed means the run is too
+                // long and overshoots the level. Telling the caller to lengthen a run
+                // that is already too long is worse than saying nothing.
+                var treadMm = created == null ? 0 : created.ActualTreadDepth * MmPerFoot;
+                var deltaRisers = actualRisers - desiredRisers;
+                var correctionMm = treadMm > 0 ? Math.Abs(deltaRisers) * treadMm : 0;
+
+                warnings.Add(deltaRisers > 0
+                    ? $"The stair has {actualRisers} risers but only {desiredRisers} are needed to reach " +
+                      $"'{topLevel.Name}': the run is too LONG and overshoots the level" +
+                      (correctionMm > 0 ? $" — shorten it by about {correctionMm:F0} mm" : "") +
+                      ". Revit created the stair anyway."
+                    : $"The stair has {actualRisers} risers but needs {desiredRisers} to reach " +
+                      $"'{topLevel.Name}': the run is too SHORT and stops below the level" +
+                      (correctionMm > 0 ? $" — lengthen it by about {correctionMm:F0} mm" : "") +
+                      ", or add a second run. Revit created the stair anyway.");
             }
 
             return CortexResult<object>.Ok(new

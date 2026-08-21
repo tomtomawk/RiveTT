@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using ModelContextProtocol.Server;
@@ -69,6 +70,75 @@ public class McpParameterTypeContractTests
         // vacuously and the guard would be worthless.
         Assert.True(tools.Count > 250, $"Only {tools.Count} MCP tools discovered by reflection.");
         Assert.All(tools, tool => Assert.False(string.IsNullOrWhiteSpace(tool.ToolName)));
+    }
+
+    [Fact]
+    public void NoMcpToolPublishesAnOptionalArrayParameter()
+    {
+        // An OPTIONAL array parameter does not bind either: the call fails before the
+        // method runs, exactly like bool?. A REQUIRED array binds fine — measured
+        // live: get_element_parameters(elementIds:[...]) works, adding the optional
+        // parameterNames:[...] breaks the same call. 55 parameters across 41 tools
+        // were in that state, which removed every category filter, id filter and
+        // field list from the surface. Optional collections travel as a JSON string
+        // through JsonArrayParam instead.
+        var offenders = McpTools()
+            .SelectMany(tool => tool.Method.GetParameters()
+                .Where(parameter => parameter.ParameterType.IsArray && parameter.HasDefaultValue)
+                .Select(parameter => $"{tool.ToolName}.{parameter.Name} ({parameter.ParameterType.Name})"))
+            .OrderBy(text => text, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(offenders.Count == 0,
+            "Optional array parameters make the tool call fail before it reaches Revit. " +
+            "Publish them as a JSON string and parse with JsonArrayParam:\n  " +
+            string.Join("\n  ", offenders));
+    }
+
+    [Fact]
+    public void EveryPublishedParameterIsActuallyForwarded()
+    {
+        // A parameter declared on the signature but never written into the request
+        // is invisible dead weight: filter_by_parameter_value published elementIds
+        // and forwarded it nowhere. Reflection cannot see the request body, so this
+        // reads the source of the declaring type.
+        var offenders = new List<string>();
+
+        foreach (var group in McpTools().GroupBy(tool => tool.Method.DeclaringType!))
+        {
+            var path = Path.GetFullPath(Path.Combine("..", "..", "..", "..",
+                "RevitCortex.Server", "Tools", group.Key.Name + ".cs"));
+            if (!File.Exists(path)) continue;
+            var source = File.ReadAllText(path);
+
+            foreach (var (method, toolName) in group)
+            {
+                var body = MethodBody(source, method.Name);
+                if (body == null) continue;
+
+                foreach (var parameter in method.GetParameters())
+                {
+                    if (parameter.Name is null or "revit" or "ct") continue;
+                    // Either forwarded by key, or consumed by name in the body.
+                    if (body.Contains($"\"{parameter.Name}\"", StringComparison.Ordinal)) continue;
+                    if (body.Contains(parameter.Name, StringComparison.Ordinal)) continue;
+                    offenders.Add($"{toolName}.{parameter.Name}");
+                }
+            }
+        }
+
+        Assert.True(offenders.Count == 0,
+            "MCP parameters declared but never forwarded to Revit:\n  " +
+            string.Join("\n  ", offenders));
+    }
+
+    /// <summary>Source text of one method, from its signature to the next method.</summary>
+    private static string? MethodBody(string source, string methodName)
+    {
+        var start = source.IndexOf($" {methodName}(", StringComparison.Ordinal);
+        if (start < 0) return null;
+        var next = source.IndexOf("[McpServerTool", start, StringComparison.Ordinal);
+        return next < 0 ? source.Substring(start) : source.Substring(start, next - start);
     }
 
     [Fact]

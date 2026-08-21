@@ -73,14 +73,19 @@ public static class ProjectTools
     [McpServerTool(Name = "get_available_family_types"), Description("List available family types in the Revit project.")]
     public static async Task<string> GetAvailableFamilyTypes(
         RevitConnectionManager revit,
-        [Description("Filter by category names (OST codes, English, or localized labels)")] string[]? categoryList = null,
+        [Description("Filter by category names (OST codes, English, or localized labels). JSON array, e.g. [\"A\",\"B\"]")] string? categoryList = null,
         [Description("Case-insensitive substring filter on family or type name")] string? familyNameFilter = null,
         [Description("Max types to return. Default: 100")] int? limit = null,
         [Description("Return a compact payload without uniqueId-heavy rows. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (categoryList != null) p["categoryList"] = new JArray(categoryList);
+        if (categoryList != null)
+        {
+            if (!JsonArrayParam.TryParse(categoryList, out var categoryListArray))
+                return JsonArrayParam.InvalidArrayResult("get_available_family_types", "categoryList", categoryList);
+            p["categoryList"] = categoryListArray;
+        }
         if (familyNameFilter != null) p["familyNameFilter"] = familyNameFilter;
         if (limit != null) p["limit"] = limit;
         var result = await revit.ExecuteAsync("get_available_family_types", p, ct);
@@ -302,7 +307,7 @@ public static class ProjectTools
     [McpServerTool(Name = "batch_rename"), Description("Batch rename elements or system types in the Revit project. Supports both loadable-family elements and system types (wall/floor/ceiling/roof types).")]
     public static async Task<string> BatchRename(
         RevitConnectionManager revit,
-        [Description("Array of element IDs to rename. Use this when you already have specific IDs.")] long[]? elementIds = null,
+        [Description("Array of element IDs to rename. Use this when you already have specific IDs. JSON array, e.g. [1,2]")] string? elementIds = null,
         [Description("Target category to rename. Valid values: views | sheets | levels | grids | rooms | walltypes | floortypes | ceilingtypes | rooftypes. Use 'floortypes' to rename system floor types.")] string? targetCategory = null,
         [Description("Text to find")] string? findText = null,
         [Description("Replacement text")] string? replaceText = null,
@@ -312,7 +317,12 @@ public static class ProjectTools
         CancellationToken ct = default)
     {
         var p = new JObject { ["dryRun"] = dryRun };
-        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Select(id => (object)id).ToArray());
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("batch_rename", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
         if (targetCategory != null) p["targetCategory"] = targetCategory;
         if (findText != null) p["findText"] = findText;
         if (replaceText != null) p["replaceText"] = replaceText;
@@ -330,7 +340,7 @@ public static class ProjectTools
         [Description("Suffix string (for suffix operation)")] string? suffix = null,
         [Description("Text to find (for findReplace operation)")] string? findText = null,
         [Description("Replacement text (for findReplace operation)")] string? replaceText = null,
-        [Description("Categories to restrict the rename (e.g. Doors, Windows)")] string[]? categories = null,
+        [Description("Categories to restrict the rename (e.g. Doors, Windows). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
         [Description("Also rename the family types. Default: false")] bool renameTypes = false,
         [Description("Preview without writing. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
@@ -341,7 +351,12 @@ public static class ProjectTools
         if (suffix != null) p["suffix"] = suffix;
         if (findText != null) p["findText"] = findText;
         if (replaceText != null) p["replaceText"] = replaceText;
-        if (categories != null) p["categories"] = new JArray(categories);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("rename_families", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
         p["renameTypes"] = renameTypes;
         p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("rename_families", p, ct);
@@ -352,12 +367,17 @@ public static class ProjectTools
     public static async Task<string> TagRooms(
         RevitConnectionManager revit,
         [Description("Use leader on tags. Default: false")] bool useLeader = false,
-        [Description("Room IDs to tag (optional; tags all rooms in view when omitted)")] long[]? roomIds = null,
+        [Description("Room IDs to tag (optional; tags all rooms in view when omitted). JSON array, e.g. [1,2]")] string? roomIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         p["useLeader"] = useLeader;
-        if (roomIds != null) p["roomIds"] = new JArray(roomIds.Cast<object>().ToArray());
+        if (roomIds != null)
+        {
+            if (!JsonArrayParam.TryParse(roomIds, out var roomIdsArray))
+                return JsonArrayParam.InvalidArrayResult("tag_rooms", "roomIds", roomIds);
+            p["roomIds"] = roomIdsArray;
+        }
         var result = await revit.ExecuteAsync("tag_rooms", p, ct);
         return result.ToString();
     }
@@ -414,7 +434,7 @@ public static class ProjectTools
         [Description("Action: add_field | remove_field | set_sorting | clear_sorting | set_filter | clear_filter | rename. Default: add_field")] string? action = null,
         [Description("Schedule element ID (alternative to scheduleName)")] long? scheduleId = null,
         [Description("Schedule name (alternative to scheduleId)")] string? scheduleName = null,
-        [Description("Field names for add_field/remove_field actions")] string[]? fieldNames = null,
+        [Description("Field names for add_field/remove_field actions. JSON array, e.g. [\"A\",\"B\"]")] string? fieldNames = null,
         [Description("Sort field specs as JSON array: [{fieldName, sortOrder: \"ascending\"|\"descending\"}] (boolean alias 'ascending' also accepted)")] string? sortFields = null,
         [Description("Field to filter on (for set_filter). Must already be a field in the schedule")] string? filterField = null,
         [Description("Filter operator for set_filter: equal | not_equal | greater | less | contains | begins_with | ends_with | has_value | is_empty. Default: equal")] string? filterType = null,
@@ -426,7 +446,12 @@ public static class ProjectTools
         if (action != null) p["action"] = action;
         if (scheduleId != null) p["scheduleId"] = scheduleId;
         if (scheduleName != null) p["scheduleName"] = scheduleName;
-        if (fieldNames != null) p["fieldNames"] = new JArray(fieldNames);
+        if (fieldNames != null)
+        {
+            if (!JsonArrayParam.TryParse(fieldNames, out var fieldNamesArray))
+                return JsonArrayParam.InvalidArrayResult("modify_schedule", "fieldNames", fieldNames);
+            p["fieldNames"] = fieldNamesArray;
+        }
         if (sortFields != null) p["sortFields"] = JArray.Parse(sortFields);
         if (filterField != null) p["filterField"] = filterField;
         if (filterType != null) p["filterType"] = filterType;
@@ -477,14 +502,24 @@ public static class ProjectTools
     public static async Task<string> WorkflowDataRoundtrip(
         RevitConnectionManager revit,
         [Description("Path to the .xlsx file (created on export, read on import)")] string filePath,
-        [Description("Categories to include (e.g. Walls, Doors)")] string[]? categories = null,
-        [Description("Parameter names to include")] string[]? parameterNames = null,
+        [Description("Categories to include (e.g. Walls, Doors). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
+        [Description("Parameter names to include. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
         [Description("Include type-level parameters. Default: false")] bool includeTypeParameters = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["filePath"] = filePath };
-        if (categories != null) p["categories"] = new JArray(categories);
-        if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("workflow_data_roundtrip", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
+        if (parameterNames != null)
+        {
+            if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
+                return JsonArrayParam.InvalidArrayResult("workflow_data_roundtrip", "parameterNames", parameterNames);
+            p["parameterNames"] = parameterNamesArray;
+        }
         p["includeTypeParameters"] = includeTypeParameters;
         var result = await revit.ExecuteAsync("workflow_data_roundtrip", p, ct);
         return result.ToString();
@@ -556,14 +591,19 @@ public static class ProjectTools
         RevitConnectionManager revit,
         [Description("Max families returned. Default: 50")] int? limit = null,
         [Description("Sort by: instanceCount | typeCount | name | sizeKB. Default: instanceCount. Note: sizeKB sort requires includeSize=true and forces size measurement on every family (slow on large models).")] string? sortBy = null,
-        [Description("Categories to restrict the list")] string[]? categories = null,
+        [Description("Categories to restrict the list. JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
         [Description("If true, measure each returned family's file size in KB. Default false. Cost: ~50-200ms per family (one EditFamily + temp save round-trip).")] bool includeSize = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (limit != null) p["limit"] = limit;
         if (sortBy != null) p["sortBy"] = sortBy;
-        if (categories != null) p["categories"] = new JArray(categories);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("list_family_sizes", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
         p["includeSize"] = includeSize;
         var result = await revit.ExecuteAsync("list_family_sizes", p, ct);
         return result.ToString();

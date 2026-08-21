@@ -79,19 +79,34 @@ public static class ViewTools
     public static async Task<string> GetCurrentViewElements(
         RevitConnectionManager revit,
         [Description("Maximum number of elements to return")] int? limit = 50,
-        [Description("Model category filters (e.g. OST_Walls, OST_Doors)")] string[]? modelCategoryList = null,
-        [Description("Annotation category filters (e.g. OST_Dimensions, OST_TextNotes)")] string[]? annotationCategoryList = null,
+        [Description("Model category filters (e.g. OST_Walls, OST_Doors). JSON array, e.g. [\"A\",\"B\"]")] string? modelCategoryList = null,
+        [Description("Annotation category filters (e.g. OST_Dimensions, OST_TextNotes). JSON array, e.g. [\"A\",\"B\"]")] string? annotationCategoryList = null,
         [Description("Legacy single-category filter; mapped into modelCategoryList for backward compatibility")] string? categoryFilter = null,
-        [Description("Specific fields to include in the response")] string[]? fields = null,
+        [Description("Specific fields to include in the response. JSON array, e.g. [\"A\",\"B\"]")] string? fields = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (limit != null) p["limit"] = limit;
-        if (modelCategoryList != null) p["modelCategoryList"] = new JArray(modelCategoryList);
-        if (annotationCategoryList != null) p["annotationCategoryList"] = new JArray(annotationCategoryList);
+        if (modelCategoryList != null)
+        {
+            if (!JsonArrayParam.TryParse(modelCategoryList, out var modelCategoryListArray))
+                return JsonArrayParam.InvalidArrayResult("get_current_view_elements", "modelCategoryList", modelCategoryList);
+            p["modelCategoryList"] = modelCategoryListArray;
+        }
+        if (annotationCategoryList != null)
+        {
+            if (!JsonArrayParam.TryParse(annotationCategoryList, out var annotationCategoryListArray))
+                return JsonArrayParam.InvalidArrayResult("get_current_view_elements", "annotationCategoryList", annotationCategoryList);
+            p["annotationCategoryList"] = annotationCategoryListArray;
+        }
         if (categoryFilter != null && modelCategoryList == null) p["modelCategoryList"] = new JArray(categoryFilter);
         if (categoryFilter != null) p["categoryFilter"] = categoryFilter;
-        if (fields != null) p["fields"] = new JArray(fields);
+        if (fields != null)
+        {
+            if (!JsonArrayParam.TryParse(fields, out var fieldsArray))
+                return JsonArrayParam.InvalidArrayResult("get_current_view_elements", "fields", fields);
+            p["fields"] = fieldsArray;
+        }
         var result = await revit.ExecuteAsync("get_current_view_elements", p, ct);
         return result.ToString();
     }
@@ -101,7 +116,7 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Action: create | apply | list. Default: create")] string? action = null,
         [Description("Filter name (for create)")] string? filterName = null,
-        [Description("Category names for create (e.g. [\"Walls\", \"Floors\"])")] string[]? categoryNames = null,
+        [Description("Category names for create (e.g. [\"Walls\", \"Floors\"]). JSON array, e.g. [\"A\",\"B\"]")] string? categoryNames = null,
         [Description("Parameter name to filter on (single-rule create)")] string? parameterName = null,
         [Description("Filter rule (single-rule create): equals | not_equals | contains | begins_with | ends_with | greater_than | less_than")] string? filterRule = null,
         [Description("Value to compare against (single-rule create)")] string? filterValue = null,
@@ -117,7 +132,12 @@ public static class ViewTools
         var p = new JObject();
         if (action != null) p["action"] = action;
         if (filterName != null) p["filterName"] = filterName;
-        if (categoryNames != null) p["categoryNames"] = new JArray(categoryNames);
+        if (categoryNames != null)
+        {
+            if (!JsonArrayParam.TryParse(categoryNames, out var categoryNamesArray))
+                return JsonArrayParam.InvalidArrayResult("create_view_filter", "categoryNames", categoryNames);
+            p["categoryNames"] = categoryNamesArray;
+        }
         if (parameterName != null) p["parameterName"] = parameterName;
         if (filterRule != null) p["filterRule"] = filterRule;
         if (filterValue != null) p["filterValue"] = filterValue;
@@ -217,7 +237,7 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Schedule name")] string name,
         [Description("Category to schedule (e.g. Walls, Doors, Rooms)")] string category,
-        [Description("Parameter fields to include in the schedule")] string[]? fields = null,
+        [Description("Parameter fields to include in the schedule. JSON array, e.g. [\"A\",\"B\"]")] string? fields = null,
         [Description("Schedule type: regular | material_takeoff | key_schedule | sheet_list | view_list. Default: regular")] string? scheduleType = null,
         CancellationToken ct = default)
     {
@@ -226,7 +246,12 @@ public static class ViewTools
             ["name"] = name,
             ["categoryName"] = category,
         };
-        if (fields != null) p["fields"] = new JArray(fields);
+        if (fields != null)
+        {
+            if (!JsonArrayParam.TryParse(fields, out var fieldsArray))
+                return JsonArrayParam.InvalidArrayResult("create_schedule", "fields", fields);
+            p["fields"] = fieldsArray;
+        }
         if (scheduleType != null) p["scheduleType"] = scheduleType;
         var result = await revit.ExecuteAsync("create_schedule", p, ct);
         return result.ToString();
@@ -303,14 +328,19 @@ public static class ViewTools
     public static async Task<string> ApplyViewTemplate(
         RevitConnectionManager revit,
         [Description("Action: list | apply | remove. Default: apply")] string? action = null,
-        [Description("View IDs to apply/remove template on")] long[]? viewIds = null,
+        [Description("View IDs to apply/remove template on. JSON array, e.g. [1,2]")] string? viewIds = null,
         [Description("Template element ID (for apply)")] long? templateId = null,
         [Description("Template name (alternative to templateId)")] string? templateName = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (action != null) p["action"] = action;
-        if (viewIds != null) p["viewIds"] = new JArray(viewIds.Cast<object>().ToArray());
+        if (viewIds != null)
+        {
+            if (!JsonArrayParam.TryParse(viewIds, out var viewIdsArray))
+                return JsonArrayParam.InvalidArrayResult("apply_view_template", "viewIds", viewIds);
+            p["viewIds"] = viewIdsArray;
+        }
         if (templateId != null) p["templateId"] = templateId;
         if (templateName != null) p["templateName"] = templateName;
         var result = await revit.ExecuteAsync("apply_view_template", p, ct);
@@ -371,7 +401,7 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Action: list | duplicate | delete | rename. Default: list")] string? action = null,
         [Description("Filter templates by view type (for list)")] string? filterViewType = null,
-        [Description("Template IDs (for duplicate/delete)")] long[]? templateIds = null,
+        [Description("Template IDs (for duplicate/delete). JSON array, e.g. [1,2]")] string? templateIds = null,
         [Description("Template ID (for rename)")] long? templateId = null,
         [Description("New name (for rename or duplicate)")] string? newName = null,
         CancellationToken ct = default)
@@ -379,7 +409,12 @@ public static class ViewTools
         var p = new JObject();
         if (action != null) p["action"] = action;
         if (filterViewType != null) p["filterViewType"] = filterViewType;
-        if (templateIds != null) p["templateIds"] = new JArray(templateIds.Cast<object>().ToArray());
+        if (templateIds != null)
+        {
+            if (!JsonArrayParam.TryParse(templateIds, out var templateIdsArray))
+                return JsonArrayParam.InvalidArrayResult("manage_view_templates", "templateIds", templateIds);
+            p["templateIds"] = templateIdsArray;
+        }
         if (templateId != null) p["templateId"] = templateId;
         if (newName != null) p["newName"] = newName;
         var result = await revit.ExecuteAsync("manage_view_templates", p, ct);
@@ -406,14 +441,19 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Action: create | list | convert | delete. Default: create")] string? action = null,
         [Description("JSON array of sheet specs for create: [{number, name}]")] string? sheets = null,
-        [Description("Sheet IDs (for convert/delete)")] long[]? sheetIds = null,
+        [Description("Sheet IDs (for convert/delete). JSON array, e.g. [1,2]")] string? sheetIds = null,
         [Description("Title block type element ID (for convert)")] long? titleBlockId = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (action != null) p["action"] = action;
         if (sheets != null) p["sheets"] = JArray.Parse(sheets);
-        if (sheetIds != null) p["sheetIds"] = new JArray(sheetIds.Cast<object>().ToArray());
+        if (sheetIds != null)
+        {
+            if (!JsonArrayParam.TryParse(sheetIds, out var sheetIdsArray))
+                return JsonArrayParam.InvalidArrayResult("create_placeholder_sheets", "sheetIds", sheetIds);
+            p["sheetIds"] = sheetIdsArray;
+        }
         if (titleBlockId != null) p["titleBlockId"] = titleBlockId;
         var result = await revit.ExecuteAsync("create_placeholder_sheets", p, ct);
         return result.ToString();

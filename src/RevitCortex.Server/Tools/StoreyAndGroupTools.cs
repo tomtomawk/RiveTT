@@ -18,13 +18,13 @@ public static class StoreyAndGroupTools
         [Description("Target level name; default '<source> Copy'")] string? targetLevelName = null,
         [Description("Optional target top level ID for copied walls")] long? targetTopLevelId = null,
         [Description("Optional amount in mm to shift levels at/above the target elevation")] double? moveUpperLevelsByMm = null,
-        [Description("Categories to copy, OST_* or localized display names; omit for all model categories")] string[]? categories = null,
+        [Description("Categories to copy, OST_* or localized display names; omit for all model categories. JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
         [Description("Copy each source model group as one group instance. Default: true")] bool copyGroups = true,
         [Description("Include element samples/IDs. Default: false")] bool includeDetails = false,
         [Description("Maximum detail rows. Default: 50")] int? sampleLimit = null,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         [Description("suppress_all (default) or allow_list; unapproved warnings roll back")] string? warningPolicy = null,
-        [Description("FailureDefinition GUIDs allowed when warningPolicy=allow_list")] string[]? allowedWarningIds = null,
+        [Description("FailureDefinition GUIDs allowed when warningPolicy=allow_list. JSON array, e.g. [\"A\",\"B\"]")] string? allowedWarningIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["dryRun"] = dryRun };
@@ -34,12 +34,22 @@ public static class StoreyAndGroupTools
         if (targetLevelName != null) p["targetLevelName"] = targetLevelName;
         if (targetTopLevelId != null) p["targetTopLevelId"] = targetTopLevelId;
         if (moveUpperLevelsByMm != null) p["moveUpperLevelsByMm"] = moveUpperLevelsByMm;
-        if (categories != null) p["categories"] = new JArray(categories);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("duplicate_storey", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
         p["copyGroups"] = copyGroups;
         p["includeDetails"] = includeDetails;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         if (warningPolicy != null) p["warningPolicy"] = warningPolicy;
-        if (allowedWarningIds != null) p["allowedWarningIds"] = new JArray(allowedWarningIds);
+        if (allowedWarningIds != null)
+        {
+            if (!JsonArrayParam.TryParse(allowedWarningIds, out var allowedWarningIdsArray))
+                return JsonArrayParam.InvalidArrayResult("duplicate_storey", "allowedWarningIds", allowedWarningIds);
+            p["allowedWarningIds"] = allowedWarningIdsArray;
+        }
         return (await revit.ExecuteAsync("duplicate_storey", p, 600, ct)).ToString();
     }
 
@@ -50,7 +60,7 @@ public static class StoreyAndGroupTools
         [Description("level_top | attachment_top | attachment_base | all_attachments")] string mode = "level_top",
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         [Description("suppress_all (default) or allow_list; unapproved warnings roll back")] string? warningPolicy = null,
-        [Description("FailureDefinition GUIDs allowed when warningPolicy=allow_list")] string[]? allowedWarningIds = null,
+        [Description("FailureDefinition GUIDs allowed when warningPolicy=allow_list. JSON array, e.g. [\"A\",\"B\"]")] string? allowedWarningIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -60,7 +70,12 @@ public static class StoreyAndGroupTools
             ["dryRun"] = dryRun
         };
         if (warningPolicy != null) p["warningPolicy"] = warningPolicy;
-        if (allowedWarningIds != null) p["allowedWarningIds"] = new JArray(allowedWarningIds);
+        if (allowedWarningIds != null)
+        {
+            if (!JsonArrayParam.TryParse(allowedWarningIds, out var allowedWarningIdsArray))
+                return JsonArrayParam.InvalidArrayResult("detach_wall_constraint", "allowedWarningIds", allowedWarningIds);
+            p["allowedWarningIds"] = allowedWarningIdsArray;
+        }
         return (await revit.ExecuteAsync("detach_wall_constraint", p, ct)).ToString();
     }
 
@@ -70,7 +85,7 @@ public static class StoreyAndGroupTools
         [Description("inventory | duplicate_type | ungroup")] string action = "inventory",
         [Description("Group type ID for duplicate_type")] long? groupTypeId = null,
         [Description("New group type name for duplicate_type")] string? newName = null,
-        [Description("Group instance IDs to swap or ungroup")] long[]? groupIds = null,
+        [Description("Group instance IDs to swap or ungroup. JSON array, e.g. [1,2]")] string? groupIds = null,
         [Description("Include member samples for inventory. Default: false")] bool includeMembers = false,
         [Description("Member sample limit. Default: 20")] int? sampleLimit = null,
         [Description("Preview write actions. Default: true")] bool dryRun = true,
@@ -79,7 +94,12 @@ public static class StoreyAndGroupTools
         var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (groupTypeId != null) p["groupTypeId"] = groupTypeId;
         if (newName != null) p["newName"] = newName;
-        if (groupIds != null) p["groupIds"] = new JArray(groupIds.Cast<object>().ToArray());
+        if (groupIds != null)
+        {
+            if (!JsonArrayParam.TryParse(groupIds, out var groupIdsArray))
+                return JsonArrayParam.InvalidArrayResult("manage_model_groups", "groupIds", groupIds);
+            p["groupIds"] = groupIdsArray;
+        }
         p["includeMembers"] = includeMembers;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         return (await revit.ExecuteAsync("manage_model_groups", p, ct)).ToString();

@@ -90,16 +90,26 @@ public static class LifecycleAndStairTools
     public static async Task<string> EditGroupMembers(
         RevitConnectionManager revit,
         [Description("Group INSTANCE element ID")] long groupId,
-        [Description("Element IDs to add to the group")] long[]? addElementIds = null,
-        [Description("Element IDs to remove from the group")] long[]? removeElementIds = null,
+        [Description("Element IDs to add to the group. JSON array, e.g. [1,2]")] string? addElementIds = null,
+        [Description("Element IDs to remove from the group. JSON array, e.g. [1,2]")] string? removeElementIds = null,
         [Description("Name for the resulting group type. Defaults to the original name")] string? newTypeName = null,
         [Description("Accept that other instances of the type keep the old definition. Default false")] bool allowMultiInstance = false,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["groupId"] = groupId, ["dryRun"] = dryRun };
-        if (addElementIds != null) p["addElementIds"] = new JArray(addElementIds.Cast<object>().ToArray());
-        if (removeElementIds != null) p["removeElementIds"] = new JArray(removeElementIds.Cast<object>().ToArray());
+        if (addElementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(addElementIds, out var addElementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("edit_group_members", "addElementIds", addElementIds);
+            p["addElementIds"] = addElementIdsArray;
+        }
+        if (removeElementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(removeElementIds, out var removeElementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("edit_group_members", "removeElementIds", removeElementIds);
+            p["removeElementIds"] = removeElementIdsArray;
+        }
         if (newTypeName != null) p["newTypeName"] = newTypeName;
         p["allowMultiInstance"] = allowMultiInstance;
         return (await revit.ExecuteAsync("edit_group_members", p, ct)).ToString();
