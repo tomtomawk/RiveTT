@@ -41,6 +41,10 @@ La fonte canonica delle signatures est le code du serveur C# ; aucun schéma gé
 - `get_schedule_data(scheduleId, maxRows?, includeAvailableFields?)`
 - `get_materials(nameFilter?, materialClass?, compact?)`
 - `create_door(..., zMode?)` / `create_window(..., zMode?)`
+- `create_document(targetPath, templatePath?, overwrite?, activate?, dryRun?)`
+- `open_document(filePath, detachFromCentral?, dryRun?)`
+- `create_stair(baseLevelId, topLevelId, runs, stairsTypeId?, widthMm?, railingTypeId?, dryRun?)`
+- `edit_group_members(groupId, addElementIds?, removeElementIds?, newTypeName?, allowMultiInstance?, dryRun?)`
 
 ## Contrat de réponse (v0.2.0)
 

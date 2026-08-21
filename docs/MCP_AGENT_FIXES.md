@@ -55,13 +55,32 @@ de l'hypothèse du rapport : elles sont signalées explicitement.
 | Mode « éléments de contour d'une pièce » pour `get_elements_in_spatial_volume` | `containment: "inside" \| "boundary"`. Le mode `boundary` s'appuie sur `Room.GetBoundarySegments` (les segments de Revit, pas une approximation géométrique) et retourne murs, poteaux et lignes de séparation avec la longueur de contour qu'ils fournissent. Chaque volume indique `geometryUsed` (`roomSolid`, `boundingBox` ou `roomBoundarySegments`) : la différence entre les deux algorithmes explique la plupart des résultats surprenants |
 | Filtre de niveau natif sur `export_room_data` | `levelName` (insensible à la casse et aux accents), `levelId` et `nameFilter`, filtrés dans Revit ; `matchedCount` indique le nombre de correspondances avant troncature |
 
+## Limitations levées après vérification de la documentation Autodesk
+
+Deux limitations déclarées par le connecteur étaient fondées sur une lecture
+trop large de la contrainte Revit. Vérification faite, elles ne s'appliquaient
+pas au contexte d'exécution de ce connecteur.
+
+| Limitation déclarée | Réalité | Implémentation |
+|---|---|---|
+| « `OpenAndActivateDocument` ne peut pas tourner dans un gestionnaire d'événement API » | Vrai pour les **événements API** (`Idling`, `DocumentChanged`), faux pour un **ExternalEvent** — le contexte de chaque outil ici. Position Autodesk (Arnošt Löbel) : passer par un External Event est « both supported and safe » | `open_document(filePath, detachFromCentral?, dryRun)` ; `create_document(templatePath?, targetPath, activate?, overwrite?, dryRun)` via `Application.NewProjectDocument` (document en mémoire, sauvegardé puis fermé) |
+| « L'escalier standard passe par un éditeur d'esquisse modal » | Vrai pour l'escalier **esquissé** uniquement. L'escalier **par composant** se construit avec `StairsEditScope`, qui est une portée d'édition API sans aucune UI (comportement de `TransactionGroup`) | `create_stair(baseLevelId, topLevelId, runs, stairsTypeId?, widthMm?, railingTypeId?, dryRun)` : volées droites, paliers automatiques, garde-corps optionnel, `scope.Commit(preprocessor)` pour qu'aucun avertissement n'ouvre de dialogue modal |
+
+`edit_group_members` complète la série, mais sans lever la limitation : l'API
+Revit **ne permet pas** de modifier les membres d'un groupe en place (position
+Autodesk confirmée). L'outil applique le seul contournement supporté
+— dégrouper / modifier / regrouper — et refuse par défaut un type à plusieurs
+occurrences, puisque Revit ne peut pas propager le changement.
+
 ## Non retenu
 
-- **Création d'escalier.** `StairsEditScope` exige un éditeur modal, hors de
-  portée d'un `ExternalEvent`. Documenté comme limitation.
-- **`create_document(templatePath)`.** Même contrainte que `open_document`
-  (`Application.NewProjectDocument` hors gestionnaire d'événement API) : il faut
-  un orchestrateur dédié, pas un outil de plus.
+- **Ouverture du document de famille (`Document.EditFamily`).** Le dépôt
+  consigne un interblocage constaté depuis ce dispatcher ; le risque est un gel
+  de la session Revit de l'utilisateur. Chemin supporté : éditer le `.rfa` hors
+  Revit puis `load_family`.
+- **Escaliers esquissés, volées hélicoïdales, balancements.** `CreateSketchedRun`
+  et `CreateSpiralRun` existent dans l'API : extension possible plus tard, non
+  nécessaire pour une circulation verticale standard.
 
 ## Vérification
 

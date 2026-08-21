@@ -35,6 +35,15 @@
 | Tipo di sistema (muro, solaio, parapetto, scala, cartiglio) | `list_system_types(category)` | Senza categoria restituisce l'inventario con i codici `OST_*` |
 | Duplicare un tipo | `duplicate_family_type` (caricabile) / `duplicate_system_type` (sistema) | `duplicate_family_type` fallisce sui tipi di sistema |
 
+### Ciclo di vita del documento e circolazioni
+
+| Caso | Tool | Note |
+|---|---|---|
+| Nuovo progetto vuoto | `create_document(templatePath?, targetPath)` | `save_as_document` duplica il modello aperto, NON crea un progetto vuoto |
+| Aprire/attivare un file | `open_document(filePath)` | Cambia il documento attivo; i cache vengono svuotati. Salvare prima il documento corrente |
+| Scala tra due livelli | `create_stair(baseLevelId, topLevelId, runs)` | Volate rette + pianerottoli automatici; verificare `reachesTopLevel` nella risposta |
+| Membri di un gruppo | `edit_group_members` | L'API non modifica un gruppo in place: sgruppa/rigruppa, il tipo cambia id |
+
 ### Disegnare linee e dividere stanze
 
 | Caso | Tool |
@@ -79,5 +88,8 @@
   piedi³ qualunque siano le unità del progetto (`internalValue`).
 - Non cercare un tipo di sistema con `get_available_family_types` sperando in un
   `familyName`: usare `list_system_types`.
-- Non cercare un tool per creare un documento vuoto o una scala: non esistono, e
-  `get_server_capabilities.lifecycleLimitations` lo dichiara.
+- Non usare `save_as_document` per ottenere un progetto vuoto: usare
+  `create_document`.
+- Non cercare un tool per aprire il documento di una famiglia: non esiste
+  (deadlock di `Document.EditFamily`). Modificare il `.rfa` fuori da Revit e poi
+  `load_family`.

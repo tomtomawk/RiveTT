@@ -77,14 +77,16 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
             // real sessions.
             lifecycleLimitations = new[]
             {
-                "open_document is not exposed because UIApplication.OpenAndActivateDocument cannot run inside an API event handler.",
-                "edit_family is not exposed through the ExternalEvent dispatcher; modal document lifecycle needs a dedicated orchestrator.",
-                "There is NO tool to create a blank project from a template. save_as_document DUPLICATES the open document, with everything already in it.",
-                "There is no stair tool: Revit builds a standard stair through a modal sketch editor (StairsEditScope), which cannot be driven from a non-modal ExternalEvent.",
-                "Rebar propagation is not exposed by the Revit API on any supported version; propagate_rebar only reports that."
+                "edit_family (opening the family document) is not exposed: Document.EditFamily deadlocked from this ExternalEvent dispatcher. To change a family, edit the .rfa outside Revit and reload it with load_family.",
+                "Rebar propagation is not exposed by the Revit API on any supported version; propagate_rebar only reports that.",
+                "Group members cannot be edited in place by the API: edit_group_members ungroups and recreates the type, and cannot propagate to other instances of that type.",
+                "Stairs are created by component (straight runs + automatic landings) through create_stair. Sketched stairs, spiral runs and winders are not exposed."
             },
             discoveryHints = new[]
             {
+                "A blank project comes from create_document(templatePath, targetPath) — save_as_document duplicates the OPEN model instead.",
+                "open_document switches the active document; every later call targets it and all caches are flushed.",
+                "Vertical circulation: create_stair between two levels, then a railing via its railingTypeId.",
                 "System types (walls, floors, ceilings, roofs, railings, stairs, title blocks) are NOT loadable families: enumerate them with list_system_types, duplicate them with duplicate_system_type.",
                 "There is no 'create similar' tool: copy_elements with an offset re-hosts the copy and does the same job, including across levels (level constraints are recomputed).",
                 "To split a room without a physical wall, use create_room_separation_line.",

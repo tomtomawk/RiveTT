@@ -42,7 +42,16 @@ When you add or rename a parameter:
 ## Development rules
 
 - Prefer a dedicated `ICortexTool`; keep `send_code_to_revit` as a fallback.
-- Revit API calls must execute through `ExternalEvent`.
+- Revit API calls must execute through `ExternalEvent`. That context is a valid
+  API context and is less restricted than an API *event* handler: switching the
+  active document (`OpenAndActivateDocument`) and opening API edit scopes
+  (`StairsEditScope`) are supported here, and both were wrongly documented as
+  impossible. Before declaring something impossible, check whether the
+  restriction applies to API event handlers (Idling, DocumentChanged) or to a
+  modal editor — those are different constraints.
+- An API edit scope must be started with no transaction open, committed with a
+  failure preprocessor (an unhandled warning opens a modal dialog and freezes
+  the pipe), and cancelled in a `finally` so Revit never stays in edit mode.
 - Writes use a `Transaction`, return a structured `CortexResult`, and must
   not leak exceptions across the router.
 - Keep `dryRun` preview behavior where a tool supports it. MCPRVTT27 does not

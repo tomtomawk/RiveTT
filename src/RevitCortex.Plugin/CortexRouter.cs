@@ -47,7 +47,10 @@ public class CortexRouter
     /// flush every cache scope, Session included.
     /// </summary>
     private static readonly HashSet<string> LifecycleWriteTools =
-        new(StringComparer.OrdinalIgnoreCase) { "save_document", "save_as_document" };
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "save_document", "save_as_document", "create_document", "open_document"
+        };
 
     private sealed class ToolSafetyRegistration
     {

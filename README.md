@@ -34,7 +34,13 @@ transactions et sont consignées dans `%LOCALAPPDATA%\MCPRVTT27\audit.jsonl`.
   toits, garde-corps, escaliers, cartouches ;
 - lignes de détail, lignes de modèle et séparations de pièces
   (`create_detail_line`, `create_model_line`, `create_room_separation_line`) ;
-- pose d'un cartouche sur une feuille existante (`place_title_block`).
+- pose d'un cartouche sur une feuille existante (`place_title_block`) ;
+- création d'un **projet vierge** depuis un gabarit `.rte` (`create_document`) et
+  ouverture/activation d'un fichier (`open_document`) ;
+- **escaliers** par composant entre deux niveaux, volées droites et paliers
+  automatiques (`create_stair`) ;
+- édition des membres d'un groupe dans les limites de l'API
+  (`edit_group_members`).
 
 ## Contrat de réponse
 

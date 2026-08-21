@@ -78,8 +78,43 @@ public sealed class RoadmapImplementationTests
     public void UnsafeDocumentLifecycleOperationsRemainExplicitlyUnexposed()
     {
         var caps = ReadSource("RevitCortex.Tools", "Meta", "GetServerCapabilitiesTool.cs");
-        Assert.Contains("open_document is not exposed", caps);
-        Assert.Contains("edit_family is not exposed", caps);
+
+        // open_document IS exposed now: the restriction on switching documents
+        // applies to API *event* handlers (Idling, DocumentChanged), not to the
+        // ExternalEvent handler every tool runs in. Autodesk's guidance is that an
+        // External Event is the supported and safe way to open-and-activate.
+        // What remains genuinely unavailable is opening the family document.
+        Assert.Contains("edit_family (opening the family document) is not exposed", caps);
+        Assert.Contains("Document.EditFamily deadlocked", caps);
+        Assert.DoesNotContain("open_document is not exposed", caps);
+    }
+
+    [Fact]
+    public void PreviouslyImpossibleOperationsAreExposedWithTheirRealConstraints()
+    {
+        var stair = ReadSource("RevitCortex.Tools", "Elements", "CreateStairTool.cs");
+        var lifecycle = ReadSource("RevitCortex.Tools", "Project", "DocumentCreationTools.cs");
+        var groups = ReadSource("RevitCortex.Tools", "Elements", "EditGroupMembersTool.cs");
+
+        // A component stair goes through StairsEditScope, which opens no UI. The
+        // scope must be started outside a transaction and committed with a failure
+        // preprocessor, or a warning would open a modal dialog and freeze the pipe.
+        Assert.Contains("new StairsEditScope(doc", stair);
+        Assert.Contains("StairsRun.CreateStraightRun", stair);
+        Assert.Contains("scope.Commit(scopeFailures)", stair);
+        Assert.Contains("scope?.Cancel()", stair);
+
+        // A new project comes from the template, not from duplicating the open model.
+        Assert.Contains("NewProjectDocument", lifecycle);
+        Assert.Contains("OpenAndActivateDocument", lifecycle);
+        // The in-memory document must never be left open holding a file lock.
+        Assert.Contains("created?.Close(false)", lifecycle);
+
+        // Group members cannot be edited in place; the divergence this creates must
+        // be refused by default rather than silently produced.
+        Assert.Contains("UngroupMembers()", groups);
+        Assert.Contains("allowMultiInstance", groups);
+        Assert.Contains("otherInstancesNotUpdated", groups);
     }
 
     private static void AssertDryRunBeforeTransaction(string source, string method, string nextMethod)

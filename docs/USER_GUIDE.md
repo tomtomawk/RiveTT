@@ -62,6 +62,22 @@ portée et vérifier leur résultat immédiatement.
   Couper une pièce sans mur physique se fait avec la troisième.
 - `place_title_block` : pose un cartouche sur une feuille existante (réparation
   d'une feuille sans cadre).
+- `create_document` : **nouveau projet vierge** depuis un gabarit `.rte`,
+  enregistré au chemin demandé. C'est le vrai « nouveau projet » :
+  `save_as_document` duplique le modèle ouvert avec tout son historique.
+  `activate: true` l'ouvre ensuite dans Revit.
+- `open_document` : ouvre un `.rvt` et en fait le document actif. Tous les
+  appels suivants le ciblent et les caches sont vidés. Enregistrer le document
+  courant avant : le changement ne le sauvegarde pas.
+- `create_stair` : escalier par composant entre deux niveaux, volées droites
+  (`runs`) et paliers automatiques. La réponse compare `actualRiserCount` à
+  `desiredRiserCount` et donne `reachesTopLevel` : une volée trop courte produit
+  un escalier qui n'atteint pas l'étage.
+- `edit_group_members` : ajout/retrait de membres d'un groupe. L'API Revit ne
+  sait pas modifier un groupe en place : l'outil dégroupe, modifie, regroupe, et
+  **crée donc un nouveau type de groupe**. Refuse un type à plusieurs occurrences
+  sauf `allowMultiInstance: true`, car les autres occurrences gardent l'ancienne
+  définition.
 
 ### Conventions à connaître
 
@@ -104,18 +120,23 @@ avertissement non autorisé provoque un rollback silencieux.
 
 ### Limites de cycle de vie
 
-`open_document` et `edit_family` ne sont pas exposés dans le dispatcher
-`ExternalEvent`. L'API Autodesk interdit l'activation d'un document depuis un
-gestionnaire d'événement API, et l'édition modale d'une famille nécessite un
-orchestrateur distinct pour ne pas bloquer Revit.
+L'interdiction d'activer un document vise les **gestionnaires d'événements API**
+(`Idling`, `DocumentChanged`), pas un `ExternalEvent` — le contexte dans lequel
+tourne chaque outil de ce connecteur. `open_document` et `create_document` sont
+donc disponibles, conformément à la recommandation Autodesk (External Event =
+« supported and safe » pour ouvrir/activer).
 
-Ne sont pas non plus disponibles, et `get_server_capabilities` le déclare :
+Restent indisponibles, et `get_server_capabilities` le déclare :
 
-- création d'un document vierge à partir d'un gabarit (même contrainte que
-  `open_document`) — `save_as_document` duplique le document ouvert ;
-- création d'escalier : l'escalier standard Revit passe par un éditeur
-  d'esquisse modal (`StairsEditScope`), impossible depuis un `ExternalEvent` ;
-- propagation d'armatures : absente de l'API Revit sur toutes les versions
+- **ouverture du document de famille** (`Document.EditFamily`) : a provoqué un
+  interblocage depuis ce dispatcher. Pour modifier une famille : éditer le
+  `.rfa` hors Revit puis `load_family` ;
+- **escaliers esquissés**, volées hélicoïdales et balancements :
+  `create_stair` couvre l'escalier par composant (volées droites + paliers) ;
+- **édition de groupe en place** : l'API ne le permet pas,
+  `edit_group_members` dégroupe/regroupe et ne propage pas aux autres
+  occurrences du type ;
+- **propagation d'armatures** : absente de l'API Revit sur toutes les versions
   supportées.
 
 Les autres outils sont exposés par les wrappers C# de
