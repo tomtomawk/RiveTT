@@ -50,13 +50,47 @@ portée et vérifier leur résultat immédiatement.
   attache haute/basse en conservant la hauteur non contrainte.
 - `manage_model_groups` : inventaire, duplication de type et dissociation
   contrôlée des groupes de modèle.
-- `save_document` / `save_as_document` : sauvegarde du document actif.
+- `save_document` / `save_as_document` : sauvegarde du document actif, avec
+  `dryRun` (chemins, existence de la cible, écrasement, accessibilité du
+  dossier, verrou, modifications non enregistrées). `save_as_document`
+  **duplique le document ouvert** : ce n'est pas un nouveau projet vierge.
+- `list_system_types` : types système (murs, sols, plafonds, toits,
+  garde-corps, escaliers, cartouches…), inaccessibles autrement. Sans
+  catégorie, retourne l'inventaire par catégorie avec les codes `OST_*`.
+- `create_detail_line` / `create_model_line` /
+  `create_room_separation_line` : lignes 2D, 3D et séparations de pièces.
+  Couper une pièce sans mur physique se fait avec la troisième.
+- `place_title_block` : pose un cartouche sur une feuille existante (réparation
+  d'une feuille sans cadre).
+
+### Conventions à connaître
+
+- **Unités.** Entrées en millimètres. En sortie, toute valeur numérique de
+  paramètre porte `value` (unités du projet), `unit`, `displayValue` et
+  `internalValue` (unités internes Revit : pieds, pieds², pieds³).
+- **Altimétrie.** `create_wall` ignore le `z` de `locationLine` : `baseLevelId`
+  et `baseOffset` font foi. `create_door`/`create_window` attendent un `z`
+  **absolu projet**, sauf avec `zMode: "relativeToLevel"` où `z` s'ajoute à
+  l'altitude du niveau. Un point hors de la plage verticale de l'hôte est
+  refusé avec les bornes en mm.
+- **Noms de paramètres.** Ils se résolvent en anglais comme dans la langue du
+  document (`Mark`/`Repère`, `Level`/`Niveau`, `Width`/`Largeur`). Un nom non
+  résolu est signalé dans `unresolvedParameterNames` avec des suggestions,
+  jamais rendu par une colonne vide.
+- **Catégories.** Les libellés sont localisés et parfois ambigus (Revit FR
+  nomme la catégorie des vues portées « Fenêtres », comme les fenêtres) :
+  préférer le code `OST_*` retourné dans `categoryBic`.
 
 ### Réponses et pagination
 
 Chaque succès contient `execution.connector`, `serverVersion`, `revitVersion`,
-`mode`, `readOnly` et `destructive`. Un aperçu d'écriture contient toujours
-`dryRun:true` et `mutated:false`.
+`mode`, `toolReadOnly`, `toolDestructive`, `writesAllowed` et `cached`. Un
+aperçu d'écriture contient toujours `dryRun:true` et `mutated:false`.
+
+`toolReadOnly` classe **l'outil qui répond**, ce n'est pas un état de session :
+MCPRVTT27 n'a pas de mode lecture seule, `writesAllowed` vaut toujours `true`.
+`cached: true` signale une réponse servie par le cache. Tout cache est vidé
+après `save_document`/`save_as_document`.
 
 `ai_element_filter` utilise `responseMode: summary | idsOnly | details` et
 retourne `totalCount`, `returnedCount`, `appliedLimit` et `nextCursor`. Un
@@ -74,6 +108,15 @@ avertissement non autorisé provoque un rollback silencieux.
 `ExternalEvent`. L'API Autodesk interdit l'activation d'un document depuis un
 gestionnaire d'événement API, et l'édition modale d'une famille nécessite un
 orchestrateur distinct pour ne pas bloquer Revit.
+
+Ne sont pas non plus disponibles, et `get_server_capabilities` le déclare :
+
+- création d'un document vierge à partir d'un gabarit (même contrainte que
+  `open_document`) — `save_as_document` duplique le document ouvert ;
+- création d'escalier : l'escalier standard Revit passe par un éditeur
+  d'esquisse modal (`StairsEditScope`), impossible depuis un `ExternalEvent` ;
+- propagation d'armatures : absente de l'API Revit sur toutes les versions
+  supportées.
 
 Les autres outils sont exposés par les wrappers C# de
 `src/RevitCortex.Server/Tools`.

@@ -17,6 +17,20 @@ Load only the references needed for the current task.
 4. C# development targets Revit 2027, .NET 10, and x64 only.
 5. Keep named-pipe isolation, audit logging, structured errors, and the Roslyn
    sandbox intact.
+6. `execution.toolReadOnly` classifies the tool that answered — it is NOT a
+   session lock. `writesAllowed` is always true; there is no read-only mode.
+   `execution.cached: true` means the answer came from the cache.
+7. Parameter names resolve in English or in the document language. A name that
+   resolves to nothing comes back in `unresolvedParameterNames` (or
+   `skippedFields[].reason`), never as an empty value — treat an empty column
+   without such a report as real data.
+8. Numeric parameter values carry `unit` and `internalValue`. Never read a bare
+   number as project units.
+9. Prefer `categoryBic` (`OST_*`) over the localized category label: Revit FR
+   names the viewport category "Fenêtres ", like windows.
+10. System types (walls, floors, railings, stairs, title blocks) are not
+    loadable families: enumerate with `list_system_types`, duplicate with
+    `duplicate_system_type`.
 
 ## Routing
 

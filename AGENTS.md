@@ -17,6 +17,28 @@ The C# server is the only server implementation. Generated distribution
 outputs live under `distribution/plugin` and `distribution/server` and are
 never committed.
 
+## The two-sided contract
+
+The MCP surface (`src/RevitCortex.Server/Tools`) and the runtime tools
+(`src/RevitCortex.Tools`) are separate assemblies that agree only by JSON key
+name. Every parameter published by a wrapper MUST be read by the tool it is
+forwarded to.
+
+A published parameter nobody reads is worse than a missing one: the caller
+believes it took effect. `create_sheet` published `titleBlockId` while the
+runtime read `titleBlockTypeId`, so every sheet came out as a bare 210×297 mm
+sheet with no frame, silently, and no presentation sheet could be produced at
+all. `ServerRuntimeParameterContractTests` now fails the build on that class of
+mismatch — do not add a waiver to it without a reason in the table.
+
+When you add or rename a parameter:
+
+- add it on both sides in the same change, or accept the old name as an alias
+  in the runtime tool;
+- state the unit and the convention in the `[Description]` (mm, degrees,
+  absolute vs relative elevation);
+- make the response report what was actually applied, not what was requested.
+
 ## Development rules
 
 - Prefer a dedicated `ICortexTool`; keep `send_code_to_revit` as a fallback.
@@ -27,6 +49,21 @@ never committed.
   display confirmation or licensing dialogs.
 - Keep the Roslyn sandbox and local audit log intact.
 - Use language-independent IDs and `BuiltInCategory` values when possible.
+- Resolve free-text parameter names through `ParameterNameResolver` and
+  category names through `CategoryResolver`. Never compare a caller's string to
+  a localized `Definition.Name` alone: on a French document that silently
+  matches nothing.
+- Never return an empty value where a name failed to resolve. Report it
+  (`unresolvedParameterNames`, `notFoundIds`, `skippedFields[].reason`) with
+  suggestions. A silent empty column reads as real data.
+- Numeric outputs carry their unit. Revit stores feet, ft² and ft³ whatever the
+  project units are; use `ParameterValueFormatter` so a caller cannot mistake
+  one for the other.
+- Report the localized category name AND `categoryBic` (the `OST_*` code).
+  French Revit names the viewport category "Fenêtres " — same label as windows,
+  with a trailing space.
+- `ToolResponseShaper` must never shape a failure payload, never drop a list
+  item, and never recompute a counter from a trimmed list.
 - Add or update xUnit coverage for every behavior change.
 
 ## Verification
@@ -37,3 +74,7 @@ never committed.
 
 The last command prepares the ignored distribution binaries and the generated
 addin manifest. Installation is per-user through `distribution/install.ps1`.
+
+Behavior that only a live Revit session can prove (geometry, transactions,
+Revit error messages) must still be re-tested manually against a real 2027
+model, and the outcome logged in `docs/MCP_AGENT_IMPROVEMENTS.md`.

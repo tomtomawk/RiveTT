@@ -29,7 +29,26 @@ transactions et sont consignées dans `%LOCALAPPDATA%\MCPRVTT27\audit.jsonl`.
 - contraintes/attaches de murs et gestion contrôlée des groupes ;
 - diagnostics Revit normalisés et audit entrée/sortie ;
 - sauvegarde et sauvegarde sous du projet actif (`save_document`,
-  `save_as_document`).
+  `save_as_document`), avec aperçu `dryRun` ;
+- énumération des types système (`list_system_types`) : murs, sols, plafonds,
+  toits, garde-corps, escaliers, cartouches ;
+- lignes de détail, lignes de modèle et séparations de pièces
+  (`create_detail_line`, `create_model_line`, `create_room_separation_line`) ;
+- pose d'un cartouche sur une feuille existante (`place_title_block`).
+
+## Contrat de réponse
+
+- noms de paramètres résolus en anglais **ou** dans la langue du document
+  (`Mark`/`Repère`, `Level`/`Niveau`) ; un nom non résolu est signalé, jamais
+  rendu par une valeur vide ;
+- valeurs numériques accompagnées de leur unité et de la valeur interne Revit ;
+- catégories accompagnées de leur code `OST_*` (`categoryBic`), les libellés
+  localisés étant ambigus ;
+- `execution.toolReadOnly` classe l'outil, pas la session : `writesAllowed` vaut
+  toujours `true` ; `execution.cached` signale une réponse issue du cache.
+
+Détail des corrections issues de la campagne de tests :
+[docs/MCP_AGENT_FIXES.md](docs/MCP_AGENT_FIXES.md).
 
 ## Compiler et installer
 

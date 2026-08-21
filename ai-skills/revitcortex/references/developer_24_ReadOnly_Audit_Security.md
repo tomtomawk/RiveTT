@@ -4,7 +4,13 @@
 
 `[ToolSafety(readOnly, destructive)]` describes a tool for routing, auditing,
 and agents. It is metadata in MCPRVTT27; there is no settings-based read-only
-profile. Keep names and attributes aligned.
+profile and no `readOnlyMode` setting — any guidance mentioning one is stale.
+
+It surfaces in responses as `execution.toolReadOnly` / `toolDestructive`,
+alongside the session-wide `writesAllowed` (always true). The fields were named
+`readOnly`/`destructive` until they were read as a server-wide lock, which led a
+session to be treated as read-only when writes were always allowed. Keep names
+and attributes aligned.
 
 ## Audit
 
