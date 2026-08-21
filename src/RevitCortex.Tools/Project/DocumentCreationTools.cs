@@ -92,6 +92,12 @@ public sealed class CreateDocumentTool : ICortexTool
                 "No Revit application context is available yet",
                 suggestion: "Open Revit 2027 and wait for its session to be published.");
 
+        // Captured up front: creating the document ends with Close(false), which
+        // fires DocumentClosing and clears the session store. Resolving the
+        // UIApplication after that point found nothing and activation failed on a
+        // file that had just been created successfully.
+        var uiApplicationAtEntry = DocumentLifecycleSupport.ResolveUiApplication(session);
+
         var targetPath = input["targetPath"]?.Value<string>()
                          ?? input["filePath"]?.Value<string>()
                          ?? input["path"]?.Value<string>();
@@ -179,7 +185,8 @@ public sealed class CreateDocumentTool : ICortexTool
             string? activationError = null;
             if (activate)
             {
-                var uiApplication = DocumentLifecycleSupport.ResolveUiApplication(session);
+                var uiApplication = uiApplicationAtEntry
+                                    ?? DocumentLifecycleSupport.ResolveUiApplication(session);
                 if (uiApplication == null)
                 {
                     activationError = "No UIApplication in session; the file was created but not opened.";

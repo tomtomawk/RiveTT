@@ -129,14 +129,14 @@ public static class CreationTools
         [Description("Category name or OST_* code (e.g. OST_Walls, Doors)")] string categoryName,
         [Description("Parameter to group/color by (required for color), e.g. \"Type Name\", \"Level\"")] string? parameterName = null,
         [Description("Action: color | reset. Default: color")] string? action = null,
-        [Description("Use a blue→red gradient across groups. Default: false (random colors)")] bool? useGradient = null,
+        [Description("Use a blue→red gradient across groups. Default: false (random colors)")] bool useGradient = false,
         [Description("Optional explicit colors as JSON array [{r,g,b}, ...], cycled across groups")] string? customColors = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["categoryName"] = categoryName };
         if (parameterName != null) p["parameterName"] = parameterName;
         if (action != null) p["action"] = action;
-        if (useGradient != null) p["useGradient"] = useGradient;
+        p["useGradient"] = useGradient;
         if (customColors != null) p["customColors"] = JArray.Parse(customColors);
         var result = await revit.ExecuteAsync("color_elements", p, ct);
         return result.ToString();
@@ -148,8 +148,8 @@ public static class CreationTools
         [Description("Categories to export (OST_* codes or display names)")] string[]? categories = null,
         [Description("Legacy single category alias; used only when categories is omitted")] string? category = null,
         [Description("Specific parameter names to export")] string[]? parameterNames = null,
-        [Description("Include type parameters. Default: false")] bool? includeTypeParameters = null,
-        [Description("Include element id column. Default: true")] bool? includeElementId = null,
+        [Description("Include type parameters. Default: false")] bool includeTypeParameters = false,
+        [Description("Include element id column. Default: true")] bool includeElementId = true,
         [Description("Output file path for the Excel file")] string? filePath = null,
         [Description("Legacy output path alias; used only when filePath is omitted")] string? outputPath = null,
         [Description("Worksheet name. Default: Export")] string? sheetName = null,
@@ -160,8 +160,8 @@ public static class CreationTools
         if (categories != null) p["categories"] = new JArray(categories);
         else if (category != null) p["categories"] = new JArray(category);
         if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
-        if (includeTypeParameters != null) p["includeTypeParameters"] = includeTypeParameters;
-        if (includeElementId != null) p["includeElementId"] = includeElementId;
+        p["includeTypeParameters"] = includeTypeParameters;
+        p["includeElementId"] = includeElementId;
         if (filePath != null) p["filePath"] = filePath;
         else if (outputPath != null) p["filePath"] = outputPath;
         if (sheetName != null) p["sheetName"] = sheetName;
@@ -177,8 +177,8 @@ public static class CreationTools
         [Description("Keep only the rooms of this level (accent- and case-insensitive name match)")] string? levelName = null,
         [Description("Keep only the rooms of this level id")] long? levelId = null,
         [Description("Substring filter on room name or number")] string? nameFilter = null,
-        [Description("Include unplaced rooms (area 0). Default: false")] bool? includeUnplacedRooms = null,
-        [Description("Include rooms that are not enclosed. Default: false")] bool? includeNotEnclosedRooms = null,
+        [Description("Include unplaced rooms (area 0). Default: false")] bool includeUnplacedRooms = false,
+        [Description("Include rooms that are not enclosed. Default: false")] bool includeNotEnclosedRooms = false,
         [Description("Strip department/perimeterMm. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
@@ -187,8 +187,8 @@ public static class CreationTools
         if (levelName != null) p["levelName"] = levelName;
         if (levelId != null) p["levelId"] = levelId;
         if (nameFilter != null) p["nameFilter"] = nameFilter;
-        if (includeUnplacedRooms != null) p["includeUnplacedRooms"] = includeUnplacedRooms;
-        if (includeNotEnclosedRooms != null) p["includeNotEnclosedRooms"] = includeNotEnclosedRooms;
+        p["includeUnplacedRooms"] = includeUnplacedRooms;
+        p["includeNotEnclosedRooms"] = includeNotEnclosedRooms;
         var result = await revit.ExecuteAsync("export_room_data", p, ct);
         return ToolResponseShaper.Shape("export_room_data", result, compact, summaryOnly: false).ToString();
     }
@@ -205,7 +205,7 @@ public static class CreationTools
         [Description("Radial center X in mm")] double? centerX = null,
         [Description("Radial center Y in mm")] double? centerY = null,
         [Description("Total sweep angle in degrees (radial). Default: 360")] double? totalAngle = null,
-        [Description("Build a real associative ArrayElement. Default: true. false = loose copies")] bool? associative = null,
+        [Description("Build a real associative ArrayElement. Default: true. false = loose copies")] bool associative = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -220,7 +220,7 @@ public static class CreationTools
         if (centerX != null) p["centerX"] = centerX;
         if (centerY != null) p["centerY"] = centerY;
         if (totalAngle != null) p["totalAngle"] = totalAngle;
-        if (associative != null) p["associative"] = associative;
+        p["associative"] = associative;
         var result = await revit.ExecuteAsync("create_array", p, ct);
         return result.ToString();
     }
@@ -232,7 +232,7 @@ public static class CreationTools
         [Description("Categories to include (e.g. Rooms, Walls)")] string[]? categories = null,
         [Description("Color scheme: auto | rainbow | sequential | custom. Default: auto")] string? colorScheme = null,
         [Description("Custom colors as JSON array of hex strings (when colorScheme=custom)")] string? customColors = null,
-        [Description("Create a legend view for the scheme. Default: true")] bool? createLegendView = null,
+        [Description("Create a legend view for the scheme. Default: true")] bool createLegendView = true,
         [Description("Legend title. Default: 'Color Legend'")] string? legendTitle = null,
         [Description("Target view ID (optional; uses active view when omitted)")] long? targetViewId = null,
         CancellationToken ct = default)
@@ -241,7 +241,7 @@ public static class CreationTools
         if (categories != null) p["categories"] = new JArray(categories);
         if (colorScheme != null) p["colorScheme"] = colorScheme;
         if (customColors != null) p["customColors"] = JArray.Parse(customColors);
-        if (createLegendView != null) p["createLegendView"] = createLegendView;
+        p["createLegendView"] = createLegendView;
         if (legendTitle != null) p["legendTitle"] = legendTitle;
         if (targetViewId != null) p["targetViewId"] = targetViewId;
         var result = await revit.ExecuteAsync("create_color_legend", p, ct);
@@ -276,7 +276,7 @@ public static class CreationTools
         [Description("Beam spacing in mm. Default: 1000")] double? spacing = null,
         [Description("Beam type name (optional)")] string? beamTypeName = null,
         [Description("Elevation offset in mm relative to level. Default: 0")] double? elevation = null,
-        [Description("Build a real associative BeamSystem. Default: true. false = loose beams")] bool? associative = null,
+        [Description("Build a real associative BeamSystem. Default: true. false = loose beams")] bool associative = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["levelName"] = levelName };
@@ -287,7 +287,7 @@ public static class CreationTools
         if (spacing != null) p["spacing"] = spacing;
         if (beamTypeName != null) p["beamTypeName"] = beamTypeName;
         if (elevation != null) p["elevation"] = elevation;
-        if (associative != null) p["associative"] = associative;
+        p["associative"] = associative;
         var result = await revit.ExecuteAsync("create_structural_framing_system", p, ct);
         return result.ToString();
     }
@@ -311,7 +311,7 @@ public static class CreationTools
         [Description("Revision description (for create/set)")] string? description = null,
         [Description("Issued by (for create/set)")] string? issuedBy = null,
         [Description("Issued to (for create/set)")] string? issuedTo = null,
-        [Description("Mark the revision issued (true) or not (false), for create/set")] bool? issued = null,
+        [Description("Mark the revision issued (true) or not (false), for create/set Pass \"true\" or \"false\"; omit to leave unchanged.")] string? issued = null,
         [Description("Revision visibility: cloud_and_tag | tag_visible | none, for create/set")] string? visibility = null,
         [Description("Sheet element IDs (for add_to_sheets)")] long[]? sheetIds = null,
         [Description("Revision element ID (required for set and add_to_sheets)")] long? revisionId = null,
@@ -323,7 +323,12 @@ public static class CreationTools
         if (description != null) p["description"] = description;
         if (issuedBy != null) p["issuedBy"] = issuedBy;
         if (issuedTo != null) p["issuedTo"] = issuedTo;
-        if (issued != null) p["issued"] = issued;
+        if (issued != null)
+        {
+            if (!TriStateFlag.TryParse(issued, out var issuedFlag))
+                return TriStateFlag.InvalidFlagResult("create_revision", "issued", issued);
+            p["issued"] = issuedFlag;
+        }
         if (visibility != null) p["visibility"] = visibility;
         if (sheetIds != null) p["sheetIds"] = new JArray(sheetIds.Cast<object>().ToArray());
         if (revisionId != null) p["revisionId"] = revisionId;
@@ -336,12 +341,12 @@ public static class CreationTools
         RevitConnectionManager revit,
         [Description("Path to the .xlsx file")] string filePath,
         [Description("Sheet name (optional; defaults to first sheet)")] string? sheetName = null,
-        [Description("Preview changes without writing. Default: true")] bool? dryRun = null,
+        [Description("Preview changes without writing. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["filePath"] = filePath };
         if (sheetName != null) p["sheetName"] = sheetName;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("import_from_excel", p, ct);
         return result.ToString();
     }
@@ -351,24 +356,24 @@ public static class CreationTools
         RevitConnectionManager revit,
         [Description("Categories to include (e.g. Walls, Doors)")] string[]? categories = null,
         [Description("Parameter names to extract (all writable when omitted)")] string[]? parameterNames = null,
-        [Description("Include type-level parameters. Default: false")] bool? includeTypeParameters = null,
-        [Description("Include element IDs in output. Default: true")] bool? includeElementId = null,
+        [Description("Include type-level parameters. Default: false")] bool includeTypeParameters = false,
+        [Description("Include element IDs in output. Default: true")] bool includeElementId = true,
         [Description("Output format: json | csv. Default: json")] string? outputFormat = null,
         [Description("Max elements. Default: 100")] int? maxElements = null,
         [Description("Include only elements where this parameter matches filterValue")] string? filterParameterName = null,
         [Description("Value to match for filterParameterName")] string? filterValue = null,
         [Description("Filter operator: equals | not_equals | contains | startsWith | endsWith | is_empty | is_not_empty | greater_than | less_than. Default: equals")] string? filterOperator = null,
         [Description("Restrict the export to these element IDs. Applied before pagination")] long[]? elementIds = null,
-        [Description("Return counts and estimated column count only, no rows. Use it to size an export first. Default: false")] bool? countOnly = null,
+        [Description("Return counts and estimated column count only, no rows. Use it to size an export first. Default: false")] bool countOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
-        if (countOnly != null) p["countOnly"] = countOnly;
+        p["countOnly"] = countOnly;
         if (categories != null) p["categories"] = new JArray(categories);
         if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
-        if (includeTypeParameters != null) p["includeTypeParameters"] = includeTypeParameters;
-        if (includeElementId != null) p["includeElementId"] = includeElementId;
+        p["includeTypeParameters"] = includeTypeParameters;
+        p["includeElementId"] = includeElementId;
         if (outputFormat != null) p["outputFormat"] = outputFormat;
         if (maxElements != null) p["maxElements"] = maxElements;
         if (filterParameterName != null) p["filterParameterName"] = filterParameterName;
@@ -383,14 +388,14 @@ public static class CreationTools
         RevitConnectionManager revit,
         [Description("Output directory for the .rfa files")] string outputDirectory,
         [Description("Categories to restrict the export")] string[]? categories = null,
-        [Description("Create one subfolder per category. Default: true")] bool? groupByCategory = null,
-        [Description("Overwrite existing files. Default: false")] bool? overwrite = null,
+        [Description("Create one subfolder per category. Default: true")] bool groupByCategory = true,
+        [Description("Overwrite existing files. Default: false")] bool overwrite = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["outputDirectory"] = outputDirectory };
         if (categories != null) p["categories"] = new JArray(categories);
-        if (groupByCategory != null) p["groupByCategory"] = groupByCategory;
-        if (overwrite != null) p["overwrite"] = overwrite;
+        p["groupByCategory"] = groupByCategory;
+        p["overwrite"] = overwrite;
         var result = await revit.ExecuteAsync("export_families", p, ct);
         return result.ToString();
     }
@@ -402,14 +407,14 @@ public static class CreationTools
         [Description("Export format: csv | tsv | json. Default: json inline, csv when exportPath is set")] string? format = null,
         [Description("Absolute output file path. Omit to get the data inline")] string? exportPath = null,
         [Description("Field separator: Tab | Comma | Semicolon. Overrides format")] string? delimiter = null,
-        [Description("Write the header row. Default: true")] bool? includeHeaders = null,
+        [Description("Write the header row. Default: true")] bool includeHeaders = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["scheduleId"] = scheduleId };
         if (format != null) p["format"] = format;
         if (exportPath != null) p["exportPath"] = exportPath;
         if (delimiter != null) p["delimiter"] = delimiter;
-        if (includeHeaders != null) p["includeHeaders"] = includeHeaders;
+        p["includeHeaders"] = includeHeaders;
         var result = await revit.ExecuteAsync("export_schedule", p, ct);
         return result.ToString();
     }
@@ -439,7 +444,7 @@ public static class CreationTools
         [Description("Destination view type: drafting | legend. Default: drafting")] string? viewType = null,
         [Description("View name (optional; default derived from file name)")] string? viewName = null,
         [Description("Text size in mm. Default: 2.0")] double? textSize = null,
-        [Description("Treat first row as header. Default: true")] bool? includeHeaders = null,
+        [Description("Treat first row as header. Default: true")] bool includeHeaders = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["filePath"] = filePath };
@@ -447,7 +452,7 @@ public static class CreationTools
         if (viewType != null) p["viewType"] = viewType;
         if (viewName != null) p["viewName"] = viewName;
         if (textSize != null) p["textSize"] = textSize;
-        if (includeHeaders != null) p["includeHeaders"] = includeHeaders;
+        p["includeHeaders"] = includeHeaders;
         var result = await revit.ExecuteAsync("import_table", p, ct);
         return result.ToString();
     }

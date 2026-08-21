@@ -24,7 +24,7 @@ public static class ViewTools
         [Description("Facing direction for Section/Elevation: north | south | east | west. Default: north")] string? direction = null,
         [Description("View template element ID to apply on creation (optional)")] long? templateId = null,
         [Description("View template name to apply on creation (alternative to templateId)")] string? templateName = null,
-        [Description("Activate the crop box. Default: unchanged")] bool? cropActive = null,
+        [Description("Activate the crop box. Default: unchanged Pass \"true\" or \"false\"; omit to leave unchanged.")] string? cropActive = null,
         [Description("Crop rectangle min corner as JSON {\"x\":mm,\"y\":mm} (in the view plane). Requires cropMax")] string? cropMin = null,
         [Description("Crop rectangle max corner as JSON {\"x\":mm,\"y\":mm}. Requires cropMin")] string? cropMax = null,
         CancellationToken ct = default)
@@ -41,7 +41,12 @@ public static class ViewTools
         if (direction != null) p["direction"] = direction;
         if (templateId != null) p["templateId"] = templateId;
         if (templateName != null) p["templateName"] = templateName;
-        if (cropActive != null) p["cropActive"] = cropActive;
+        if (cropActive != null)
+        {
+            if (!TriStateFlag.TryParse(cropActive, out var cropActiveFlag))
+                return TriStateFlag.InvalidFlagResult("create_view", "cropActive", cropActive);
+            p["cropActive"] = cropActiveFlag;
+        }
         if (cropMin != null) p["cropMin"] = JObject.Parse(cropMin);
         if (cropMax != null) p["cropMax"] = JObject.Parse(cropMax);
         var result = await revit.ExecuteAsync("create_view", p, ct);
@@ -137,7 +142,7 @@ public static class ViewTools
         [Description("Color green channel 0-255")] int? colorG = null,
         [Description("Color blue channel 0-255")] int? colorB = null,
         [Description("Transparency 0-100")] int? transparency = null,
-        [Description("Apply halftone")] bool? isHalftone = null,
+        [Description("Apply halftone Pass \"true\" or \"false\"; omit to leave unchanged.")] string? isHalftone = null,
         [Description("Projection line weight 1-16")] int? projectionLineWeight = null,
         CancellationToken ct = default)
     {
@@ -148,7 +153,12 @@ public static class ViewTools
         if (colorG != null) p["colorG"] = colorG;
         if (colorB != null) p["colorB"] = colorB;
         if (transparency != null) p["transparency"] = transparency;
-        if (isHalftone != null) p["isHalftone"] = isHalftone;
+        if (isHalftone != null)
+        {
+            if (!TriStateFlag.TryParse(isHalftone, out var isHalftoneFlag))
+                return TriStateFlag.InvalidFlagResult("override_graphics", "isHalftone", isHalftone);
+            p["isHalftone"] = isHalftoneFlag;
+        }
         if (projectionLineWeight != null) p["projectionLineWeight"] = projectionLineWeight;
         var result = await revit.ExecuteAsync("override_graphics", p, ct);
         return result.ToString();
@@ -162,7 +172,7 @@ public static class ViewTools
         [Description("Title block family TYPE element ID (category OST_TitleBlocks)")] long? titleBlockId = null,
         [Description("Title block family name, if you do not have the id")] string? titleBlockFamilyName = null,
         [Description("Title block type name (e.g. A1 metric)")] string? titleBlockTypeName = null,
-        [Description("Preview the resolved title block without creating the sheet. Default: false")] bool? dryRun = null,
+        [Description("Preview the resolved title block without creating the sheet. Default: false")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -173,7 +183,7 @@ public static class ViewTools
         if (titleBlockId != null) p["titleBlockId"] = titleBlockId;
         if (titleBlockFamilyName != null) p["titleBlockFamilyName"] = titleBlockFamilyName;
         if (titleBlockTypeName != null) p["titleBlockTypeName"] = titleBlockTypeName;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_sheet", p, ct);
         return result.ToString();
     }
@@ -227,12 +237,12 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Schedule view element ID")] long scheduleId,
         [Description("Maximum number of body rows to return. Default: 500")] int? maxRows = null,
-        [Description("Also return every schedulable field of the project (hundreds of entries; ignores maxRows). Default: false")] bool? includeAvailableFields = null,
+        [Description("Also return every schedulable field of the project (hundreds of entries; ignores maxRows). Default: false")] bool includeAvailableFields = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["scheduleId"] = scheduleId };
         if (maxRows != null) p["maxRows"] = maxRows;
-        if (includeAvailableFields != null) p["includeAvailableFields"] = includeAvailableFields;
+        p["includeAvailableFields"] = includeAvailableFields;
         var result = await revit.ExecuteAsync("get_schedule_data", p, ct);
         return result.ToString();
     }
@@ -416,10 +426,10 @@ public static class ViewTools
         [Description("New sheet number")] string? newNumber = null,
         [Description("New sheet name")] string? newName = null,
         [Description("Number of copies. Default: 1")] int? copies = null,
-        [Description("Duplicate placed views as well. Default: true")] bool? duplicateViews = null,
-        [Description("Keep legends on the new sheets. Default: true")] bool? keepLegends = null,
-        [Description("Keep schedules on the new sheets. Default: true")] bool? keepSchedules = null,
-        [Description("Copy source sheet revisions. Default: false")] bool? copyRevisions = null,
+        [Description("Duplicate placed views as well. Default: true")] bool duplicateViews = true,
+        [Description("Keep legends on the new sheets. Default: true")] bool keepLegends = true,
+        [Description("Keep schedules on the new sheets. Default: true")] bool keepSchedules = true,
+        [Description("Copy source sheet revisions. Default: false")] bool copyRevisions = false,
         [Description("Prefix applied to generated sheet numbers")] string? sheetNumberPrefix = null,
         [Description("Suffix applied to generated sheet numbers")] string? sheetNumberSuffix = null,
         CancellationToken ct = default)
@@ -428,10 +438,10 @@ public static class ViewTools
         if (newNumber != null) p["newNumber"] = newNumber;
         if (newName != null) p["newName"] = newName;
         if (copies != null) p["copies"] = copies;
-        if (duplicateViews != null) p["duplicateViews"] = duplicateViews;
-        if (keepLegends != null) p["keepLegends"] = keepLegends;
-        if (keepSchedules != null) p["keepSchedules"] = keepSchedules;
-        if (copyRevisions != null) p["copyRevisions"] = copyRevisions;
+        p["duplicateViews"] = duplicateViews;
+        p["keepLegends"] = keepLegends;
+        p["keepSchedules"] = keepSchedules;
+        p["copyRevisions"] = copyRevisions;
         if (sheetNumberPrefix != null) p["sheetNumberPrefix"] = sheetNumberPrefix;
         if (sheetNumberSuffix != null) p["sheetNumberSuffix"] = sheetNumberSuffix;
         var result = await revit.ExecuteAsync("duplicate_sheet_with_content", p, ct);
@@ -443,18 +453,18 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Sheet element ID to duplicate")] long sheetId,
         [Description("Number of copies. Default: 1")] int? copies = null,
-        [Description("Duplicate placed views as well. Default: true")] bool? duplicateViews = null,
-        [Description("Keep legends on the new sheets. Default: true")] bool? keepLegends = null,
-        [Description("Keep schedules on the new sheets. Default: true")] bool? keepSchedules = null,
+        [Description("Duplicate placed views as well. Default: true")] bool duplicateViews = true,
+        [Description("Keep legends on the new sheets. Default: true")] bool keepLegends = true,
+        [Description("Keep schedules on the new sheets. Default: true")] bool keepSchedules = true,
         [Description("Prefix applied to new sheet numbers")] string? newSheetNumberPrefix = null,
         [Description("View duplicate option: Duplicate | DuplicateWithDetailing | DuplicateAsDependent. Default: DuplicateWithDetailing")] string? viewDuplicateOption = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["sheetId"] = sheetId };
         if (copies != null) p["copies"] = copies;
-        if (duplicateViews != null) p["duplicateViews"] = duplicateViews;
-        if (keepLegends != null) p["keepLegends"] = keepLegends;
-        if (keepSchedules != null) p["keepSchedules"] = keepSchedules;
+        p["duplicateViews"] = duplicateViews;
+        p["keepLegends"] = keepLegends;
+        p["keepSchedules"] = keepSchedules;
         if (newSheetNumberPrefix != null) p["newSheetNumberPrefix"] = newSheetNumberPrefix;
         if (viewDuplicateOption != null) p["viewDuplicateOption"] = viewDuplicateOption;
         var result = await revit.ExecuteAsync("duplicate_sheet_with_views", p, ct);

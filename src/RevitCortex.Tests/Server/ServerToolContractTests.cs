@@ -86,9 +86,9 @@ namespace RevitCortex.Tests.Server
 
             // availableFields is opt-in: it lists every schedulable parameter of the
             // project and blew past the client output limit on a 10-row request.
-            Assert.Equal(typeof(bool?), GetParameter(method, "includeAvailableFields").ParameterType);
+            Assert.Equal(typeof(bool), GetParameter(method, "includeAvailableFields").ParameterType);
             Assert.True(GetParameter(method, "includeAvailableFields").HasDefaultValue);
-            Assert.Null(GetParameter(method, "includeAvailableFields").DefaultValue);
+            Assert.IsType<bool>(GetParameter(method, "includeAvailableFields").DefaultValue);
 
             AssertDescription(method,
                 "Export schedule data as JSON from an existing schedule view. availableFields is omitted " +
@@ -111,14 +111,14 @@ namespace RevitCortex.Tests.Server
                 name => Assert.Equal("compact", name),
                 name => Assert.Equal("ct", name));
 
-            Assert.Equal(typeof(bool?), GetParameter(method, "includeWarnings").ParameterType);
-            Assert.Equal(typeof(bool?), GetParameter(method, "includeFamilies").ParameterType);
+            Assert.Equal(typeof(bool), GetParameter(method, "includeWarnings").ParameterType);
+            Assert.Equal(typeof(bool), GetParameter(method, "includeFamilies").ParameterType);
             Assert.Equal(typeof(int?), GetParameter(method, "maxWarnings").ParameterType);
 
             Assert.True(GetParameter(method, "includeWarnings").HasDefaultValue);
-            Assert.Null(GetParameter(method, "includeWarnings").DefaultValue);
+            Assert.IsType<bool>(GetParameter(method, "includeWarnings").DefaultValue);
             Assert.True(GetParameter(method, "includeFamilies").HasDefaultValue);
-            Assert.Null(GetParameter(method, "includeFamilies").DefaultValue);
+            Assert.IsType<bool>(GetParameter(method, "includeFamilies").DefaultValue);
             Assert.True(GetParameter(method, "maxWarnings").HasDefaultValue);
             Assert.Null(GetParameter(method, "maxWarnings").DefaultValue);
 
@@ -212,11 +212,11 @@ namespace RevitCortex.Tests.Server
 
             Assert.Equal(typeof(long[]), GetParameter(method, "hostElementIds").ParameterType);
             Assert.Equal(typeof(string), GetParameter(method, "linkedElements").ParameterType);
-            Assert.Equal(typeof(bool?), GetParameter(method, "select").ParameterType);
-            Assert.Equal(typeof(bool?), GetParameter(method, "isolate").ParameterType);
-            Assert.Equal(typeof(bool?), GetParameter(method, "createSectionBox").ParameterType);
-            Assert.Equal(typeof(bool?), GetParameter(method, "createLinkedMarkers").ParameterType);
-            Assert.Equal(typeof(bool?), GetParameter(method, "usePostCommandIsolate").ParameterType);
+            Assert.Equal(typeof(bool), GetParameter(method, "select").ParameterType);
+            Assert.Equal(typeof(bool), GetParameter(method, "isolate").ParameterType);
+            Assert.Equal(typeof(bool), GetParameter(method, "createSectionBox").ParameterType);
+            Assert.Equal(typeof(bool), GetParameter(method, "createLinkedMarkers").ParameterType);
+            Assert.Equal(typeof(bool), GetParameter(method, "usePostCommandIsolate").ParameterType);
             Assert.Equal(typeof(double?), GetParameter(method, "offset").ParameterType);
         }
 

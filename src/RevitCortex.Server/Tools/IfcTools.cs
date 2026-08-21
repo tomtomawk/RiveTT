@@ -34,12 +34,12 @@ public static class IfcTools
         RevitConnectionManager revit,
         [Description("Path to the IFC file to link")] string ifcFilePath,
         [Description("Optional path to the companion .ifc.RVT (defaults to alongside the IFC)")] string? revitFilePath = null,
-        [Description("Recreate the link if one already exists. Default: true")] bool? recreateLink = null,
+        [Description("Recreate the link if one already exists. Default: true")] bool recreateLink = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["ifcFilePath"] = ifcFilePath };
         if (revitFilePath != null) p["revitFilePath"] = revitFilePath;
-        if (recreateLink != null) p["recreateLink"] = recreateLink;
+        p["recreateLink"] = recreateLink;
         var result = await revit.ExecuteAsync("ifc_link", p, ct);
         return result.ToString();
     }
@@ -49,12 +49,12 @@ public static class IfcTools
         RevitConnectionManager revit,
         [Description("Link TYPE element ID of the IFC link")] long linkTypeId,
         [Description("Optional new IFC file path (triggers a relink)")] string? newIfcFilePath = null,
-        [Description("Recreate the link if needed. Default: true")] bool? recreateLink = null,
+        [Description("Recreate the link if needed. Default: true")] bool recreateLink = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["linkTypeId"] = linkTypeId };
         if (newIfcFilePath != null) p["newIfcFilePath"] = newIfcFilePath;
-        if (recreateLink != null) p["recreateLink"] = recreateLink;
+        p["recreateLink"] = recreateLink;
         var result = await revit.ExecuteAsync("ifc_reload_link", p, ct);
         return result.ToString();
     }
@@ -65,15 +65,15 @@ public static class IfcTools
         [Description("Path to the IFC file")] string filePath,
         [Description("Action: open | import. Default: open")] string? action = null,
         [Description("Intent: reference | coordination | development. Default: reference")] string? intent = null,
-        [Description("Force import even if a native RVT already exists. Default: false")] bool? forceImport = null,
-        [Description("Auto-join walls after import. Default: true")] bool? autoJoin = null,
+        [Description("Force import even if a native RVT already exists. Default: false")] bool forceImport = false,
+        [Description("Auto-join walls after import. Default: true")] bool autoJoin = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["filePath"] = filePath };
         if (action != null) p["action"] = action;
         if (intent != null) p["intent"] = intent;
-        if (forceImport != null) p["forceImport"] = forceImport;
-        if (autoJoin != null) p["autoJoin"] = autoJoin;
+        p["forceImport"] = forceImport;
+        p["autoJoin"] = autoJoin;
         var result = await revit.ExecuteAsync("ifc_open_or_import", p, ct);
         return result.ToString();
     }
@@ -85,8 +85,8 @@ public static class IfcTools
         [Description("File name (without extension); default derived from project name")] string? fileName = null,
         [Description("IFC schema: IFC2x3CV2 | IFC4 | IFC4RV. Default: IFC4RV")] string? fileVersion = null,
         [Description("View ID to filter the export (optional)")] long? filterViewId = null,
-        [Description("Export base quantities. Default: false")] bool? exportBaseQuantities = null,
-        [Description("Split walls and columns by level. Default: false")] bool? wallAndColumnSplitting = null,
+        [Description("Export base quantities. Default: false")] bool exportBaseQuantities = false,
+        [Description("Split walls and columns by level. Default: false")] bool wallAndColumnSplitting = false,
         [Description("Space boundary level: 0, 1, 2. Default: 0")] int? spaceBoundaryLevel = null,
         [Description("Extra IFCExportOptions as a JSON object {key: \"value\", ...}, e.g. {\"ExportInternalRevitPropertySets\":\"true\", \"Export2DElements\":\"true\", \"VisibleElementsOfViewExport\":\"true\"}")] string? overrides = null,
         CancellationToken ct = default)
@@ -95,8 +95,8 @@ public static class IfcTools
         if (fileName != null) p["fileName"] = fileName;
         if (fileVersion != null) p["fileVersion"] = fileVersion;
         if (filterViewId != null) p["filterViewId"] = filterViewId;
-        if (exportBaseQuantities != null) p["exportBaseQuantities"] = exportBaseQuantities;
-        if (wallAndColumnSplitting != null) p["wallAndColumnSplitting"] = wallAndColumnSplitting;
+        p["exportBaseQuantities"] = exportBaseQuantities;
+        p["wallAndColumnSplitting"] = wallAndColumnSplitting;
         if (spaceBoundaryLevel != null) p["spaceBoundaryLevel"] = spaceBoundaryLevel;
         if (overrides != null) p["overrides"] = JObject.Parse(overrides);
         // IFC export on large models can take several minutes — use 15 min timeout.
@@ -196,14 +196,14 @@ public static class IfcTools
         RevitConnectionManager revit,
         [Description("Element IDs of DirectShapes to rebuild")] long[] elementIds,
         [Description("Target wall type element ID (optional)")] long? wallTypeId = null,
-        [Description("Structural walls. Default: false")] bool? structural = null,
-        [Description("Preview without creating. Default: true")] bool? dryRun = null,
+        [Description("Structural walls. Default: false")] bool structural = false,
+        [Description("Preview without creating. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
         if (wallTypeId != null) p["wallTypeId"] = wallTypeId;
-        if (structural != null) p["structural"] = structural;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["structural"] = structural;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("ifc_rebuild_walls", p, ct);
         return result.ToString();
     }
@@ -213,12 +213,12 @@ public static class IfcTools
         RevitConnectionManager revit,
         [Description("Element IDs of DirectShapes to rebuild")] long[] elementIds,
         [Description("Target floor type element ID (optional)")] long? floorTypeId = null,
-        [Description("Preview without creating. Default: true")] bool? dryRun = null,
+        [Description("Preview without creating. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
         if (floorTypeId != null) p["floorTypeId"] = floorTypeId;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("ifc_rebuild_floors", p, ct);
         return result.ToString();
     }
@@ -228,12 +228,12 @@ public static class IfcTools
         RevitConnectionManager revit,
         [Description("Element IDs of DirectShapes to rebuild")] long[] elementIds,
         [Description("Target roof type element ID (optional)")] long? roofTypeId = null,
-        [Description("Preview without creating. Default: true")] bool? dryRun = null,
+        [Description("Preview without creating. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
         if (roofTypeId != null) p["roofTypeId"] = roofTypeId;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("ifc_rebuild_roofs", p, ct);
         return result.ToString();
     }
@@ -244,13 +244,13 @@ public static class IfcTools
         [Description("Element IDs of DirectShapes to rebuild")] long[] elementIds,
         [Description("Member type: columns | beams | all. Default: all")] string? memberType = null,
         [Description("Family symbol element ID to use (optional)")] long? familySymbolId = null,
-        [Description("Preview without creating. Default: true")] bool? dryRun = null,
+        [Description("Preview without creating. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
         if (memberType != null) p["memberType"] = memberType;
         if (familySymbolId != null) p["familySymbolId"] = familySymbolId;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("ifc_rebuild_structural_members", p, ct);
         return result.ToString();
     }
@@ -260,12 +260,12 @@ public static class IfcTools
         RevitConnectionManager revit,
         [Description("Element IDs of opening DirectShapes")] long[] elementIds,
         [Description("Element IDs of host walls/floors where openings should be cut")] long[]? hostElementIds = null,
-        [Description("Preview without cutting. Default: true")] bool? dryRun = null,
+        [Description("Preview without cutting. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
         if (hostElementIds != null) p["hostElementIds"] = new JArray(hostElementIds.Cast<object>().ToArray());
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("ifc_rebuild_openings", p, ct);
         return result.ToString();
     }
@@ -275,12 +275,12 @@ public static class IfcTools
         RevitConnectionManager revit,
         [Description("Element IDs of DirectShapes to rebuild")] long[] elementIds,
         [Description("Category filter (e.g. OST_Doors). Optional.")] string? categoryFilter = null,
-        [Description("Preview without creating. Default: true")] bool? dryRun = null,
+        [Description("Preview without creating. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
         if (categoryFilter != null) p["categoryFilter"] = categoryFilter;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("ifc_rebuild_family_instances", p, ct);
         return result.ToString();
     }

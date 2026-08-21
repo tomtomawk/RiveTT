@@ -112,14 +112,14 @@ public static class ProjectTools
         RevitConnectionManager revit,
         [Description("Filter by category (OST_* code, English friendly name, or localized display name)")] string? categoryFilter = null,
         [Description("Include unused families in the audit")] bool includeUnused = false,
-        [Description("Also enumerate system-family types (WallType/FloorType/RoofType/CeilingType). Default: false")] bool? includeSystemFamilies = null,
+        [Description("Also enumerate system-family types (WallType/FloorType/RoofType/CeilingType). Default: false")] bool includeSystemFamilies = false,
         [Description("Sort order: instance_count | name. Default: instance_count")] string? sortBy = null,
         [Description("Return compact family rows without audit booleans (isInPlace/isEditable/isUnused/kind). Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["includeUnused"] = includeUnused };
         if (categoryFilter != null) p["categoryFilter"] = categoryFilter;
-        if (includeSystemFamilies != null) p["includeSystemFamilies"] = includeSystemFamilies;
+        p["includeSystemFamilies"] = includeSystemFamilies;
         if (sortBy != null) p["sortBy"] = sortBy;
         var result = await revit.ExecuteAsync("audit_families", p, ct);
         return ToolResponseShaper.Shape("audit_families", result, compact, summaryOnly: false).ToString();
@@ -159,13 +159,13 @@ public static class ProjectTools
     public static async Task<string> PurgeUnused(
         RevitConnectionManager revit,
         [Description("Preview changes without applying")] bool dryRun = true,
-        [Description("Also purge view templates not referenced by any view. Default: true")] bool? includeViewTemplates = null,
-        [Description("Also purge view filters not applied to any view. Default: true")] bool? includeFilters = null,
+        [Description("Also purge view templates not referenced by any view. Default: true")] bool includeViewTemplates = true,
+        [Description("Also purge view filters not applied to any view. Default: true")] bool includeFilters = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["dryRun"] = dryRun };
-        if (includeViewTemplates != null) p["includeViewTemplates"] = includeViewTemplates;
-        if (includeFilters != null) p["includeFilters"] = includeFilters;
+        p["includeViewTemplates"] = includeViewTemplates;
+        p["includeFilters"] = includeFilters;
         var result = await revit.ExecuteAsync("purge_unused", p, ct);
         return result.ToString();
     }
@@ -177,7 +177,7 @@ public static class ProjectTools
         [Description("Second category for clash detection (e.g. OST_Floors)")] string categoryB,
         [Description("Maximum number of clash pairs to return. Default: 100. Use higher values on dense models to discover the true clash count; lower for quick checks.")] int maxResults = 100,
         [Description("Bounding-box pre-filter tolerance in millimeters. Default: 0 (any overlap). Positive values shrink the test, ignoring tiny grazing intersections.")] double tolerance = 0,
-        [Description("Confirm bbox candidates with true solid intersection. Default: true. Set false for a faster bbox-only approximation.")] bool? useSolidGeometry = null,
+        [Description("Confirm bbox candidates with true solid intersection. Default: true. Set false for a faster bbox-only approximation.")] bool useSolidGeometry = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -187,7 +187,7 @@ public static class ProjectTools
             ["maxResults"] = maxResults,
             ["tolerance"] = tolerance,
         };
-        if (useSolidGeometry != null) p["useSolidGeometry"] = useSolidGeometry;
+        p["useSolidGeometry"] = useSolidGeometry;
         var result = await revit.ExecuteAsync("clash_detection", p, ct);
         return result.ToString();
     }
@@ -195,15 +195,15 @@ public static class ProjectTools
     [McpServerTool(Name = "workflow_model_audit"), Description("Run a complete model audit workflow.")]
     public static async Task<string> WorkflowModelAudit(
         RevitConnectionManager revit,
-        [Description("Include warnings in the response. Default: true")] bool? includeWarnings = null,
-        [Description("Include family lists in the response. Default: true")] bool? includeFamilies = null,
+        [Description("Include warnings in the response. Default: true")] bool includeWarnings = true,
+        [Description("Include family lists in the response. Default: true")] bool includeFamilies = true,
         [Description("Maximum grouped warnings returned. Default: 50")] int? maxWarnings = null,
         [Description("Strip warnings/families to summary fields only. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (includeWarnings != null) p["includeWarnings"] = includeWarnings;
-        if (includeFamilies != null) p["includeFamilies"] = includeFamilies;
+        p["includeWarnings"] = includeWarnings;
+        p["includeFamilies"] = includeFamilies;
         if (maxWarnings != null) p["maxWarnings"] = maxWarnings;
         var result = await revit.ExecuteAsync("workflow_model_audit", p, ct);
         return ToolResponseShaper.Shape("workflow_model_audit", result, compact, summaryOnly: false).ToString();
@@ -216,9 +216,9 @@ public static class ProjectTools
         [Description("Elevation in mm (create, or set to change an existing level's elevation)")] double? elevation = null,
         [Description("Action: create | set | rename | delete. Default: create")] string? action = null,
         [Description("Level element id (identifies the target for set/rename/delete)")] long? levelId = null,
-        [Description("Mark as a building story (create/set)")] bool? isBuildingStory = null,
+        [Description("Mark as a building story (create/set) Pass \"true\" or \"false\"; omit to leave unchanged.")] string? isBuildingStory = null,
         [Description("New name (for rename)")] string? newName = null,
-        [Description("Preview changes without applying. Default: true")] bool? dryRun = null,
+        [Description("Preview changes without applying. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -226,9 +226,14 @@ public static class ProjectTools
         if (name != null) p["name"] = name;
         if (elevation != null) p["elevation"] = elevation;
         if (levelId != null) p["levelId"] = levelId;
-        if (isBuildingStory != null) p["isBuildingStory"] = isBuildingStory;
+        if (isBuildingStory != null)
+        {
+            if (!TriStateFlag.TryParse(isBuildingStory, out var isBuildingStoryFlag))
+                return TriStateFlag.InvalidFlagResult("create_level", "isBuildingStory", isBuildingStory);
+            p["isBuildingStory"] = isBuildingStoryFlag;
+        }
         if (newName != null) p["newName"] = newName;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_level", p, ct);
         return result.ToString();
     }
@@ -242,7 +247,7 @@ public static class ProjectTools
         [Description("Room name")] string? name = null,
         [Description("Room number")] string? number = null,
         [Description("Department")] string? department = null,
-        [Description("Preview without creating: reports the room already occupying the point. Default: false")] bool? dryRun = null,
+        [Description("Preview without creating: reports the room already occupying the point. Default: false")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -253,7 +258,7 @@ public static class ProjectTools
         if (name != null) p["name"] = name;
         if (number != null) p["number"] = number;
         if (department != null) p["department"] = department;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_room", p, ct);
         return result.ToString();
     }
@@ -326,8 +331,8 @@ public static class ProjectTools
         [Description("Text to find (for findReplace operation)")] string? findText = null,
         [Description("Replacement text (for findReplace operation)")] string? replaceText = null,
         [Description("Categories to restrict the rename (e.g. Doors, Windows)")] string[]? categories = null,
-        [Description("Also rename the family types. Default: false")] bool? renameTypes = null,
-        [Description("Preview without writing. Default: true")] bool? dryRun = null,
+        [Description("Also rename the family types. Default: false")] bool renameTypes = false,
+        [Description("Preview without writing. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -337,8 +342,8 @@ public static class ProjectTools
         if (findText != null) p["findText"] = findText;
         if (replaceText != null) p["replaceText"] = replaceText;
         if (categories != null) p["categories"] = new JArray(categories);
-        if (renameTypes != null) p["renameTypes"] = renameTypes;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["renameTypes"] = renameTypes;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("rename_families", p, ct);
         return result.ToString();
     }
@@ -346,12 +351,12 @@ public static class ProjectTools
     [McpServerTool(Name = "tag_rooms"), Description("Tag rooms in the active view. Operates on the active view only — activate the correct view first.")]
     public static async Task<string> TagRooms(
         RevitConnectionManager revit,
-        [Description("Use leader on tags. Default: false")] bool? useLeader = null,
+        [Description("Use leader on tags. Default: false")] bool useLeader = false,
         [Description("Room IDs to tag (optional; tags all rooms in view when omitted)")] long[]? roomIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (useLeader != null) p["useLeader"] = useLeader;
+        p["useLeader"] = useLeader;
         if (roomIds != null) p["roomIds"] = new JArray(roomIds.Cast<object>().ToArray());
         var result = await revit.ExecuteAsync("tag_rooms", p, ct);
         return result.ToString();
@@ -360,14 +365,14 @@ public static class ProjectTools
     [McpServerTool(Name = "tag_walls"), Description("Tag walls at their midpoints in the active view. Operates on the active view only. Tags all walls by default, or a subset via wallIds.")]
     public static async Task<string> TagWalls(
         RevitConnectionManager revit,
-        [Description("Use leader on tags. Default: false")] bool? useLeader = null,
+        [Description("Use leader on tags. Default: false")] bool useLeader = false,
         [Description("Tag orientation: horizontal | vertical. Default: horizontal")] string? orientation = null,
         [Description("Tag type (FamilySymbol) element ID. Default: first available wall tag type")] long? tagTypeId = null,
         [Description("JSON array of wall element IDs to tag. Omit to tag all walls in the view")] string? wallIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (useLeader != null) p["useLeader"] = useLeader;
+        p["useLeader"] = useLeader;
         if (orientation != null) p["orientation"] = orientation;
         if (tagTypeId != null) p["tagTypeId"] = tagTypeId;
         if (wallIds != null) p["wallIds"] = JArray.Parse(wallIds);
@@ -394,11 +399,11 @@ public static class ProjectTools
     public static async Task<string> SetMaterialProperties(
         RevitConnectionManager revit,
         [Description("JSON array of flat requests, e.g. [{\"materialId\":123,\"color\":\"#FF0000\",\"appearanceAssetId\":456}]")] string requests,
-        [Description("Preview changes without applying. Default: true")] bool? dryRun = null,
+        [Description("Preview changes without applying. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["requests"] = JArray.Parse(requests) };
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("set_material_properties", p, ct);
         return result.ToString();
     }
@@ -436,13 +441,13 @@ public static class ProjectTools
         RevitConnectionManager revit,
         [Description("C# code to execute. Globals available: document (Document), uiDocument (UIDocument), app (Application).")] string code,
         [Description("Transaction mode: auto | manual | readonly. Default: auto")] string? transactionMode = "auto",
-        [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously — see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool? reusable = false,
+        [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously — see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool reusable = false,
         [Description("Short human-readable name for the script file (no spaces, max 40 chars). Example: 'floor-thickness-audit'")] string? scriptName = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["code"] = code };
         if (transactionMode != null) p["transactionMode"] = transactionMode;
-        if (reusable != null) p["reusable"] = reusable;
+        p["reusable"] = reusable;
         if (scriptName != null) p["scriptName"] = scriptName;
         var result = await revit.ExecuteAsync("send_code_to_revit", p, ct);
         return result.ToString();
@@ -454,7 +459,7 @@ public static class ProjectTools
         [Description("First category (e.g. OST_Walls)")] string categoryA,
         [Description("Second category (e.g. OST_Pipes)")] string categoryB,
         [Description("Intersection tolerance in mm. Default: 0")] double? tolerance = null,
-        [Description("Create a section-boxed 3D view around detected clashes. Default: true")] bool? createSectionBox = null,
+        [Description("Create a section-boxed 3D view around detected clashes. Default: true")] bool createSectionBox = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -463,7 +468,7 @@ public static class ProjectTools
             ["categoryB"] = categoryB,
         };
         if (tolerance != null) p["tolerance"] = tolerance;
-        if (createSectionBox != null) p["createSectionBox"] = createSectionBox;
+        p["createSectionBox"] = createSectionBox;
         var result = await revit.ExecuteAsync("workflow_clash_review", p, ct);
         return result.ToString();
     }
@@ -474,13 +479,13 @@ public static class ProjectTools
         [Description("Path to the .xlsx file (created on export, read on import)")] string filePath,
         [Description("Categories to include (e.g. Walls, Doors)")] string[]? categories = null,
         [Description("Parameter names to include")] string[]? parameterNames = null,
-        [Description("Include type-level parameters. Default: false")] bool? includeTypeParameters = null,
+        [Description("Include type-level parameters. Default: false")] bool includeTypeParameters = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["filePath"] = filePath };
         if (categories != null) p["categories"] = new JArray(categories);
         if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
-        if (includeTypeParameters != null) p["includeTypeParameters"] = includeTypeParameters;
+        p["includeTypeParameters"] = includeTypeParameters;
         var result = await revit.ExecuteAsync("workflow_data_roundtrip", p, ct);
         return result.ToString();
     }
@@ -489,12 +494,12 @@ public static class ProjectTools
     public static async Task<string> WorkflowRoomDocumentation(
         RevitConnectionManager revit,
         [Description("Level name to document")] string levelName,
-        [Description("Also create sections per room. Default: true")] bool? createSections = null,
+        [Description("Also create sections per room. Default: true")] bool createSections = true,
         [Description("Boundary offset in mm. Default: 300")] double? offset = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["levelName"] = levelName };
-        if (createSections != null) p["createSections"] = createSections;
+        p["createSections"] = createSections;
         if (offset != null) p["offset"] = offset;
         var result = await revit.ExecuteAsync("workflow_room_documentation", p, ct);
         return result.ToString();
@@ -530,16 +535,16 @@ public static class ProjectTools
     public static async Task<string> LinesPerViewCount(
         RevitConnectionManager revit,
         [Description("Only report views at or above this detail-line count. Default: 0")] int? threshold = null,
-        [Description("Count detail lines. Default: true")] bool? includeDetailLines = null,
-        [Description("Count model lines (project-wide total). Default: true")] bool? includeModelLines = null,
+        [Description("Count detail lines. Default: true")] bool includeDetailLines = true,
+        [Description("Count model lines (project-wide total). Default: true")] bool includeModelLines = true,
         [Description("Max views returned. Default: 200")] int? limit = null,
         [Description("Time budget in milliseconds before returning partial results. Default: 15000")] int? timeBudgetMs = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (threshold != null) p["threshold"] = threshold;
-        if (includeDetailLines != null) p["includeDetailLines"] = includeDetailLines;
-        if (includeModelLines != null) p["includeModelLines"] = includeModelLines;
+        p["includeDetailLines"] = includeDetailLines;
+        p["includeModelLines"] = includeModelLines;
         if (limit != null) p["limit"] = limit;
         if (timeBudgetMs != null) p["timeBudgetMs"] = timeBudgetMs;
         var result = await revit.ExecuteAsync("lines_per_view_count", p, ct);
@@ -552,14 +557,14 @@ public static class ProjectTools
         [Description("Max families returned. Default: 50")] int? limit = null,
         [Description("Sort by: instanceCount | typeCount | name | sizeKB. Default: instanceCount. Note: sizeKB sort requires includeSize=true and forces size measurement on every family (slow on large models).")] string? sortBy = null,
         [Description("Categories to restrict the list")] string[]? categories = null,
-        [Description("If true, measure each returned family's file size in KB. Default false. Cost: ~50-200ms per family (one EditFamily + temp save round-trip).")] bool? includeSize = null,
+        [Description("If true, measure each returned family's file size in KB. Default false. Cost: ~50-200ms per family (one EditFamily + temp save round-trip).")] bool includeSize = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (limit != null) p["limit"] = limit;
         if (sortBy != null) p["sortBy"] = sortBy;
         if (categories != null) p["categories"] = new JArray(categories);
-        if (includeSize != null) p["includeSize"] = includeSize;
+        p["includeSize"] = includeSize;
         var result = await revit.ExecuteAsync("list_family_sizes", p, ct);
         return result.ToString();
     }

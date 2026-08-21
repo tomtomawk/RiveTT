@@ -11,11 +11,11 @@ public static class DocumentTools
     [McpServerTool(Name = "save_document"), Description("Save the active Revit project at its current path. dryRun reports the path, the unsaved-changes state and any predictable blocker without writing.")]
     public static async Task<string> SaveDocument(
         RevitConnectionManager revit,
-        [Description("Preview without saving. Default: false")] bool? dryRun = null,
+        [Description("Preview without saving. Default: false")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var request = new JObject();
-        if (dryRun != null) request["dryRun"] = dryRun;
+        request["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("save_document", request, ct)).ToString();
     }
 
@@ -23,8 +23,8 @@ public static class DocumentTools
     public static async Task<string> SaveAsDocument(
         RevitConnectionManager revit,
         [Description("Absolute output .rvt path")] string? targetPath = null,
-        [Description("Replace an existing file. Default false")] bool? overwrite = null,
-        [Description("Preview without saving. Default: false")] bool? dryRun = null,
+        [Description("Replace an existing file. Default false")] bool overwrite = false,
+        [Description("Preview without saving. Default: false")] bool dryRun = false,
         CancellationToken ct = default)
     {
         // targetPath is optional at the schema level on purpose: a missing or
@@ -32,8 +32,8 @@ public static class DocumentTools
         // expected parameter, not as an opaque "error invoking save_as_document".
         var request = new JObject();
         if (targetPath != null) request["targetPath"] = targetPath;
-        if (overwrite != null) request["overwrite"] = overwrite;
-        if (dryRun != null) request["dryRun"] = dryRun;
+        request["overwrite"] = overwrite;
+        request["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("save_as_document", request, ct)).ToString();
     }
 }

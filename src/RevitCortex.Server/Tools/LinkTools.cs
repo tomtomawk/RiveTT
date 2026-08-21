@@ -64,14 +64,14 @@ public static class LinkTools
     public static async Task<string> GetCoordinationModels(
         RevitConnectionManager revit,
         [Description("Optional case-insensitive filter applied to coordination model names.")] string? nameFilter = null,
-        [Description("Include instance records. Default: true.")] bool? includeInstances = null,
+        [Description("Include instance records. Default: true.")] bool includeInstances = true,
         [Description("Maximum instance records to include. Default: 100, cap: 250.")] int? maxInstances = null,
         [Description("Strip per-item verbose metadata (path, pathType, origin, instance name) while preserving counters and identifiers. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (nameFilter != null) p["nameFilter"] = nameFilter;
-        if (includeInstances != null) p["includeInstances"] = includeInstances;
+        p["includeInstances"] = includeInstances;
         if (maxInstances != null) p["maxInstances"] = maxInstances;
         if (compact) p["compact"] = compact;
         var result = await revit.ExecuteAsync("get_coordination_models", p, ct);
@@ -92,7 +92,7 @@ public static class LinkTools
         RevitConnectionManager revit,
         [Description("Link instance element ID")] long instanceId,
         [Description("Linked element ID inside the linked model")] long linkedElementId,
-        [Description("Create a section box around the element. Default: true")] bool? createSectionBox = null,
+        [Description("Create a section box around the element. Default: true")] bool createSectionBox = true,
         [Description("Section box padding in mm. Default: 1000")] double? offset = null,
         CancellationToken ct = default)
     {
@@ -101,7 +101,7 @@ public static class LinkTools
             ["instanceId"] = instanceId,
             ["linkedElementId"] = linkedElementId,
         };
-        if (createSectionBox != null) p["createSectionBox"] = createSectionBox;
+        p["createSectionBox"] = createSectionBox;
         if (offset != null) p["offset"] = offset;
         var result = await revit.ExecuteAsync("highlight_linked_element", p, ct);
         return result.ToString();
@@ -112,22 +112,22 @@ public static class LinkTools
         RevitConnectionManager revit,
         [Description("Host document element IDs to include")] long[]? hostElementIds = null,
         [Description("JSON array of linked targets: [{\"instanceId\":2409055,\"linkedElementId\":1413682}]")] string? linkedElements = null,
-        [Description("Select host elements and linked-element references. Default: true")] bool? select = null,
-        [Description("Temporarily isolate host elements and link instances. Default: true")] bool? isolate = null,
-        [Description("Create a 3D section box around all targets. Default: true. Ignored when usePostCommandIsolate=true.")] bool? createSectionBox = null,
-        [Description("Create red DirectShape markers in the host doc around each linked element's bounding box. Default: true. Ignored when usePostCommandIsolate=true.")] bool? createLinkedMarkers = null,
-        [Description("Use Revit's native PostCommand(IsolateElement) instead of the marker strategy. Default: false. Asynchronous: tool returns before isolate completes; section box and markers are skipped.")] bool? usePostCommandIsolate = null,
+        [Description("Select host elements and linked-element references. Default: true")] bool select = true,
+        [Description("Temporarily isolate host elements and link instances. Default: true")] bool isolate = true,
+        [Description("Create a 3D section box around all targets. Default: true. Ignored when usePostCommandIsolate=true.")] bool createSectionBox = true,
+        [Description("Create red DirectShape markers in the host doc around each linked element's bounding box. Default: true. Ignored when usePostCommandIsolate=true.")] bool createLinkedMarkers = true,
+        [Description("Use Revit's native PostCommand(IsolateElement) instead of the marker strategy. Default: false. Asynchronous: tool returns before isolate completes; section box and markers are skipped.")] bool usePostCommandIsolate = false,
         [Description("Section box padding in mm. Default: 1200")] double? offset = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (hostElementIds != null) p["hostElementIds"] = new JArray(hostElementIds.Cast<object>().ToArray());
         if (linkedElements != null) p["linkedElements"] = JArray.Parse(linkedElements);
-        if (select != null) p["select"] = select;
-        if (isolate != null) p["isolate"] = isolate;
-        if (createSectionBox != null) p["createSectionBox"] = createSectionBox;
-        if (createLinkedMarkers != null) p["createLinkedMarkers"] = createLinkedMarkers;
-        if (usePostCommandIsolate != null) p["usePostCommandIsolate"] = usePostCommandIsolate;
+        p["select"] = select;
+        p["isolate"] = isolate;
+        p["createSectionBox"] = createSectionBox;
+        p["createLinkedMarkers"] = createLinkedMarkers;
+        p["usePostCommandIsolate"] = usePostCommandIsolate;
         if (offset != null) p["offset"] = offset;
 
         var result = await revit.ExecuteAsync("show_cross_model_elements", p, ct);
@@ -172,11 +172,11 @@ public static class LinkTools
     public static async Task<string> PinUnpinLinkInstance(
         RevitConnectionManager revit,
         [Description("Link instance element IDs")] long[] instanceIds,
-        [Description("true to pin, false to unpin. Default: true")] bool? pin = null,
+        [Description("true to pin, false to unpin. Default: true")] bool pin = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["instanceIds"] = new JArray(instanceIds.Cast<object>().ToArray()) };
-        if (pin != null) p["pin"] = pin;
+        p["pin"] = pin;
         var result = await revit.ExecuteAsync("pin_unpin_link_instance", p, ct);
         return result.ToString();
     }
@@ -201,15 +201,15 @@ public static class LinkTools
     public static async Task<string> CadLinkCleanup(
         RevitConnectionManager revit,
         [Description("Action: list | delete. Default: list")] string? action = null,
-        [Description("Delete imported CAD instances. Default: false")] bool? deleteImports = null,
-        [Description("Delete linked CAD instances. Default: false")] bool? deleteLinks = null,
+        [Description("Delete imported CAD instances. Default: false")] bool deleteImports = false,
+        [Description("Delete linked CAD instances. Default: false")] bool deleteLinks = false,
         [Description("Specific element IDs to target (optional)")] long[]? elementIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (action != null) p["action"] = action;
-        if (deleteImports != null) p["deleteImports"] = deleteImports;
-        if (deleteLinks != null) p["deleteLinks"] = deleteLinks;
+        p["deleteImports"] = deleteImports;
+        p["deleteLinks"] = deleteLinks;
         if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
         var result = await revit.ExecuteAsync("cad_link_cleanup", p, ct);
         return result.ToString();

@@ -105,6 +105,24 @@ public sealed class RevitCortexApp : IExternalApplication
         // The pipe remains available. Calls made with no project open receive a
         // structured error until the next document is activated.
         _session?.Reinitialize(new DocumentCapabilities(), "en");
+
+        // Reinitialize clears the whole session store, UIApplication included — but
+        // that object is process-scoped, not document state. Losing it left the
+        // connector unable to reach Revit at all: create_document closes the
+        // in-memory document it just saved, which fires this event, and every later
+        // create_document/open_document then failed with "No Revit application
+        // context is available yet" with no way to recover but opening a file by
+        // hand.
+        if (_uiApplication != null)
+        {
+            _session?.Store.Set("uiApplication", _uiApplication);
+
+            // Another project may still be open: rebind to it rather than leaving
+            // the session document-less.
+            var remaining = _uiApplication.ActiveUIDocument?.Document;
+            if (remaining != null && !ReferenceEquals(remaining, args.Document))
+                BindDocument(remaining);
+        }
     }
 
     private void OnIdling(object? sender, IdlingEventArgs e)

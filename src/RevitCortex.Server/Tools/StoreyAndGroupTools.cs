@@ -19,8 +19,8 @@ public static class StoreyAndGroupTools
         [Description("Optional target top level ID for copied walls")] long? targetTopLevelId = null,
         [Description("Optional amount in mm to shift levels at/above the target elevation")] double? moveUpperLevelsByMm = null,
         [Description("Categories to copy, OST_* or localized display names; omit for all model categories")] string[]? categories = null,
-        [Description("Copy each source model group as one group instance. Default: true")] bool? copyGroups = null,
-        [Description("Include element samples/IDs. Default: false")] bool? includeDetails = null,
+        [Description("Copy each source model group as one group instance. Default: true")] bool copyGroups = true,
+        [Description("Include element samples/IDs. Default: false")] bool includeDetails = false,
         [Description("Maximum detail rows. Default: 50")] int? sampleLimit = null,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         [Description("suppress_all (default) or allow_list; unapproved warnings roll back")] string? warningPolicy = null,
@@ -35,8 +35,8 @@ public static class StoreyAndGroupTools
         if (targetTopLevelId != null) p["targetTopLevelId"] = targetTopLevelId;
         if (moveUpperLevelsByMm != null) p["moveUpperLevelsByMm"] = moveUpperLevelsByMm;
         if (categories != null) p["categories"] = new JArray(categories);
-        if (copyGroups != null) p["copyGroups"] = copyGroups;
-        if (includeDetails != null) p["includeDetails"] = includeDetails;
+        p["copyGroups"] = copyGroups;
+        p["includeDetails"] = includeDetails;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         if (warningPolicy != null) p["warningPolicy"] = warningPolicy;
         if (allowedWarningIds != null) p["allowedWarningIds"] = new JArray(allowedWarningIds);
@@ -71,7 +71,7 @@ public static class StoreyAndGroupTools
         [Description("Group type ID for duplicate_type")] long? groupTypeId = null,
         [Description("New group type name for duplicate_type")] string? newName = null,
         [Description("Group instance IDs to swap or ungroup")] long[]? groupIds = null,
-        [Description("Include member samples for inventory. Default: false")] bool? includeMembers = null,
+        [Description("Include member samples for inventory. Default: false")] bool includeMembers = false,
         [Description("Member sample limit. Default: 20")] int? sampleLimit = null,
         [Description("Preview write actions. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
@@ -80,7 +80,7 @@ public static class StoreyAndGroupTools
         if (groupTypeId != null) p["groupTypeId"] = groupTypeId;
         if (newName != null) p["newName"] = newName;
         if (groupIds != null) p["groupIds"] = new JArray(groupIds.Cast<object>().ToArray());
-        if (includeMembers != null) p["includeMembers"] = includeMembers;
+        p["includeMembers"] = includeMembers;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         return (await revit.ExecuteAsync("manage_model_groups", p, ct)).ToString();
     }

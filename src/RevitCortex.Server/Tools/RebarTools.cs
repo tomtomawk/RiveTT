@@ -52,14 +52,14 @@ public static class RebarTools
         RevitConnectionManager revit,
         [Description("Rebar element id")] long rebarId,
         [Description("Bar position index. Default 0")] int? barPositionIndex = null,
-        [Description("Suppress hook curves. Default false")] bool? suppressHooks = null,
-        [Description("Suppress bend radius. Default false")] bool? suppressBendRadius = null,
+        [Description("Suppress hook curves. Default false")] bool suppressHooks = false,
+        [Description("Suppress bend radius. Default false")] bool suppressBendRadius = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["rebarId"] = rebarId };
         if (barPositionIndex != null) p["barPositionIndex"] = barPositionIndex;
-        if (suppressHooks != null) p["suppressHooks"] = suppressHooks;
-        if (suppressBendRadius != null) p["suppressBendRadius"] = suppressBendRadius;
+        p["suppressHooks"] = suppressHooks;
+        p["suppressBendRadius"] = suppressBendRadius;
         return (await revit.ExecuteAsync("get_rebar_geometry", p, ct)).ToString();
     }
 
@@ -229,11 +229,11 @@ public static class RebarTools
         RevitConnectionManager revit,
         [Description("Rebar element id")] long rebarId,
         [Description("View id")] long viewId,
-        [Description("Show unobscured (in front of host). Default true")] bool? unobscured = null,
+        [Description("Show unobscured (in front of host). Default true")] bool unobscured = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["rebarId"] = rebarId, ["viewId"] = viewId };
-        if (unobscured != null) p["unobscured"] = unobscured;
+        p["unobscured"] = unobscured;
         return (await revit.ExecuteAsync("set_rebar_visibility", p, ct)).ToString();
     }
 
@@ -243,13 +243,13 @@ public static class RebarTools
         [Description("Rebar element id")] long rebarId,
         [Description("Bar position index. Default 0")] int? barPositionIndex = null,
         [Description("Translation JSON {x,y,z} in mm (required unless reset:true)")] string? translation = null,
-        [Description("Reset a prior move on this bar. Default false")] bool? reset = null,
+        [Description("Reset a prior move on this bar. Default false")] bool reset = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["rebarId"] = rebarId };
         if (barPositionIndex != null) p["barPositionIndex"] = barPositionIndex;
         if (translation != null) p["translation"] = JObject.Parse(translation);
-        if (reset != null) p["reset"] = reset;
+        p["reset"] = reset;
         return (await revit.ExecuteAsync("move_rebar_in_set", p, ct)).ToString();
     }
 
@@ -259,12 +259,12 @@ public static class RebarTools
         [Description("Rebar element id")] long rebarId,
         [Description("View id")] long viewId,
         [Description("Bar position index. Default 0")] int? barPositionIndex = null,
-        [Description("Hide the bar. Default true")] bool? hidden = null,
+        [Description("Hide the bar. Default true")] bool hidden = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["rebarId"] = rebarId, ["viewId"] = viewId };
         if (barPositionIndex != null) p["barPositionIndex"] = barPositionIndex;
-        if (hidden != null) p["hidden"] = hidden;
+        p["hidden"] = hidden;
         return (await revit.ExecuteAsync("include_exclude_rebar_bars", p, ct)).ToString();
     }
 
@@ -294,11 +294,11 @@ public static class RebarTools
     public static async Task<string> GetRebarVaryingData(
         RevitConnectionManager revit,
         [Description("Rebar element id")] long rebarId,
-        [Description("Include per-position centerline lengths (default true)")] bool? includeBarLengths = null,
+        [Description("Include per-position centerline lengths (default true)")] bool includeBarLengths = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["rebarId"] = rebarId };
-        if (includeBarLengths != null) p["includeBarLengths"] = includeBarLengths;
+        p["includeBarLengths"] = includeBarLengths;
         return (await revit.ExecuteAsync("get_rebar_varying_data", p, ct)).ToString();
     }
 
@@ -329,7 +329,7 @@ public static class RebarTools
         RevitConnectionManager revit,
         [Description("Host element id")] long hostId,
         [Description("Path curves JSON array of {type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}} in mm")] string curves,
-        [Description("Flip the reinforcement side. Default false")] bool? flip = null,
+        [Description("Flip the reinforcement side. Default false")] bool flip = false,
         [Description("Rebar bar type id")] long? barTypeId = null,
         [Description("Rebar bar type name (used if barTypeId omitted)")] string? barTypeName = null,
         [Description("Path reinforcement type id (default type used if omitted)")] long? pathTypeId = null,
@@ -338,7 +338,7 @@ public static class RebarTools
         CancellationToken ct = default)
     {
         var p = new JObject { ["hostId"] = hostId, ["curves"] = JArray.Parse(curves) };
-        if (flip != null) p["flip"] = flip;
+        p["flip"] = flip;
         if (barTypeId != null) p["barTypeId"] = barTypeId;
         if (barTypeName != null) p["barTypeName"] = barTypeName;
         if (pathTypeId != null) p["pathTypeId"] = pathTypeId;
@@ -635,15 +635,30 @@ public static class RebarTools
     [McpServerTool(Name = "set_reinforcement_settings"), Description("Set document-level reinforcement settings. Provide any of hostStructuralRebar, rebarShapeDefinesHooks, rebarShapeDefinesEndTreatments (bools). Some toggles only apply when the document has no reinforcement; blocked changes are reported in warnings.")]
     public static async Task<string> SetReinforcementSettings(
         RevitConnectionManager revit,
-        [Description("Host structural rebar (bool)")] bool? hostStructuralRebar = null,
-        [Description("Rebar shape defines hooks (bool)")] bool? rebarShapeDefinesHooks = null,
-        [Description("Rebar shape defines end treatments (bool)")] bool? rebarShapeDefinesEndTreatments = null,
+        [Description("Host structural rebar (bool) Pass \"true\" or \"false\"; omit to leave unchanged.")] string? hostStructuralRebar = null,
+        [Description("Rebar shape defines hooks (bool) Pass \"true\" or \"false\"; omit to leave unchanged.")] string? rebarShapeDefinesHooks = null,
+        [Description("Rebar shape defines end treatments (bool) Pass \"true\" or \"false\"; omit to leave unchanged.")] string? rebarShapeDefinesEndTreatments = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (hostStructuralRebar != null) p["hostStructuralRebar"] = hostStructuralRebar;
-        if (rebarShapeDefinesHooks != null) p["rebarShapeDefinesHooks"] = rebarShapeDefinesHooks;
-        if (rebarShapeDefinesEndTreatments != null) p["rebarShapeDefinesEndTreatments"] = rebarShapeDefinesEndTreatments;
+        if (hostStructuralRebar != null)
+        {
+            if (!TriStateFlag.TryParse(hostStructuralRebar, out var hostStructuralRebarFlag))
+                return TriStateFlag.InvalidFlagResult("set_reinforcement_settings", "hostStructuralRebar", hostStructuralRebar);
+            p["hostStructuralRebar"] = hostStructuralRebarFlag;
+        }
+        if (rebarShapeDefinesHooks != null)
+        {
+            if (!TriStateFlag.TryParse(rebarShapeDefinesHooks, out var rebarShapeDefinesHooksFlag))
+                return TriStateFlag.InvalidFlagResult("set_reinforcement_settings", "rebarShapeDefinesHooks", rebarShapeDefinesHooks);
+            p["rebarShapeDefinesHooks"] = rebarShapeDefinesHooksFlag;
+        }
+        if (rebarShapeDefinesEndTreatments != null)
+        {
+            if (!TriStateFlag.TryParse(rebarShapeDefinesEndTreatments, out var rebarShapeDefinesEndTreatmentsFlag))
+                return TriStateFlag.InvalidFlagResult("set_reinforcement_settings", "rebarShapeDefinesEndTreatments", rebarShapeDefinesEndTreatments);
+            p["rebarShapeDefinesEndTreatments"] = rebarShapeDefinesEndTreatmentsFlag;
+        }
         return (await revit.ExecuteAsync("set_reinforcement_settings", p, ct)).ToString();
     }
 
@@ -666,14 +681,19 @@ public static class RebarTools
     public static async Task<string> ManageRebarRounding(
         RevitConnectionManager revit,
         [Description("Rebar element id (optional; document default if omitted)")] long? rebarId = null,
-        [Description("Apply rounding rules (bool)")] bool? applyRules = null,
+        [Description("Apply rounding rules (bool) Pass \"true\" or \"false\"; omit to leave unchanged.")] string? applyRules = null,
         [Description("Segment (cut) length rounding in mm")] double? lengthRoundingMm = null,
         [Description("Length rounding method: Nearest|Up|Down")] string? lengthRoundingMethod = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (rebarId != null) p["rebarId"] = rebarId;
-        if (applyRules != null) p["applyRules"] = applyRules;
+        if (applyRules != null)
+        {
+            if (!TriStateFlag.TryParse(applyRules, out var applyRulesFlag))
+                return TriStateFlag.InvalidFlagResult("manage_rebar_rounding", "applyRules", applyRules);
+            p["applyRules"] = applyRulesFlag;
+        }
         if (lengthRoundingMm != null) p["lengthRoundingMm"] = lengthRoundingMm;
         if (lengthRoundingMethod != null) p["lengthRoundingMethod"] = lengthRoundingMethod;
         return (await revit.ExecuteAsync("manage_rebar_rounding", p, ct)).ToString();
@@ -682,13 +702,18 @@ public static class RebarTools
     [McpServerTool(Name = "manage_fabric_rounding"), Description("Set the document fabric length-rounding rules. Fields: applyRules (bool), lengthRoundingMm (double), lengthRoundingMethod (Nearest|Up|Down). volumeRounding is unsupported by the API and reported in warnings.")]
     public static async Task<string> ManageFabricRounding(
         RevitConnectionManager revit,
-        [Description("Apply rounding rules (bool)")] bool? applyRules = null,
+        [Description("Apply rounding rules (bool) Pass \"true\" or \"false\"; omit to leave unchanged.")] string? applyRules = null,
         [Description("Segment (cut) length rounding in mm")] double? lengthRoundingMm = null,
         [Description("Length rounding method: Nearest|Up|Down")] string? lengthRoundingMethod = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (applyRules != null) p["applyRules"] = applyRules;
+        if (applyRules != null)
+        {
+            if (!TriStateFlag.TryParse(applyRules, out var applyRulesFlag))
+                return TriStateFlag.InvalidFlagResult("manage_fabric_rounding", "applyRules", applyRules);
+            p["applyRules"] = applyRulesFlag;
+        }
         if (lengthRoundingMm != null) p["lengthRoundingMm"] = lengthRoundingMm;
         if (lengthRoundingMethod != null) p["lengthRoundingMethod"] = lengthRoundingMethod;
         return (await revit.ExecuteAsync("manage_fabric_rounding", p, ct)).ToString();
@@ -699,13 +724,13 @@ public static class RebarTools
         RevitConnectionManager revit,
         [Description("Rebar element id (optional; category-wide if omitted)")] long? rebarId = null,
         [Description("Max rebars to return in the document-wide list. Default 100")] int? maxResults = null,
-        [Description("Return only count + blankMarkCount, no per-rebar list. Default false")] bool? summaryOnly = null,
+        [Description("Return only count + blankMarkCount, no per-rebar list. Default false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (rebarId != null) p["rebarId"] = rebarId;
         if (maxResults != null) p["maxResults"] = maxResults;
-        if (summaryOnly != null) p["summaryOnly"] = summaryOnly;
+        p["summaryOnly"] = summaryOnly;
         return (await revit.ExecuteAsync("get_rebar_numbering", p, ct)).ToString();
     }
 

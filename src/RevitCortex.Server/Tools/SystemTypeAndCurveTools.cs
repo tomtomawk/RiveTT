@@ -25,14 +25,14 @@ public static class SystemTypeAndCurveTools
         RevitConnectionManager revit,
         [Description("Category: OST_* code, English name, or localized label. Omit for the inventory")] string? category = null,
         [Description("Case- and accent-insensitive substring filter on family or type name")] string? nameFilter = null,
-        [Description("Also include loadable family types. Default: false")] bool? includeLoadable = null,
+        [Description("Also include loadable family types. Default: false")] bool includeLoadable = false,
         [Description("Max types to return. Default: 200")] int? limit = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (category != null) p["category"] = category;
         if (nameFilter != null) p["nameFilter"] = nameFilter;
-        if (includeLoadable != null) p["includeLoadable"] = includeLoadable;
+        p["includeLoadable"] = includeLoadable;
         if (limit != null) p["limit"] = limit;
         return (await revit.ExecuteAsync("list_system_types", p, ct)).ToString();
     }

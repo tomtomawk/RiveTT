@@ -17,24 +17,24 @@ public static class InteropTools
         [Description("Import-only: array of CortexElementRef objects produced by an export call (this app or Navis).")]
         JArray? refs = null,
         [Description("Import-only: when true, append to current selection instead of replacing it. Default false.")]
-        bool? append = null,
+        bool append = false,
         [Description("Import-only: isolate the resolved elements in the active view. Default true.")]
-        bool? isolate = null,
+        bool isolate = true,
         [Description("Import-only: create a section box framing the resolved elements. Default true.")]
-        bool? createSectionBox = null,
+        bool createSectionBox = true,
         [Description("Import-only: place red DirectShape markers on linked-element matches. Default true.")]
-        bool? createLinkedMarkers = null,
+        bool createLinkedMarkers = true,
         [Description("Import-only: use a post-command isolate flow (slower but more compatible). Default false.")]
-        bool? usePostCommandIsolate = null,
+        bool usePostCommandIsolate = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["mode"] = mode };
         if (refs != null) p["refs"] = refs;
-        if (append != null) p["append"] = append;
-        if (isolate != null) p["isolate"] = isolate;
-        if (createSectionBox != null) p["createSectionBox"] = createSectionBox;
-        if (createLinkedMarkers != null) p["createLinkedMarkers"] = createLinkedMarkers;
-        if (usePostCommandIsolate != null) p["usePostCommandIsolate"] = usePostCommandIsolate;
+        p["append"] = append;
+        p["isolate"] = isolate;
+        p["createSectionBox"] = createSectionBox;
+        p["createLinkedMarkers"] = createLinkedMarkers;
+        p["usePostCommandIsolate"] = usePostCommandIsolate;
 
         var result = await revit.ExecuteAsync("cross_app_selection", p, ct);
         return result.ToString();

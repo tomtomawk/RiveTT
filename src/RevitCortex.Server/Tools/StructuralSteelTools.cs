@@ -20,12 +20,12 @@ public static class StructuralSteelTools
     public static async Task<string> ListSteelConnectionHandlers(
         RevitConnectionManager revit,
         [Description("Maximum handlers to return. Default 100")] int? maxResults = null,
-        [Description("Return only the total count, no per-handler array. Default false")] bool? summaryOnly = null,
+        [Description("Return only the total count, no per-handler array. Default false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (maxResults != null) p["maxResults"] = maxResults;
-        if (summaryOnly != null) p["summaryOnly"] = summaryOnly;
+        p["summaryOnly"] = summaryOnly;
         return (await revit.ExecuteAsync("list_steel_connection_handlers", p, ct)).ToString();
     }
 
@@ -33,12 +33,12 @@ public static class StructuralSteelTools
     public static async Task<string> ListSteelConnectionTypes(
         RevitConnectionManager revit,
         [Description("Maximum types to return. Default 100")] int? maxResults = null,
-        [Description("Return only the total count, no per-type array. Default false")] bool? summaryOnly = null,
+        [Description("Return only the total count, no per-type array. Default false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (maxResults != null) p["maxResults"] = maxResults;
-        if (summaryOnly != null) p["summaryOnly"] = summaryOnly;
+        p["summaryOnly"] = summaryOnly;
         return (await revit.ExecuteAsync("list_steel_connection_types", p, ct)).ToString();
     }
 
@@ -46,12 +46,12 @@ public static class StructuralSteelTools
     public static async Task<string> ListSteelConnectionHandlerTypes(
         RevitConnectionManager revit,
         [Description("Maximum handler types to return. Default 100")] int? maxResults = null,
-        [Description("Return only the total count, no per-type array. Default false")] bool? summaryOnly = null,
+        [Description("Return only the total count, no per-type array. Default false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (maxResults != null) p["maxResults"] = maxResults;
-        if (summaryOnly != null) p["summaryOnly"] = summaryOnly;
+        p["summaryOnly"] = summaryOnly;
         return (await revit.ExecuteAsync("list_steel_connection_handler_types", p, ct)).ToString();
     }
 
@@ -59,12 +59,12 @@ public static class StructuralSteelTools
     public static async Task<string> ListSteelApprovalTypes(
         RevitConnectionManager revit,
         [Description("Maximum approval types to return. Default 100")] int? maxResults = null,
-        [Description("Return only the total count, no per-type array. Default false")] bool? summaryOnly = null,
+        [Description("Return only the total count, no per-type array. Default false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (maxResults != null) p["maxResults"] = maxResults;
-        if (summaryOnly != null) p["summaryOnly"] = summaryOnly;
+        p["summaryOnly"] = summaryOnly;
         return (await revit.ExecuteAsync("list_steel_approval_types", p, ct)).ToString();
     }
 
@@ -104,11 +104,11 @@ public static class StructuralSteelTools
     public static async Task<string> GetSteelElementProperties(
         RevitConnectionManager revit,
         [Description("Revit element id")] long elementId,
-        [Description("Return only presence flag without fabrication id detail. Default false")] bool? summaryOnly = null,
+        [Description("Return only presence flag without fabrication id detail. Default false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementId"] = elementId };
-        if (summaryOnly != null) p["summaryOnly"] = summaryOnly;
+        p["summaryOnly"] = summaryOnly;
         return (await revit.ExecuteAsync("get_steel_element_properties", p, ct)).ToString();
     }
 
@@ -136,12 +136,12 @@ public static class StructuralSteelTools
     public static async Task<string> GetSteelElementWarnings(
         RevitConnectionManager revit,
         [Description("Optional element id to scope the query; omit for a document-wide report")] long? elementId = null,
-        [Description("Return only counts, no per-warning array. Default false")] bool? summaryOnly = null,
+        [Description("Return only counts, no per-warning array. Default false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (elementId != null) p["elementId"] = elementId;
-        if (summaryOnly != null) p["summaryOnly"] = summaryOnly;
+        p["summaryOnly"] = summaryOnly;
         return (await revit.ExecuteAsync("get_steel_element_warnings", p, ct)).ToString();
     }
 
@@ -159,12 +159,12 @@ public static class StructuralSteelTools
     public static async Task<string> AnalyzeStructuralSteelModel(
         RevitConnectionManager revit,
         [Description("Maximum items per sample array. Default 100")] int? maxResults = null,
-        [Description("Return only counts, no sample arrays. Default false")] bool? summaryOnly = null,
+        [Description("Return only counts, no sample arrays. Default false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (maxResults != null) p["maxResults"] = maxResults;
-        if (summaryOnly != null) p["summaryOnly"] = summaryOnly;
+        p["summaryOnly"] = summaryOnly;
         return (await revit.ExecuteAsync("analyze_structural_steel_model", p, ct)).ToString();
     }
 
@@ -175,12 +175,12 @@ public static class StructuralSteelTools
         RevitConnectionManager revit,
         [Description("JSON array of >=2 element ids to connect, e.g. [123,456]")] string elementIds,
         [Description("Optional name applied to the connection (best-effort via the Comments parameter)")] string? connectionName = null,
-        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = JArray.Parse(elementIds) };
         if (connectionName != null) p["connectionName"] = connectionName;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("create_generic_steel_connection", p, ct)).ToString();
     }
 
@@ -191,14 +191,14 @@ public static class StructuralSteelTools
         [Description("Element id of the StructuralConnectionHandlerType to apply")] long? connectionHandlerTypeId = null,
         [Description("Name of the connection handler type to apply (resolved against the document)")] string? connectionHandlerTypeName = null,
         [Description("Optional JSON array of input points [{x,y,z}] in mm. Currently ignored (no public ConnectionInputPoint constructor)")] string? inputPoints = null,
-        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = JArray.Parse(elementIds) };
         if (connectionHandlerTypeId != null) p["connectionHandlerTypeId"] = connectionHandlerTypeId;
         if (connectionHandlerTypeName != null) p["connectionHandlerTypeName"] = connectionHandlerTypeName;
         if (inputPoints != null) p["inputPoints"] = JArray.Parse(inputPoints);
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("create_steel_connection", p, ct)).ToString();
     }
 
@@ -208,7 +208,7 @@ public static class StructuralSteelTools
         [Description("Element id of the StructuralConnectionHandler")] long connectionId,
         [Description("Action: add_element_ids | remove_element_ids")] string action,
         [Description("JSON array of element ids for the *_element_ids actions, e.g. [123,456]")] string elementIds,
-        [Description("Preview without modifying. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without modifying. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -217,7 +217,7 @@ public static class StructuralSteelTools
             ["action"] = action,
             ["elementIds"] = JArray.Parse(elementIds)
         };
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("modify_steel_connection_inputs", p, ct)).ToString();
     }
 
@@ -227,13 +227,13 @@ public static class StructuralSteelTools
         [Description("Element id of the StructuralConnectionHandler to retype")] long connectionId,
         [Description("Element id of the new StructuralConnectionHandlerType")] long? connectionHandlerTypeId = null,
         [Description("Name of the new connection handler type (resolved against the document)")] string? connectionHandlerTypeName = null,
-        [Description("Preview without recreating. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without recreating. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["connectionId"] = connectionId };
         if (connectionHandlerTypeId != null) p["connectionHandlerTypeId"] = connectionHandlerTypeId;
         if (connectionHandlerTypeName != null) p["connectionHandlerTypeName"] = connectionHandlerTypeName;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("set_steel_connection_type", p, ct)).ToString();
     }
 
@@ -243,13 +243,13 @@ public static class StructuralSteelTools
         [Description("Element id of the StructuralConnectionHandler")] long connectionId,
         [Description("Element id of the approval type to apply")] long? approvalTypeId = null,
         [Description("Name of the approval type to apply (validated then matched by name)")] string? approvalTypeName = null,
-        [Description("Preview without applying. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without applying. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["connectionId"] = connectionId };
         if (approvalTypeId != null) p["approvalTypeId"] = approvalTypeId;
         if (approvalTypeName != null) p["approvalTypeName"] = approvalTypeName;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("set_steel_connection_approval", p, ct)).ToString();
     }
 
@@ -258,11 +258,11 @@ public static class StructuralSteelTools
         RevitConnectionManager revit,
         [Description("Element id of the StructuralConnectionHandler")] long connectionId,
         [Description("Code-checking status: NotCalculated | OkChecked | CheckingFailed")] string status,
-        [Description("Preview without applying. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without applying. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["connectionId"] = connectionId, ["status"] = status };
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("set_steel_connection_status", p, ct)).ToString();
     }
 
@@ -280,11 +280,11 @@ public static class StructuralSteelTools
     public static async Task<string> DeleteSteelConnection(
         RevitConnectionManager revit,
         [Description("Element id of the StructuralConnectionHandler to delete")] long connectionId,
-        [Description("Preview without deleting. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without deleting. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["connectionId"] = connectionId };
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("delete_steel_connection", p, ct)).ToString();
     }
 
@@ -296,13 +296,13 @@ public static class StructuralSteelTools
         [Description("Element id of the connection family symbol to bind")] long familySymbolId,
         [Description("Applicability target: BeamsAndBraces | ColumnTop | ColumnBase | Connection. Default Connection")] string? applyTo = null,
         [Description("Name for the new connection type. Default 'Steel Connection Type'")] string? name = null,
-        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["familySymbolId"] = familySymbolId };
         if (applyTo != null) p["applyTo"] = applyTo;
         if (name != null) p["name"] = name;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("create_steel_structural_connection_type", p, ct)).ToString();
     }
 
@@ -312,24 +312,24 @@ public static class StructuralSteelTools
         [Description("Name for the new connection handler type")] string name,
         [Description("Optional family name. Default empty")] string? familyName = null,
         [Description("Optional GUID (00000000-0000-0000-0000-000000000000 form). A new GUID is generated when omitted")] string? guid = null,
-        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["name"] = name };
         if (familyName != null) p["familyName"] = familyName;
         if (guid != null) p["guid"] = guid;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("create_steel_connection_handler_type", p, ct)).ToString();
     }
 
     [McpServerTool(Name = "create_default_steel_connection_handler_type"), Description("Create the default StructuralConnectionHandlerType for the document (CreateDefaultStructuralConnectionHandlerType). Returns the new type id. Supports dryRun.")]
     public static async Task<string> CreateDefaultSteelConnectionHandlerType(
         RevitConnectionManager revit,
-        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("create_default_steel_connection_handler_type", p, ct)).ToString();
     }
 
@@ -338,11 +338,11 @@ public static class StructuralSteelTools
         RevitConnectionManager revit,
         [Description("Element id of the StructuralConnectionType to re-bind")] long connectionTypeId,
         [Description("Element id of the new connection family symbol")] long familySymbolId,
-        [Description("Preview without changing. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without changing. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["connectionTypeId"] = connectionTypeId, ["familySymbolId"] = familySymbolId };
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("set_steel_connection_type_family_symbol", p, ct)).ToString();
     }
 
@@ -351,12 +351,12 @@ public static class StructuralSteelTools
         RevitConnectionManager revit,
         [Description("Action: create | list")] string action,
         [Description("Name for the approval type (required for create)")] string? name = null,
-        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without creating. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["action"] = action };
         if (name != null) p["name"] = name;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("manage_steel_approval_type", p, ct)).ToString();
     }
 
@@ -409,11 +409,11 @@ public static class StructuralSteelTools
     public static async Task<string> AddSteelFabricationInfo(
         RevitConnectionManager revit,
         [Description("JSON array of element ids, e.g. [123,456]")] string elementIds,
-        [Description("Preview without writing. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without writing. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = JArray.Parse(elementIds) };
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("add_steel_fabrication_info", p, ct)).ToString();
     }
 
@@ -467,13 +467,13 @@ public static class StructuralSteelTools
         RevitConnectionManager revit,
         [Description("Element id of the cutter")] long cutElementId,
         [Description("Element id of the element to be cut")] long targetElementId,
-        [Description("Split the cutting solid's faces. Default false")] bool? splitFaces = null,
-        [Description("Preview without cutting. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Split the cutting solid's faces. Default false")] bool splitFaces = false,
+        [Description("Preview without cutting. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["cutElementId"] = cutElementId, ["targetElementId"] = targetElementId };
-        if (splitFaces != null) p["splitFaces"] = splitFaces;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["splitFaces"] = splitFaces;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("add_steel_solid_cut", p, ct)).ToString();
     }
 
@@ -493,11 +493,11 @@ public static class StructuralSteelTools
         RevitConnectionManager revit,
         [Description("Element id of the cutter")] long cutElementId,
         [Description("Element id of the element to be cut")] long targetElementId,
-        [Description("Preview without removing. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without removing. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["cutElementId"] = cutElementId, ["targetElementId"] = targetElementId };
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("remove_steel_solid_cut", p, ct)).ToString();
     }
 
@@ -518,11 +518,11 @@ public static class StructuralSteelTools
         RevitConnectionManager revit,
         [Description("Element id of the cutting void family instance")] long voidInstanceId,
         [Description("Element id of the element to be cut")] long targetElementId,
-        [Description("Preview without cutting. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without cutting. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["voidInstanceId"] = voidInstanceId, ["targetElementId"] = targetElementId };
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("add_steel_instance_void_cut", p, ct)).ToString();
     }
 
@@ -531,11 +531,11 @@ public static class StructuralSteelTools
         RevitConnectionManager revit,
         [Description("Element id of the cutting void family instance")] long voidInstanceId,
         [Description("Element id of the element being cut")] long targetElementId,
-        [Description("Preview without removing. Default: true (preview); set false to execute.")] bool? dryRun = null,
+        [Description("Preview without removing. Default: true (preview); set false to execute.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["voidInstanceId"] = voidInstanceId, ["targetElementId"] = targetElementId };
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         return (await revit.ExecuteAsync("remove_steel_instance_void_cut", p, ct)).ToString();
     }
 
@@ -544,12 +544,12 @@ public static class StructuralSteelTools
         RevitConnectionManager revit,
         [Description("Revit element id")] long elementId,
         [Description("Maximum ids per array. Default 100")] int? maxResults = null,
-        [Description("Return only counts, no id arrays. Default false")] bool? summaryOnly = null,
+        [Description("Return only counts, no id arrays. Default false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementId"] = elementId };
         if (maxResults != null) p["maxResults"] = maxResults;
-        if (summaryOnly != null) p["summaryOnly"] = summaryOnly;
+        p["summaryOnly"] = summaryOnly;
         return (await revit.ExecuteAsync("get_solid_cut_relationships", p, ct)).ToString();
     }
 
@@ -558,12 +558,12 @@ public static class StructuralSteelTools
         RevitConnectionManager revit,
         [Description("Revit element id")] long elementId,
         [Description("Maximum ids per array. Default 100")] int? maxResults = null,
-        [Description("Return only counts, no id arrays. Default false")] bool? summaryOnly = null,
+        [Description("Return only counts, no id arrays. Default false")] bool summaryOnly = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementId"] = elementId };
         if (maxResults != null) p["maxResults"] = maxResults;
-        if (summaryOnly != null) p["summaryOnly"] = summaryOnly;
+        p["summaryOnly"] = summaryOnly;
         return (await revit.ExecuteAsync("get_instance_void_cut_relationships", p, ct)).ToString();
     }
 

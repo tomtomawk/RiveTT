@@ -14,7 +14,7 @@ public static class ParameterTools
         RevitConnectionManager revit,
         [Description("JSON-encoded array of set requests — pass as a string. Each item must have elementId, value, and either parameterName or builtInParameter. Use null to clear. For lengths/areas pass a unit string like \"3000 mm\" to avoid writing feet. Example: \"[{\\\"elementId\\\": 123, \\\"builtInParameter\\\": \\\"REBAR_SYSTEM_SPACING_TOP_DIR_1\\\", \\\"value\\\": \\\"200 mm\\\"}]\"")] string requests,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
-        [Description("Include per-request results. Default: false")] bool? includeDetails = null,
+        [Description("Include per-request results. Default: false")] bool includeDetails = false,
         [Description("Maximum result rows when includeDetails=true. Default: 20")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
@@ -25,7 +25,7 @@ public static class ParameterTools
             return $"{{\"error\": \"requests must be a JSON array encoded as a string. Parse failed: {ex.Message}. Example: [{{\\\"elementId\\\": 123, \\\"parameterName\\\": \\\"Comments\\\", \\\"value\\\": \\\"test\\\"}}]\"}}";
         }
         var p = new JObject { ["requests"] = parsed, ["dryRun"] = dryRun };
-        if (includeDetails != null) p["includeDetails"] = includeDetails;
+        p["includeDetails"] = includeDetails;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         var result = await revit.ExecuteAsync("set_element_parameters", p, ct);
         return result.ToString();
@@ -44,8 +44,8 @@ public static class ParameterTools
         [Description("Value to set")] string? value = null,
         [Description("Text to find (for find_replace operation)")] string? findText = null,
         [Description("Replacement text (for find_replace operation)")] string? replaceText = null,
-        [Description("Preview changes without applying. Default: true")] bool? dryRun = true,
-        [Description("If true, include up to `sampleLimit` modified elements in the response. Default false to keep dryRun payloads small — most callers only need the counts.")] bool? includeSample = null,
+        [Description("Preview changes without applying. Default: true")] bool dryRun = true,
+        [Description("If true, include up to `sampleLimit` modified elements in the response. Default false to keep dryRun payloads small — most callers only need the counts.")] bool includeSample = false,
         [Description("How many modified elements to include when includeSample=true. Default 100.")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
@@ -62,8 +62,8 @@ public static class ParameterTools
         if (value != null) p["value"] = value;
         if (findText != null) p["findText"] = findText;
         if (replaceText != null) p["replaceText"] = replaceText;
-        if (dryRun != null) p["dryRun"] = dryRun;
-        if (includeSample != null) p["includeSample"] = includeSample;
+        p["dryRun"] = dryRun;
+        p["includeSample"] = includeSample;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         var result = await revit.ExecuteAsync("bulk_modify_parameter_values", p, ct);
         return result.ToString();
@@ -102,16 +102,16 @@ public static class ParameterTools
     public static async Task<string> SyncCsvParameters(
         RevitConnectionManager revit,
         [Description("JSON rows: [{elementId, paramName1:value}] or [{elementId, parameters:{...}}]")] string data,
-        [Description("Preview changes without applying. Default: true")] bool? dryRun = true,
+        [Description("Preview changes without applying. Default: true")] bool dryRun = true,
         [Description("Map CSV headers to display names or BuiltInParameter values, e.g. {\"Numéro\":\"ROOM_NUMBER\"}")] string? parameterMap = null,
-        [Description("Include per-element diagnostics. Default: false")] bool? includeDetails = null,
+        [Description("Include per-element diagnostics. Default: false")] bool includeDetails = false,
         [Description("Maximum detail rows when includeDetails=true. Default: 20")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["data"] = JArray.Parse(data) };
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         if (parameterMap != null) p["parameterMap"] = JObject.Parse(parameterMap);
-        if (includeDetails != null) p["includeDetails"] = includeDetails;
+        p["includeDetails"] = includeDetails;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         var result = await revit.ExecuteAsync("sync_csv_parameters", p, ct);
         return result.ToString();
@@ -129,7 +129,7 @@ public static class ParameterTools
         [Description("Persistent saved selection name")] string? savedSelectionName = null,
         [Description("JSON array of category names to filter, e.g. [\"OST_Doors\"]")] string? categories = null,
         [Description("Preview only when true (default). Set false to actually write the values.")] bool dryRun = true,
-        [Description("Include per-element details. Default: false")] bool? includeDetails = null,
+        [Description("Include per-element details. Default: false")] bool includeDetails = false,
         [Description("Maximum detail rows. Default: 20")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
@@ -145,7 +145,7 @@ public static class ParameterTools
         if (selectionToken != null) p["selectionToken"] = selectionToken;
         if (savedSelectionName != null) p["savedSelectionName"] = savedSelectionName;
         if (categories != null) p["categories"] = JArray.Parse(categories);
-        if (includeDetails != null) p["includeDetails"] = includeDetails;
+        p["includeDetails"] = includeDetails;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         var result = await revit.ExecuteAsync("add_prefix_suffix", p, ct);
         return result.ToString();
@@ -160,8 +160,8 @@ public static class ParameterTools
         [Description("Temporary token returned by capture_selection")] string? selectionToken = null,
         [Description("Persistent saved selection name")] string? savedSelectionName = null,
         [Description("JSON array of category names to filter")] string? categories = null,
-        [Description("Preview only. Default: true")] bool? dryRun = true,
-        [Description("Include per-element details. Default: false")] bool? includeDetails = null,
+        [Description("Preview only. Default: true")] bool dryRun = true,
+        [Description("Include per-element details. Default: false")] bool includeDetails = false,
         [Description("Maximum detail rows. Default: 20")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
@@ -171,8 +171,8 @@ public static class ParameterTools
         if (selectionToken != null) p["selectionToken"] = selectionToken;
         if (savedSelectionName != null) p["savedSelectionName"] = savedSelectionName;
         if (categories != null) p["categories"] = JArray.Parse(categories);
-        if (dryRun != null) p["dryRun"] = dryRun;
-        if (includeDetails != null) p["includeDetails"] = includeDetails;
+        p["dryRun"] = dryRun;
+        p["includeDetails"] = includeDetails;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         var result = await revit.ExecuteAsync("clear_parameter_values", p, ct);
         return result.ToString();
@@ -184,7 +184,7 @@ public static class ParameterTools
         [Description("Name of the shared parameter")] string parameterName,
         [Description("Categories to bind to (OST_* codes or display names)")] string[] categories,
         [Description("Group name in the shared parameter file. Default: RevitCortex")] string? groupName = null,
-        [Description("Instance (true) or type (false) binding. Default: true")] bool? isInstance = null,
+        [Description("Instance (true) or type (false) binding. Default: true Pass \"true\" or \"false\"; omit to leave unchanged.")] string? isInstance = null,
         [Description("Data type for a newly created definition: Text | Integer | Number | Length | Area | Volume | Angle | YesNo | URL. Default: Text. Ignored if the definition already exists in the shared parameter file.")] string? dataType = null,
         CancellationToken ct = default)
     {
@@ -194,7 +194,12 @@ public static class ParameterTools
             ["categories"] = new JArray(categories),
         };
         if (groupName != null) p["groupName"] = groupName;
-        if (isInstance != null) p["isInstance"] = isInstance;
+        if (isInstance != null)
+        {
+            if (!TriStateFlag.TryParse(isInstance, out var isInstanceFlag))
+                return TriStateFlag.InvalidFlagResult("add_shared_parameter", "isInstance", isInstance);
+            p["isInstance"] = isInstanceFlag;
+        }
         if (dataType != null) p["dataType"] = dataType;
         var result = await revit.ExecuteAsync("add_shared_parameter", p, ct);
         return result.ToString();
@@ -206,25 +211,30 @@ public static class ParameterTools
         [Description("Action: list | create | delete | modify | set_group | set_binding_type | rename")] string action = "list",
         [Description("Parameter name (required for create/delete/modify/set_group/set_binding_type/rename). For set_group you can also pass parameterNames[].")] string? parameterName = null,
         [Description("Data type for create: Text | Integer | Number | Length | Area | Volume | Angle | YesNo | URL")] string? dataType = null,
-        [Description("Instance (true) or type (false) binding. Used on 'create' and on 'set_binding_type' (the target binding type).")] bool? isInstance = null,
+        [Description("Instance (true) or type (false) binding. Used on 'create' and on 'set_binding_type' (the target binding type). Pass \"true\" or \"false\"; omit to leave unchanged.")] string? isInstance = null,
         [Description("Categories list (OST_* codes or display names) — for create/modify")] string[]? categories = null,
         [Description("How modify applies 'categories': add (default, union), remove (unbind listed), replace (set to exactly the listed). Ignored for other actions.")] string? categoriesMode = null,
         [Description("Parameter names array — for set_group bulk operation, e.g. [\"BCA_RES_Stato-Conservazione\",\"BCA_CME_Codice-Tariffa\"]")] string[]? parameterNames = null,
         [Description("Target group for set_group action. Short names: IdentityData, Data, Constraints, Geometry, Graphics, Materials, Text, General, Phasing, Visibility, Construction, Electrical, ElectricalEngineering, ElectricalLighting, ElectricalLoads, Mechanical, MechanicalAirflow, Plumbing, FireProtection, Ifc, AnalysisResults, Structural, StructuralAnalysis. A full ForgeTypeId is also accepted.")] string? targetGroup = null,
         [Description("New name — only used by 'rename' (which returns API-limitation guidance for project parameters; use global parameters if you need rename).")] string? newName = null,
-        [Description("Preview only (set_group). Default: true (preview); set false to apply the changes.")] bool? dryRun = null,
+        [Description("Preview only (set_group). Default: true (preview); set false to apply the changes.")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["action"] = action };
         if (parameterName != null) p["parameterName"] = parameterName;
         if (dataType != null) p["dataType"] = dataType;
-        if (isInstance != null) p["isInstance"] = isInstance;
+        if (isInstance != null)
+        {
+            if (!TriStateFlag.TryParse(isInstance, out var isInstanceFlag))
+                return TriStateFlag.InvalidFlagResult("manage_project_parameters", "isInstance", isInstance);
+            p["isInstance"] = isInstanceFlag;
+        }
         if (categories != null) p["categories"] = new JArray(categories);
         if (categoriesMode != null) p["categoriesMode"] = categoriesMode;
         if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
         if (targetGroup != null) p["targetGroup"] = targetGroup;
         if (newName != null) p["newName"] = newName;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("manage_project_parameters", p, ct);
         return result.ToString();
     }
@@ -235,8 +245,8 @@ public static class ParameterTools
         [Description("Source element ID")] long sourceElementId,
         [Description("Target element IDs (array of long)")] long[] targetElementIds,
         [Description("Parameter names to copy; if empty, copies all writable parameters")] string[]? parameterNames = null,
-        [Description("Also copy type-level parameters. Default: false")] bool? includeType = null,
-        [Description("Preview changes without applying. Default: true")] bool? dryRun = null,
+        [Description("Also copy type-level parameters. Default: false")] bool includeType = false,
+        [Description("Preview changes without applying. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -245,8 +255,8 @@ public static class ParameterTools
             ["targetElementIds"] = new JArray(targetElementIds.Cast<object>().ToArray()),
         };
         if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
-        if (includeType != null) p["includeType"] = includeType;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["includeType"] = includeType;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("transfer_parameters", p, ct);
         return result.ToString();
     }

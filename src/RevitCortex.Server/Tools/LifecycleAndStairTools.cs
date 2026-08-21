@@ -24,15 +24,15 @@ public static class LifecycleAndStairTools
         RevitConnectionManager revit,
         [Description("Absolute output .rvt path")] string targetPath,
         [Description("Absolute path of the .rte template. Omit for Revit's default project template")] string? templatePath = null,
-        [Description("Replace an existing target file. Default false")] bool? overwrite = null,
-        [Description("Open and activate the new project in Revit once saved. Default false")] bool? activate = null,
+        [Description("Replace an existing target file. Default false")] bool overwrite = false,
+        [Description("Open and activate the new project in Revit once saved. Default false")] bool activate = false,
         [Description("Preview without creating. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["targetPath"] = targetPath, ["dryRun"] = dryRun };
         if (templatePath != null) p["templatePath"] = templatePath;
-        if (overwrite != null) p["overwrite"] = overwrite;
-        if (activate != null) p["activate"] = activate;
+        p["overwrite"] = overwrite;
+        p["activate"] = activate;
         return (await revit.ExecuteAsync("create_document", p, ct)).ToString();
     }
 
@@ -43,12 +43,12 @@ public static class LifecycleAndStairTools
     public static async Task<string> OpenDocument(
         RevitConnectionManager revit,
         [Description("Absolute .rvt path to open")] string filePath,
-        [Description("Detach from central and preserve worksets (workshared models). Default false")] bool? detachFromCentral = null,
+        [Description("Detach from central and preserve worksets (workshared models). Default false")] bool detachFromCentral = false,
         [Description("Preview without opening. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["filePath"] = filePath, ["dryRun"] = dryRun };
-        if (detachFromCentral != null) p["detachFromCentral"] = detachFromCentral;
+        p["detachFromCentral"] = detachFromCentral;
         return (await revit.ExecuteAsync("open_document", p, ct)).ToString();
     }
 
@@ -93,7 +93,7 @@ public static class LifecycleAndStairTools
         [Description("Element IDs to add to the group")] long[]? addElementIds = null,
         [Description("Element IDs to remove from the group")] long[]? removeElementIds = null,
         [Description("Name for the resulting group type. Defaults to the original name")] string? newTypeName = null,
-        [Description("Accept that other instances of the type keep the old definition. Default false")] bool? allowMultiInstance = null,
+        [Description("Accept that other instances of the type keep the old definition. Default false")] bool allowMultiInstance = false,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
@@ -101,7 +101,7 @@ public static class LifecycleAndStairTools
         if (addElementIds != null) p["addElementIds"] = new JArray(addElementIds.Cast<object>().ToArray());
         if (removeElementIds != null) p["removeElementIds"] = new JArray(removeElementIds.Cast<object>().ToArray());
         if (newTypeName != null) p["newTypeName"] = newTypeName;
-        if (allowMultiInstance != null) p["allowMultiInstance"] = allowMultiInstance;
+        p["allowMultiInstance"] = allowMultiInstance;
         return (await revit.ExecuteAsync("edit_group_members", p, ct)).ToString();
     }
 }

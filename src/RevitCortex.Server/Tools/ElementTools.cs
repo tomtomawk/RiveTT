@@ -53,7 +53,7 @@ public static class ElementTools
         [Description("Opaque cursor returned by the previous page")] string? cursor = null,
         [Description("Response mode: summary | idsOnly | details. Default: summary")] string? responseMode = "summary",
         [Description("Combine the filters with: and | or. Default: and")] string? combineWith = null,
-        [Description("Invert the combined filter (NOT) — return elements that do NOT match. Default: false")] bool? invert = null,
+        [Description("Invert the combined filter (NOT) — return elements that do NOT match. Default: false")] bool invert = false,
         [Description("Restrict instances to a level: JSON {\"levelId\":123} or {\"levelName\":\"L1\"}")] string? levelFilter = null,
         [Description("Optional group filter: grouped | ungrouped")] string? groupStatus = null,
         [Description("Optional wall constraint filter: level_constrained | unconnected | attached | unattached")] string? wallConstraintStatus = null,
@@ -67,7 +67,7 @@ public static class ElementTools
         if (cursor != null) data["cursor"] = cursor;
         if (responseMode != null) data["responseMode"] = responseMode;
         if (combineWith != null) data["combineWith"] = combineWith;
-        if (invert != null) data["invert"] = invert;
+        data["invert"] = invert;
         if (levelFilter != null) data["levelFilter"] = JObject.Parse(levelFilter);
         if (groupStatus != null) data["groupStatus"] = groupStatus;
         if (wallConstraintStatus != null) data["wallConstraintStatus"] = wallConstraintStatus;
@@ -203,7 +203,7 @@ public static class ElementTools
         [Description("Source element ID")] long sourceElementId,
         [Description("Target element IDs")] long[] targetElementIds,
         [Description("Parameter names to copy; if omitted, copies all writable parameters")] string[]? parameterNames = null,
-        [Description("Also copy type-level parameters. Default: false")] bool? includeTypeParameters = null,
+        [Description("Also copy type-level parameters. Default: false")] bool includeTypeParameters = false,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -212,7 +212,7 @@ public static class ElementTools
             ["targetElementIds"] = new JArray(targetElementIds.Cast<object>().ToArray()),
         };
         if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
-        if (includeTypeParameters != null) p["includeTypeParameters"] = includeTypeParameters;
+        p["includeTypeParameters"] = includeTypeParameters;
         var result = await revit.ExecuteAsync("match_element_properties", p, ct);
         return result.ToString();
     }
@@ -248,7 +248,7 @@ public static class ElementTools
         [Description("Prefix string")] string? prefix = null,
         [Description("Suffix string")] string? suffix = null,
         [Description("Sort strategy: location | name. Default: location")] string? sortBy = null,
-        [Description("Preview without writing. Default: true")] bool? dryRun = null,
+        [Description("Preview without writing. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -260,7 +260,7 @@ public static class ElementTools
         if (prefix != null) p["prefix"] = prefix;
         if (suffix != null) p["suffix"] = suffix;
         if (sortBy != null) p["sortBy"] = sortBy;
-        if (dryRun != null) p["dryRun"] = dryRun;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("renumber_elements", p, ct);
         return result.ToString();
     }
@@ -280,12 +280,12 @@ public static class ElementTools
     public static async Task<string> LoadSelection(
         RevitConnectionManager revit,
         [Description("Name of the selection to load. Omit to list the saved selections")] string? name = null,
-        [Description("Select the elements in the active view. Default: true")] bool? selectInView = null,
+        [Description("Select the elements in the active view. Default: true")] bool selectInView = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (name != null) p["name"] = name;
-        if (selectInView != null) p["selectInView"] = selectInView;
+        p["selectInView"] = selectInView;
         var result = await revit.ExecuteAsync("load_selection", p, ct);
         return result.ToString();
     }
@@ -337,7 +337,7 @@ public static class ElementTools
         [Description("Custom box max X (when volumeType=custom)")] double? customMaxX = null,
         [Description("Custom box max Y (when volumeType=custom)")] double? customMaxY = null,
         [Description("Custom box max Z (when volumeType=custom)")] double? customMaxZ = null,
-        [Description("For volumeType=room, confirm containment against the real room solid (ClosedShell) instead of the room bounding box. Default: true.")] bool? useRoomSolid = null,
+        [Description("For volumeType=room, confirm containment against the real room solid (ClosedShell) instead of the room bounding box. Default: true.")] bool useRoomSolid = true,
         [Description("inside (default) = elements contained in the volume; boundary = elements that BOUND the room (walls, columns, separation lines), from Revit boundary segments")] string? containment = null,
         [Description("Strip per-element extras. Default: false")] bool compact = false,
         CancellationToken ct = default)
@@ -347,7 +347,7 @@ public static class ElementTools
         if (volumeIds != null) p["volumeIds"] = new JArray(volumeIds.Cast<object>().ToArray());
         if (categoryFilter != null) p["categoryFilter"] = new JArray(categoryFilter);
         if (maxElementsPerVolume != null) p["maxElementsPerVolume"] = maxElementsPerVolume;
-        if (useRoomSolid != null) p["useRoomSolid"] = useRoomSolid;
+        p["useRoomSolid"] = useRoomSolid;
         if (containment != null) p["containment"] = containment;
         if (customMinX != null) p["customMinX"] = customMinX;
         if (customMinY != null) p["customMinY"] = customMinY;
@@ -384,8 +384,8 @@ public static class ElementTools
         [Description("Room numbers to query")] string[]? roomNumbers = null,
         [Description("Level name filter")] string? levelName = null,
         [Description("Element type: doors | windows | both. Default: both")] string? elementType = null,
-        [Description("Include room parameters in response. Default: false")] bool? includeRoomParams = null,
-        [Description("Include opening element parameters in response. Default: false")] bool? includeElementParams = null,
+        [Description("Include room parameters in response. Default: false")] bool includeRoomParams = false,
+        [Description("Include opening element parameters in response. Default: false")] bool includeElementParams = false,
         [Description("Specific parameter names to extract")] string[]? parameterNames = null,
         [Description("Max elements per room. Default: 100")] int? maxElementsPerRoom = null,
         [Description("Return a compact payload. Default: false")] bool compact = false,
@@ -397,8 +397,8 @@ public static class ElementTools
         if (roomNumbers != null) p["roomNumbers"] = new JArray(roomNumbers);
         if (levelName != null) p["levelName"] = levelName;
         if (elementType != null) p["elementType"] = elementType;
-        if (includeRoomParams != null) p["includeRoomParams"] = includeRoomParams;
-        if (includeElementParams != null) p["includeElementParams"] = includeElementParams;
+        p["includeRoomParams"] = includeRoomParams;
+        p["includeElementParams"] = includeElementParams;
         if (parameterNames != null) p["parameterNames"] = new JArray(parameterNames);
         if (maxElementsPerRoom != null) p["maxElementsPerRoom"] = maxElementsPerRoom;
         var result = await revit.ExecuteAsync("get_room_openings", p, ct);

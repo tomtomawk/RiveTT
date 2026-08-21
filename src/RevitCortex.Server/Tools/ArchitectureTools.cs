@@ -51,8 +51,8 @@ public static class ArchitectureTools
         [Description("Host wall element ID")] long hostWallId,
         [Description("Insertion point JSON {x,y,z} in mm")] string locationPoint,
         [Description("Level element ID")] long levelId,
-        [Description("Flip the exterior/interior facing direction. Default false")] bool? facingFlipped = null,
-        [Description("Flip the door hand. Default false")] bool? handFlipped = null,
+        [Description("Flip the exterior/interior facing direction. Default false")] bool facingFlipped = false,
+        [Description("Flip the door hand. Default false")] bool handFlipped = false,
         [Description("z semantics: absolute (default) | relativeToLevel")] string? zMode = null,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
@@ -66,7 +66,7 @@ public static class ArchitectureTools
         [Description("Host wall element ID")] long hostWallId,
         [Description("Insertion point JSON {x,y,z} in mm")] string locationPoint,
         [Description("Level element ID")] long levelId,
-        [Description("Flip the exterior/interior facing direction. Default false")] bool? facingFlipped = null,
+        [Description("Flip the exterior/interior facing direction. Default false")] bool facingFlipped = false,
         [Description("z semantics: absolute (default) | relativeToLevel")] string? zMode = null,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
@@ -108,7 +108,7 @@ public static class ArchitectureTools
 
     private static async Task<string> CreateHostedOpening(
         RevitConnectionManager revit, string category, long typeId, long hostWallId,
-        string locationPoint, long levelId, bool? facingFlipped, bool? handFlipped,
+        string locationPoint, long levelId, bool facingFlipped, bool handFlipped,
         string? zMode, bool dryRun, CancellationToken ct)
     {
         var spec = new JObject
@@ -120,8 +120,8 @@ public static class ArchitectureTools
             ["locationPoint"] = JObject.Parse(locationPoint),
             ["strictType"] = true
         };
-        if (facingFlipped != null) spec["facingFlipped"] = facingFlipped;
-        if (handFlipped != null) spec["handFlipped"] = handFlipped;
+        spec["facingFlipped"] = facingFlipped;
+        spec["handFlipped"] = handFlipped;
         if (zMode != null) spec["zMode"] = zMode;
         return (await revit.ExecuteAsync("create_point_based_element", new JObject
         {
