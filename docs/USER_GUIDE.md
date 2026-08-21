@@ -11,8 +11,15 @@ Prérequis : Revit 2027 x64 et le SDK/runtime .NET 10.
     .\distribution\install.ps1
     codex mcp add MCPRVTT27 -- "%LOCALAPPDATA%\MCPRVTT27\server\MCPRVTT27.Server.exe"
 
-Fermer Revit avant l'installation. Après redémarrage, ouvrir un projet et
-attendre quelques secondes que sa session soit publiée.
+`install.ps1` remplace l'installation précédente : **aucune désinstallation
+préalable n'est nécessaire**. Il refuse de démarrer si Revit 2027 tourne (les
+DLL du plugin seraient verrouillées) ou si un serveur MCP `MCPRVTT27.Server`
+tourne encore (Windows interdit de remplacer un `.exe` en cours d'exécution) —
+fermer les deux, installer, puis rouvrir.
+
+Après redémarrage, ouvrir un projet et attendre quelques secondes que sa session
+soit publiée. Vérifier la version active avec `get_server_capabilities`
+(`execution.serverVersion`).
 
 ## Utilisation sûre
 

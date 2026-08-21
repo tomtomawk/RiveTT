@@ -11,7 +11,15 @@ $manifestTarget = Join-Path $addinRoot 'MCPRVTT27.addin'
 $serverTarget = Join-Path $env:LOCALAPPDATA 'MCPRVTT27\server'
 
 if (Get-Process -Name Revit -ErrorAction SilentlyContinue) {
-    throw 'Fermez Revit 2027 avant l''installation pour libérer les DLL.'
+    throw 'Fermez Revit 2027 avant l''installation pour libérer les DLL du plugin.'
+}
+# Le serveur stdio est un .exe : Windows interdit de le remplacer tant qu'un
+# client MCP le fait tourner. Sans ce contrôle, l'installation échouait sur un
+# « accès refusé » qui ne disait pas quel processus bloquait.
+$runningServers = @(Get-Process -Name 'MCPRVTT27.Server' -ErrorAction SilentlyContinue)
+if ($runningServers.Count -gt 0) {
+    $pids = ($runningServers | ForEach-Object { $_.Id }) -join ', '
+    throw "Le serveur MCP tourne encore (PID $pids). Fermez le client MCP (ou déconnectez le serveur MCPRVTT27) avant l'installation, puis relancez ce script."
 }
 if (-not (Test-Path $pluginSource) -or -not (Test-Path $manifestSource)) {
     throw 'Paquet plugin incomplet. Exécutez build.ps1 avant de lancer cet installateur.'
