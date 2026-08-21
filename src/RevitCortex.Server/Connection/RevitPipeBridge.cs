@@ -152,9 +152,70 @@ public sealed class RevitConnectionManager
             using var bridge = new RevitPipeBridge(commandTimeoutSeconds);
             return await bridge.SendCommandAsync(method, parameters, cancellationToken).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The caller cancelled: let the host see a cancellation, not a result.
+            throw;
+        }
+        catch (Exception exception)
+        {
+            // Single choke point for every transport failure. Letting these escape
+            // surfaced as the MCP host's generic "An error occurred invoking '<tool>'",
+            // which reads as "the tool is broken" and sent past sessions hunting
+            // through paths, caches and document state for a problem that was a dead
+            // pipe or a timeout.
+            return TransportError.Describe(method, exception, commandTimeoutSeconds);
+        }
         finally
         {
             _mutex.Release();
         }
+    }
+}
+
+/// <summary>
+/// Turns a transport-layer exception into a structured error payload.
+///
+/// Separate and public so it can be unit-tested without a Revit session: the
+/// behavior being locked is that a dead pipe, a timeout or a missing session
+/// arrives as DATA the caller can read, never as the MCP host's generic
+/// "An error occurred invoking '&lt;tool&gt;'".
+/// </summary>
+public static class TransportError
+{
+    public static JObject Describe(string method, Exception exception, int timeoutSeconds)
+    {
+        var (code, suggestion) = exception switch
+        {
+            InvalidOperationException => ("NoRevitSession",
+                "Start Revit 2027, open a project, and wait for its session to be published."),
+            TimeoutException => ("Timeout",
+                $"The Revit session did not answer within {timeoutSeconds}s. Revit may be busy, showing a " +
+                "modal dialog, or executing a long operation — check the Revit window, then retry with a " +
+                "narrower request."),
+            IOException => ("PipeClosed",
+                "The Revit pipe closed mid-request (Revit closed, crashed, or the add-in was reloaded). " +
+                "Re-check the session with get_project_info before retrying a write."),
+            UnauthorizedAccessException => ("PipeAccessDenied",
+                "The named pipe is restricted to the current user; Revit must run under the same account."),
+            _ => ("TransportFailure",
+                "Inspect the local audit log at %LOCALAPPDATA%\\MCPRVTT27\\audit.jsonl.")
+        };
+
+        return new JObject
+        {
+            ["success"] = false,
+            ["error"] = new JObject
+            {
+                ["code"] = code,
+                ["tool"] = method,
+                ["message"] = exception.Message,
+                ["suggestion"] = suggestion,
+                // Says where the failure happened: nothing reached Revit, so no
+                // transaction ran and the model is untouched.
+                ["stage"] = "transport",
+                ["modelChanged"] = false
+            }
+        };
     }
 }
