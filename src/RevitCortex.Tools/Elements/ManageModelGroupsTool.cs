@@ -39,9 +39,14 @@ public sealed class ManageModelGroupsTool : ICortexTool
     {
         var includeMembers = input["includeMembers"]?.Value<bool>() ?? false;
         var sampleLimit = Math.Clamp(input["sampleLimit"]?.Value<int>() ?? 20, 0, 200);
+        // groupTypeId was published and ignored here: asking for one type returned
+        // all twenty, and includeMembers then multiplied the response for nothing.
+        var onlyTypeId = input["groupTypeId"]?.Value<long>() ?? 0;
         var types = new FilteredElementCollector(doc).OfClass(typeof(GroupType))
             .Cast<GroupType>()
             .Where(type => type.Category?.BuiltInCategory == BuiltInCategory.OST_IOSModelGroups)
+            .Where(type => onlyTypeId <= 0 ||
+                           ToolHelpers.GetElementIdValue(type.Id) == onlyTypeId)
             .Select(type =>
             {
                 var instances = type.Groups.Cast<Group>().ToList();

@@ -21,7 +21,10 @@ public sealed class CreateRailingTool : ICortexTool
     public string Category => "Architecture";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Creates a native Revit guardrail from a connected horizontal path. A railing type and base level are required.";
+    public string Description =>
+        "Creates a native Revit guardrail from a connected horizontal path. A railing type and base level " +
+        "are required. ELEVATION: the path z values only have to be equal to each other — baseLevelId sets " +
+        "the height, exactly like create_wall. Pass z=0 and choose the level.";
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

@@ -161,10 +161,24 @@ public class CreateTextNoteTool : ICortexTool
 
         var textNote = TextNote.Create(doc, view.Id, position, text, options);
 
-        // Set width if specified
+        // Set width if specified. Revit rejects any value outside the type's own
+        // allowed range with "The given width is not valid", which tells the caller
+        // neither the bounds nor how to fix it — clamp and report instead.
         var widthMm = spec["width"]?.Value<double>() ?? 0;
         if (widthMm > 0)
-            textNote.Width = widthMm / MmPerFoot;
+        {
+            var requested = widthMm / MmPerFoot;
+            var minimum = textNote.GetMinimumAllowedWidth();
+            var maximum = textNote.GetMaximumAllowedWidth();
+            var applied = Math.Clamp(requested, minimum, maximum);
+            textNote.Width = applied;
+
+            if (Math.Abs(applied - requested) > 1e-9)
+                warnings.Add(
+                    $"width {widthMm:F0} mm is outside the range Revit allows for this text type " +
+                    $"({minimum * MmPerFoot:F0}-{maximum * MmPerFoot:F0} mm); clamped to " +
+                    $"{applied * MmPerFoot:F0} mm.");
+        }
 
         // Vertical alignment (top/middle/bottom) — set on the created note.
         var vAlign = spec["verticalAlignment"]?.Value<string>();

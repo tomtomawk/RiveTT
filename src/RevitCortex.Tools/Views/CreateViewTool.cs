@@ -56,6 +56,10 @@ public class CreateViewTool : ICortexTool
                     break;
                 case "3d":
                 case "isometric":
+                // The MCP description publishes "ThreeD"; only "3d" was accepted, so
+                // the documented value was rejected by the tool that documents it.
+                case "threed":
+                case "threedimensional":
                     var vft3d = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
                         .FirstOrDefault(v => v.ViewFamily == ViewFamily.ThreeDimensional);
                     if (vft3d != null) createdView = View3D.CreateIsometric(doc, vft3d.Id);
@@ -75,7 +79,8 @@ public class CreateViewTool : ICortexTool
                 default:
                     return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                         $"Unsupported viewType: {viewType}",
-                        suggestion: "Use: floorplan, ceilingplan, section, elevation, drafting, 3d");
+                        suggestion: "Use: floorplan | ceilingplan | section | elevation | drafting | " +
+                                    "3d (aliases: isometric, ThreeD)");
             }
 
             if (createdView == null)

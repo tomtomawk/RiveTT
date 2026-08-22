@@ -140,6 +140,39 @@ rapport de campagne. Deux bugs latents ont été trouvés au passage :
 `edit_group_members` — tous trois bloqués par le bug des tableaux optionnels
 jusqu'à réinstallation.
 
+## Modèle de démonstration — 2026-08-22
+
+`Bureau\MCP_Vitrine_2027.rvt` + `Bureau\Feuille-Niveau 0 - Plan et vue 3D.pdf`,
+produits intégralement par appels MCP depuis le gabarit architectural français,
+sans aucune intervention dans l'interface Revit.
+
+Enchaînement : `create_document` (gabarit `.rte`, activation) → 5 murs
+(extérieurs contraints Niveau 0→1 + cloison) → 3 dalles (RDC, étage, balcon) →
+2 portes + 3 fenêtres (`zMode: relativeToLevel`, **9 poses sur 9 du premier
+coup**) → escalier 16/16 contremarches `reachesTopLevel: true` avec ses 2
+garde-corps automatiques → garde-corps de balcon → ligne de séparation de pièces
+→ 3 pièces délimitées (17,3 / 17,3 / 22,6 m²) + étiquettes → nomenclature créée
+avec des **noms de champs anglais sur document français** (`Number, Name, Area,
+Level` → `Numéro, Nom, Surface, Niveau`, 4/4) → informations projet → vue 3D →
+type de mur dupliqué + structure composite 320 mm (matériau inventé **refusé**,
+matériaux réels acceptés) → lignes de modèle et de détail → feuille A1 avec
+cartouche (`hasTitleBlock: true`) + 2 vues portées → export PDF → enregistrement.
+
+Un escalier trop long a été supprimé et refait : 49 éléments retirés
+(1 demandé + 48 dépendances nommées : volées, marches, garde-corps, barreaux,
+esquisses), décompte cohérent.
+
+### Défauts trouvés pendant la démonstration, corrigés
+
+| Défaut | Correction |
+|---|---|
+| `create_view` refusait `ThreeD`, la valeur que sa **propre description** publie (seul `3d` passait) | alias `ThreeD`/`threeDimensional` acceptés, message d'erreur listant les valeurs |
+| `create_text_note` échouait sur une largeur hors plage (« The given width is not valid ») sans donner les bornes | largeur bornée à la plage du type de texte, écart signalé en mm dans `warnings` |
+| `batch_export` annonçait `Niveau 0 - Plan et vue 3D.pdf` alors que Revit écrit `Feuille-Niveau 0 - Plan et vue 3D.pdf` | le fichier réellement écrit est retrouvé sur le disque et rapporté |
+| `manage_model_groups` ignorait `groupTypeId` : 20 types renvoyés pour 1 demandé | filtre appliqué |
+| `create_railing` ne documentait pas sa convention d'altimétrie | description explicite : les `z` du chemin doivent seulement être égaux, `baseLevelId` fait foi (comme `create_wall`) |
+| Mettre à jour le plugin obligeait à fermer le client MCP (exe verrouillé) | `install.ps1` renomme le fichier verrouillé — Windows l'autorise — et écrit le neuf à sa place ; il suffit de reconnecter le serveur MCP ensuite |
+
 ## Vérification
 
 Version du connecteur : **0.2.0** (plugin et serveur MCP).

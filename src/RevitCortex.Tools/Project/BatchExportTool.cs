@@ -183,7 +183,15 @@ public class BatchExportTool : ICortexTool
                                 Combine = false
                             };
                             doc.Export(outputDir, new List<ElementId> { id }, pdfOptions);
-                            results.Add(new { name = view.Name, file = $"{name}.pdf", success = true });
+                            // Revit decorates the PDF name with the sheet-set prefix
+                            // ("Feuille-<name>.pdf" in French), so the guessed name was
+                            // wrong and pointed at a file that does not exist.
+                            results.Add(new
+                            {
+                                name = view.Name,
+                                file = ResolveWrittenFile(outputDir, name, ".pdf"),
+                                success = true
+                            });
                         }
                         catch (Exception ex)
                         {
@@ -208,6 +216,37 @@ public class BatchExportTool : ICortexTool
         catch (Exception ex)
         {
             return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// The file Revit actually created for this view, matched by extension and
+    /// recency. Reporting a name nobody can find is worse than reporting none.
+    /// </summary>
+    private static string ResolveWrittenFile(string outputDir, string expectedName, string extension)
+    {
+        try
+        {
+            var candidates = System.IO.Directory
+                .GetFiles(outputDir, "*" + extension)
+                .Select(path => new System.IO.FileInfo(path))
+                .Where(info => info.LastWriteTimeUtc > System.DateTime.UtcNow.AddMinutes(-2))
+                .OrderByDescending(info => info.LastWriteTimeUtc)
+                .ToList();
+
+            var exact = candidates.FirstOrDefault(info =>
+                info.Name.Equals(expectedName + extension, System.StringComparison.OrdinalIgnoreCase));
+            if (exact != null) return exact.Name;
+
+            var suffixed = candidates.FirstOrDefault(info =>
+                info.Name.EndsWith(expectedName + extension, System.StringComparison.OrdinalIgnoreCase));
+            if (suffixed != null) return suffixed.Name;
+
+            return candidates.Count > 0 ? candidates[0].Name : expectedName + extension;
+        }
+        catch
+        {
+            return expectedName + extension;
         }
     }
 
