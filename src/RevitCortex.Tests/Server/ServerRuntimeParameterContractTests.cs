@@ -236,6 +236,22 @@ public class ServerRuntimeParameterContractTests
     }
 
     [Fact]
+    public void PlacingAViewport_ReportsItsFootprintAndWhetherItFits()
+    {
+        var runtime = ReadRepo("RevitCortex.Tools", "Views", "PlaceViewportTool.cs");
+
+        // An uncropped view produces a viewport far larger than the sheet, and its
+        // drawing then lands outside the frame — visible only by opening the sheet.
+        // The tool must report the footprint instead of leaving it to be discovered.
+        Assert.Contains("GetBoxOutline", runtime);
+        Assert.Contains("fitsOnSheet", runtime);
+        Assert.Contains("viewportOutlineMm", runtime);
+        // Omitting the position must centre the viewport rather than pile everything
+        // into the bottom-left corner.
+        Assert.Contains("centreOnSheet", runtime);
+    }
+
+    [Fact]
     public void SaveAs_InvalidatesEveryCachedRead()
     {
         var watcher = File.ReadAllText(RepoPath("RevitCortex.Plugin", "Caching", "DocumentChangeWatcher.cs"));

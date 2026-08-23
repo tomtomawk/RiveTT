@@ -208,7 +208,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "place_viewport"), Description("Place a view on a sheet as a viewport, with optional rotation and viewport type.")]
+    [McpServerTool(Name = "place_viewport"), Description("Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. The response reports sheetSizeMm, viewportOutlineMm and fitsOnSheet — an UNCROPPED view yields a viewport far bigger than the sheet and its content lands outside the frame, so crop the view first (at 1:100 a 16 x 13.5 m crop is 160 x 135 mm on paper).")]
     public static async Task<string> PlaceViewport(
         RevitConnectionManager revit,
         [Description("Sheet element ID")] long sheetId,
