@@ -25,9 +25,13 @@ namespace RevitCortex.Tools.Elements;
 ///   * a mirrored or rotated instance may not come back with the same
 ///     transform, which is why the placement point is reported before and after.
 ///
-/// The alternative — modifying an element inside a group without ungrouping —
-/// raises "a group has been changed outside group edit mode" and is reported by
-/// Autodesk as crash-prone on large models. It is not offered here.
+/// The alternative — deleting or modifying an element inside a group without
+/// ungrouping — was measured on a real model: the API accepts it and does NOT
+/// propagate. After deleting one member, the edited instance reported 26 members
+/// while its 51 siblings still reported 27, Revit still listing them as a single
+/// type. The UI arbitrates that case through a dialog; the API leaves the model
+/// divergent, which Autodesk reports as crash-prone on large models. delete_element
+/// therefore refuses a multi-instance group member unless the caller opts in.
 /// </summary>
 [ToolSafety(false, true)]
 public sealed class EditGroupMembersTool : ICortexTool

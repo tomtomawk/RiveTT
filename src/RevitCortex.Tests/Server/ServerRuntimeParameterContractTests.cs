@@ -236,6 +236,21 @@ public class ServerRuntimeParameterContractTests
     }
 
     [Fact]
+    public void DeletingAGroupMember_IsRefusedUnlessTheDivergenceIsAccepted()
+    {
+        var runtime = ReadRepo("RevitCortex.Tools", "Elements", "DeleteElementTool.cs");
+
+        // Measured on a real model: deleting one member of a 52-instance group type
+        // left that instance with 26 members while its siblings kept 27, Revit still
+        // reporting one type. The UI arbitrates through a dialog; the API just does it.
+        Assert.Contains("allowGroupMemberDeletion", runtime);
+        Assert.Contains("groupMembers", runtime);
+        Assert.Contains("instancesOfThatType", runtime);
+        // Deleting a whole group instance stays allowed — only members are guarded.
+        Assert.Contains("element is Group", runtime);
+    }
+
+    [Fact]
     public void PlacingAViewport_ReportsItsFootprintAndWhetherItFits()
     {
         var runtime = ReadRepo("RevitCortex.Tools", "Views", "PlaceViewportTool.cs");

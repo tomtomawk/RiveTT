@@ -22,7 +22,8 @@ public class DeleteElementTool : ICortexTool
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Deletes one or more elements from the model. Defaults to dryRun=true for safety — preview what would be deleted before committing. Mirrors the fork's DeleteElementEventHandler logic.";
+    public string Description =>
+        "Deletes one or more elements. Defaults to dryRun=true: the preview reports the real cascade and any group membership. Deleting a MEMBER of a group whose type has several instances is refused by default — the Revit API accepts it but does not propagate, leaving that instance divergent from its siblings; pass allowGroupMemberDeletion=true to accept that, or ungroup first.";
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
         // Parse inputs
@@ -71,6 +72,57 @@ public class DeleteElementTool : ICortexTool
             else
                 invalidIds.Add(rawId);
         }
+
+        // Group membership: deleting a MEMBER of a grouped instance is accepted by the
+        // API and does NOT propagate to the other instances of its type. Measured on a
+        // real model: after deleting one member, the edited instance reported 26
+        // members while its 51 siblings still reported 27, with Revit still listing
+        // them as one type. The UI forces a choice through a dialog in that situation;
+        // the API silently leaves the instance divergent from its type, which Autodesk
+        // reports as crash-prone on large models. So it is refused unless the caller
+        // accepts it explicitly.
+        var allowGroupMemberDeletion = input["allowGroupMemberDeletion"]?.Value<bool>() ?? false;
+        var groupMembers = new List<object>();
+        var divergingIds = new List<long>();
+
+        foreach (var (_, element) in validElements)
+        {
+            if (element is Group) continue;   // deleting a whole group instance is fine
+            var groupId = element.GroupId;
+            if (groupId == ElementId.InvalidElementId) continue;
+
+            var group = doc.GetElement(groupId) as Group;
+            var groupType = group?.GroupType;
+            var instanceCount = 0;
+            try { instanceCount = groupType?.Groups?.Size ?? 0; } catch { }
+
+            groupMembers.Add(new
+            {
+                elementId = GetElementIdLong(element),
+                name = element.Name,
+                groupId = GetElementIdLongFromId(groupId),
+                groupTypeName = groupType?.Name,
+                instancesOfThatType = instanceCount
+            });
+
+            if (instanceCount > 1) divergingIds.Add(GetElementIdLong(element));
+        }
+
+        if (divergingIds.Count > 0 && !allowGroupMemberDeletion && !dryRun)
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                $"{divergingIds.Count} of the requested element(s) are members of a group whose type has " +
+                "several instances. Deleting them through the API does NOT propagate: the edited instance " +
+                "would end up with fewer members than its siblings while Revit still reports them as the " +
+                "same type.",
+                suggestion: "Delete the whole group instance instead, ungroup first " +
+                            "(manage_model_groups action=ungroup), edit the group in the Revit UI where the " +
+                            "propagation choice is offered, or pass allowGroupMemberDeletion=true to accept " +
+                            "the divergence.",
+                context: new Dictionary<string, object>
+                {
+                    ["groupMemberIds"] = divergingIds,
+                    ["groupMembers"] = groupMembers
+                });
 
         // Build preview info for each valid element
         var validInfo = validElements.Select(ve => new
@@ -142,7 +194,17 @@ public class DeleteElementTool : ICortexTool
                 cascadePreviewError,
                 invalidIds,
                 validCount  = validElements.Count,
-                invalidCount = invalidIds.Count
+                invalidCount = invalidIds.Count,
+                groupMembers,
+                groupDivergenceIds = divergingIds,
+                warnings = divergingIds.Count == 0
+                    ? Array.Empty<string>()
+                    : new[]
+                    {
+                        $"{divergingIds.Count} element(s) belong to a group type with several instances. " +
+                        "Deleting them does not propagate — the edited instance would diverge from its " +
+                        "siblings. The real call refuses this unless allowGroupMemberDeletion=true."
+                    }
             });
         }
 
@@ -228,7 +290,16 @@ public class DeleteElementTool : ICortexTool
                 cascadedElements = cascadeInfo,
                 cascadedCount = cascadeInfo.Count,
                 invalidIds,
-                invalidCount = invalidIds.Count
+                invalidCount = invalidIds.Count,
+                groupMembers,
+                warnings = divergingIds.Count == 0
+                    ? Array.Empty<string>()
+                    : new[]
+                    {
+                        $"{divergingIds.Count} deleted element(s) were members of a multi-instance group " +
+                        "type: those instances now have fewer members than their siblings while Revit still " +
+                        "reports one type. Re-sync them by editing the group once in the Revit UI."
+                    }
             });
         }
         catch (Exception ex)
