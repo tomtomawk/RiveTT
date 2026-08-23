@@ -249,6 +249,11 @@ public class ServerRuntimeParameterContractTests
         // Omitting the position must centre the viewport rather than pile everything
         // into the bottom-left corner.
         Assert.Contains("centreOnSheet", runtime);
+        // The frame reference is the title block box: the sheet origin is not the
+        // frame corner (the French A1 title block sits 650 mm inside it), so a
+        // position derived from the sheet size lands off the paper.
+        Assert.Contains("frameOutlineMm", runtime);
+        Assert.Contains("OST_TitleBlocks", runtime);
     }
 
     [Fact]

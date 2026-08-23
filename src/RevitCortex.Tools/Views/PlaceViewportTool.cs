@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
 using RevitCortex.Core.Results;
@@ -61,15 +62,32 @@ public class PlaceViewportTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                     "View cannot be added to this sheet (already placed or not placeable)");
 
-            // Sheet size drives both the default centring and the overflow check.
             var sheetWidthFt = sheet.get_Parameter(BuiltInParameter.SHEET_WIDTH)?.AsDouble() ?? 0;
             var sheetHeightFt = sheet.get_Parameter(BuiltInParameter.SHEET_HEIGHT)?.AsDouble() ?? 0;
 
-            if (centreOnSheet && sheetWidthFt > 0 && sheetHeightFt > 0)
+            // The frame reference is the title block INSTANCE's box, not [0, size]:
+            // the sheet origin is NOT necessarily the frame corner. The French A1
+            // title block has its origin 650 mm inside the frame and vertically
+            // centred, so a position computed from the sheet size lands off the paper
+            // — which is exactly how two correctly-placed viewports ended up outside
+            // the border.
+            var titleBlock = new FilteredElementCollector(doc, sheetEid)
+                .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                .WhereElementIsNotElementType()
+                .FirstOrDefault();
+            BoundingBoxXYZ? frame = null;
+            try { frame = titleBlock?.get_BoundingBox(sheet); } catch { }
+
+            var frameMinXMm = frame != null ? frame.Min.X * MmPerFoot : 0;
+            var frameMinYMm = frame != null ? frame.Min.Y * MmPerFoot : 0;
+            var frameMaxXMm = frame != null ? frame.Max.X * MmPerFoot : sheetWidthFt * MmPerFoot;
+            var frameMaxYMm = frame != null ? frame.Max.Y * MmPerFoot : sheetHeightFt * MmPerFoot;
+
+            if (centreOnSheet)
             {
-                // No position given: the middle of the sheet is the only sane default.
-                posXMm = sheetWidthFt * MmPerFoot / 2;
-                posYMm = sheetHeightFt * MmPerFoot / 2;
+                // No position given: the middle of the frame, wherever the frame is.
+                posXMm = (frameMinXMm + frameMaxXMm) / 2;
+                posYMm = (frameMinYMm + frameMaxYMm) / 2;
             }
 
             var position = new XYZ(posXMm / MmPerFoot, posYMm / MmPerFoot, 0);
@@ -124,19 +142,21 @@ public class PlaceViewportTool : ICortexTool
 
             var sheetWidthMm = sheetWidthFt * MmPerFoot;
             var sheetHeightMm = sheetHeightFt * MmPerFoot;
-            var fits = !haveOutline || sheetWidthMm <= 0 || sheetHeightMm <= 0 ||
-                       (outMinX >= -1 && outMinY >= -1 &&
-                        outMaxX <= sheetWidthMm + 1 && outMaxY <= sheetHeightMm + 1);
+            var fits = !haveOutline ||
+                       (outMinX >= frameMinXMm - 1 && outMinY >= frameMinYMm - 1 &&
+                        outMaxX <= frameMaxXMm + 1 && outMaxY <= frameMaxYMm + 1);
 
             var warnings = new System.Collections.Generic.List<string>();
             if (haveOutline && !fits)
             {
                 warnings.Add(
                     $"The viewport spans {outMaxX - outMinX:F0} x {outMaxY - outMinY:F0} mm at " +
-                    $"[{outMinX:F0}..{outMaxX:F0}] x [{outMinY:F0}..{outMaxY:F0}] mm, outside the " +
-                    $"{sheetWidthMm:F0} x {sheetHeightMm:F0} mm sheet: part of the drawing falls off the " +
-                    "frame. Crop the view (create_view cropMin/cropMax, or activate its crop region) — the " +
-                    "paper size is the crop size divided by the view scale — then place it again.");
+                    $"[{outMinX:F0}..{outMaxX:F0}] x [{outMinY:F0}..{outMaxY:F0}] mm, outside the frame " +
+                    $"[{frameMinXMm:F0}..{frameMaxXMm:F0}] x [{frameMinYMm:F0}..{frameMaxYMm:F0}] mm: part " +
+                    "of the drawing falls off the sheet. Two independent causes — an UNCROPPED view makes " +
+                    "the viewport metres wide (crop it: paper size = crop size / view scale), and the sheet " +
+                    "origin is not the frame corner, so compute positions from frameOutlineMm below, not " +
+                    "from the sheet size.");
             }
 
             return CortexResult<object>.Ok(new
@@ -148,6 +168,14 @@ public class PlaceViewportTool : ICortexTool
                 centredOnSheet = centreOnSheet,
                 centreMm = new { x = Math.Round(posXMm, 1), y = Math.Round(posYMm, 1) },
                 sheetSizeMm = new { width = Math.Round(sheetWidthMm, 1), height = Math.Round(sheetHeightMm, 1) },
+                // Where the printable frame actually is, in sheet coordinates. Use
+                // this to compute positions: it is NOT [0,0]..[width,height].
+                frameOutlineMm = new
+                {
+                    minX = Math.Round(frameMinXMm, 1), minY = Math.Round(frameMinYMm, 1),
+                    maxX = Math.Round(frameMaxXMm, 1), maxY = Math.Round(frameMaxYMm, 1),
+                    fromTitleBlock = frame != null
+                },
                 viewportOutlineMm = haveOutline
                     ? new
                     {
