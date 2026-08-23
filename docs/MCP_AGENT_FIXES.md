@@ -36,7 +36,7 @@ de l'hypothèse du rapport : elles sont signalées explicitement.
 | Anomalie constatée | Correction |
 |---|---|
 | `Surface: 122.81` en pieds² lu comme des m² | Toute valeur numérique porte `value` (unités du projet), `unit`, `internalValue` (unités internes Revit) et `displayValue` ; `unitPolicy` rappelé dans la réponse et dans `get_server_capabilities` |
-| `execution.readOnly` compris comme un verrou global du serveur | Renommé `toolReadOnly` / `toolDestructive`, plus `writesAllowed` (toujours vrai) et `cached`. `get_server_capabilities` documente les quatre champs et affirme `readOnlyModeExists: false` |
+| `execution.readOnly` compris comme un verrou global du serveur | Renommé `toolReadOnly` / `toolDestructive`, plus `writesAllowed` et `cached`. `get_server_capabilities` documente les quatre champs. Depuis le 24/08/2026, `writesAllowed` **est** un vrai verrou de session piloté par le ruban et `readOnlyModeExists` vaut `true` — voir « Verrou d'écriture au ruban » |
 | Réponse obsolète servie en 0 ms sans indication | `execution.cached: true` sur tout succès servi par le cache |
 | `deletedCount: 2` mais un seul élément listé | Sonde du cascade dans une `SubTransaction` annulée : `deletedElementIds` complet, `requestedElements` + `cascadedElements` nommés, `deletedCount` cohérent |
 | Catégorie « Fenêtres » retournée pour un viewport | Ce n'est pas un bug : Revit FR nomme la catégorie `OST_Viewports` « Fenêtres » (avec espace final). Les réponses portent désormais `categoryBic` (code `OST_*`), non ambigu |
@@ -217,6 +217,43 @@ l'altimétrie des niveaux d'origine, puis recopier les groupes vers les niveaux
 redéfinis. Les symétries et l'identité du type sont préservées, ce qu'un
 dégroupage/regroupage perd.
 
+## Verrou d'écriture au ruban (2026-08-24)
+
+Problème de fond, pas un bug : le connecteur se charge avec Revit, n'ouvre aucune
+boîte d'autorisation et publie ~250 outils dont la moitié écrit. Rien, côté
+Revit, ne permettait de reprendre la main, et rien ne signalait que le canal
+était vivant. `writesAllowed` était même codé en dur à `true`.
+
+Ce qui a été ajouté :
+
+- `WriteAccessPolicy` (Core) : instantané immuable échangé atomiquement, lu sans
+  verrou par le routeur à chaque appel, porté par `CortexSession.WriteAccess` ;
+- panneau **Compléments → MCPRVTT27** : groupe radio *Lecture seule* / *Écriture*
+  et bouton *État*. Icônes embarquées comme ressources — pas de fichier à perdre
+  à côté de la DLL, pas d'URI `pack://` à enregistrer dans le contexte de
+  chargement de Revit — et régénérables par `tools/make-ribbon-icons.ps1` ;
+- refus dans `CortexRouter.Route`, **avant** le cache et avant le contrôle de
+  document ouvert : `PermissionDenied`, contexte `stage: "permission"`,
+  `modelChanged: false`, plus l'endroit exact du bouton. Le refus est journalisé
+  au même titre qu'une écriture ;
+- `execution.writesAllowed` reflète l'état réel, et `get_server_capabilities`
+  publie un bloc `readOnlyMode` complet ;
+- instructions du serveur MCP et règle 6 de la skill corrigées : elles
+  affirmaient qu'il n'existait pas de mode lecture seule.
+
+Décisions à assumer :
+
+| Choix | Raison |
+|---|---|
+| Lecture seule au démarrage de chaque session, sans persistance | Le défaut sûr est celui qui ne peut pas toucher une maquette tout seul. Non persisté pour que l'autorisation reste une décision explicite, jamais héritée d'hier |
+| `dryRun: true` ne passe pas | Une prévisualisation est une promesse de l'outil, pas une frontière de permission. La respecter rendrait le verrou aussi solide que le plus faible des 250 outils |
+| Refus **par outil**, pas par action | `manage_model_groups action=inventory` est donc refusé aussi. Une permission dépendante des arguments dépendrait de 250 implémentations ; celle-ci ne dépend que du classement `toolReadOnly` déjà publié |
+| Aucun outil ne peut lever le verrou | Un outil capable de le faire serait le premier réflexe d'un agent après un refus. Un test parcourt les sources de `RevitCortex.Tools` et échoue si l'un appelle `WriteAccess.Set(` |
+| Le verrou survit à `Reinitialize` | Ouvrir, fermer ou enregistrer sous un document ne doit pas rendre silencieusement une permission retirée par un humain |
+
+Le panneau ne démarre rien : le canal s'ouvre avec Revit quoi qu'il arrive, et
+l'échec de construction du ruban est attrapé et tracé sans empêcher le service.
+
 ## Vérification
 
 Version du connecteur : **0.2.0** (plugin et serveur MCP).
@@ -225,9 +262,12 @@ Version du connecteur : **0.2.0** (plugin et serveur MCP).
     dotnet test .\src\RevitCortex.Tests\RevitCortex.Tests.csproj -c Release
     .\build.ps1
 
-Les corrections ci-dessus n'ont pas pu être rejouées contre une session Revit
-2027 live depuis cet environnement : elles sont couvertes par la compilation et
-par la suite de tests (452 tests). Une nouvelle passe manuelle sur le modèle de
-test reste nécessaire pour valider le comportement en session, en priorité
-`create_sheet` avec cartouche, `export_elements_data` avec `elementIds` et noms
-de paramètres anglais, et une lecture juste après `save_as_document`.
+Suite de tests : **475 tests**, 474 verts, 1 ignoré.
+
+Les corrections ont été rejouées en session Revit 2027 live (voir la campagne du
+2026-08-21 et le modèle de démonstration du 2026-08-22). Le verrou d'écriture
+est couvert par neuf tests — refus, `dryRun` non exceptionnel, outil de lecture
+qui répond, contrat de réponse, survie à `Reinitialize`, absence d'outil capable
+de le lever — mais son comportement au ruban lui-même (icônes, groupe radio,
+disponibilité sans document ouvert) ne peut se vérifier qu'à l'écran, dans
+Revit.

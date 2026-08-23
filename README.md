@@ -6,7 +6,9 @@ MCP local pour **Autodesk Revit 2027**, basé sur RevitCortex (licence MIT).
 
 - une seule cible : Revit 2027 / .NET 10 / x64 ;
 - transport local par **Windows Named Pipe**, jamais par port TCP ;
-- démarrage automatique de l'add-in avec Revit, sans ruban ni interrupteur ;
+- démarrage automatique de l'add-in avec Revit, sans interrupteur de démarrage ;
+- verrou d'écriture au ruban (*Compléments → MCPRVTT27*) : chaque session Revit
+  démarre en lecture seule, aucun outil ne peut lever le verrou ;
 - mode automatique permanent : aucune boîte d'autorisation ou licence ;
 - pas de Power BI, télémétrie, mise à jour automatique ni compte commercial ;
 - serveur MCP standard sur `stdio`, nommé `MCPRVTT27`.

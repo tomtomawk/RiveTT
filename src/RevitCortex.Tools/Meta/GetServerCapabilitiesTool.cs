@@ -27,17 +27,32 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
             transport = "named_pipe_current_user",
             executionMode = "automatic",
             confirmationRequired = false,
-            // There is no read-only mode in MCPRVTT27. Per-response,
-            // execution.toolReadOnly classifies the tool that answered; it is not a
-            // session state. The old field name was "readOnly", which read as a
-            // server-wide lock and led to writes being believed impossible.
-            writesAllowed = true,
-            readOnlyModeExists = false,
+            // Two different facts, and conflating them cost a whole session:
+            // execution.toolReadOnly classifies the tool that answered, while
+            // writesAllowed is the state of the ribbon write lock for the whole
+            // session. The field used to be named "readOnly" and hard-coded true.
+            writesAllowed = session.WriteAccess.WritesAllowed,
+            readOnlyModeExists = true,
+            readOnlyMode = new
+            {
+                active = !session.WriteAccess.WritesAllowed,
+                defaultAtStartup = "read-only",
+                scope = "the Revit session; surviving document open/close/save-as",
+                blocks = "every tool whose execution.toolReadOnly is false, refused with " +
+                         "PermissionDenied before execution — the model is never touched",
+                stillAllowed = "all read tools, and dryRun previews are NOT an exception: " +
+                               "a write tool stays refused even with dryRun=true",
+                unlockFrom = "Revit ribbon, Add-Ins tab, MCPRVTT27 panel, 'Écriture' button",
+                toolsCanUnlock = false,
+                changedBy = session.WriteAccess.ChangedBy,
+                changedUtc = session.WriteAccess.ChangedUtc.ToString("o")
+            },
             executionFields = new
             {
                 toolReadOnly = "classification of the tool that produced this response",
                 toolDestructive = "the tool can delete or overwrite model data",
-                writesAllowed = "session-wide: always true, MCPRVTT27 has no read-only mode",
+                writesAllowed = "session-wide state of the ribbon write lock; when false, " +
+                                "every tool with toolReadOnly=false is refused",
                 cached = "the response was served from the tool result cache"
             },
             dryRunDefault = true,
@@ -77,6 +92,7 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
             // real sessions.
             lifecycleLimitations = new[]
             {
+                "MCPRVTT27 starts every Revit session in READ-ONLY mode. Write tools are refused with PermissionDenied until a human presses Écriture in the MCPRVTT27 ribbon panel (Add-Ins tab). No tool can lift it, dryRun included.",
                 "edit_family (opening the family document) is not exposed: Document.EditFamily deadlocked from this ExternalEvent dispatcher. To change a family, edit the .rfa outside Revit and reload it with load_family.",
                 "Rebar propagation is not exposed by the Revit API on any supported version; propagate_rebar only reports that.",
                 "Adding a member to a group cannot be done in place: edit_group_members ungroups and recreates the type, and the other instances keep the old definition. REMOVING a member is different — it is Revit's exclusion, applied to that instance only, with the type untouched.",

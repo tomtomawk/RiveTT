@@ -1,7 +1,9 @@
 # Guide MCPRVTT27
 
 MCPRVTT27 connecte un client MCP à Autodesk Revit 2027. Il démarre avec Revit
-et ne nécessite ni bouton de ruban ni port réseau.
+et ne nécessite ni interrupteur de démarrage ni port réseau. Le seul élément
+d'interface est le panneau **MCPRVTT27** de l'onglet *Compléments*, qui porte le
+verrou d'écriture décrit ci-dessous.
 
 ## Installation
 
@@ -28,6 +30,43 @@ version :
 Puis ouvrir un projet et attendre quelques secondes que sa session soit publiée.
 Vérifier la version active avec `get_server_capabilities`
 (`execution.serverVersion`).
+
+## Le verrou d'écriture
+
+Le connecteur se charge avec Revit et ne demande aucune autorisation par appel.
+Sans interrupteur, la seule limite entre un agent connecté et la maquette serait
+son propre jugement. D'où le panneau **Compléments → MCPRVTT27** :
+
+| Bouton | Effet |
+|---|---|
+| **Lecture seule** (cadenas orange) | Tout outil susceptible de modifier la maquette est refusé avec `PermissionDenied`, **avant exécution** : la maquette n'est pas touchée. Les outils de lecture répondent normalement |
+| **Écriture** (cadenas vert ouvert) | Les outils d'écriture redeviennent exécutables. Chaque appel reste transactionnel et journalisé |
+| **État** (pastille bleue) | Version, état du canal nommé, mode courant et son origine, document actif, nombre d'outils publiés, accès au journal d'audit |
+
+Trois propriétés à retenir :
+
+1. **Chaque session Revit démarre en lecture seule.** Le mode n'est pas
+   persisté d'une session à l'autre : c'est une décision explicite, prise à
+   chaque fois.
+2. **`dryRun: true` ne contourne pas le verrou.** Une prévisualisation est une
+   promesse de l'outil, pas une frontière de permission ; s'y fier rendrait le
+   verrou aussi solide que le plus faible des outils.
+3. **Aucun outil MCP ne peut lever le verrou** — il n'existe pas d'outil pour
+   ça, et un test de contrat vérifie qu'aucun fichier d'outil n'appelle la
+   politique d'écriture. Seul le bouton du ruban le fait.
+
+Le verrou survit à l'ouverture, la fermeture et l'enregistrement sous d'un
+document : il décrit la session Revit, pas le fichier ouvert.
+
+Côté agent, l'état est lisible partout : `execution.writesAllowed` sur chaque
+réponse, et le bloc `readOnlyMode` de `get_server_capabilities`. Sur un refus,
+la réponse indique où se trouve le bouton — il n'y a rien à réessayer.
+
+Contrepartie assumée : le classement est **par outil**, pas par action. Un outil
+qui peut écrire est refusé même quand on l'appelle pour lire, par exemple
+`manage_model_groups` en `action=inventory`. Une permission qui dépendrait des
+arguments dépendrait de 250 implémentations ; celle-ci ne dépend que du
+classement `toolReadOnly` déjà publié dans chaque réponse.
 
 ## Utilisation sûre
 

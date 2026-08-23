@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using RevitCortex.Core.Caching;
 using RevitCortex.Core.Discovery;
+using RevitCortex.Core.Security;
 
 namespace RevitCortex.Core.Session;
 
@@ -16,6 +17,15 @@ public class CortexSession
     public ISessionStore Store { get; }
     public DocumentCapabilities Capabilities { get; private set; }
     public string DetectedLocale { get; private set; }
+
+    /// <summary>
+    /// The ribbon write lock. Consulted by the router before any tool that is not
+    /// classified read-only, and reported in every response as
+    /// execution.writesAllowed. Defaults to allowed so that hosts without a
+    /// ribbon (tests, the pipe alone) behave as before; the Revit plugin locks it
+    /// explicitly on startup.
+    /// </summary>
+    public WriteAccessPolicy WriteAccess { get; } = new WriteAccessPolicy();
 
     /// <summary>
     /// Tool-result cache. Always non-null. Plugin wires invalidation to Revit
@@ -52,6 +62,8 @@ public class CortexSession
 
     public void Reinitialize(DocumentCapabilities capabilities, string locale)
     {
+        // WriteAccess is NOT touched here: closing or switching a document must
+        // not silently hand back write permission a human had taken away.
         Store.Clear();
         Capabilities = capabilities;
         DetectedLocale = locale;

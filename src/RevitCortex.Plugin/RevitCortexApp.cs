@@ -11,12 +11,15 @@ using RevitCortex.Plugin.Caching;
 using RevitCortex.Plugin.Communication;
 using RevitCortex.Plugin.Discovery;
 using RevitCortex.Plugin.Threading;
+using RevitCortex.Plugin.UI;
 
 namespace RevitCortex.Plugin;
 
 /// <summary>
-/// MCPRVTT27 is always available while Revit runs. It has no ribbon start
-/// switch, no TCP listener, and no confirmation UI.
+/// MCPRVTT27 is always available while Revit runs. It has no ribbon START switch
+/// (the pipe opens with Revit), no TCP listener, and no confirmation dialog per
+/// call. What the ribbon does carry is the write lock: the session starts in
+/// read-only mode and only a human, from that panel, hands write access over.
 /// </summary>
 public sealed class RevitCortexApp : IExternalApplication
 {
@@ -38,6 +41,12 @@ public sealed class RevitCortexApp : IExternalApplication
         try
         {
             _session = new CortexSession(new SessionStore());
+
+            // Read-only until a human says otherwise. The connector loads with
+            // Revit and asks nothing, so the safe default is the one that cannot
+            // touch a model on its own: the ribbon toggle is the only way out of
+            // it, and no tool can reach it.
+            _session.WriteAccess.Set(writesAllowed: false, origin: "startup");
             var auditLogger = new AuditLogger(CortexEnvironment.Current.AuditLogPath);
             _router = new CortexRouter(_session, new DocumentAnalyzer(), auditLogger: auditLogger);
 
@@ -58,6 +67,19 @@ public sealed class RevitCortexApp : IExternalApplication
             _pipeService = new RevitNamedPipeService(_router);
             _pipeService.Start();
 
+            // The panel is a display and a switch. If it cannot be built, the
+            // connector must still serve: the pipe is the product, the ribbon is
+            // the courtesy.
+            try
+            {
+                CortexRibbon.Build(application);
+            }
+            catch (Exception ribbonException)
+            {
+                System.Diagnostics.Trace.WriteLine(
+                    $"[MCPRVTT27] Ribbon panel not created: {ribbonException.Message}");
+            }
+
             application.ControlledApplication.DocumentOpened += OnDocumentOpened;
             application.ControlledApplication.DocumentClosing += OnDocumentClosing;
             _cacheWatcher = new DocumentChangeWatcher(_session);
@@ -66,7 +88,8 @@ public sealed class RevitCortexApp : IExternalApplication
 
             System.Diagnostics.Trace.WriteLine(
                 $"[MCPRVTT27] Ready through local pipe '{_pipeService.PipeName}'. " +
-                $"{_router.TotalToolCount} tools registered.");
+                $"{_router.TotalToolCount} tools registered. " +
+                $"Writes {(_session.WriteAccess.WritesAllowed ? "allowed" : "locked")}.");
             return Result.Succeeded;
         }
         catch (Exception ex)

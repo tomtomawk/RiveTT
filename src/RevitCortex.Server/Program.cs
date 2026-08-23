@@ -18,8 +18,13 @@ builder.Services
         };
         options.ServerInstructions =
             "MCPRVTT27 connects automatically to the active Revit 2027 session through a local Windows named pipe. " +
-            "It is always in automatic mode: commands never open an authorization dialog. Prefer the dedicated architectural " +
-            "tools, validate the result after each write, and treat send_code_to_revit as a LAST RESORT when no dedicated tool exists. " +
+            "It is always in automatic mode: commands never open an authorization dialog. " +
+            "BUT every Revit session starts READ-ONLY: tools that can modify the model are refused with " +
+            "PermissionDenied until a human presses Ecriture in the MCPRVTT27 ribbon panel (Add-Ins tab). " +
+            "No tool can lift that lock, dryRun included; read execution.writesAllowed, or " +
+            "get_server_capabilities.readOnlyMode, and ask the user to unlock rather than retrying. " +
+            "Prefer the dedicated architectural tools, validate the result after each write, and treat " +
+            "send_code_to_revit as a LAST RESORT when no dedicated tool exists. " +
             "Every write is still executed inside Revit transactions and recorded in the audit log.";
     })
     .WithStdioServerTransport()

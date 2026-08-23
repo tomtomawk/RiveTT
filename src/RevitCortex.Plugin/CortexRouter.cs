@@ -151,6 +151,37 @@ public class CortexRouter
                 $"Tool '{toolName}' not found",
                 suggestion: $"Available tools: {string.Join(", ", GetAvailableToolNames())}");
 
+        // The ribbon write lock, checked before everything else: a locked session
+        // must answer the same whether or not a document is open, and the refusal
+        // must never be mistaken for a missing document. No tool can lift it —
+        // only a human, from the MCPRVTT27 panel of the Revit ribbon.
+        if (!_session.WriteAccess.WritesAllowed && !IsToolReadOnly(toolName))
+        {
+            var refusal = CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
+                $"'{toolName}' can modify the model and MCPRVTT27 is currently in read-only mode.",
+                suggestion: "In Revit: Add-Ins tab (Complements) > MCPRVTT27 panel > Write. " +
+                            "No tool can unlock it; it is a human decision taken in Revit. " +
+                            "Read tools keep working meanwhile.",
+                context: new Dictionary<string, object>
+                {
+                    ["stage"] = "permission",
+                    ["writesAllowed"] = false,
+                    ["toolReadOnly"] = false,
+                    ["modelChanged"] = false,
+                    ["lockedSince"] = _session.WriteAccess.ChangedUtc.ToString("o"),
+                    ["lockedBy"] = _session.WriteAccess.ChangedBy,
+                    ["unlockFrom"] = "Revit ribbon, Add-Ins tab, MCPRVTT27 panel"
+                });
+
+            // Refusals belong in the audit log as much as writes do: this is the
+            // trace showing an agent tried to write while the model was locked.
+            _auditLogger.LogWithPerf(toolName, BuildInputSummary(toolName, input),
+                success: false, errorCode: CortexErrorCode.PermissionDenied,
+                elementsAffected: 0, durationMs: 0, responseBytes: 0,
+                errorMessage: refusal.Error?.Message);
+            return refusal;
+        }
+
         if (tool.RequiresDocument && _session.Store.Get<object>("activeDocument") == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "No document open in Revit",
@@ -315,10 +346,11 @@ public class CortexRouter
             ["mode"] = "automatic",
             // toolReadOnly classifies THIS tool. It was named "readOnly", which read
             // as a server-wide lock and made callers believe writes were forbidden.
-            // writesAllowed is the session-wide fact: MCPRVTT27 has no read-only mode.
+            // writesAllowed is the session-wide fact, driven by the ribbon toggle:
+            // when it is false, every tool with toolReadOnly=false is refused.
             ["toolReadOnly"] = isReadOnly,
             ["toolDestructive"] = IsToolDestructive(toolName),
-            ["writesAllowed"] = true,
+            ["writesAllowed"] = _session.WriteAccess.WritesAllowed,
             ["cached"] = false
         };
         return CortexResult<object>.Ok(obj);

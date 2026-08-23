@@ -18,8 +18,12 @@ Load only the references needed for the current task.
 5. Keep named-pipe isolation, audit logging, structured errors, and the Roslyn
    sandbox intact.
 6. `execution.toolReadOnly` classifies the tool that answered — it is NOT a
-   session lock. `writesAllowed` is always true; there is no read-only mode.
-   `execution.cached: true` means the answer came from the cache.
+   session lock. `execution.writesAllowed` IS the session lock: every Revit
+   session starts read-only, and only a human unlocks it from the MCPRVTT27
+   ribbon panel (Add-Ins tab). On `PermissionDenied` with
+   `writesAllowed: false`, stop and ask for the unlock — no tool, and no
+   `dryRun`, gets past it. `execution.cached: true` means the answer came from
+   the cache.
 7. Parameter names resolve in English or in the document language. A name that
    resolves to nothing comes back in `unresolvedParameterNames` (or
    `skippedFields[].reason`), never as an empty value — treat an empty column

@@ -39,6 +39,27 @@ When you add or rename a parameter:
   absolute vs relative elevation);
 - make the response report what was actually applied, not what was requested.
 
+## The write lock
+
+Every Revit session starts read-only. `CortexRouter.Route` refuses any tool whose
+`toolReadOnly` classification is false with `PermissionDenied`, before the cache
+and before the open-document check, until a human presses *Écriture* in the
+**MCPRVTT27** ribbon panel (Add-Ins tab).
+
+Consequences for anything you add here:
+
+- `[ToolSafety(readOnly, destructive)]` is now a permission boundary, not just
+  metadata. A write tool marked `readOnly: true` would slip through the lock;
+  the registration already traces a mismatch against the name-prefix heuristic,
+  so do not silence that trace.
+- Never read the lock from a tool, and never write to it: `WriteAccessPolicy.Set`
+  belongs to the ribbon. `WriteAccessGateTests` scans the whole of
+  `RevitCortex.Tools` and fails if a tool calls it.
+- `dryRun` is not an exemption. A preview is a tool's own promise; the lock
+  cannot depend on 250 implementations keeping it.
+- The lock is session state, not document state: `CortexSession.Reinitialize`
+  must leave it alone.
+
 ## Development rules
 
 - Prefer a dedicated `ICortexTool`; keep `send_code_to_revit` as a fallback.
