@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $revitYear = '2027'
@@ -10,15 +10,6 @@ $manifestSource = Join-Path $scriptRoot 'MCPRVTT27.addin'
 $manifestTarget = Join-Path $addinRoot 'MCPRVTT27.addin'
 $serverTarget = Join-Path $env:LOCALAPPDATA 'MCPRVTT27\server'
 
-if (Get-Process -Name Revit -ErrorAction SilentlyContinue) {
-    throw 'Fermez Revit 2027 avant l''installation pour libérer les DLL du plugin.'
-}
-# Windows interdit d'écraser un .exe en cours d'exécution, mais autorise son
-# RENOMMAGE : on met l'ancien de côté et on écrit le neuf à sa place. Le client
-# MCP continue de tourner sur le fichier renommé jusqu'à sa prochaine
-# reconnexion, ce qui évite de devoir fermer le client pour mettre à jour.
-$runningServers = @(Get-Process -Name 'MCPRVTT27.Server' -ErrorAction SilentlyContinue)
-$serverWasRunning = $runningServers.Count -gt 0
 if (-not (Test-Path $pluginSource) -or -not (Test-Path $manifestSource)) {
     throw 'Paquet plugin incomplet. Exécutez build.ps1 avant de lancer cet installateur.'
 }
@@ -26,39 +17,72 @@ if (-not (Test-Path (Join-Path $serverSource 'MCPRVTT27.Server.exe'))) {
     throw 'Paquet serveur incomplet. Exécutez build.ps1 avant de lancer cet installateur.'
 }
 
+$revitProcesses = @(Get-Process -Name Revit -ErrorAction SilentlyContinue)
+$serverProcesses = @(Get-Process -Name 'MCPRVTT27.Server' -ErrorAction SilentlyContinue)
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+
+# Windows refuses to OVERWRITE a file that a process has loaded — a DLL held by
+# Revit, the stdio server's own .exe — but it allows RENAMING it: the open handle
+# follows the old name while the new file takes its place for the next start.
+# Installing that way removes the need to close Revit and the MCP client just to
+# update, which was the main friction of every upgrade.
+function Copy-TreeWithRenameOnLock {
+    param(
+        [Parameter(Mandatory = $true)][string] $Source,
+        [Parameter(Mandatory = $true)][string] $Destination,
+        [Parameter(Mandatory = $true)][string] $Stamp
+    )
+
+    if (-not (Test-Path $Destination)) {
+        New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    }
+
+    # Drop the parked copies of a previous update: nothing holds them any more.
+    Get-ChildItem $Destination -Recurse -File -Filter '*.old-*' -ErrorAction SilentlyContinue |
+        ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
+
+    $renamed = New-Object System.Collections.Generic.List[string]
+    $prefix = (Resolve-Path -LiteralPath $Source).Path.TrimEnd('\')
+
+    # A plain foreach, and a named $file rather than $_: inside a catch block $_ is
+    # the ErrorRecord, not the pipeline item, so the rename fallback below used to
+    # call Copy-Item with a null path — it broke on exactly the locked file it was
+    # written for.
+    foreach ($file in @(Get-ChildItem -LiteralPath $Source -Recurse -File)) {
+        $relative = $file.FullName.Substring($prefix.Length).TrimStart('\', '/')
+        $target = Join-Path -Path $Destination -ChildPath $relative
+        $targetDir = Split-Path -Path $target -Parent
+        if (-not (Test-Path -LiteralPath $targetDir)) {
+            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+        }
+
+        try {
+            Copy-Item -LiteralPath $file.FullName -Destination $target -Force
+        }
+        catch {
+            Move-Item -LiteralPath $target -Destination "$target.old-$Stamp" -Force
+            Copy-Item -LiteralPath $file.FullName -Destination $target -Force
+            $renamed.Add($relative) | Out-Null
+        }
+    }
+
+    return , $renamed
+}
+
 New-Item -ItemType Directory -Path $addinRoot -Force | Out-Null
-if (Test-Path $pluginTarget) { Remove-Item $pluginTarget -Recurse -Force }
-Copy-Item $pluginSource $pluginTarget -Recurse -Force
-Copy-Item $manifestSource $manifestTarget -Force
+$pluginRenamed = Copy-TreeWithRenameOnLock -Source $pluginSource -Destination $pluginTarget -Stamp $stamp
+
+try {
+    Copy-Item $manifestSource $manifestTarget -Force
+}
+catch {
+    Move-Item $manifestTarget "$manifestTarget.old-$stamp" -Force
+    Copy-Item $manifestSource $manifestTarget -Force
+}
 
 New-Item -ItemType Directory -Path (Split-Path $serverTarget -Parent) -Force | Out-Null
-New-Item -ItemType Directory -Path $serverTarget -Force | Out-Null
+$serverRenamed = Copy-TreeWithRenameOnLock -Source $serverSource -Destination $serverTarget -Stamp $stamp
 
-# Purge des reliquats d'une mise à jour précédente (l'exe renommé n'est plus
-# verrouillé une fois le client MCP redémarré).
-Get-ChildItem $serverTarget -Filter '*.old-*' -File -ErrorAction SilentlyContinue |
-    ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
-
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$locked = @()
-Get-ChildItem $serverSource -Recurse -File | ForEach-Object {
-    $relative = $_.FullName.Substring($serverSource.Length).TrimStart('')
-    $destination = Join-Path $serverTarget $relative
-    $destinationDir = Split-Path $destination -Parent
-    if (-not (Test-Path $destinationDir)) { New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null }
-
-    try {
-        Copy-Item $_.FullName $destination -Force
-    }
-    catch {
-        # Fichier verrouillé (typiquement l'exe et ses DLL chargées) : on le
-        # renomme, ce que Windows autorise, puis on écrit le neuf à sa place.
-        $parked = "$destination.old-$stamp"
-        Move-Item $destination $parked -Force
-        Copy-Item $_.FullName $destination -Force
-        $locked += $relative
-    }
-}
 Get-ChildItem $pluginTarget, $serverTarget -Recurse -File | ForEach-Object {
     Unblock-File -LiteralPath $_.FullName -ErrorAction SilentlyContinue
 }
@@ -67,16 +91,25 @@ $serverExe = Join-Path $serverTarget 'MCPRVTT27.Server.exe'
 Write-Host 'MCPRVTT27 installé pour Revit 2027.' -ForegroundColor Green
 Write-Host "Add-in : $pluginTarget"
 Write-Host "Serveur stdio : $serverExe"
-if ($serverWasRunning) {
+
+if ($pluginRenamed.Count -gt 0 -or $serverRenamed.Count -gt 0) {
     Write-Host ''
-    Write-Host ("Le serveur MCP tournait pendant l'installation (PID " +
-        (($runningServers | ForEach-Object { $_.Id }) -join ', ') + ').') -ForegroundColor Yellow
-    if ($locked.Count -gt 0) {
-        Write-Host ("Fichiers verrouillés remplacés par renommage : " + ($locked -join ', ')) -ForegroundColor Yellow
-    }
-    Write-Host 'Reconnectez le serveur MCP dans votre client pour charger cette version.' -ForegroundColor Yellow
-    Write-Host ''
+    Write-Host 'Fichiers verrouillés remplacés par renommage :' -ForegroundColor Yellow
+    if ($pluginRenamed.Count -gt 0) { Write-Host ("  plugin  : " + ($pluginRenamed -join ', ')) -ForegroundColor Yellow }
+    if ($serverRenamed.Count -gt 0) { Write-Host ("  serveur : " + ($serverRenamed -join ', ')) -ForegroundColor Yellow }
 }
+
+if ($revitProcesses.Count -gt 0) {
+    Write-Host ''
+    Write-Host ("Revit tourne encore (PID " + (($revitProcesses | ForEach-Object { $_.Id }) -join ', ') +
+        ') : il utilise la version chargée en mémoire. Redémarrez Revit pour charger ce plugin.') -ForegroundColor Yellow
+}
+if ($serverProcesses.Count -gt 0) {
+    Write-Host ("Le serveur MCP tourne encore (PID " + (($serverProcesses | ForEach-Object { $_.Id }) -join ', ') +
+        ') : reconnectez-le dans votre client pour charger cette version.') -ForegroundColor Yellow
+}
+
+Write-Host ''
 Write-Host 'Ouvrez Revit 2027 : la connexion par pipe local démarre automatiquement, sans port TCP.'
 Write-Host 'Ajoutez le serveur MCP avec la commande :'
 Write-Host "  codex mcp add MCPRVTT27 -- `"$serverExe`""

@@ -171,7 +171,7 @@ esquisses), décompte cohérent.
 | `batch_export` annonçait `Niveau 0 - Plan et vue 3D.pdf` alors que Revit écrit `Feuille-Niveau 0 - Plan et vue 3D.pdf` | le fichier réellement écrit est retrouvé sur le disque et rapporté |
 | `manage_model_groups` ignorait `groupTypeId` : 20 types renvoyés pour 1 demandé | filtre appliqué |
 | `create_railing` ne documentait pas sa convention d'altimétrie | description explicite : les `z` du chemin doivent seulement être égaux, `baseLevelId` fait foi (comme `create_wall`) |
-| Mettre à jour le plugin obligeait à fermer le client MCP (exe verrouillé) | `install.ps1` renomme le fichier verrouillé — Windows l'autorise — et écrit le neuf à sa place ; il suffit de reconnecter le serveur MCP ensuite |
+| Mettre à jour le plugin obligeait à fermer Revit **et** le client MCP (DLL et exe verrouillés) | `install.ps1` renomme le fichier verrouillé en `.old-<horodatage>` — Windows l'autorise — et écrit le neuf à sa place, pour le dossier plugin comme pour le dossier serveur ; il reste à redémarrer Revit et à reconnecter le serveur MCP. Le repli renommage était lui-même cassé : dans le `catch`, `$_` est l'ErrorRecord et non le fichier du pipeline, donc `Copy-Item` recevait un chemin nul — précisément sur le fichier verrouillé pour lequel ce repli existe. Corrigé par une boucle `foreach` nommée |
 
 ## Correction d'analyse — l'exclusion de membre de groupe (2026-08-22)
 

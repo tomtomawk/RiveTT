@@ -12,13 +12,21 @@ Prérequis : Revit 2027 x64 et le SDK/runtime .NET 10.
     codex mcp add MCPRVTT27 -- "%LOCALAPPDATA%\MCPRVTT27\server\MCPRVTT27.Server.exe"
 
 `install.ps1` remplace l'installation précédente : **aucune désinstallation
-préalable n'est nécessaire**. Il refuse de démarrer si Revit 2027 tourne (les
-DLL du plugin seraient verrouillées) ou si un serveur MCP `MCPRVTT27.Server`
-tourne encore (Windows interdit de remplacer un `.exe` en cours d'exécution) —
-fermer les deux, installer, puis rouvrir.
+préalable n'est nécessaire**, et il n'est **pas nécessaire de fermer Revit ni le
+client MCP**. Windows interdit d'écraser un fichier chargé par un processus mais
+autorise à le *renommer* : l'installateur renomme le fichier verrouillé en
+`<nom>.old-<horodatage>` — le processus en cours continue de l'utiliser — et
+écrit le neuf à sa place. Les copies garées sont supprimées à l'installation
+suivante. Le récapitulatif liste les fichiers concernés.
 
-Après redémarrage, ouvrir un projet et attendre quelques secondes que sa session
-soit publiée. Vérifier la version active avec `get_server_capabilities`
+En revanche le code déjà chargé reste en mémoire. Pour utiliser la nouvelle
+version :
+
+- **redémarrer Revit** si le plugin a été remplacé pendant qu'il tournait ;
+- **reconnecter le serveur MCP** dans le client si `MCPRVTT27.Server` tournait.
+
+Puis ouvrir un projet et attendre quelques secondes que sa session soit publiée.
+Vérifier la version active avec `get_server_capabilities`
 (`execution.serverVersion`).
 
 ## Utilisation sûre
