@@ -23,7 +23,10 @@ public class DeleteElementTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description =>
-        "Deletes one or more elements. Defaults to dryRun=true: the preview reports the real cascade and any group membership. Deleting a MEMBER of a group whose type has several instances is refused by default — the Revit API accepts it but does not propagate, leaving that instance divergent from its siblings; pass allowGroupMemberDeletion=true to accept that, or ungroup first.";
+        "Deletes one or more elements. Defaults to dryRun=true: the preview reports the real cascade and any " +
+        "group membership. Deleting a group MEMBER performs Revit's exclusion — the element leaves that " +
+        "instance only, the type and the other instances are untouched, and the instance is renamed " +
+        "\"(membre exclu)\". That is legitimate and reversible from the Revit ribbon; the response says so.";
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
         // Parse inputs
@@ -73,17 +76,19 @@ public class DeleteElementTool : ICortexTool
                 invalidIds.Add(rawId);
         }
 
-        // Group membership: deleting a MEMBER of a grouped instance is accepted by the
-        // API and does NOT propagate to the other instances of its type. Measured on a
-        // real model: after deleting one member, the edited instance reported 26
-        // members while its 51 siblings still reported 27, with Revit still listing
-        // them as one type. The UI forces a choice through a dialog in that situation;
-        // the API silently leaves the instance divergent from its type, which Autodesk
-        // reports as crash-prone on large models. So it is refused unless the caller
-        // accepts it explicitly.
-        var allowGroupMemberDeletion = input["allowGroupMemberDeletion"]?.Value<bool>() ?? false;
+        // Deleting a MEMBER of a grouped instance performs Revit's EXCLUSION: the
+        // element is removed from that instance only, the group type is untouched, the
+        // other instances keep their own copies, and Revit marks the instance name
+        // "(membre exclu)". This is a first-class Revit feature — instances of one type
+        // are allowed to differ, which is also how a grouped wall can be taller in one
+        // instance through its level constraints. It is reversible from the ribbon
+        // ("Restore Excluded Members"), so it is NOT refused; it is reported.
+        //
+        // Measured on a real model: after excluding one member, that instance reported
+        // 26 members while a sibling still reported 27, both still listed under the
+        // same type with the same instance count.
         var groupMembers = new List<object>();
-        var divergingIds = new List<long>();
+        var excludedIds = new List<long>();
 
         foreach (var (_, element) in validElements)
         {
@@ -102,27 +107,12 @@ public class DeleteElementTool : ICortexTool
                 name = element.Name,
                 groupId = GetElementIdLongFromId(groupId),
                 groupTypeName = groupType?.Name,
-                instancesOfThatType = instanceCount
+                instancesOfThatType = instanceCount,
+                effect = "excluded from this group instance only; the type and the other instances are untouched"
             });
 
-            if (instanceCount > 1) divergingIds.Add(GetElementIdLong(element));
+            excludedIds.Add(GetElementIdLong(element));
         }
-
-        if (divergingIds.Count > 0 && !allowGroupMemberDeletion && !dryRun)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                $"{divergingIds.Count} of the requested element(s) are members of a group whose type has " +
-                "several instances. Deleting them through the API does NOT propagate: the edited instance " +
-                "would end up with fewer members than its siblings while Revit still reports them as the " +
-                "same type.",
-                suggestion: "Delete the whole group instance instead, ungroup first " +
-                            "(manage_model_groups action=ungroup), edit the group in the Revit UI where the " +
-                            "propagation choice is offered, or pass allowGroupMemberDeletion=true to accept " +
-                            "the divergence.",
-                context: new Dictionary<string, object>
-                {
-                    ["groupMemberIds"] = divergingIds,
-                    ["groupMembers"] = groupMembers
-                });
 
         // Build preview info for each valid element
         var validInfo = validElements.Select(ve => new
@@ -196,14 +186,14 @@ public class DeleteElementTool : ICortexTool
                 validCount  = validElements.Count,
                 invalidCount = invalidIds.Count,
                 groupMembers,
-                groupDivergenceIds = divergingIds,
-                warnings = divergingIds.Count == 0
+                groupExclusionIds = excludedIds,
+                warnings = excludedIds.Count == 0
                     ? Array.Empty<string>()
                     : new[]
                     {
-                        $"{divergingIds.Count} element(s) belong to a group type with several instances. " +
-                        "Deleting them does not propagate — the edited instance would diverge from its " +
-                        "siblings. The real call refuses this unless allowGroupMemberDeletion=true."
+                        $"{excludedIds.Count} element(s) are group members: deleting them EXCLUDES them from " +
+                        "their own instance (Revit's own behaviour, reversible). The group type, the other " +
+                        "instances and their copies of those elements are untouched."
                     }
             });
         }
@@ -292,13 +282,16 @@ public class DeleteElementTool : ICortexTool
                 invalidIds,
                 invalidCount = invalidIds.Count,
                 groupMembers,
-                warnings = divergingIds.Count == 0
+                groupExclusionIds = excludedIds,
+                warnings = excludedIds.Count == 0
                     ? Array.Empty<string>()
                     : new[]
                     {
-                        $"{divergingIds.Count} deleted element(s) were members of a multi-instance group " +
-                        "type: those instances now have fewer members than their siblings while Revit still " +
-                        "reports one type. Re-sync them by editing the group once in the Revit UI."
+                        $"{excludedIds.Count} element(s) were group members and are now EXCLUDED from their " +
+                        "instance — Revit suffixes that instance's name with \"(membre exclu)\". Nothing else " +
+                        "changed: same type, same instance count, other instances intact. To bring them back, " +
+                        "select the instance in Revit and use Restore Excluded Members (the API exposes no " +
+                        "restore call)."
                     }
             });
         }

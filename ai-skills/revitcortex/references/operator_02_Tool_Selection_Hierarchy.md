@@ -42,7 +42,10 @@
 | Nuovo progetto vuoto | `create_document(templatePath?, targetPath)` | `save_as_document` duplica il modello aperto, NON crea un progetto vuoto |
 | Aprire/attivare un file | `open_document(filePath)` | Cambia il documento attivo; i cache vengono svuotati. Salvare prima il documento corrente |
 | Scala tra due livelli | `create_stair(baseLevelId, topLevelId, runs)` | Volate rette + pianerottoli automatici; verificare `reachesTopLevel` nella risposta |
-| Membri di un gruppo | `edit_group_members` | L'API non modifica un gruppo in place: sgruppa/rigruppa, il tipo cambia id |
+| Rimuovere un membro | `delete_element` sul membro, o `edit_group_members` con solo `removeElementIds` | E' una ESCLUSIONE: solo quell'istanza, tipo e altre istanze intatti, istanza rinominata "(membre exclu)" |
+| Aggiungere un membro | `edit_group_members` con `addElementIds` | Richiede sgruppa/rigruppa: NUOVO tipo, le altre istanze restano sulla vecchia definizione |
+| Ripristinare un membro escluso | Nessun tool | Solo dal ruban Revit (Restore Excluded Members) |
+| Istanze che differiscono | Normale | Esclusioni o vincoli di livello propri; leggere `hasExcludedMembers` per istanza, non fidarsi della prima |
 
 ### Disegnare linee e dividere stanze
 

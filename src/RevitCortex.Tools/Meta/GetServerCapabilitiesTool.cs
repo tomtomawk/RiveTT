@@ -79,7 +79,8 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
             {
                 "edit_family (opening the family document) is not exposed: Document.EditFamily deadlocked from this ExternalEvent dispatcher. To change a family, edit the .rfa outside Revit and reload it with load_family.",
                 "Rebar propagation is not exposed by the Revit API on any supported version; propagate_rebar only reports that.",
-                "Group members cannot be edited in place by the API: edit_group_members ungroups and recreates the type, and cannot propagate to other instances of that type.",
+                "Adding a member to a group cannot be done in place: edit_group_members ungroups and recreates the type, and the other instances keep the old definition. REMOVING a member is different — it is Revit's exclusion, applied to that instance only, with the type untouched.",
+                "There is no API to restore an excluded group member: do it from the Revit ribbon (Restore Excluded Members) after selecting the instance.",
                 "Stairs are created by component (straight runs + automatic landings) through create_stair. Sketched stairs, spiral runs and winders are not exposed."
             },
             discoveryHints = new[]
@@ -90,6 +91,8 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
                 "System types (walls, floors, ceilings, roofs, railings, stairs, title blocks) are NOT loadable families: enumerate them with list_system_types, duplicate them with duplicate_system_type.",
                 "There is no 'create similar' tool: copy_elements with an offset re-hosts the copy and does the same job, including across levels (level constraints are recomputed).",
                 "To split a room without a physical wall, use create_room_separation_line.",
+                "Instances of ONE group type may legitimately differ: an excluded member, or a grouped wall whose height follows its own level constraints. manage_model_groups reports memberCount and hasExcludedMembers per instance — never assume the first instance holds the full definition.",
+                "Each group instance owns its OWN copies of the members, with their own element ids: ids read from one instance mean nothing in another.",
                 "Category labels are localized and sometimes ambiguous (French Revit names the viewport category 'Fenetres ', like windows): prefer the OST_* codes returned as categoryBic."
             }
         });

@@ -50,15 +50,54 @@ public sealed class ManageModelGroupsTool : ICortexTool
             .Select(type =>
             {
                 var instances = type.Groups.Cast<Group>().ToList();
-                var sample = instances.FirstOrDefault();
-                var memberIds = sample?.GetMemberIds() ?? Array.Empty<ElementId>();
+
+                // Per-instance member counts, because instances of ONE type are
+                // allowed to differ: excluding a member removes it from that instance
+                // alone (Revit renames it "(membre exclu)"), and a grouped wall can be
+                // taller in one instance through its own level constraints. Reading
+                // only the first instance hid that, and could even report an
+                // incomplete member list as if it were the definition.
+                var perInstance = instances
+                    .Select(instance => new
+                    {
+                        Instance = instance,
+                        Members = instance.GetMemberIds()
+                    })
+                    .ToList();
+
+                var fullest = perInstance.Count == 0
+                    ? null
+                    : perInstance.OrderByDescending(entry => entry.Members.Count).First();
+                var fullCount = fullest?.Members.Count ?? 0;
+
+                var instanceDetails = perInstance
+                    .Select(entry => new
+                    {
+                        groupId = ToolHelpers.GetElementIdValue(entry.Instance.Id),
+                        instanceName = entry.Instance.Name,
+                        memberCount = entry.Members.Count,
+                        excludedCount = Math.Max(0, fullCount - entry.Members.Count),
+                        // Two independent signals: fewer members than the fullest
+                        // instance, and the suffix Revit puts on the instance name.
+                        hasExcludedMembers = entry.Members.Count < fullCount ||
+                                             !string.Equals(entry.Instance.Name, type.Name,
+                                                 StringComparison.Ordinal)
+                    })
+                    .ToList();
+
+                var sample = fullest?.Instance;
+                var memberIds = fullest?.Members ?? (IList<ElementId>)Array.Empty<ElementId>();
                 return new
                 {
                     groupTypeId = ToolHelpers.GetElementIdValue(type.Id),
                     name = type.Name,
                     instanceCount = instances.Count,
                     groupIds = instances.Select(g => ToolHelpers.GetElementIdValue(g.Id)).ToArray(),
+                    // The full definition, read from the instance that has the most
+                    // members — not from the first one, which may have exclusions.
                     memberCount = memberIds.Count,
+                    instancesWithExclusions = instanceDetails.Count(detail => detail.hasExcludedMembers),
+                    instances = instanceDetails,
                     members = includeMembers
                         ? memberIds.Take(sampleLimit).Select(id =>
                         {

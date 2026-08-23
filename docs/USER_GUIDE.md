@@ -86,6 +86,48 @@ portée et vérifier leur résultat immédiatement.
   sauf `allowMultiInstance: true`, car les autres occurrences gardent l'ancienne
   définition.
 
+### Groupes, exclusions et occurrences divergentes
+
+Deux occurrences d'un **même type** de groupe peuvent légitimement différer — ce
+n'est pas une anomalie du modèle :
+
+- **exclusion de membre** : un élément retiré d'une occurrence seulement. Revit
+  suffixe alors le nom de cette occurrence par « (membre exclu) ». Le type, sa
+  définition et les autres occurrences ne bougent pas ;
+- **contraintes propres** : un mur groupé peut être plus haut dans une occurrence
+  parce que ses contraintes de niveau y sont différentes.
+
+Ce que cela implique pour le pilotage :
+
+| Opération | Ce que fait le connecteur |
+|---|---|
+| Retirer un membre | `delete_element` sur ce membre, ou `edit_group_members` avec `removeElementIds` seuls : c'est une **exclusion**. Le type garde son id et ses autres occurrences leurs éléments. La réponse liste `groupExclusionIds` |
+| Ajouter un membre | Seule voie possible : dégrouper / modifier / regrouper, donc **création d'un nouveau type** ; les autres occurrences gardent l'ancienne définition. Refusé sur un type à plusieurs occurrences sauf `allowMultiInstance: true` |
+| Rétablir un membre exclu | **Impossible par l'API.** Sélectionner l'occurrence dans Revit puis « Rétablir les éléments exclus » du ruban |
+| Dissoudre | `manage_model_groups action=ungroup` sur les occurrences visées |
+| Détecter les exclusions | `manage_model_groups` retourne, par occurrence, `memberCount`, `excludedCount` et `hasExcludedMembers`, et lit la définition complète depuis l'occurrence la plus fournie |
+
+Chaque occurrence possède **ses propres copies** des membres, avec ses propres
+identifiants : un id relevé sur une occurrence n'a aucun sens dans une autre.
+
+### Changer la hauteur d'un niveau sans casser les groupes
+
+Modifier l'altimétrie d'un niveau sous des groupes contraints les déforme ou les
+éclate en types divergents. Procédure recommandée, qui préserve les symétries et
+l'identité du type :
+
+1. créer deux niveaux temporaires au-dessus du bâtiment, à l'écart
+   (`create_level`), en conservant **le même écart** que les niveaux d'origine ;
+2. copier les groupes vers ces niveaux (`copy_elements` avec `offsetZ`, qui
+   réassocie les contraintes haute et basse aux niveaux réels) ;
+3. faire les manipulations d'altimétrie sur les niveaux d'origine
+   (`create_level action=set`) ;
+4. recopier les groupes depuis les niveaux temporaires vers les niveaux
+   redéfinis, puis supprimer les niveaux temporaires.
+
+Les groupes reviennent avec leurs miroirs et leur type d'origine, ce qu'aucun
+dégroupage/regroupage ne sait faire.
+
 ### Conventions à connaître
 
 - **Unités.** Entrées en millimètres. En sortie, toute valeur numérique de

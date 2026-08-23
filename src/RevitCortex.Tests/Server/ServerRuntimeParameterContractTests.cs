@@ -236,18 +236,31 @@ public class ServerRuntimeParameterContractTests
     }
 
     [Fact]
-    public void DeletingAGroupMember_IsRefusedUnlessTheDivergenceIsAccepted()
+    public void DeletingAGroupMember_IsReportedAsAnExclusion()
     {
         var runtime = ReadRepo("RevitCortex.Tools", "Elements", "DeleteElementTool.cs");
+        var groups = ReadRepo("RevitCortex.Tools", "Elements", "EditGroupMembersTool.cs");
+        var inventory = ReadRepo("RevitCortex.Tools", "Elements", "ManageModelGroupsTool.cs");
 
-        // Measured on a real model: deleting one member of a 52-instance group type
-        // left that instance with 26 members while its siblings kept 27, Revit still
-        // reporting one type. The UI arbitrates through a dialog; the API just does it.
-        Assert.Contains("allowGroupMemberDeletion", runtime);
-        Assert.Contains("groupMembers", runtime);
-        Assert.Contains("instancesOfThatType", runtime);
-        // Deleting a whole group instance stays allowed — only members are guarded.
+        // Deleting a group member is Revit's EXCLUSION, a first-class feature:
+        // measured on a real model, one instance kept 26 members while a sibling kept
+        // 27, both under the same type with the same instance count — and Revit renamed
+        // the instance "(membre exclu)". It must be reported, not refused.
+        Assert.Contains("groupExclusionIds", runtime);
+        Assert.Contains("Restore Excluded Members", runtime);
+        Assert.DoesNotContain("allowGroupMemberDeletion", runtime);
+        // Deleting a whole group instance is not a member exclusion.
         Assert.Contains("element is Group", runtime);
+
+        // Removing members goes through exclusion (type preserved); only ADDING needs
+        // the ungroup/regroup rebuild.
+        Assert.Contains("exclusionOnly", groups);
+        Assert.Contains("typeRecreated = false", groups);
+
+        // Instances of one type may legitimately differ, so the inventory reports each
+        // instance rather than assuming the first one holds the full definition.
+        Assert.Contains("instancesWithExclusions", inventory);
+        Assert.Contains("hasExcludedMembers", inventory);
     }
 
     [Fact]

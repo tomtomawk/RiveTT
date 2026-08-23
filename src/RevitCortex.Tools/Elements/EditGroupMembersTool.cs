@@ -42,10 +42,12 @@ public sealed class EditGroupMembersTool : ICortexTool
     public bool IsDynamic => false;
 
     public string Description =>
-        "Adds or removes members of a model group. The Revit API cannot edit group members in place, so the " +
-        "group is ungrouped, the member set is changed, and a NEW group type is created: the group type id " +
-        "changes and other instances of the original type keep the old definition. Refuses a type that has " +
-        "several instances unless allowMultiInstance=true. Preview with dryRun first.";
+        "Adds or removes members of a model group. REMOVING only performs Revit's exclusion: the members " +
+        "leave THIS instance, the type and its other instances are untouched, and the instance is renamed " +
+        "\"(membre exclu)\" — reversible from the ribbon. ADDING requires rebuilding the group " +
+        "(ungroup/regroup): a NEW type is created and the other instances keep the old definition, so a " +
+        "multi-instance type is refused unless allowMultiInstance=true. Each instance owns its own copies of " +
+        "the members: pass ids read from THAT instance. Preview with dryRun.";
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -141,6 +143,83 @@ public sealed class EditGroupMembersTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "The change would leave the group empty",
                 suggestion: "Use manage_model_groups to ungroup it instead.");
+
+        // Removal only: Revit's own answer is EXCLUSION — drop those elements from
+        // this instance and leave the type alone. That keeps the type id, the other
+        // instances and their own copies, and a human can restore them from the
+        // ribbon. Rebuilding the group through ungroup/regroup is only needed to ADD
+        // a member, which the API cannot do in place.
+        var exclusionOnly = addIds.Length == 0 && removeIds.Length > 0;
+        if (exclusionOnly)
+        {
+            var toExclude = removeIds
+                .Where(rawId => memberSet.Contains(ToolHelpers.ToElementId(rawId)))
+                .ToList();
+
+            if (toExclude.Count == 0)
+                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    "None of the removeElementIds belong to this group instance",
+                    suggestion: "Each instance owns its OWN copies of the members: read the ids from this " +
+                                "instance (manage_model_groups includeMembers=true), not from a sibling.",
+                    context: new Dictionary<string, object> { ["notInGroup"] = notInGroup });
+
+            if (dryRun)
+                return CortexResult<object>.Ok(new
+                {
+                    message = $"DryRun: {toExclude.Count} member(s) would be EXCLUDED from group " +
+                              $"'{originalTypeName}' instance {groupId}. The type keeps its " +
+                              $"{instanceCount} instance(s) and its definition; only this instance loses them.",
+                    mode = "exclude",
+                    groupId,
+                    groupTypeName = originalTypeName,
+                    instanceCount,
+                    currentMemberCount = currentMembers.Count,
+                    memberCountAfter = currentMembers.Count - toExclude.Count,
+                    wouldExclude = toExclude,
+                    ignoredNotInGroup = notInGroup,
+                    restoreHint = "Select the instance in Revit and use Restore Excluded Members; the API " +
+                                  "exposes no restore call."
+                });
+
+            try
+            {
+                using var excludeTx = new Transaction(doc, "MCPRVTT27: Exclude Group Members");
+                var excludeFailures = TransactionFailureHandling.SuppressWarnings(excludeTx);
+                excludeTx.Start();
+                doc.Delete(toExclude.Select(ToolHelpers.ToElementId).ToList());
+
+                if (excludeTx.Commit() != TransactionStatus.Committed)
+                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        $"Revit rolled back the exclusion: {TransactionFailureHandling.Describe(excludeFailures)}");
+            }
+            catch (Exception exception)
+            {
+                return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                    $"Failed to exclude the member(s): {exception.Message}");
+            }
+
+            var remaining = (doc.GetElement(ToolHelpers.ToElementId(groupId)) as Group)?
+                .GetMemberIds().Count ?? 0;
+
+            return CortexResult<object>.Ok(new
+            {
+                message = $"Excluded {toExclude.Count} member(s) from instance {groupId} of " +
+                          $"'{originalTypeName}'. The group type and its other instances are unchanged.",
+                mode = "exclude",
+                groupId,
+                groupTypeId = ToolHelpers.GetElementIdValue(groupType?.Id ?? ElementId.InvalidElementId),
+                groupTypeName = originalTypeName,
+                instanceCount,
+                excludedIds = toExclude,
+                memberCountAfter = remaining,
+                typeRecreated = false,
+                warnings = new[]
+                {
+                    "Revit marks this instance's name \"(membre exclu)\". Restore the members by selecting " +
+                    "the instance in Revit and using Restore Excluded Members — the API has no restore call."
+                }
+            });
+        }
 
         if (instanceCount > 1 && !allowMultiInstance)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,

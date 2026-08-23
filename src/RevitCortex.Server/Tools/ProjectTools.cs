@@ -270,22 +270,21 @@ public static class ProjectTools
 
     [McpServerTool(Name = "delete_element"), Description(
         "Delete elements. The dryRun preview reports the real cascade (dependent tags, sketches, railings...) " +
-        "and any group membership. Deleting a MEMBER of a group whose type has several instances is REFUSED " +
-        "by default: the Revit API accepts it but does not propagate, so that instance ends up with fewer " +
-        "members than its siblings while Revit still reports one type. Ungroup first, delete the whole group " +
-        "instance, or pass allowGroupMemberDeletion=true to accept the divergence.")]
+        "and any group membership. Deleting a group MEMBER performs Revit's EXCLUSION: the element leaves " +
+        "that instance only, the group type and the other instances keep their own copies, and Revit renames " +
+        "the instance \"(membre exclu)\". Instances of one type are allowed to differ — that is a Revit " +
+        "feature, reversible with Restore Excluded Members in the ribbon. The response reports every " +
+        "exclusion it caused.")]
     public static async Task<string> DeleteElement(
         RevitConnectionManager revit,
         [Description("Array of element IDs to delete")] long[] elementIds,
         [Description("Preview changes without applying")] bool dryRun = true,
-        [Description("Accept deleting a group member without propagation to the other instances. Default false")] bool allowGroupMemberDeletion = false,
         CancellationToken ct = default)
     {
         var p = new JObject
         {
             ["elementIds"] = new JArray(elementIds.Select(id => (object)id).ToArray()),
             ["dryRun"] = dryRun,
-            ["allowGroupMemberDeletion"] = allowGroupMemberDeletion,
         };
         var result = await revit.ExecuteAsync("delete_element", p, ct);
         return result.ToString();

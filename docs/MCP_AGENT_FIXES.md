@@ -173,6 +173,50 @@ esquisses), décompte cohérent.
 | `create_railing` ne documentait pas sa convention d'altimétrie | description explicite : les `z` du chemin doivent seulement être égaux, `baseLevelId` fait foi (comme `create_wall`) |
 | Mettre à jour le plugin obligeait à fermer le client MCP (exe verrouillé) | `install.ps1` renomme le fichier verrouillé — Windows l'autorise — et écrit le neuf à sa place ; il suffit de reconnecter le serveur MCP ensuite |
 
+## Correction d'analyse — l'exclusion de membre de groupe (2026-08-22)
+
+J'avais qualifié de « corruption silencieuse » ce qui est en réalité une
+**fonction Revit de premier plan**. Correction établie sur le modèle de test, avec
+deux occurrences préparées au R+2 dont une avec le cercle PMR exclu :
+
+| Mesure | Résultat |
+|---|---|
+| Occurrence normale `11021859` | 27 membres, deux `MEP_Cercle PMR 1.50m` |
+| Occurrence « (membre exclu) » `11021932` | **26** membres, un seul cercle PMR |
+| Type `T1 Type 1` | **un seul** type, **54** occurrences, définition intacte |
+| Nom de l'occurrence concernée | Revit y ajoute lui-même le suffixe « (membre exclu) » |
+| Élément exclu | n'existe plus comme élément (`found: false`) — Revit le recrée depuis la définition au rétablissement |
+
+Deux occurrences d'un même type **ont le droit** de différer : membre exclu, ou
+mur groupé plus haut parce que ses contraintes de niveau diffèrent. Supprimer un
+membre par l'API produit exactement l'exclusion — c'est la réponse par défaut de
+Revit quand personne n'arbitre la boîte de dialogue.
+
+Conséquences dans le code :
+
+- `delete_element` **n'interdit plus** la suppression d'un membre de groupe. Il
+  la qualifie : `groupExclusionIds`, nom du type, nombre d'occurrences, et le
+  chemin de rétablissement (ruban Revit, l'API n'expose aucun appel).
+- `edit_group_members` avec uniquement `removeElementIds` passe par
+  l'**exclusion** — plus de dégroupage/regroupage, plus de nouveau type
+  (`typeRecreated: false`). Le dégroupage/regroupage ne subsiste que pour
+  **ajouter** un membre, ce que l'API ne sait pas faire en place.
+- `manage_model_groups` rapporte, **par occurrence**, `memberCount`,
+  `excludedCount` et `hasExcludedMembers`, et lit la définition complète depuis
+  l'occurrence la plus fournie — auparavant il lisait la première, donc une
+  définition potentiellement amputée présentée comme la référence.
+- Chaque occurrence possède ses **propres** copies des membres (ids 11021860+
+  pour l'une, 11021933+ pour l'autre) : un id relevé sur une occurrence n'a aucun
+  sens dans une autre. Documenté et signalé dans les messages d'erreur.
+
+### Changer un niveau sous des groupes contraints
+
+Procédure documentée dans le guide, préférable au dégroupage : dupliquer les
+groupes vers deux niveaux temporaires écartés du même delta, modifier
+l'altimétrie des niveaux d'origine, puis recopier les groupes vers les niveaux
+redéfinis. Les symétries et l'identité du type sont préservées, ce qu'un
+dégroupage/regroupage perd.
+
 ## Vérification
 
 Version du connecteur : **0.2.0** (plugin et serveur MCP).
