@@ -9,10 +9,10 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class ViewTools
 {
-    [McpServerTool(Name = "create_view"), Description("Create a new view in Revit: floor plan, ceiling plan, section, elevation, drafting, or 3D view.")]
+    [McpServerTool(Name = "create_view"), Description("Create a new view in Revit: floor plan, ceiling plan, section, elevation, drafting, callout, or 3D view.")]
     public static async Task<string> CreateView(
         RevitConnectionManager revit,
-        [Description("Type of view to create: FloorPlan, CeilingPlan, Section, Elevation, Drafting, ThreeD")] string viewType,
+        [Description("Type of view to create: FloorPlan, CeilingPlan, Section, Elevation, Drafting, Callout, ThreeD")] string viewType,
         [Description("Level name (e.g. 'L1 - Block 43') — preferred for floor/ceiling plans")] string? levelName = null,
         [Description("Level element ID (alternative to levelName)")] long? levelId = null,
         [Description("Name for the new view")] string? name = null,
@@ -27,6 +27,9 @@ public static class ViewTools
         [Description("Activate the crop box. Default: unchanged Pass \"true\" or \"false\"; omit to leave unchanged.")] string? cropActive = null,
         [Description("Crop rectangle min corner as JSON {\"x\":mm,\"y\":mm} (in the view plane). Requires cropMax")] string? cropMin = null,
         [Description("Crop rectangle max corner as JSON {\"x\":mm,\"y\":mm}. Requires cropMin")] string? cropMax = null,
+        [Description("REQUIRED for viewType=Callout: element ID of the parent view the callout is cut from")] long? parentViewId = null,
+        [Description("REQUIRED for viewType=Callout: callout rectangle min corner as JSON {\"x\":mm,\"y\":mm} in the parent view's own coordinates (model XY for a plan). Requires calloutMax")] string? calloutMin = null,
+        [Description("REQUIRED for viewType=Callout: callout rectangle max corner as JSON {\"x\":mm,\"y\":mm}. Requires calloutMin")] string? calloutMax = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["viewType"] = viewType };
@@ -49,6 +52,9 @@ public static class ViewTools
         }
         if (cropMin != null) p["cropMin"] = JObject.Parse(cropMin);
         if (cropMax != null) p["cropMax"] = JObject.Parse(cropMax);
+        if (parentViewId != null) p["parentViewId"] = parentViewId;
+        if (calloutMin != null) p["calloutMin"] = JObject.Parse(calloutMin);
+        if (calloutMax != null) p["calloutMax"] = JObject.Parse(calloutMax);
         var result = await revit.ExecuteAsync("create_view", p, ct);
         return result.ToString();
     }

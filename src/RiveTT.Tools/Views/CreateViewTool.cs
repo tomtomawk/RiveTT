@@ -43,6 +43,7 @@ public class CreateViewTool : ICortexTool
             tx.Start();
 
             View? createdView = null;
+            string? calloutError = null;
 
             switch (viewType.ToLowerInvariant().Replace(" ", "").Replace("_", ""))
             {
@@ -76,15 +77,18 @@ public class CreateViewTool : ICortexTool
                         .FirstOrDefault(v => v.ViewFamily == ViewFamily.Drafting);
                     if (vftDraft != null) createdView = ViewDrafting.Create(doc, vftDraft.Id);
                     break;
+                case "callout":
+                    createdView = CreateCalloutView(doc, input, out calloutError);
+                    break;
                 default:
                     return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                         $"Unsupported viewType: {viewType}",
-                        suggestion: "Use: floorplan | ceilingplan | section | elevation | drafting | " +
+                        suggestion: "Use: floorplan | ceilingplan | section | elevation | drafting | callout | " +
                                     "3d (aliases: isometric, ThreeD)");
             }
 
             if (createdView == null)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed, "Could not create view");
+                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed, calloutError ?? "Could not create view");
 
             if (!string.IsNullOrEmpty(name))
                 try { createdView.Name = name; } catch { /* duplicate name */ }
@@ -221,6 +225,63 @@ public class CreateViewTool : ICortexTool
         var dirStr = (input["direction"]?.Value<string>() ?? "north").ToLowerInvariant();
         int index = dirStr switch { "east" => 1, "south" => 2, "west" => 3, _ => 0 };
         return marker.CreateElevation(doc, ownerPlan.Id, index);
+    }
+
+    /// <summary>
+    /// Creates a callout view bound to parentViewId, cropped to calloutMin/calloutMax (mm,
+    /// {x,y} in the parent view's own coordinate system — model XY for a plan). The callout's
+    /// own ViewFamily follows the parent's: FloorPlan/CeilingPlan parents get a same-family
+    /// callout, anything else (section, elevation, drafting) gets a Detail callout, matching
+    /// what Revit itself offers when you draw a callout by hand.
+    /// </summary>
+    private static View? CreateCalloutView(Document doc, JObject input, out string? error)
+    {
+        error = null;
+        var parentViewIdLong = input["parentViewId"]?.Value<long?>() ?? 0;
+        if (parentViewIdLong <= 0)
+        {
+            error = "parentViewId is required for a callout view";
+            return null;
+        }
+
+        var parentView = doc.GetElement(ToolHelpers.ToElementId(parentViewIdLong)) as View;
+        if (parentView == null)
+        {
+            error = $"parentViewId {parentViewIdLong} was not found";
+            return null;
+        }
+
+        var minToken = input["calloutMin"];
+        var maxToken = input["calloutMax"];
+        if (minToken == null || maxToken == null)
+        {
+            error = "calloutMin and calloutMax ({x,y} in mm, parent view coordinates) are required for a callout view";
+            return null;
+        }
+
+        var minX = (minToken["x"]?.Value<double>() ?? 0) / MmPerFoot;
+        var minY = (minToken["y"]?.Value<double>() ?? 0) / MmPerFoot;
+        var maxX = (maxToken["x"]?.Value<double>() ?? 0) / MmPerFoot;
+        var maxY = (maxToken["y"]?.Value<double>() ?? 0) / MmPerFoot;
+        var min = new XYZ(Math.Min(minX, maxX), Math.Min(minY, maxY), 0);
+        var max = new XYZ(Math.Max(minX, maxX), Math.Max(minY, maxY), 0);
+
+        var calloutFamily = parentView.ViewType switch
+        {
+            ViewType.FloorPlan => ViewFamily.FloorPlan,
+            ViewType.CeilingPlan => ViewFamily.CeilingPlan,
+            _ => ViewFamily.Detail
+        };
+
+        var vft = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
+            .FirstOrDefault(v => v.ViewFamily == calloutFamily);
+        if (vft == null)
+        {
+            error = $"No ViewFamilyType found for callouts of family {calloutFamily}";
+            return null;
+        }
+
+        return ViewSection.CreateCallout(doc, parentView.Id, vft.Id, min, max);
     }
 
     /// <summary>
