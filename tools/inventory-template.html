@@ -1,0 +1,345 @@
+<title>Inventaire MCPRVTT27</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Palette bleu de plan : encre bleu-noir sur papier de tirage. Les gris ont un
+   biais froid assumé, pas un gris médian par défaut. */
+:root {
+  --paper: #eef1f4;      --surface: #ffffff;      --surface-2: #f6f8fa;
+  --ink: #0f1d29;        --ink-2: #47596a;        --ink-3: #7d8d9b;
+  --rule: #d3dce4;       --rule-2: #e6ecf1;
+  --accent: #1d5c8f;     --accent-soft: #dce8f2;
+  --crit: #a8342a;       --major: #a86a15;        --signal: #4d6fa8;
+  --minor: #7d8d9b;      --ok: #2f6b4f;           --off: #98a6b2;
+  --shadow: 0 1px 2px rgba(15,29,41,.06), 0 8px 24px -12px rgba(15,29,41,.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0d1319;    --surface: #141c23;      --surface-2: #18222a;
+    --ink: #e2e9ef;      --ink-2: #a3b2be;        --ink-3: #75858f;
+    --rule: #263340;     --rule-2: #1e2932;
+    --accent: #6aa9d8;   --accent-soft: #1b2f42;
+    --crit: #e08074;     --major: #d8a34e;        --signal: #8fb0dd;
+    --minor: #75858f;    --ok: #6bbf93;           --off: #5d6b76;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0d1319;      --surface: #141c23;      --surface-2: #18222a;
+  --ink: #e2e9ef;        --ink-2: #a3b2be;        --ink-3: #75858f;
+  --rule: #263340;       --rule-2: #1e2932;
+  --accent: #6aa9d8;     --accent-soft: #1b2f42;
+  --crit: #e08074;       --major: #d8a34e;        --signal: #8fb0dd;
+  --minor: #75858f;      --ok: #6bbf93;           --off: #5d6b76;
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 15px/1.6 "IBM Plex Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 96px; }
+h1, h2, h3 { font-family: Archivo, "IBM Plex Sans", system-ui, sans-serif; text-wrap: balance; }
+
+/* En-tête traité comme un cartouche, pas comme un hero. */
+header { border-bottom: 2px solid var(--ink); margin-bottom: 40px; padding: 40px 0 0; }
+.eyebrow {
+  font: 500 11px/1 "IBM Plex Mono", monospace; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--accent);
+}
+h1 { font-size: clamp(30px, 4.6vw, 46px); font-weight: 700; letter-spacing: -.02em;
+     margin: 14px 0 10px; }
+.lede { color: var(--ink-2); max-width: 62ch; margin: 0 0 28px; }
+.stamp {
+  display: flex; flex-wrap: wrap; gap: 0; border-top: 1px solid var(--rule);
+  font: 400 12px/1.4 "IBM Plex Mono", monospace; color: var(--ink-2);
+}
+.stamp div { padding: 10px 18px 12px 0; margin-right: 18px; border-right: 1px solid var(--rule); }
+.stamp div:last-child { border-right: 0; }
+.stamp b { display: block; color: var(--ink); font-weight: 500; font-size: 19px;
+           font-variant-numeric: tabular-nums; }
+
+.cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+         margin: 0 0 44px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 3px;
+        padding: 16px 18px; box-shadow: var(--shadow); border-top: 3px solid var(--accent); }
+.card.c-crit { border-top-color: var(--crit); }
+.card.c-major { border-top-color: var(--major); }
+.card.c-off { border-top-color: var(--off); }
+.card .n { font: 700 30px/1 Archivo, sans-serif; font-variant-numeric: tabular-nums;
+           letter-spacing: -.02em; }
+.card .k { font: 500 11px/1.3 "IBM Plex Mono", monospace; letter-spacing: .1em;
+           text-transform: uppercase; color: var(--ink-3); margin: 8px 0 6px; }
+.card p { margin: 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
+
+section { margin: 0 0 52px; }
+section > h2 {
+  font-size: 13px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--ink); margin: 0 0 6px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--ink);
+}
+section > .sub { color: var(--ink-2); font-size: 14px; margin: 12px 0 22px; max-width: 68ch; }
+
+.dist { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; }
+.dist li { display: grid; grid-template-columns: 148px 1fr 46px; align-items: center; gap: 14px;
+           font: 400 13px/1 "IBM Plex Mono", monospace; }
+.dist .bn { grid-column: 1; color: var(--ink-2); }
+.dist .bar { height: 9px; background: var(--accent-soft); position: relative; border-radius: 1px;
+             grid-column: 2; }
+.dist .bar::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--w);
+                    background: var(--accent); border-radius: 1px; }
+.dist .bv { grid-column: 3; text-align: right; color: var(--ink);
+            font-variant-numeric: tabular-nums; }
+
+.tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+         position: sticky; top: 0; z-index: 5; padding: 14px 0;
+         background: color-mix(in srgb, var(--paper) 92%, transparent);
+         backdrop-filter: blur(6px); border-bottom: 1px solid var(--rule); }
+.tools input, .tools select {
+  font: 400 13px/1 "IBM Plex Sans", sans-serif; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 2px;
+  padding: 9px 11px;
+}
+.tools input { flex: 1 1 220px; min-width: 160px; }
+.tools input:focus-visible, .tools select:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px; }
+.count { font: 500 12px/1 "IBM Plex Mono", monospace; color: var(--ink-3);
+         margin-left: auto; font-variant-numeric: tabular-nums; }
+
+.scroll { overflow-x: auto; border: 1px solid var(--rule); border-top: 0;
+          background: var(--surface); }
+table { width: 100%; border-collapse: collapse; min-width: 940px; }
+thead th {
+  position: sticky; top: 53px; z-index: 4; background: var(--surface-2);
+  font: 500 10.5px/1.2 "IBM Plex Mono", monospace; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); text-align: left;
+  padding: 10px 12px; border-bottom: 1px solid var(--rule);
+}
+tbody tr { border-bottom: 1px solid var(--rule-2); }
+tbody tr:hover { background: var(--surface-2); }
+td { padding: 11px 12px; vertical-align: top; font-size: 13.5px; }
+.c-name { width: 234px; }
+.c-name code { font: 500 13px/1.4 "IBM Plex Mono", monospace; color: var(--ink);
+               display: block; word-break: break-word; }
+.cat { display: block; font: 400 10.5px/1.4 "IBM Plex Mono", monospace; color: var(--ink-3);
+       letter-spacing: .06em; text-transform: uppercase; margin-top: 3px; }
+.facade { font: 400 11px/1.4 "IBM Plex Mono", monospace; color: var(--accent); }
+.c-eff { color: var(--ink-2); min-width: 300px; }
+.c-kind { width: 118px; }
+.c-def { width: 250px; }
+.c-int { width: 74px; }
+
+.chip { display: inline-block; font: 500 10.5px/1 "IBM Plex Mono", monospace;
+        letter-spacing: .04em; padding: 4px 6px; border-radius: 2px; margin: 0 4px 4px 0;
+        border: 1px solid var(--rule); color: var(--ink-2); white-space: nowrap; }
+.chip.w { color: var(--accent); border-color: var(--accent); }
+.chip.d { color: var(--crit); border-color: var(--crit); }
+.chip.ok { color: var(--ok); border-color: var(--ok); }
+.chip.no { color: var(--major); border-color: var(--major); }
+
+.sev { display: inline-block; font: 500 10.5px/1 "IBM Plex Mono", monospace;
+       letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px;
+       border-radius: 2px; white-space: nowrap; }
+.s-critique { background: var(--crit); color: var(--surface); }
+.s-majeur   { background: var(--major); color: var(--surface); }
+.s-signal   { border: 1px solid var(--signal); color: var(--signal); }
+.s-mineur   { border: 1px dashed var(--rule); color: var(--minor); }
+.s-none     { border: 1px solid var(--rule-2); color: var(--ink-3); }
+.dtxt { display: block; margin-top: 6px; font-size: 12.5px; color: var(--ink-2);
+        line-height: 1.5; }
+
+/* L'intérêt se lit comme une règle graduée de plan, pas comme des étoiles. */
+.ruler { display: inline-flex; gap: 2px; align-items: flex-end; height: 16px; }
+.ruler i { width: 4px; background: var(--rule); border-radius: .5px; }
+.ruler i:nth-child(1) { height: 6px; }  .ruler i:nth-child(2) { height: 8px; }
+.ruler i:nth-child(3) { height: 10px; } .ruler i:nth-child(4) { height: 13px; }
+.ruler i:nth-child(5) { height: 16px; }
+.ruler i.on { background: var(--accent); }
+
+.gaps { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); }
+.gaps table { min-width: 860px; }
+.g-name { width: 190px; font-weight: 600; }
+.g-api { width: 220px; }
+.g-api code { font: 400 12px/1.4 "IBM Plex Mono", monospace; color: var(--accent); }
+.g-eff { width: 60px; font: 500 12px "IBM Plex Mono", monospace; text-align: center; }
+.prio { display: inline-block; font: 500 10.5px/1 "IBM Plex Mono", monospace;
+        text-transform: uppercase; letter-spacing: .06em; padding: 4px 7px; border-radius: 2px; }
+.p-haute { background: var(--crit); color: var(--surface); }
+.p-moyenne { border: 1px solid var(--major); color: var(--major); }
+.p-basse { border: 1px solid var(--rule); color: var(--ink-3); }
+.p-arbitrer { border: 1px dashed var(--accent); color: var(--accent); }
+
+.note { border-left: 2px solid var(--accent); padding: 2px 0 2px 16px; margin: 22px 0;
+        color: var(--ink-2); font-size: 14px; max-width: 66ch; }
+.note b { color: var(--ink); font-weight: 600; }
+footer { border-top: 1px solid var(--rule); padding-top: 18px; color: var(--ink-3);
+         font: 400 12px/1.7 "IBM Plex Mono", monospace; }
+code.inline { font: 400 12.5px "IBM Plex Mono", monospace; background: var(--surface-2);
+              border: 1px solid var(--rule-2); padding: 1px 5px; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Connecteur Revit 2027 · version __VERSION__ · relevé du __DATE__</div>
+  <h1>Inventaire MCPRVTT27</h1>
+  <p class="lede">Les __TOTAL__ outils publiés par le connecteur, ce qu'ils font, le défaut
+  que le code laisse voir, et ce qu'ils valent pour une agence d'architecture. Extrait
+  automatiquement des sources, puis trié à la main.</p>
+  <div class="stamp">
+    <div>outils publiés<b>__TOTAL__</b></div>
+    <div>dont écriture<b>__WRITES__</b></div>
+    <div>défauts confirmés<b>__CONF__</b></div>
+    <div>signaux à vérifier<b>__SIG__</b></div>
+    <div>hors périmètre<b>__OFF__</b></div>
+  </div>
+</header>
+
+<div class="cards">
+  <div class="card c-off">
+    <div class="n">__OFFPCT__ %</div>
+    <div class="k">ferraillage et charpente</div>
+    <p>__OFF__ outils de béton armé et d'assemblages métalliques, inutilisables en
+    agence d'architecture, chargés à chaque session.</p>
+  </div>
+  <div class="card c-major">
+    <div class="n">__NODRY__</div>
+    <div class="k">écritures sans dryRun</div>
+    <p>dont __NODRYA__ hors ferraillage, alors que le contrat annonce
+    <code class="inline">dryRunDefault: true</code>.</p>
+  </div>
+  <div class="card c-crit">
+    <div class="n">__CONF__</div>
+    <div class="k">défauts confirmés</div>
+    <p>Lus dans le code, pas déduits : paramètre ignoré, position codée en dur,
+    destruction sans aperçu.</p>
+  </div>
+  <div class="card">
+    <div class="n">__GENERR__</div>
+    <div class="k">erreurs sans issue</div>
+    <p>Outils qui échouent sur un <code class="inline">Failed: …</code> générique, sans dire
+    quoi corriger.</p>
+  </div>
+</div>
+
+<section>
+  <h2>Ce que la répartition raconte</h2>
+  <p class="sub">Une agence de 37 personnes en logement, équipement, tertiaire et santé
+  n'utilisera jamais __OFFPCT__ % de cette surface. Ces outils ne sont pas neutres : ils
+  occupent le catalogue que l'agent doit lire à chaque session et diluent le choix de
+  l'outil juste.</p>
+  <ul class="dist">__DIST__</ul>
+  <p class="note"><b>Piste.</b> Un filtre de catégories au chargement du plugin —
+  ferraillage et charpente désactivés par défaut, réactivables — retirerait __OFF__ outils
+  du catalogue sans supprimer une ligne de code.</p>
+</section>
+
+<section>
+  <h2>Les __TOTAL__ outils</h2>
+  <p class="sub">Colonne « défaut probable » : <b>critique</b> et <b>majeur</b> ont été
+  vérifiés dans le code. <b>À vérifier</b> vient d'une détection automatique — une clé
+  annoncée dans la description et introuvable dans le runtime — qui produit des faux
+  positifs quand la lecture passe par un helper partagé ou un DTO typé.
+  L'intérêt est une règle graduée de 1 à 5, du hors-périmètre au geste quotidien.</p>
+
+  <div class="tools">
+    <input id="q" type="search" placeholder="Rechercher un outil, un effet, un défaut…"
+           aria-label="Rechercher">
+    <select id="fcat" aria-label="Catégorie"><option value="">Toutes catégories</option>__CATS__</select>
+    <select id="fsev" aria-label="Défaut">
+      <option value="">Tous défauts</option>
+      <option value="critique">Critique</option>
+      <option value="majeur">Majeur</option>
+      <option value="signal">À vérifier</option>
+      <option value="mineur">Mineur</option>
+      <option value="none">Aucun</option>
+    </select>
+    <select id="fint" aria-label="Intérêt">
+      <option value="">Tout intérêt</option>
+      <option value="5">5 — quotidien</option>
+      <option value="4">4 — régulier</option>
+      <option value="3">3 — ponctuel</option>
+      <option value="2">2 — marginal</option>
+      <option value="1">1 — hors périmètre</option>
+    </select>
+    <select id="fkind" aria-label="Nature">
+      <option value="">Lecture et écriture</option>
+      <option value="ecriture">Écriture seulement</option>
+      <option value="lecture">Lecture seulement</option>
+    </select>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th>Outil</th><th>Effet</th><th>Nature</th><th>Défaut probable</th><th>Intérêt</th>
+      </tr></thead>
+      <tbody id="tb">__ROWS__</tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Exposé par l'API Revit, pas encore outillé</h2>
+  <p class="sub">Vérifié par recherche sur les __TOTAL__ noms d'outils : aucune de ces
+  capacités n'a de point d'entrée. Priorité jugée sur les spécialités de l'agence —
+  logement, équipement, tertiaire, santé. Effort : S de l'ordre de la journée,
+  M de la semaine, L au-delà.</p>
+  <div class="gaps">
+    <table>
+      <thead><tr>
+        <th>Capacité absente</th><th>API concernée</th><th>Priorité</th>
+        <th>Ce que ça coûte aujourd'hui</th><th>Effort</th>
+      </tr></thead>
+      <tbody>__GAPS__</tbody>
+    </table>
+  </div>
+  <p class="note"><b>Le plus rentable d'abord.</b> Les nuages de révision, les cotes de
+  niveau, les vues de détail et les zones de délimitation sont quatre efforts « S » qui
+  touchent des gestes quotidiens. Les toitures, les surfaces réglementaires, les rampes et
+  les trémies sont quatre manques structurels : sans eux, une maquette de logement ne peut
+  pas être produite de bout en bout par le connecteur.</p>
+</section>
+
+<footer>
+  Généré par <code>tools/audit-tool-surface.py --html</code> depuis
+  <code>tools/inventory-template.html</code> : croisement des attributs
+  <code>[McpServerTool]</code> du serveur MCP avec les classes <code>ICortexTool</code> du
+  runtime — paramètres transmis contre paramètres lus, classement
+  <code>[ToolSafety]</code> contre préfixe du nom, présence de <code>dryRun</code>,
+  géométrie par boîte englobante, erreurs génériques.<br>
+  Les façades sont signalées par une flèche : un nom MCP qui appelle un autre outil runtime.
+</footer>
+</div>
+
+<script>
+(function () {
+  var rows = Array.prototype.slice.call(document.querySelectorAll("#tb tr"));
+  var q = document.getElementById("q"), cat = document.getElementById("fcat"),
+      sev = document.getElementById("fsev"), it = document.getElementById("fint"),
+      kind = document.getElementById("fkind"), out = document.getElementById("count");
+
+  function apply() {
+    var term = q.value.trim().toLowerCase(), c = cat.value, s = sev.value,
+        i = it.value, k = kind.value, shown = 0;
+    rows.forEach(function (tr) {
+      var ok = (!c || tr.dataset.cat === c) &&
+               (!s || tr.dataset.sev === s) &&
+               (!i || tr.dataset.int === i) &&
+               (!k || tr.dataset.kind === k) &&
+               (!term || tr.dataset.txt.indexOf(term) !== -1);
+      tr.hidden = !ok;
+      if (ok) shown++;
+    });
+    out.textContent = shown + " / " + rows.length + " outils";
+  }
+  [q, cat, sev, it, kind].forEach(function (el) {
+    el.addEventListener("input", apply);
+    el.addEventListener("change", apply);
+  });
+  apply();
+})();
+</script>

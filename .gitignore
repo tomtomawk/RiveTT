@@ -32,3 +32,6 @@ docs/check_*.py
 /*.png
 /*.jpg
 .publish-smoke/
+
+# vue HTML regeneree localement, non versionnee
+/inventaire*.html

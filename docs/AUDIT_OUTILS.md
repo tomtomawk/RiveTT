@@ -9,7 +9,16 @@ serveur MCP croisés avec les classes `ICortexTool` du runtime — et non à la 
 Reproductible, et il a trouvé des choses qu'une relecture n'aurait pas vues.
 
 Vue interactive filtrable (par catégorie, gravité, intérêt, nature) :
-<https://claude.ai/code/artifact/70429a3b-b76d-4a11-8a42-96ea47dd5b56>
+<https://claude.ai/code/artifact/70429a3b-b76d-4a11-8a42-96ea47dd5b56> — page
+privée, à partager depuis son menu pour la diffuser dans l'agence. Elle se
+refait à l'identique depuis le dépôt, sans dépendre de ce lien :
+
+```powershell
+python tools/audit-tool-surface.py --html inventaire.html
+```
+
+Le HTML produit n'est pas versionné — 300 Ko de balisage dont le diff n'apprend
+rien — mais son gabarit `tools/inventory-template.html` l'est.
 
 ## Les chiffres qui commandent la suite
 

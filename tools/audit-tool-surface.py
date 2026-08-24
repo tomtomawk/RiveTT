@@ -25,7 +25,13 @@ Ce que le script sait detecter, et la confiance qu'on peut lui accorder :
 
 Le classement d'interet (1 a 5) est un jugement d'usage pour une agence
 d'architecture — logement, equipement, tertiaire, sante — pas une propriete du
-code. Il vit dans les listes T5/T4/T2 ci-dessous et se corrige en les editant.
+code. Il vit dans les listes TIER5/TIER4/TIER2 ci-dessous et se corrige en les
+editant.
+
+    python tools/audit-tool-surface.py --html sortie.html
+
+rend la meme matiere en page filtrable, depuis inventory-template.html. Le HTML
+produit n'est pas versionne : 300 Ko de balisage dont le diff n'apprend rien.
 """
 import collections
 import datetime
@@ -34,6 +40,7 @@ import io
 import json
 import os
 import re
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -534,6 +541,111 @@ def emit(rows):
             "confirmed": len(confirmed), "signals": len(signals)}
 
 
+def emit_html(rows, path):
+    """Rend la meme matiere en page filtrable, depuis inventory-template.html.
+
+    Le HTML produit n'est pas versionne : 300 Ko de balisage dont le diff
+    n'apprend rien. Le template et ce script le sont, donc la page se refait a
+    l'identique — ce qui manquait quand elle ne vivait que dans un artifact.
+    """
+    total = len(rows)
+    by_cat = collections.Counter(r["category"] or "(sans)" for r in rows)
+    off = sum(1 for r in rows if r["category"] in OUT_OF_SCOPE)
+    writes = sum(1 for r in rows if r["readOnly"] is False)
+    no_dry = [r for r in rows if r["readOnly"] is False and not r["hasDryRun"]]
+    no_dry_archi = [r for r in no_dry if r["category"] not in OUT_OF_SCOPE]
+    generic = [r for r in rows if any(m == "erreur générique sans suggestion"
+                                      for _, m in r["flags"])]
+    confirmed = [r for r in rows if r["sev"] in ("critique", "majeur")]
+    signals = [r for r in rows if r["sev"] == "signal"]
+
+    def esc(text):
+        return (re.sub(r'\s+', ' ', text or "").strip()
+                .replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;").replace('"', "&quot;"))
+
+    ordered = sorted(rows, key=lambda r: (SEV_ORDER[r["sev"]], -r["interest"], r["name"]))
+    body = []
+    for row in ordered:
+        kind = "lecture" if row["readOnly"] else (
+            "ecriture" if row["readOnly"] is False else "?")
+        chips = ['<span class="chip %s">%s</span>'
+                 % ("w" if kind == "ecriture" else "r",
+                    "écriture" if kind == "ecriture" else "lecture")]
+        if row["destructive"]:
+            chips.append('<span class="chip d">destructif</span>')
+        if row["readOnly"] is False:
+            chips.append('<span class="chip %s">%s</span>'
+                         % ("ok" if row["hasDryRun"] else "no",
+                            "dryRun" if row["hasDryRun"] else "sans dryRun"))
+        ticks = "".join('<i%s></i>' % (' class="on"' if i < row["interest"] else "")
+                        for i in range(5))
+        facade = (' <span class="facade">→ %s</span>' % esc(row["runtimeTool"])
+                  if row["facade"] else "")
+        body.append(
+            '<tr data-cat="%s" data-sev="%s" data-int="%d" data-kind="%s" data-txt="%s">'
+            '<td class="c-name"><code>%s</code>%s<span class="cat">%s</span></td>'
+            '<td class="c-eff">%s</td><td class="c-kind">%s</td>'
+            '<td class="c-def"><span class="sev s-%s">%s</span>%s</td>'
+            '<td class="c-int"><span class="ruler" title="intérêt %d/5">%s</span></td></tr>'
+            % (esc(row["category"]), row["sev"] or "none", row["interest"], kind,
+               esc((row["name"] + " " + row["description"] + " " + row["defect"]).lower()),
+               esc(row["name"]), facade, esc(row["category"]),
+               esc(cell(row["description"], 230)) or "—", "".join(chips),
+               row["sev"] or "none", row["sev"] or "rien",
+               ('<span class="dtxt">%s</span>' % esc(row["defect"])) if row["defect"] else "",
+               row["interest"], ticks))
+
+    dist = "".join(
+        '<li><span class="bn">%s</span><span class="bar" style="--w:%.1f%%"></span>'
+        '<span class="bv">%d</span></li>'
+        % (esc(cat), by_cat[cat] / total * 100, by_cat[cat])
+        for cat, _ in by_cat.most_common(8))
+
+    order = {"haute": 0, "moyenne": 1, "à arbitrer": 2, "basse": 3}
+    gaps = "".join(
+        '<tr><td class="g-name">%s</td><td class="g-api"><code>%s</code></td>'
+        '<td><span class="prio p-%s">%s</span></td><td class="g-why">%s</td>'
+        '<td class="g-eff">%s</td></tr>'
+        % (esc(name), esc(api), "arbitrer" if prio == "à arbitrer" else prio,
+           esc(prio), esc(why), esc(effort))
+        for name, api, prio, why, effort in sorted(GAPS, key=lambda g: (order[g[2]], g[0])))
+
+    version = "inconnue"
+    props = os.path.join(ROOT, "Directory.Build.props")
+    if os.path.exists(props):
+        found = re.search(r'<Version>([^<]+)</Version>', read(props))
+        if found:
+            version = found.group(1)
+
+    page = read(os.path.join(HERE, "inventory-template.html"))
+    for token, value in (
+            ("__DATE__", datetime.date.today().isoformat()),
+            ("__VERSION__", version),
+            ("__TOTAL__", str(total)),
+            ("__WRITES__", str(writes)),
+            ("__CONF__", str(len(confirmed))),
+            ("__SIG__", str(len(signals))),
+            ("__OFFPCT__", "%.0f" % (off / total * 100)),
+            ("__OFF__", str(off)),
+            ("__NODRYA__", str(len(no_dry_archi))),
+            ("__NODRY__", str(len(no_dry))),
+            ("__GENERR__", str(len(generic))),
+            ("__DIST__", dist),
+            ("__CATS__", "".join('<option value="%s">%s (%d)</option>'
+                                 % (esc(c), esc(c), by_cat[c])
+                                 for c, _ in by_cat.most_common())),
+            ("__ROWS__", "".join(body)),
+            ("__GAPS__", gaps)):
+        page = page.replace(token, value)
+
+    leftover = sorted(set(re.findall(r'__[A-Z]+__', page)))
+    if leftover:
+        raise SystemExit("jeton non remplace dans le template : %s" % ", ".join(leftover))
+
+    io.open(path, "w", encoding="utf-8", newline="\n").write(page)
+
+
 def main():
     server = load_server()
     runtime = load_runtime()
@@ -545,6 +657,14 @@ def main():
     print("serveur %d / runtime %d" % (len(server), len(runtime)))
     print(json.dumps(stats, indent=1))
     print("ecrit : %s" % os.path.relpath(OUT, ROOT))
+
+    argv = sys.argv[1:]
+    if "--html" in argv:
+        index = argv.index("--html")
+        target = argv[index + 1] if len(argv) > index + 1 else os.path.join(
+            ROOT, "inventaire-mcprvtt27.html")
+        emit_html(rows, target)
+        print("ecrit : %s" % target)
 
 
 if __name__ == "__main__":
