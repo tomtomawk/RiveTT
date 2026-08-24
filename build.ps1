@@ -40,6 +40,12 @@ try {
 
     dotnet publish .\src\RiveTT.Server\RiveTT.Server.csproj -c $configuration -r win-x64 --self-contained false -o $serverOut
     Copy-Item .\src\RiveTT.Plugin\RiveTT.addin .\distribution\RiveTT.addin -Force
+
+    # install.ps1 reads this to refuse installing a 2027-targeted plugin DLL into the
+    # 2026 Addins folder (or vice versa): the wrong RevitAPI version is referenced and
+    # Revit fails to load it, with no obvious error pointing back to the mismatch.
+    Set-Content -LiteralPath .\distribution\.build-target -Value $RevitVersion -NoNewline
+
     Write-Host "Paquet prêt dans distribution\ (Revit $RevitVersion)." -ForegroundColor Green
 }
 finally { Pop-Location }

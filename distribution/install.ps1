@@ -24,6 +24,21 @@ if (-not (Test-Path (Join-Path $serverSource 'RiveTT.Server.exe'))) {
     throw 'Paquet serveur incomplet. Exécutez build.ps1 avant de lancer cet installateur.'
 }
 
+# Refuse a version mismatch rather than let Revit fail to load a plugin DLL built
+# against the wrong RevitAPI (2026 vs 2027) with no error pointing back to this.
+$buildTargetFile = Join-Path $scriptRoot '.build-target'
+if (Test-Path -LiteralPath $buildTargetFile) {
+    $builtFor = (Get-Content -LiteralPath $buildTargetFile -Raw).Trim()
+    if ($builtFor -and $builtFor -ne $RevitYear) {
+        throw "Ce paquet a été construit pour Revit $builtFor (build.ps1 -RevitVersion $builtFor), " +
+              "mais vous installez pour Revit $RevitYear (-RevitYear $RevitYear). " +
+              "Relancez .\build.ps1 -RevitVersion $RevitYear avant d'installer, ou passez -RevitYear $builtFor."
+    }
+}
+else {
+    Write-Host "Avertissement : aucun marqueur .build-target trouvé — impossible de vérifier que ce paquet correspond à Revit $RevitYear. Reconstruisez avec la version actuelle de build.ps1 si le paquet est ancien." -ForegroundColor Yellow
+}
+
 $revitProcesses = @(Get-Process -Name Revit -ErrorAction SilentlyContinue)
 $serverProcesses = @(Get-Process -Name 'RiveTT.Server' -ErrorAction SilentlyContinue)
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'

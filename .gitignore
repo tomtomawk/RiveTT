@@ -11,6 +11,7 @@ publish/
 distribution/plugin/
 distribution/server/
 distribution/RiveTT.addin
+distribution/.build-target
 
 # Local run logs from deploy/install scripts
 /*.log
