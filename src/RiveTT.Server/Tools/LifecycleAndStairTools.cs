@@ -113,6 +113,48 @@ public static class LifecycleAndStairTools
         return (await revit.ExecuteAsync("create_ramp", p, ct)).ToString();
     }
 
+    [McpServerTool(Name = "manage_curtain_grid"), Description(
+        "Adds curtain grid lines and mullions to an existing curtain wall/system (create the wall itself with " +
+        "create_line_based_element and a curtain wall type). action=get_grid_info|add_grid_line|add_mullions. " +
+        "hostElementId is required for every action. add_grid_line needs direction (u|v) and offsetMm. " +
+        "add_mullions needs mullionTypeId and applies to every ungridded segment unless gridLineIds narrows it.")]
+    public static async Task<string> ManageCurtainGrid(
+        RevitConnectionManager revit,
+        [Description("Curtain wall or curtain system element ID")] long hostElementId,
+        [Description("Action: get_grid_info | add_grid_line | add_mullions. Default: get_grid_info")] string action = "get_grid_info",
+        [Description("Grid line direction: u | v (add_grid_line)")] string? direction = null,
+        [Description("Offset in mm along the host's own axis for the new grid line (add_grid_line)")] double? offsetMm = null,
+        [Description("MullionType element ID (add_mullions) — from list_system_types(category: \"OST_CurtainWallMullions\")")] long? mullionTypeId = null,
+        [Description("Grid line element IDs to restrict add_mullions to, as a JSON array of numbers. Omit to cover every ungridded segment")] string? gridLineIds = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["hostElementId"] = hostElementId, ["action"] = action };
+        if (direction != null) p["direction"] = direction;
+        if (offsetMm != null) p["offsetMm"] = offsetMm;
+        if (mullionTypeId != null) p["mullionTypeId"] = mullionTypeId;
+        if (gridLineIds != null) p["gridLineIds"] = JArray.Parse(gridLineIds);
+        return (await revit.ExecuteAsync("manage_curtain_grid", p, ct)).ToString();
+    }
+
+    [McpServerTool(Name = "create_toposolid"), Description(
+        "Creates a Toposolid (site/ground surface) from a closed boundary loop (Toposolid.Create). " +
+        "toposolidTypeId and levelId are required — list types with list_system_types(category: \"OST_Toposolid\").")]
+    public static async Task<string> CreateToposolid(
+        RevitConnectionManager revit,
+        [Description("Curve specs forming a closed loop, JSON array: [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] string curves,
+        [Description("Toposolid type element ID")] long toposolidTypeId,
+        [Description("Level element ID")] long levelId,
+        CancellationToken ct = default)
+    {
+        var p = new JObject
+        {
+            ["curves"] = JArray.Parse(curves),
+            ["toposolidTypeId"] = toposolidTypeId,
+            ["levelId"] = levelId
+        };
+        return (await revit.ExecuteAsync("create_toposolid", p, ct)).ToString();
+    }
+
     [McpServerTool(Name = "edit_group_members"), Description(
         "Add or remove members of a model group. The Revit API cannot edit group members in place, so this " +
         "ungroups the instance, changes the member set and creates a NEW group type: the type id changes and " +
