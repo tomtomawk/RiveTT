@@ -10,33 +10,25 @@ $ErrorActionPreference = 'Stop'
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $revitYear = $RevitYear
 $addinRoot = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$revitYear"
-$pluginSource = Join-Path $scriptRoot 'plugin'
-$serverSource = Join-Path $scriptRoot 'server'
+# build.ps1 writes each target into its OWN distribution\<year>\ folder, so
+# reading from it here means there is no separate "wrong binaries for this
+# Addins folder" state reachable — -RevitYear picks the matching package by
+# construction, not by a check that could be skipped or go stale.
+$packageRoot = Join-Path $scriptRoot $revitYear
+$pluginSource = Join-Path $packageRoot 'plugin'
+$serverSource = Join-Path $packageRoot 'server'
 $pluginTarget = Join-Path $addinRoot 'RiveTT'
-$manifestSource = Join-Path $scriptRoot 'RiveTT.addin'
+$manifestSource = Join-Path $packageRoot 'RiveTT.addin'
 $manifestTarget = Join-Path $addinRoot 'RiveTT.addin'
 $serverTarget = Join-Path $env:LOCALAPPDATA 'RiveTT\server'
 
 if (-not (Test-Path $pluginSource) -or -not (Test-Path $manifestSource)) {
-    throw 'Paquet plugin incomplet. Exécutez build.ps1 avant de lancer cet installateur.'
+    throw "Paquet plugin Revit $revitYear introuvable dans distribution\$revitYear\. " +
+          "Exécutez .\build.ps1 -RevitVersion $revitYear avant de lancer cet installateur."
 }
 if (-not (Test-Path (Join-Path $serverSource 'RiveTT.Server.exe'))) {
-    throw 'Paquet serveur incomplet. Exécutez build.ps1 avant de lancer cet installateur.'
-}
-
-# Refuse a version mismatch rather than let Revit fail to load a plugin DLL built
-# against the wrong RevitAPI (2026 vs 2027) with no error pointing back to this.
-$buildTargetFile = Join-Path $scriptRoot '.build-target'
-if (Test-Path -LiteralPath $buildTargetFile) {
-    $builtFor = (Get-Content -LiteralPath $buildTargetFile -Raw).Trim()
-    if ($builtFor -and $builtFor -ne $RevitYear) {
-        throw "Ce paquet a été construit pour Revit $builtFor (build.ps1 -RevitVersion $builtFor), " +
-              "mais vous installez pour Revit $RevitYear (-RevitYear $RevitYear). " +
-              "Relancez .\build.ps1 -RevitVersion $RevitYear avant d'installer, ou passez -RevitYear $builtFor."
-    }
-}
-else {
-    Write-Host "Avertissement : aucun marqueur .build-target trouvé — impossible de vérifier que ce paquet correspond à Revit $RevitYear. Reconstruisez avec la version actuelle de build.ps1 si le paquet est ancien." -ForegroundColor Yellow
+    throw "Paquet serveur Revit $revitYear introuvable dans distribution\$revitYear\. " +
+          "Exécutez .\build.ps1 -RevitVersion $revitYear avant de lancer cet installateur."
 }
 
 $revitProcesses = @(Get-Process -Name Revit -ErrorAction SilentlyContinue)

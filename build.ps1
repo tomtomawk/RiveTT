@@ -12,8 +12,14 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $configuration = 'Release'
-$pluginOut = Join-Path $root 'distribution\plugin'
-$serverOut = Join-Path $root 'distribution\server'
+# Per-version output folder: distribution\2026\ and distribution\2027\ can both
+# exist at once, so building one target never overwrites the other, and
+# install.ps1 -RevitYear reads from the matching folder by construction —
+# there is no separate "wrong binaries in the wrong Addins folder" state to
+# reach, rather than one caught after the fact.
+$versionOut = Join-Path $root "distribution\$RevitVersion"
+$pluginOut = Join-Path $versionOut 'plugin'
+$serverOut = Join-Path $versionOut 'server'
 $versionArg = "-p:RevitVersion=$RevitVersion"
 
 Write-Host "Cible : Revit $RevitVersion" -ForegroundColor Cyan
@@ -25,8 +31,7 @@ try {
     dotnet build .\src\RiveTT.Server\RiveTT.Server.csproj -c $configuration
     if (-not $SkipTests) { dotnet test .\src\RiveTT.Tests\RiveTT.Tests.csproj -c $configuration $versionArg }
 
-    if (Test-Path $pluginOut) { Remove-Item $pluginOut -Recurse -Force }
-    if (Test-Path $serverOut) { Remove-Item $serverOut -Recurse -Force }
+    if (Test-Path $versionOut) { Remove-Item $versionOut -Recurse -Force }
     New-Item -ItemType Directory -Path $pluginOut, $serverOut -Force | Out-Null
 
     $pluginBuild = Join-Path $root 'src\RiveTT.Plugin\bin\Release\net10.0-windows'
@@ -39,13 +44,8 @@ try {
         Copy-Item -Destination $pluginOut -Force
 
     dotnet publish .\src\RiveTT.Server\RiveTT.Server.csproj -c $configuration -r win-x64 --self-contained false -o $serverOut
-    Copy-Item .\src\RiveTT.Plugin\RiveTT.addin .\distribution\RiveTT.addin -Force
+    Copy-Item .\src\RiveTT.Plugin\RiveTT.addin (Join-Path $versionOut 'RiveTT.addin') -Force
 
-    # install.ps1 reads this to refuse installing a 2027-targeted plugin DLL into the
-    # 2026 Addins folder (or vice versa): the wrong RevitAPI version is referenced and
-    # Revit fails to load it, with no obvious error pointing back to the mismatch.
-    Set-Content -LiteralPath .\distribution\.build-target -Value $RevitVersion -NoNewline
-
-    Write-Host "Paquet prêt dans distribution\ (Revit $RevitVersion)." -ForegroundColor Green
+    Write-Host "Paquet prêt dans distribution\$RevitVersion\." -ForegroundColor Green
 }
 finally { Pop-Location }

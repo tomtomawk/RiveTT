@@ -7,11 +7,10 @@ obj/
 release/
 publish/
 
-# Generated distribution package (build.ps1 rebuilds it; never commit binaries)
-distribution/plugin/
-distribution/server/
-distribution/RiveTT.addin
-distribution/.build-target
+# Generated distribution packages (build.ps1 rebuilds them; never commit binaries)
+# One subfolder per Revit target: distribution/2026/, distribution/2027/.
+distribution/2026/
+distribution/2027/
 
 # Local run logs from deploy/install scripts
 /*.log

@@ -27,7 +27,8 @@ time: it is not multi-targeted, it is rebuilt per target.
       -> ICortexTool implementations
 
 The C# server is the only server implementation. Generated distribution
-outputs live under `distribution/plugin` and `distribution/server` and are
+outputs live under `distribution/<year>/plugin` and `distribution/<year>/server`
+(one subfolder per Revit target — see `build.ps1 -RevitVersion`) and are
 never committed.
 
 ## The two-sided contract
