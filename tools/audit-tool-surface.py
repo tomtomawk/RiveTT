@@ -28,10 +28,9 @@ d'architecture — logement, equipement, tertiaire, sante — pas une propriete 
 code. Il vit dans les listes TIER5/TIER4/TIER2 ci-dessous et se corrige en les
 editant.
 
-    python tools/audit-tool-surface.py --html sortie.html
-
-rend la meme matiere en page filtrable, depuis inventory-template.html. Le HTML
-produit n'est pas versionne : 300 Ko de balisage dont le diff n'apprend rien.
+Le script ecrit deux sorties depuis les memes donnees : docs/INVENTAIRE_OUTILS.md
+et docs/inventaire.html, page autonome filtrable rendue depuis
+tools/inventory-template.html. Les deux sont versionnees.
 """
 import collections
 import datetime
@@ -40,13 +39,13 @@ import io
 import json
 import os
 import re
-import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SERVER = os.path.join(ROOT, "src", "RevitCortex.Server", "Tools")
 RUNTIME = os.path.join(ROOT, "src", "RevitCortex.Tools")
 OUT = os.path.join(ROOT, "docs", "INVENTAIRE_OUTILS.md")
+OUT_HTML = os.path.join(ROOT, "docs", "inventaire.html")
 
 # Prefixes que le routeur considere comme lecture seule quand [ToolSafety] manque.
 # Doit rester aligne sur CortexRouter.ReadOnlyPrefixes.
@@ -542,11 +541,11 @@ def emit(rows):
 
 
 def emit_html(rows, path):
-    """Rend la meme matiere en page filtrable, depuis inventory-template.html.
+    """Rend la meme matiere en page HTML autonome, depuis inventory-template.html.
 
-    Le HTML produit n'est pas versionne : 300 Ko de balisage dont le diff
-    n'apprend rien. Le template et ce script le sont, donc la page se refait a
-    l'identique — ce qui manquait quand elle ne vivait que dans un artifact.
+    Volontairement sans dependance : polices systeme, aucune requete reseau, un
+    seul fichier qui s'ouvre depuis le depot. Le JavaScript ne sert qu'au filtrage
+    et la page reste complete sans lui — toutes les lignes sont dans le HTML.
     """
     total = len(rows)
     by_cat = collections.Counter(r["category"] or "(sans)" for r in rows)
@@ -556,65 +555,88 @@ def emit_html(rows, path):
     no_dry_archi = [r for r in no_dry if r["category"] not in OUT_OF_SCOPE]
     generic = [r for r in rows if any(m == "erreur générique sans suggestion"
                                       for _, m in r["flags"])]
+    bbox = [r for r in rows if any(m == "géométrie par boîte englobante"
+                                   for _, m in r["flags"])]
+    mismatch = [r for r in rows if any(m.startswith("classement déclaré")
+                                       for _, m in r["flags"])]
     confirmed = [r for r in rows if r["sev"] in ("critique", "majeur")]
     signals = [r for r in rows if r["sev"] == "signal"]
 
     def esc(text):
-        return (re.sub(r'\s+', ' ', text or "").strip()
+        return (re.sub(r"\s+", " ", text or "").strip()
                 .replace("&", "&amp;").replace("<", "&lt;")
                 .replace(">", "&gt;").replace('"', "&quot;"))
 
+    summary = "".join(
+        "<tr><td>%s</td><td class=\"num n\">%s</td></tr>" % (label, value)
+        for label, value in (
+            ("Outils publiés", "<strong>%d</strong>" % total),
+            ("Dont écriture — la part que le verrou du ruban gouverne",
+             "<strong>%d</strong> (%.0f&nbsp;%%)" % (writes, writes / total * 100)),
+            ("Ferraillage et charpente métallique, hors périmètre",
+             "<strong>%d</strong> (%.0f&nbsp;%%)" % (off, off / total * 100)),
+            ("Écritures sans <code>dryRun</code>, dont %d hors ferraillage"
+             % len(no_dry_archi), "<strong>%d</strong>" % len(no_dry)),
+            ("Erreurs génériques <code>Failed: …</code> sans suggestion",
+             "<strong>%d</strong>" % len(generic)),
+            ("Géométrie par boîte englobante", "<strong>%d</strong>" % len(bbox)),
+            ("Classement <code>[ToolSafety]</code> en désaccord avec le nom",
+             "<strong>%d</strong>" % len(mismatch)),
+            ("Défauts confirmés", "<strong>%d</strong>" % len(confirmed)),
+            ("Signaux à vérifier", "<strong>%d</strong>" % len(signals))))
+
+    dist = "".join(
+        "<tr><td>%s</td><td class=\"num n\">%d</td><td class=\"num n\">%.0f&nbsp;%%</td></tr>"
+        % (esc(cat), count, count / total * 100)
+        for cat, count in by_cat.most_common())
+
+    conf_rows = "".join(
+        "<tr><td><code>%s</code></td><td class=\"sev sev-%s\">%s</td><td>%s</td></tr>"
+        % (esc(r["name"]), r["sev"], r["sev"], esc(r["defect"]))
+        for r in sorted(confirmed, key=lambda r: (SEV_ORDER[r["sev"]], r["name"])))
+
+    sig_rows = "".join(
+        "<tr><td><code>%s</code></td><td>%s</td></tr>"
+        % (esc(r["name"]), esc(r["defect"]))
+        for r in sorted(signals, key=lambda r: r["name"]))
+
     ordered = sorted(rows, key=lambda r: (SEV_ORDER[r["sev"]], -r["interest"], r["name"]))
-    body = []
+    tool_rows = []
     for row in ordered:
         kind = "lecture" if row["readOnly"] else (
             "ecriture" if row["readOnly"] is False else "?")
-        chips = ['<span class="chip %s">%s</span>'
-                 % ("w" if kind == "ecriture" else "r",
-                    "écriture" if kind == "ecriture" else "lecture")]
-        if row["destructive"]:
-            chips.append('<span class="chip d">destructif</span>')
-        if row["readOnly"] is False:
-            chips.append('<span class="chip %s">%s</span>'
-                         % ("ok" if row["hasDryRun"] else "no",
-                            "dryRun" if row["hasDryRun"] else "sans dryRun"))
-        ticks = "".join('<i%s></i>' % (' class="on"' if i < row["interest"] else "")
-                        for i in range(5))
-        facade = (' <span class="facade">→ %s</span>' % esc(row["runtimeTool"])
-                  if row["facade"] else "")
-        body.append(
-            '<tr data-cat="%s" data-sev="%s" data-int="%d" data-kind="%s" data-txt="%s">'
-            '<td class="c-name"><code>%s</code>%s<span class="cat">%s</span></td>'
-            '<td class="c-eff">%s</td><td class="c-kind">%s</td>'
-            '<td class="c-def"><span class="sev s-%s">%s</span>%s</td>'
-            '<td class="c-int"><span class="ruler" title="intérêt %d/5">%s</span></td></tr>'
+        nature = "lecture" if kind == "lecture" else (
+            "écriture" + (", destructif" if row["destructive"] else "")
+            if kind == "ecriture" else "?")
+        facade = " → <code>%s</code>" % esc(row["runtimeTool"]) if row["facade"] else ""
+        tool_rows.append(
+            "<tr data-cat=\"%s\" data-sev=\"%s\" data-int=\"%d\" data-kind=\"%s\" "
+            "data-txt=\"%s\">"
+            "<td><code>%s</code>%s</td><td>%s</td><td>%s</td><td>%s</td>"
+            "<td class=\"num n\">%d</td><td>%s</td>"
+            "<td><span class=\"sev sev-%s\">%s</span>%s</td></tr>"
             % (esc(row["category"]), row["sev"] or "none", row["interest"], kind,
                esc((row["name"] + " " + row["description"] + " " + row["defect"]).lower()),
-               esc(row["name"]), facade, esc(row["category"]),
-               esc(cell(row["description"], 230)) or "—", "".join(chips),
-               row["sev"] or "none", row["sev"] or "rien",
-               ('<span class="dtxt">%s</span>' % esc(row["defect"])) if row["defect"] else "",
-               row["interest"], ticks))
+               esc(row["name"]), facade, esc(row["category"]) or "—", nature,
+               "oui" if row["hasDryRun"] else ("—" if kind == "lecture" else "non"),
+               row["interest"], esc(cell(row["description"], 220)) or "—",
+               row["sev"] or "none", row["sev"] or "—",
+               (" — " + esc(row["defect"])) if row["defect"] else ""))
 
-    dist = "".join(
-        '<li><span class="bn">%s</span><span class="bar" style="--w:%.1f%%"></span>'
-        '<span class="bv">%d</span></li>'
-        % (esc(cat), by_cat[cat] / total * 100, by_cat[cat])
-        for cat, _ in by_cat.most_common(8))
+    cats = "".join('<option value="%s">%s (%d)</option>' % (esc(c), esc(c), count)
+                   for c, count in by_cat.most_common())
 
     order = {"haute": 0, "moyenne": 1, "à arbitrer": 2, "basse": 3}
     gaps = "".join(
-        '<tr><td class="g-name">%s</td><td class="g-api"><code>%s</code></td>'
-        '<td><span class="prio p-%s">%s</span></td><td class="g-why">%s</td>'
-        '<td class="g-eff">%s</td></tr>'
-        % (esc(name), esc(api), "arbitrer" if prio == "à arbitrer" else prio,
-           esc(prio), esc(why), esc(effort))
+        "<tr><td><strong>%s</strong></td><td><code>%s</code></td><td>%s</td>"
+        "<td>%s</td><td class=\"num\">%s</td></tr>"
+        % (esc(name), esc(api), esc(prio), esc(why), esc(effort))
         for name, api, prio, why, effort in sorted(GAPS, key=lambda g: (order[g[2]], g[0])))
 
     version = "inconnue"
     props = os.path.join(ROOT, "Directory.Build.props")
     if os.path.exists(props):
-        found = re.search(r'<Version>([^<]+)</Version>', read(props))
+        found = re.search(r"<Version>([^<]+)</Version>", read(props))
         if found:
             version = found.group(1)
 
@@ -623,23 +645,18 @@ def emit_html(rows, path):
             ("__DATE__", datetime.date.today().isoformat()),
             ("__VERSION__", version),
             ("__TOTAL__", str(total)),
-            ("__WRITES__", str(writes)),
-            ("__CONF__", str(len(confirmed))),
-            ("__SIG__", str(len(signals))),
             ("__OFFPCT__", "%.0f" % (off / total * 100)),
             ("__OFF__", str(off)),
-            ("__NODRYA__", str(len(no_dry_archi))),
-            ("__NODRY__", str(len(no_dry))),
-            ("__GENERR__", str(len(generic))),
+            ("__SUMMARY__", summary),
             ("__DIST__", dist),
-            ("__CATS__", "".join('<option value="%s">%s (%d)</option>'
-                                 % (esc(c), esc(c), by_cat[c])
-                                 for c, _ in by_cat.most_common())),
-            ("__ROWS__", "".join(body)),
+            ("__CONFIRMED__", conf_rows),
+            ("__SIGNALS__", sig_rows),
+            ("__CATS__", cats),
+            ("__ROWS__", "".join(tool_rows)),
             ("__GAPS__", gaps)):
         page = page.replace(token, value)
 
-    leftover = sorted(set(re.findall(r'__[A-Z]+__', page)))
+    leftover = sorted(set(re.findall(r"__[A-Z]+__", page)))
     if leftover:
         raise SystemExit("jeton non remplace dans le template : %s" % ", ".join(leftover))
 
@@ -654,17 +671,11 @@ def main():
         if os.sep + "obj" + os.sep not in f and os.sep + "bin" + os.sep not in f)
     rows = analyse(server, runtime, corpus)
     stats = emit(rows)
+    emit_html(rows, OUT_HTML)
     print("serveur %d / runtime %d" % (len(server), len(runtime)))
     print(json.dumps(stats, indent=1))
     print("ecrit : %s" % os.path.relpath(OUT, ROOT))
-
-    argv = sys.argv[1:]
-    if "--html" in argv:
-        index = argv.index("--html")
-        target = argv[index + 1] if len(argv) > index + 1 else os.path.join(
-            ROOT, "inventaire-mcprvtt27.html")
-        emit_html(rows, target)
-        print("ecrit : %s" % target)
+    print("ecrit : %s" % os.path.relpath(OUT_HTML, ROOT))
 
 
 if __name__ == "__main__":

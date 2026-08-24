@@ -8,17 +8,17 @@ L'audit est fait par extraction des sources — attributs `[McpServerTool]` du
 serveur MCP croisés avec les classes `ICortexTool` du runtime — et non à la main.
 Reproductible, et il a trouvé des choses qu'une relecture n'aurait pas vues.
 
-Vue interactive filtrable (par catégorie, gravité, intérêt, nature) :
-<https://claude.ai/code/artifact/70429a3b-b76d-4a11-8a42-96ea47dd5b56> — page
-privée, à partager depuis son menu pour la diffuser dans l'agence. Elle se
-refait à l'identique depuis le dépôt, sans dépendre de ce lien :
+Même matière en page filtrable, dans le dépôt :
+[inventaire.html](inventaire.html) — un seul fichier, polices système, aucune
+requête réseau, recherche et filtres en JavaScript inline. Il s'ouvre hors ligne
+depuis le dépôt et se régénère avec le Markdown :
 
 ```powershell
-python tools/audit-tool-surface.py --html inventaire.html
+python tools/audit-tool-surface.py
 ```
 
-Le HTML produit n'est pas versionné — 300 Ko de balisage dont le diff n'apprend
-rien — mais son gabarit `tools/inventory-template.html` l'est.
+Les deux sorties viennent des mêmes données et sont versionnées ; le gabarit est
+`tools/inventory-template.html`.
 
 ## Les chiffres qui commandent la suite
 
