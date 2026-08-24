@@ -6,7 +6,6 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
-using RiveTT.Tools.Rebar;
 using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Elements;
@@ -173,7 +172,7 @@ public class CreateAreaPlanTool : ICortexTool
         if (view == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{viewIdLong} is not a plan view");
 
-        var curves = RebarToolHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
+        var curves = CurveSpecHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
         if (curveError != null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, curveError);
 

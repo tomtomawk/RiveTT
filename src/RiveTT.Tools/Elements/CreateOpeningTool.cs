@@ -6,7 +6,6 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
-using RiveTT.Tools.Rebar;
 using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Elements;
@@ -74,7 +73,7 @@ public class CreateOpeningTool : ICortexTool
         if (baseLevel == null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{baseLevelIdLong} is not a Level");
         if (topLevel == null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{topLevelIdLong} is not a Level");
 
-        var curves = RebarToolHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
+        var curves = CurveSpecHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
         if (curveError != null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, curveError);
 
         var curveArray = new CurveArray();
@@ -119,7 +118,7 @@ public class CreateOpeningTool : ICortexTool
         if (host == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"hostElementId {hostIdLong} not found");
 
-        var curves = RebarToolHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
+        var curves = CurveSpecHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
         if (curveError != null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, curveError);
 
         var curveArray = new CurveArray();

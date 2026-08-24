@@ -100,12 +100,6 @@ public class TransactionFailureHandlingSourceTests
     [InlineData("IFC", "IfcReloadLinkTool.cs")]
     [InlineData("IFC", "IfcExportWithConfigurationTool.cs")]
     [InlineData("IFC", "IfcExportBasicTool.cs")]
-    [InlineData("StructuralSteel", "StructuralSteelConnectionTools.cs")]
-    [InlineData("StructuralSteel", "StructuralSteelCutTools.cs")]
-    [InlineData("StructuralSteel", "StructuralSteelFabricationTools.cs")]
-    [InlineData("Rebar", "RebarCreationTools.cs")]
-    [InlineData("Rebar", "RebarSystemTools.cs")]
-    [InlineData("Rebar", "FabricReinforcementTools.cs")]
     public void BatchWriteTools_AdoptTheFailurePreprocessor(string folder, string file)
     {
         var src = ReadTool(folder, file);

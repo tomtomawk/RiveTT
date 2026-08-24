@@ -61,7 +61,7 @@ transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
   [docs/MCP_AGENT_FIXES.md](docs/MCP_AGENT_FIXES.md) ;
 - lecture de l'audit de la surface d'outils et ordre de chantier :
   [docs/AUDIT_OUTILS.md](docs/AUDIT_OUTILS.md) ;
-- inventaire des 295 outils, effet par effet, avec les défauts probables et les
+- inventaire des 196 outils, effet par effet, avec les défauts probables et les
   capacités API non outillées : [docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md),
   ou la même matière filtrable dans [docs/inventaire.html](docs/inventaire.html).
   Les deux sont générés par `tools/audit-tool-surface.py`.

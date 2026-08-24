@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Views;
 /// Autodesk-confirmed source on this agrees a scope box must first be drawn by hand in
 /// Revit (Annotate > Scope Box); the API can only read, rename, translate, and assign an
 /// EXISTING one. action=create returns a structured "unsupported" result rather than a
-/// generic failure, matching propagate_rebar's pattern for the same kind of API gap.
+/// generic failure, same as manage_area_plans(action=create) for the same kind of API gap.
 /// </summary>
 [ToolSafety(false, false)]
 public class ManageScopeBoxesTool : ICortexTool

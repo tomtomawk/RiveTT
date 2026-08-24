@@ -99,7 +99,7 @@ public class ServerRuntimeParameterContractTests
                 fileByToolName[name] = file;
 
             // A file with no ICortexTool is a shared helper (ElementScopeResolver,
-            // TransactionFailureHandling, RebarToolHelpers...) and its reads count
+            // TransactionFailureHandling, CurveSpecHelpers...) and its reads count
             // for every tool that delegates to it.
             var fileName = Path.GetFileName(file);
             if (toolNames.Count == 0 || fileName.Contains("Helper") ||

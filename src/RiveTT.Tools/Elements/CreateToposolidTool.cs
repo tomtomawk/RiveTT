@@ -6,7 +6,6 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
-using RiveTT.Tools.Rebar;
 using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Elements;
@@ -52,7 +51,7 @@ public class CreateToposolidTool : ICortexTool
         if (level == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"levelId {levelIdLong} is not a Level");
 
-        var curves = RebarToolHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
+        var curves = CurveSpecHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
         if (curveError != null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, curveError);
 

@@ -9,10 +9,10 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class ParameterTools
 {
-    [McpServerTool(Name = "set_element_parameters"), Description("Set parameter values on one or more elements. Pass requests as a JSON-encoded array string. Supports parameterName by display name and builtInParameter by Revit API enum name, e.g. REBAR_SYSTEM_SPACING_TOP_DIR_1. UNITS: a numeric value on a length/area/etc. parameter is written in Revit internal units (feet) — to set a display value, pass a STRING WITH A UNIT (e.g. \"3000 mm\", \"3 m\") and Revit parses it unit- and locale-aware. A null value clears the parameter. Note: type-level parameters can be set through an instance when the type is resolvable.")]
+    [McpServerTool(Name = "set_element_parameters"), Description("Set parameter values on one or more elements. Pass requests as a JSON-encoded array string. Supports parameterName by display name and builtInParameter by Revit API enum name, e.g. ALL_MODEL_MARK. UNITS: a numeric value on a length/area/etc. parameter is written in Revit internal units (feet) — to set a display value, pass a STRING WITH A UNIT (e.g. \"3000 mm\", \"3 m\") and Revit parses it unit- and locale-aware. A null value clears the parameter. Note: type-level parameters can be set through an instance when the type is resolvable.")]
     public static async Task<string> SetElementParameters(
         RevitConnectionManager revit,
-        [Description("JSON-encoded array of set requests — pass as a string. Each item must have elementId, value, and either parameterName or builtInParameter. Use null to clear. For lengths/areas pass a unit string like \"3000 mm\" to avoid writing feet. Example: \"[{\\\"elementId\\\": 123, \\\"builtInParameter\\\": \\\"REBAR_SYSTEM_SPACING_TOP_DIR_1\\\", \\\"value\\\": \\\"200 mm\\\"}]\"")] string requests,
+        [Description("JSON-encoded array of set requests — pass as a string. Each item must have elementId, value, and either parameterName or builtInParameter. Use null to clear. For lengths/areas pass a unit string like \"3000 mm\" to avoid writing feet. Example: \"[{\\\"elementId\\\": 123, \\\"builtInParameter\\\": \\\"ALL_MODEL_MARK\\\", \\\"value\\\": \\\"P1\\\"}]\"")] string requests,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         [Description("Include per-request results. Default: false")] bool includeDetails = false,
         [Description("Maximum result rows when includeDetails=true. Default: 20")] int? sampleLimit = null,

@@ -14,10 +14,10 @@ namespace RiveTT.Tools.Elements;
 ///
 /// Unlike <c>element.get_BoundingBox(null)</c>, which returns the element bounding box,
 /// this reflects the actual solid AFTER joins and cuts. A beam cut by columns/slabs has
-/// a solid smaller and shifted relative to its element bounding box — placing rebar from
-/// the element bounding box lands it partly in empty space ("Rebar is placed completely
-/// outside of its host"). This tool exposes the armable solid so callers can position
-/// rebar/elements inside the host's physical body. Read-only.
+/// a solid smaller and shifted relative to its element bounding box, and a non-rectangular
+/// section (T/L/circular) makes the bounding box actively misleading for placement. This
+/// tool exposes the real solid so callers can position other elements inside the host's
+/// actual physical body instead of its box. Read-only.
 /// </summary>
 [ToolSafety(true, false)]
 public class GetElementSolidGeometryTool : ICortexTool
@@ -26,7 +26,7 @@ public class GetElementSolidGeometryTool : ICortexTool
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Get an element's REAL solid geometry (bounding box, centroid, volume m3, face/edge counts AND inferred cross-section shape) in mm and model coordinates. Unlike get_BoundingBox this reflects the actual solid AFTER joins and cuts, and tells you the section SHAPE: 'rectangular', 'non_rectangular_polygonal' (T/L/I/U/channel — bbox lies, the real outline is concave), 'circular', or 'circular_or_tapered'. Reports capVertexCount and fillRatio so you can tell a box (4 verts, fill≈1.0) from a T/L (more verts and/or low fill). Essential for placing rebar correctly: a 613x613 bbox can be a Ø610 circular pile, and a T-beam's bbox includes empty space above the web — corner bars/rectangular ties placed from the bbox fall outside the concrete. Always use this, not the bounding box, when positioning rebar inside a host.";
+    public string Description => "Get an element's REAL solid geometry (bounding box, centroid, volume m3, face/edge counts AND inferred cross-section shape) in mm and model coordinates. Unlike get_BoundingBox this reflects the actual solid AFTER joins and cuts, and tells you the section SHAPE: 'rectangular', 'non_rectangular_polygonal' (T/L/I/U/channel — bbox lies, the real outline is concave), 'circular', or 'circular_or_tapered'. Reports capVertexCount and fillRatio so you can tell a box (4 verts, fill≈1.0) from a T/L (more verts and/or low fill). A 613x613 bbox can be a Ø610 circular column, and a T-beam's bbox includes empty space above the web. Always use this, not the bounding box, when precise placement relative to the real solid matters.";
 
     private const double MmPerFoot = 304.8;
     private const double Ft3ToM3 = 0.0283168;
@@ -117,8 +117,8 @@ public class GetElementSolidGeometryTool : ICortexTool
                         volume = Math.Round(solid.Volume * Ft3ToM3, 6),
                         faceCount = faces,
                         edgeCount = edges,
-                        // Section shape matters for rebar layout: a 613x613 bbox can be a Ø610
-                        // CIRCLE (corner bars/rect ties would fall outside). bbox gives extents only.
+                        // Section shape matters for precise placement: a 613x613 bbox can be a
+                        // Ø610 CIRCLE. bbox gives extents only, not the real outline.
                         section = DetectSection(solid),
                     });
                 }

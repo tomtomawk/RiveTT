@@ -214,9 +214,12 @@ TIER2 = """say_hello send_code_to_revit sync_csv_parameters get_elements_by_uniq
 cross_app_selection show_cross_model_elements highlight_linked_element
 get_coordination_models get_selected_linked_elements pin_unpin_link_instance
 move_link_instance reload_linked_file_from align_link_to_host list_family_sizes
-transfer_rebar_annotations detach_wall_constraint set_wall_host""".split()
+detach_wall_constraint set_wall_host""".split()
 
-OUT_OF_SCOPE = ("Rebar", "StructuralSteel")
+# The Rebar and StructuralSteel tool folders (112 tools, 38% of the surface at the
+# time) were removed from the repository entirely rather than filtered — there is
+# no longer a folder name to exclude here.
+OUT_OF_SCOPE = ()
 
 # ── defauts confirmes a la lecture du code, qui priment sur les detections
 CONFIRMED = {

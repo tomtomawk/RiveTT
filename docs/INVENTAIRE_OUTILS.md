@@ -3,7 +3,7 @@
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-08-24 — connecteur 0.2.0 — **295 outils publiés**, 292 classes runtime.
+Relevé du 2026-08-24 — connecteur 0.2.0 — **196 outils publiés**, 193 classes runtime.
 
 ## Comment lire ce document
 
@@ -24,38 +24,36 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 
 | Mesure | Valeur |
 |---|---|
-| Outils publiés | **295** |
-| Dont écriture | **181** (61 %) — c'est la part que le verrou du ruban gouverne |
-| Ferraillage et charpente métallique | **112** (38 %), hors périmètre d'une agence d'architecture, chargés à chaque session |
-| Écritures sans `dryRun` | **92**, dont **76** hors ferraillage, alors que le contrat annonce `dryRunDefault: true` |
-| Erreurs génériques `Failed: …` sans suggestion | **167** |
-| Géométrie par boîte englobante | **16** |
-| Classement `[ToolSafety]` en désaccord avec le nom | **12** |
-| Défauts confirmés / signaux à vérifier | **8** / **16** |
+| Outils publiés | **196** |
+| Dont écriture | **135** (69 %) — c'est la part que le verrou du ruban gouverne |
+| Ferraillage et charpente métallique | **0** (0 %), hors périmètre d'une agence d'architecture, chargés à chaque session |
+| Écritures sans `dryRun` | **86**, dont **86** hors ferraillage, alors que le contrat annonce `dryRunDefault: true` |
+| Erreurs génériques `Failed: …` sans suggestion | **134** |
+| Géométrie par boîte englobante | **17** |
+| Classement `[ToolSafety]` en désaccord avec le nom | **11** |
+| Défauts confirmés / signaux à vérifier | **8** / **9** |
 
 ## Répartition par catégorie
 
 | Catégorie | Outils | Part |
 |---|---:|---:|
-| Rebar | 64 | 22 % |
-| Elements | 58 | 20 % |
-| StructuralSteel | 48 | 16 % |
-| Project | 45 | 15 % |
-| IFC | 20 | 7 % |
-| Views | 12 | 4 % |
-| LinkedFiles | 11 | 4 % |
-| Parameters | 8 | 3 % |
-| Annotations | 7 | 2 % |
-| Sheets | 5 | 2 % |
-| Workflows | 5 | 2 % |
-| Meta | 4 | 1 % |
-| Documents | 4 | 1 % |
+| Elements | 64 | 33 % |
+| Project | 49 | 25 % |
+| IFC | 20 | 10 % |
+| Views | 13 | 7 % |
+| LinkedFiles | 11 | 6 % |
+| Annotations | 9 | 5 % |
+| Parameters | 8 | 4 % |
+| Sheets | 5 | 3 % |
+| Workflows | 5 | 3 % |
+| Meta | 4 | 2 % |
+| Documents | 4 | 2 % |
 | Architecture | 2 | 1 % |
-| Interop | 1 | 0 % |
-| Code | 1 | 0 % |
+| Interop | 1 | 1 % |
+| Code | 1 | 1 % |
 
 Une agence de 37 personnes en logement, équipement, tertiaire et santé n'utilisera
-jamais 38 % de cette surface. Ces outils ne sont pas neutres : ils occupent le
+jamais 0 % de cette surface. Ces outils ne sont pas neutres : ils occupent le
 catalogue que l'agent lit à chaque session et diluent le choix de l'outil juste.
 
 ## Défauts confirmés
@@ -83,93 +81,17 @@ documentation.
 |---|---|
 | `add_prefix_suffix` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds, savedSelectionName, scope, selectionToken |
 | `clear_parameter_values` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds, savedSelectionName, scope, selectionToken |
-| `create_free_form_rebar` | clé imbriquée annoncée, absente du runtime : end, mid |
-| `create_rebar_from_curves` | clé imbriquée annoncée, absente du runtime : arrayLengthMm, spacingMm |
-| `create_rebar_from_shape` | clé imbriquée annoncée, absente du runtime : arrayLengthMm, barsOnNormalSide, includeFirstBar, includeLastBar, spacingMm |
 | `cross_app_selection` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : append, createLinkedMarkers, createSectionBox, isolate, usePostCommandIsolate |
 | `detach_wall_constraint` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `duplicate_family_type` | clé imbriquée annoncée, absente du runtime : paramName |
 | `duplicate_storey` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `filter_by_parameter_value` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds |
-| `manage_fabric_rounding` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : applyRules, lengthRoundingMm |
-| `manage_rebar_rounding` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : applyRules, lengthRoundingMm |
 | `set_element_phase` | clé imbriquée annoncée, absente du runtime : phaseCreatedId, phaseDemolishedId |
-| `set_rebar_layout` | clé imbriquée annoncée, absente du runtime : arrayLengthMm, barsOnNormalSide, includeFirstBar, includeLastBar, spacingMm |
-| `set_steel_connection_type` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : connectionHandlerTypeId, connectionHandlerTypeName |
 | `sync_csv_parameters` | clé imbriquée annoncée, absente du runtime : paramName1 |
 
 ## Inventaire complet
 
-### Rebar — 64 outils
-
-| Outil | Nature | dryRun | Int. | Effet | Défaut probable |
-|---|---|---|---:|---|---|
-| `create_free_form_rebar` | écriture | oui | 1 | Create an unconstrained free-form rebar from curve loops (mm) in a host. loops is a JSON array of loops, each a JSON array of curve specs {type, start… | **signal** — clé imbriquée annoncée, absente du runtime : end, mid |
-| `create_rebar_from_curves` | écriture | oui | 1 | Create a rebar from explicit coplanar curves (mm) in a host. curves is a JSON array of {type:line\|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}; normal… | **signal** — clé imbriquée annoncée, absente du runtime : arrayLengthMm, spacingMm |
-| `create_rebar_from_shape` | écriture | oui | 1 | Create a shape-driven rebar in a host from a rebar shape. origin/xVec/yVec are JSON {x,y,z} in mm. Optional layout JSON. | **signal** — clé imbriquée annoncée, absente du runtime : arrayLengthMm, barsOnNormalSide, includeFirstBar, includeLastBar, spacingMm |
-| `manage_fabric_rounding` | écriture | — | 1 | Set the document fabric length-rounding rules. Fields: applyRules (bool), lengthRoundingMm (double), lengthRoundingMethod (Nearest\|Up\|Down). volumeRou… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : applyRules, lengthRoundingMm |
-| `manage_rebar_rounding` | écriture | — | 1 | Set rebar length-rounding rules. Without rebarId edits the document default; with rebarId edits that bar. Fields: applyRules (bool), lengthRoundingMm… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : applyRules, lengthRoundingMm |
-| `set_rebar_layout` | écriture | oui | 1 | Set the distribution layout of a shape-driven rebar. layout is JSON {rule, number?, arrayLengthMm?, spacingMm?, barsOnNormalSide?, includeFirstBar?, i… | **signal** — clé imbriquée annoncée, absente du runtime : arrayLengthMm, barsOnNormalSide, includeFirstBar, includeLastBar, spacingMm |
-| `create_rebar_bending_detail` | écriture | — | 1 | Create a rebar bending detail for a rebar in a view (Revit 2024+). Provide rebarId and viewId (a drafting/detail view); optional bendingDetailTypeId,… | **mineur** — pas de dryRun |
-| `create_rebar_coupler` | écriture | — | 1 | Create a rebar coupler connecting two bar ends, or cap one. Provide couplerTypeId or couplerTypeName (a Coupler-category family type), end1 (JSON {reb… | **mineur** — pas de dryRun |
-| `get_area_reinforcement_data` | lecture | — | 1 | Read an area reinforcement system: major direction (mm vector), type id/name, host id, member rebar ids, boundary curve ids, member count. | **mineur** — erreur générique sans suggestion |
-| `get_fabric_area_data` | lecture | — | 1 | Read a fabric area system: type id/name, host id, sheet ids, sheet count, major direction (mm vector). | **mineur** — erreur générique sans suggestion |
-| `get_fabric_rounding` | lecture | — | 1 | Read the document fabric length-rounding rules (apply flag, segment/total length rounding in mm and method Nearest\|Up\|Down). | **mineur** — erreur générique sans suggestion |
-| `get_fabric_sheet_data` | lecture | — | 1 | Read a fabric sheet: type id/name, isBent, fabricNumber, cut overall length and width (mm). | **mineur** — erreur générique sans suggestion |
-| `get_fabric_wire_data` | lecture | — | 1 | Read the wire items of a fabric sheet in one direction. Provide fabricSheetId and direction (major\|minor); optional maxWires (default 200). Returns pe… | **mineur** — erreur générique sans suggestion |
-| `get_path_reinforcement_data` | lecture | — | 1 | Read a path reinforcement system: type id/name, host id, member rebar ids, curve element ids, additional offset (mm), primary bar orientation. | **mineur** — erreur générique sans suggestion |
-| `get_rebar_bending_detail_data` | lecture | — | 1 | Read a rebar bending detail (Revit 2024+): host rebar id, owner view id, position (mm) and rotation (degrees). Provide bendingDetailId. Returns a vers… | **mineur** — erreur générique sans suggestion |
-| `get_rebar_constraint_candidates` | lecture | — | 1 | List the constraint candidates for one rebar handle. Provide rebarId and handleIndex (from manage_rebar_constraints action=list_handles). Read-only. | **mineur** — erreur générique sans suggestion |
-| `get_rebar_constraints` | lecture | — | 1 | List the constrained handles of a rebar and whether its constraints can be edited. | **mineur** — erreur générique sans suggestion |
-| `get_rebar_coupler_data` | lecture | — | 1 | Read a rebar coupler: couplerMark, quantity, type id/name, and each linked reinforcement descriptor {rebarId, end}. Provide couplerId. | **mineur** — erreur générique sans suggestion |
-| `get_rebar_element_data` | lecture | — | 1 | Read a single rebar's core data: bar type, host, shape, layout rule, bar count, total length (mm), volume. | **mineur** — erreur générique sans suggestion |
-| `get_rebar_geometry` | lecture | — | 1 | Return the centerline curves (mm) of a rebar at a bar position index (default 0). Optionally suppress hooks/bend radius. | **mineur** — erreur générique sans suggestion |
-| `get_rebar_host_data` | lecture | — | 1 | Report reinforcement hosted by an element: validity and the rebar/area/path/fabric it contains, plus common cover. | **mineur** — erreur générique sans suggestion |
-| `get_rebar_numbering` | lecture | — | 1 | Read rebar numbering. With rebarId returns that bar's schedule mark; without it returns every rebar's schedule mark plus the count of blank marks (a p… | **mineur** — erreur générique sans suggestion |
-| `get_rebar_rounding` | lecture | — | 1 | Read rebar length-rounding rules. Without rebarId returns the document default; with rebarId returns that bar's effective rounding. Method is Nearest\|… | **mineur** — erreur générique sans suggestion |
-| `get_rebar_splice_candidates` | lecture | — | 1 | Report candidate splice geometries for a rebar by rules (Revit 2025+, read-only). Provide rebarId, optional spliceTypeId, position (End1\|Middle\|End2).… | **mineur** — erreur générique sans suggestion |
-| `get_rebar_splice_data` | lecture | — | 1 | Read rebar splice data (Revit 2025+): for each bar end, lap length (mm), stagger (mm), splice position, connected rebar id/end, plus the splice chain.… | **mineur** — erreur générique sans suggestion |
-| `get_rebar_varying_data` | lecture | — | 1 | Read varying-length rebar state (Revit 2025+, read-only): canHaveVaryingLengthBars, varyingEnabled, and per-position centerline length (mm). Provide r… | **mineur** — erreur générique sans suggestion |
-| `get_reinforcement_settings` | lecture | — | 1 | Read document-level reinforcement settings. | **mineur** — erreur générique sans suggestion |
-| `list_rebar_bar_types` | lecture | — | 1 | List all rebar bar types (id, name, model and nominal diameter in mm). | **mineur** — erreur générique sans suggestion |
-| `list_rebar_cover_types` | lecture | — | 1 | List all rebar cover types (id, name, cover distance in mm). | **mineur** — erreur générique sans suggestion |
-| `list_rebar_fabric_types` | lecture | — | 1 | List fabric reinforcement types (fabric sheet types and fabric area types). | **mineur** — erreur générique sans suggestion |
-| `list_rebar_hook_types` | lecture | — | 1 | List all rebar hook types (id, name, hook angle in degrees). | **mineur** — erreur générique sans suggestion |
-| `list_rebar_shapes` | lecture | — | 1 | List all rebar shapes (id, name). | **mineur** — erreur générique sans suggestion |
-| `list_rebar_splice_types` | lecture | — | 1 | List rebar splice types (Revit 2025+; returns a version error on older targets). | **mineur** — erreur générique sans suggestion |
-| `manage_rebar_constraints` | écriture | — | 1 | Inspect/edit rebar constraints. Provide rebarId and action: list_handles \| list_candidates (with handleIndex) \| set_preferred (with handleIndex, candi… | **mineur** — pas de dryRun |
-| `manage_rebar_numbering` | écriture | — | 1 | Manage rebar numbering. action=set_number writes a single bar's schedule mark (needs rebarId + newNumber). action=renumber\|remove_gaps are not exposed… | **mineur** — pas de dryRun |
-| `modify_rebar_bending_detail` | écriture | — | 1 | Modify a rebar bending detail (Revit 2024+). Provide bendingDetailId and any of position JSON {x,y,z} in mm, rotationDegrees. Returns a version error… | **mineur** — pas de dryRun |
-| `propagate_rebar` | lecture | — | 1 | Reports that rebar propagation is unsupported: the Revit API exposes no propagation method on any supported version. Returns a structured 'unsupported… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
-| `remove_rebar_splice` | écriture destructif | — | 1 | Remove a rebar splice at a bar end (Revit 2025+). Provide rebarId and optional barEnd (0 or 1; default 0). Returns a version error on older targets. | **mineur** — pas de dryRun |
-| `set_rebar_coupler_visibility` | écriture | — | 1 | Set a coupler unobscured (solid) or obscured in a view. Provide couplerId, viewId, unobscured (bool). | **mineur** — pas de dryRun |
-| `set_reinforcement_settings` | écriture | — | 1 | Set document-level reinforcement settings. Provide any of hostStructuralRebar, rebarShapeDefinesHooks, rebarShapeDefinesEndTreatments (bools). Some to… | **mineur** — pas de dryRun |
-| `splice_rebar` | écriture destructif | — | 1 | Splice a rebar by rules at a position (Revit 2025+). Provide rebarId, optional spliceTypeId, position (End1\|Middle\|End2). Returns the resulting rebar… | **mineur** — pas de dryRun |
-| `transfer_rebar_annotations` | écriture | — | 1 | Transfer rebar annotations between views by recreating MultiReferenceAnnotations over the rebars visible in the source view. Provide sourceViewId, tar… | **mineur** — pas de dryRun |
-| `unify_rebars` | écriture destructif | — | 1 | Unify compatible standalone bars into one (Revit 2025+). Provide rebarIds (JSON array of >=2 ids); bars are unified pairwise into a single rebar. Retu… | **mineur** — pas de dryRun |
-| `convert_rebar_system_to_rebars` | écriture destructif | oui | 1 | Convert an area or path reinforcement system into standalone rebars (destructive). Provide systemId. Returns the resulting standalone rebar ids. | — |
-| `create_area_reinforcement` | écriture | oui | 1 | Create an area reinforcement system on a host (wall/floor/foundation). majorDirection is JSON {x,y,z}; optional curves is a JSON array of {type:line\|a… | — |
-| `create_fabric_area` | écriture | oui | 1 | Create a fabric area system on a host (wall/floor/foundation). majorDirection is JSON {x,y,z}; optional curves is a JSON array of {type:line\|arc, star… | — |
-| `create_fabric_sheet` | écriture | oui | 1 | Create a single fabric sheet in a host. Provide hostId and fabricSheetTypeId or fabricSheetTypeName; optional bendProfile is a JSON array of {type:lin… | — |
-| `create_path_reinforcement` | écriture | oui | 1 | Create a path reinforcement system on a host. curves is a JSON array of {type:line\|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}} in mm (required). Optio… | — |
-| `get_rebar_api_capabilities` | lecture | — | 1 | Report which version-gated reinforcement features the running Revit supports. | — |
-| `include_exclude_rebar_bars` | écriture | oui | 1 | Show or hide a single bar of a rebar set in a view. Provide rebarId, viewId, barPositionIndex, hidden (true=hide). | — |
-| `move_rebar_in_set` | écriture | oui | 1 | Move a single bar within a rebar set by a translation vector (mm). Provide rebarId, barPositionIndex, translation JSON {x,y,z}. Pass reset:true to cle… | — |
-| `place_fabric_sheet` | écriture | oui | 1 | Place an existing fabric sheet into a host. Provide fabricSheetId and hostId; optional transform is JSON {translation:{x,y,z}} in mm (default identity… | — |
-| `remove_fabric_reinforcement_system` | écriture destructif | oui | 1 | Remove a fabric area reinforcement system (destructive). Provide fabricAreaId. | — |
-| `remove_rebar_system` | écriture destructif | oui | 1 | Remove an area or path reinforcement system (destructive). Provide systemId. | — |
-| `set_area_reinforcement_layers` | écriture | oui | 1 | Activate or deactivate a layer of an area reinforcement system. Provide areaReinforcementId, layer (top_major\|top_minor\|bottom_major\|bottom_minor) and… | — |
-| `set_fabric_sheet_bend_profile` | écriture | oui | 1 | Set the bend profile of a bent fabric sheet. Provide fabricSheetId and bendProfile (a JSON array of {type:line\|arc, start{x,y,z}, end{x,y,z}, mid?{x,y… | — |
-| `set_path_reinforcement_options` | écriture | oui | 1 | Set options on a path reinforcement system. Provide pathReinforcementId and any of additionalOffsetMm, primaryBarOrientation (TopOrExterior\|BottomOrIn… | — |
-| `set_rebar_hooks` | écriture | oui | 1 | Set the hook type at rebar ends. Provide rebarId and startHookId and/or endHookId (pass 0 to clear an end's hook). Works on all Revit versions. | — |
-| `set_rebar_host` | écriture | oui | 1 | Reassign a rebar to a new host. Provide rebarId and newHostId (must be a valid rebar host). | — |
-| `set_rebar_shape` | écriture | oui | 1 | Change the shape of a shape-driven rebar. Provide rebarId and shapeId or shapeName. | — |
-| `set_rebar_terminations` | écriture | oui | 1 | Set rebar end terminations (orientation/rotation). Revit 2026+ only; returns a version error on older targets. Provide rebarId, end (0\|1), orientation… | — |
-| `set_rebar_varying` | écriture | oui | 1 | Enable/disable a varying-length rebar set (the 'Varying Rebar Set' command, Revit 2025+). Provide rebarId and enabled (bool): when true the set's cons… | — |
-| `set_rebar_visibility` | écriture | oui | 1 | Set rebar view presentation. Provide rebarId, viewId, and unobscured (show in front of host). | — |
-| `split_rebar` | écriture destructif | oui | 1 | Split a shape-driven rebar set into two sets at a given bar position. Provide rebarId and splitAtPosition (1..count-1). Returns the original and new r… | — |
-
-### Elements — 58 outils
+### Elements — 64 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
@@ -212,7 +134,7 @@ documentation.
 | `create_model_line` | écriture | oui | 4 | Draw 3D model lines on a horizontal sketch plane. path is a JSON array [{x,y,z}, ...] in mm; all points must share the same z, which sets the plane el… | **mineur** — erreur générique sans suggestion |
 | `create_point_based_element` | écriture | oui | 4 | Create point-based elements. Pass [{category, locationPoint:{x,y,z}, typeId?, levelId?, baseLevel?, hostWallId?, facingFlipped?, handFlipped?, rotatio… | **mineur** — géométrie par boîte englobante |
 | `create_structural_framing_system` | écriture | — | 4 | Create a beam system on a level over a rectangular area. Default builds a real associative Revit BeamSystem (editable layout); set associative=false f… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `create_surface_based_element` | écriture | — | 4 | Create surface-based elements (floors, ceilings). Pass [{category, boundary:[{x,y,z}], typeId?, baseLevel?, baseOffset?}]. | **mineur** — pas de dryRun |
+| `create_surface_based_element` | écriture | — | 4 | Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs — a roof is a real FootPrintRoof, Document.Create.NewFo… | **mineur** — pas de dryRun |
 | `export_families` | lecture | — | 4 | Export loaded families as .rfa files into a target directory. | **mineur** — erreur générique sans suggestion |
 | `find_undimensioned_elements` | lecture | — | 4 | Find elements not referenced by dimensions | **mineur** — erreur générique sans suggestion |
 | `find_untagged_elements` | lecture | — | 4 | Find elements without tags in a view | **mineur** — erreur générique sans suggestion |
@@ -228,71 +150,24 @@ documentation.
 | `set_material_properties` | écriture destructif | oui | 4 | Set identity, appearance, product info, and asset assignments on Revit materials. Each request is a FLAT object keyed by materialId plus any of: name,… | **mineur** — erreur générique sans suggestion |
 | `create_line_based_element` | écriture | oui | 4 | Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, heig… | — |
 | `get_room_openings` | lecture | — | 4 | Get doors/windows adjacent to rooms with dimensions. Filter by roomIds, roomNumbers, or levelName. | — |
+| `create_assembly` | écriture | — | 3 | Groups elements into an AssemblyInstance (prefabrication/shop drawings), or splits them into Parts (demolition/phasing sequencing). action=create_asse… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_opening` | écriture | — | 3 | Cuts an opening or a vertical shaft. openingType=shaft\|host\|wall. shaft: baseLevelId+topLevelId+curves (closed loop, mm) — a vertical shaft through ev… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_ramp` | écriture | oui | 3 | Create a native component ramp between two levels (accessibility/PMR). runs is a JSON array [{p0:{x,y}, p1:{x,y}}, ...] in mm plan coordinates — the l… | **mineur** — erreur générique sans suggestion |
+| `create_toposolid` | écriture | — | 3 | Creates a Toposolid (site/ground surface) from a closed boundary loop (Toposolid.Create). toposolidTypeId and levelId are required — list types with l… | **mineur** — pas de dryRun |
+| `manage_area_plans` | écriture | — | 3 | Builds regulatory area surfaces (SHAB/SU/SDP): area schemes, area plan views, area boundary lines, and Area elements. action=list_schemes\|duplicate_sc… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `manage_curtain_grid` | écriture | — | 3 | Adds curtain grid lines and mullions to an existing curtain wall/system (create the wall itself with create_line_based_element and a curtain wall type… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `rename_families` | écriture destructif | oui | 3 | Rename loaded families (and optionally their types) with find/replace, prefix, or suffix operations. | **mineur** — erreur générique sans suggestion |
 | `detach_wall_constraint` | écriture destructif | oui | 2 | Preview or detach wall top-level constraints or Revit 2027 top/base attachments. Grouped walls are reported and skipped instead of rolling back unrela… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `get_elements_by_unique_id` | lecture | — | 2 | Resolve Revit UniqueId strings to ElementId records for cross-app workflows. | — |
 
-### StructuralSteel — 48 outils
-
-| Outil | Nature | dryRun | Int. | Effet | Défaut probable |
-|---|---|---|---:|---|---|
-| `set_steel_connection_type` | écriture destructif | oui | 1 | Change a structural connection's type. Revit exposes no in-place type setter, so this recreates the connection: it reads the connected elements, delet… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : connectionHandlerTypeId, connectionHandlerTypeName |
-| `analyze_structural_steel_model` | lecture | — | 1 | Document-wide structural steel summary: counts of connection handlers, connection types, connection handler types, approval types, and structural fram… | **mineur** — erreur générique sans suggestion |
-| `get_steel_connection_data` | lecture | — | 1 | Read a structural connection handler by id: type id/name, connected element ids, origin, custom/detailed flags, approval type id, code-checking status… | **mineur** — erreur générique sans suggestion |
-| `get_steel_connection_input_points` | lecture | — | 1 | Read the input points of a structural connection handler: each point's id (GUID) and position (x,y,z in mm). Provide connectionId. | **mineur** — erreur générique sans suggestion |
-| `get_steel_connection_settings` | lecture | — | 1 | Read the document-wide StructuralConnectionSettings (currently exposes the IncludeWarningControls flag). | **mineur** — erreur générique sans suggestion |
-| `get_steel_connection_type_data` | lecture | — | 1 | Read a structural connection type by id. Returns StructuralConnectionType (family symbol id, applyTo) or StructuralConnectionHandlerType (connection G… | **mineur** — erreur générique sans suggestion |
-| `get_steel_cut_data` | lecture | — | 1 | Read cut relationships for an element: solid-solid cuts (cutting solids + solids being cut via SolidSolidCutUtils) and instance-void cuts (cutting voi… | **mineur** — erreur générique sans suggestion |
-| `get_steel_element_properties` | lecture | — | 1 | Read steel fabrication properties of an element: whether it carries SteelElementProperties and its fabrication unique id (GUID). External-id and mater… | **mineur** — erreur générique sans suggestion |
-| `get_steel_external_id_map` | lecture | — | 1 | Report the steel fabrication external-id map for an element. The Revit SDK does not expose per-element external-id enumeration; this returns the fabri… | **mineur** — erreur générique sans suggestion |
-| `get_steel_fabrication_unique_id` | lecture | — | 1 | Read the steel fabrication unique id (GUID) of an element from its SteelElementProperties. Provide elementId. Returns a note when the element has no s… | **mineur** — erreur générique sans suggestion |
-| `get_steel_material_links` | lecture | — | 1 | Report steel fabrication material links for an element. The Revit SDK does not expose linked-material enumeration on SteelElementProperties; this retu… | **mineur** — erreur générique sans suggestion |
-| `list_steel_approval_types` | lecture | — | 1 | List StructuralConnectionApprovalType definitions: id, name. Use maxResults (default 100) and summaryOnly for counts-first browsing. | **mineur** — erreur générique sans suggestion |
-| `list_steel_connection_handler_types` | lecture | — | 1 | List StructuralConnectionHandlerType definitions: id, name, connection GUID, generic/custom/detailed flags. Use maxResults (default 100) and summaryOn… | **mineur** — erreur générique sans suggestion |
-| `list_steel_connection_handlers` | lecture | — | 1 | List structural connection handlers in the document: id, type id/name, connected element count, custom/detailed flags. Use maxResults (default 100) an… | **mineur** — erreur générique sans suggestion |
-| `list_steel_connection_types` | lecture | — | 1 | List StructuralConnectionType definitions in the document: id, name, family symbol id, applyTo. Use maxResults (default 100) and summaryOnly for count… | **mineur** — erreur générique sans suggestion |
-| `manage_custom_steel_connection_type` | écriture | — | 1 | Mutate a custom structural connection (handler). action = add_references \| remove_references \| add_elements \| remove_subelements. NOTE: Revit's custom… | **mineur** — pas de dryRun |
-| `manage_steel_approval_type` | écriture | oui | 1 | Administer StructuralConnectionApprovalType definitions. action = create (requires name) \| list. The Revit API exposes no rename/delete for approval t… | **mineur** — erreur générique sans suggestion |
-| `set_steel_fabrication_unique_id` | écriture | — | 1 | Set the steel fabrication unique id (GUID) of an element's SteelElementProperties. Provide elementId and uniqueId (a GUID). The element must already h… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `set_steel_solid_cut_face_splitting` | écriture | — | 1 | Set whether the cutting solid's faces are split at an existing solid cut (SolidSolidCutUtils.SplitFacesOfCuttingSolid). Provide cutElementId, targetEl… | **mineur** — pas de dryRun |
-| `add_steel_fabrication_info` | écriture | oui | 1 | Add steel fabrication information to Revit elements so they participate in steel detailing (SteelElementProperties). Provide elementIds as a JSON arra… | — |
-| `add_steel_instance_void_cut` | écriture | oui | 1 | Add an instance void cut so a void family instance cuts another element (InstanceVoidCutUtils). Provide voidInstanceId (the cutting void instance) and… | — |
-| `add_steel_solid_cut` | écriture | oui | 1 | Add a solid cut so one element cuts another (SolidSolidCutUtils). Provide cutElementId (the cutter) and targetElementId (the element to be cut). Optio… | — |
-| `check_steel_cut_eligibility` | lecture | — | 1 | Check whether one element can cut another via a solid cut and/or an instance void cut, without mutating. Provide cutElementId (the cutter) and targetE… | — |
-| `create_default_steel_connection_handler_type` | écriture | oui | 1 | Create the default StructuralConnectionHandlerType for the document (CreateDefaultStructuralConnectionHandlerType). Returns the new type id. Supports… | — |
-| `create_generic_steel_connection` | écriture | oui | 1 | Create a generic structural connection between two or more elements (works without an installed connection provider — the safe baseline). Provide elem… | — |
-| `create_steel_connection` | écriture | oui | 1 | Create a typed structural connection between two or more elements from a connection handler type (connectionHandlerTypeId or connectionHandlerTypeName… | — |
-| `create_steel_connection_handler_type` | écriture | oui | 1 | Create a StructuralConnectionHandlerType. Provide name; optional familyName (default empty); optional guid (a new GUID is generated when omitted). Sup… | — |
-| `create_steel_structural_connection_type` | écriture | oui | 1 | Create a StructuralConnectionType bound to a family symbol. Provide familySymbolId (a valid connection family symbol); applyTo = BeamsAndBraces \| Colu… | — |
-| `delete_steel_connection` | écriture destructif | oui | 1 | Delete a structural connection handler by connectionId. Destructive — supports dryRun to preview. The connected elements themselves are not deleted. | — |
-| `get_instance_void_cut_relationships` | lecture | — | 1 | Read the instance-void cut relationships of an element (InstanceVoidCutUtils): cuttingVoidInstances (void instances that cut this element) and element… | — |
-| `get_solid_cut_relationships` | lecture | — | 1 | Read the solid-solid cut relationships of an element (SolidSolidCutUtils): cuttingSolids (solids that cut this element) and solidsBeingCut (solids thi… | — |
-| `get_steel_connection_applicability` | lecture | — | 1 | Report a StructuralConnectionType's applicability hints. Revit exposes no public 'does this type apply to these elements' predicate, so this returns t… | — |
-| `get_steel_connection_validation` | lecture | — | 1 | Report validation warnings for a structural connection handler. The Revit API exposes no public producer of ConnectionValidationInfo for a placed hand… | — |
-| `get_steel_element_fabrication_properties` | lecture | — | 1 | Read the steel fabrication properties of an element: whether it has SteelElementProperties (hasFabricationProperties) and its fabrication unique id (G… | — |
-| `get_steel_element_warnings` | lecture | — | 1 | Report steel fabrication warnings for an element (or all elements if elementId is omitted). The Revit SDK exposes no steel-specific warning API; this… | — |
-| `get_steel_reference_by_fabrication_id` | lecture | — | 1 | Resolve the Revit element referenced by a steel fabrication GUID. Provide fabricationGuid (a GUID). Returns found=true with the referenced elementId,… | — |
-| `get_structural_connection_provider_data` | lecture | — | 1 | Report a structural connection provider's metadata/capabilities by id/key. StructuralConnectionsProviderData is an opaque provider-filled buffer with… | — |
-| `get_structural_connection_provider_registry` | lecture | — | 1 | Report registered structural connection providers (Autodesk Steel Connections, IDEA StatiCa, etc.). The Revit API exposes no public query on the provi… | — |
-| `get_structural_connection_validation_info` | lecture | — | 1 | Report validation detail for a placed structural connection (connectionId). No public API produces a populated ConnectionValidationInfo for an existin… | — |
-| `get_structural_steel_api_capabilities` | lecture | — | 1 | Report which structural steel features the running Revit version supports: SteelElementProperties, structural connections, cut utils, custom-connectio… | — |
-| `list_steel_connection_providers` | lecture | — | 1 | List installed structural connection providers. The public Revit API exposes no queryable provider registry; this returns count 0 with an explanatory… | — |
-| `modify_steel_connection_inputs` | écriture | oui | 1 | Add or remove connected elements on a structural connection handler. action = add_element_ids \| remove_element_ids (provide elementIds[]). add_referen… | — |
-| `remove_steel_instance_void_cut` | écriture destructif | oui | 1 | Remove an instance void cut between a void family instance and another element (InstanceVoidCutUtils). Provide voidInstanceId and targetElementId. Gen… | — |
-| `remove_steel_solid_cut` | écriture destructif | oui | 1 | Remove a solid cut between two elements (SolidSolidCutUtils). Provide cutElementId and targetElementId. Generic Revit geometry op, not steel-specific. | — |
-| `set_steel_connection_approval` | écriture | oui | 1 | Set the approval type of a structural connection handler. Provide connectionId and approvalTypeId or approvalTypeName (verified against the document's… | — |
-| `set_steel_connection_default_order` | écriture | oui | 1 | Reset a structural connection handler to its default element order (SetDefaultElementOrder). Provide connectionId. | — |
-| `set_steel_connection_status` | écriture | oui | 1 | Set the code-checking status of a structural connection handler. status = NotCalculated \| OkChecked \| CheckingFailed. | — |
-| `set_steel_connection_type_family_symbol` | écriture | oui | 1 | Re-bind a StructuralConnectionType to a different family symbol. Provide connectionTypeId and familySymbolId. The new symbol is validated against the… | — |
-
-### Project — 45 outils
+### Project — 49 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
 | `duplicate_storey` | écriture destructif | oui | 5 | Preview or transactionally duplicate model elements from one level to a target elevation. Reports view-specific, grouped, and constrained dependencies… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `batch_export` | lecture | — | 5 | Export views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats. | **mineur** — classé lecture seule et écrit sur le disque. Volontaire (le modèle n'est pas touché) mais à arbitrer : le verrou n'empêche pas cet écrit. |
 | `check_model_health` | lecture | — | 5 | Run a model health check and return a health score. | **mineur** — erreur générique sans suggestion |
-| `create_revision` | écriture | — | 5 | List, create, update, or assign revisions to sheets. action=list\|create\|set\|add_to_sheets. 'set' updates an existing revision (needs revisionId). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_revision` | écriture | — | 5 | List, create, update, or assign revisions to sheets, and draw revision clouds. action=list\|create\|set\|add_to_sheets\|create_cloud. 'set' updates an exi… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_schedule` | écriture | — | 5 | Create a new schedule view in Revit. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_sheet` | écriture | oui | 5 | Create a sheet, with a title block. Pass titleBlockId (an OST_TitleBlocks family type id, from list_system_types or get_available_family_types) or a f… | **mineur** — erreur générique sans suggestion |
 | `export_schedule` | lecture | — | 5 | Export a schedule as JSON, or write it to a CSV/TSV file. Without exportPath the data comes back inline; with exportPath the file is written using del… | **mineur** — erreur générique sans suggestion |
@@ -331,8 +206,12 @@ documentation.
 | `modify_schedule` | écriture destructif | — | 4 | Modify schedule fields, sorting, filters, or rename the schedule. Supported actions: add_field, remove_field, set_sorting, clear_sorting, set_filter,… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `set_compound_structure` | écriture destructif | oui | 4 | Modify compound structure on a wall/floor/roof/ceiling type. action=replace\|add\|remove\|modify\|set_wrapping. set_wrapping sets openingWrapping (none\|ex… | **mineur** — erreur générique sans suggestion |
 | `set_project_info` | écriture | — | 4 | Set editable Project Information fields. Only the fields you pass are changed; others are left untouched. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_key_schedule` | écriture | — | 3 | Creates a key schedule (ViewSchedule.CreateKeySchedule) — a reusable finish/typology key table (room finish keys, dwelling-unit typologies), different… | **mineur** — pas de dryRun |
 | `export_shared_parameter_file` | lecture | — | 3 | Export shared parameter file contents | **mineur** — erreur générique sans suggestion |
 | `get_material_properties` | lecture | — | 3 | Get detailed material properties (physical, thermal, appearance) by material ID or name. | **mineur** — erreur générique sans suggestion |
+| `manage_sheet_sets` | écriture | — | 3 | List, create, or delete named view/sheet sets (ViewSheetSet), so batch_export/printing can reuse a saved list instead of one passed on every call. act… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `list_design_options` | lecture | — | 3 | Lists existing design option sets and their options, and (with elementId) reports which option an element belongs to. Creating a design option set/opt… | — |
+| `synchronize_with_central` | écriture destructif | oui | 3 | Synchronizes the local model with the workshared central file. AFFECTS THE WHOLE TEAM, not just this session, and cannot be undone from here. Requires… | — |
 | `list_family_sizes` | lecture | — | 2 | List loaded families with type/instance counts and, when includeSize=true, the family file size in KB measured by exporting each family to a temp file… | **mineur** — erreur générique sans suggestion |
 
 ### IFC — 20 outils
@@ -360,12 +239,12 @@ documentation.
 | `ifc_rebuild_walls` | écriture | oui | 3 | Rebuild native walls from IFC DirectShapes. dryRun defaults to true. | — |
 | `ifc_validate_request` | lecture | — | 3 | Validate IFC file path, extension, and schema version. | — |
 
-### Views — 12 outils
+### Views — 13 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
 | `apply_view_template` | écriture | — | 5 | List, apply, or remove view templates from views. action=list\|apply\|remove. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `create_view` | écriture | — | 5 | Create a new view in Revit: floor plan, ceiling plan, section, elevation, drafting, or 3D view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_view` | écriture | — | 5 | Create a new view in Revit: floor plan, ceiling plan, section, elevation, drafting, callout, or 3D view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_view_filter` | écriture | — | 5 | Create, apply, or list parameter-based view filters. action=create\|apply\|list. A filter carries one rule (parameterName/filterRule/filterValue) or sev… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `duplicate_view` | écriture | — | 5 | Duplicate an existing view in Revit. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `manage_view_templates` | écriture destructif | — | 5 | List, duplicate, delete, or rename view templates. action=list\|duplicate\|delete\|rename. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
@@ -375,6 +254,7 @@ documentation.
 | `create_views_from_rooms` | écriture | — | 4 | Create callout, section, or elevation views from rooms with a naming pattern. | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
 | `manage_unplaced_views` | écriture destructif | oui | 4 | List or delete views that are not placed on any sheet | **mineur** — erreur générique sans suggestion |
 | `section_box_from_selection` | écriture | — | 4 | Create a 3D section box from selected elements | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
+| `manage_scope_boxes` | écriture | — | 3 | Inventory, rename, move, or assign-to-views existing scope boxes (OST_VolumeOfInterest). The Revit API has no method to create one from scratch — draw… | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
 | `rename_views` | écriture destructif | oui | 3 | Batch rename views using find/replace, prefix, or suffix operations. | **mineur** — erreur générique sans suggestion |
 
 ### LinkedFiles — 11 outils
@@ -393,6 +273,20 @@ documentation.
 | `reload_linked_file_from` | écriture destructif | — | 2 | Reloads a linked Revit file from a different file path. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `show_cross_model_elements` | écriture | — | 2 | Select host elements plus elements in linked Revit models. Two strategies for visibility: (a) default — create red DirectShape markers in the host doc… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 
+### Annotations — 9 outils
+
+| Outil | Nature | dryRun | Int. | Effet | Défaut probable |
+|---|---|---|---:|---|---|
+| `create_dimensions` | écriture | — | 5 | Create dimension annotations in the active view. Pass a JSON array of dimension specs. Element mode: [{viewId, referenceIds:[...], linePoint:{x,y,z},… | **mineur** — pas de dryRun |
+| `create_text_note` | écriture | — | 5 | Create text notes in a view. Pass a JSON array: [{text, position:{x,y,z}, viewId?, textNoteTypeId?, width?, horizontalAlignment?, verticalAlignment?,… | **mineur** — pas de dryRun |
+| `tag_rooms` | écriture | — | 5 | Tag rooms in the active view. Operates on the active view only — activate the correct view first. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_color_legend` | écriture | — | 4 | Color elements by parameter value and optionally create a legend view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `import_table` | écriture | — | 4 | Import a CSV/TSV file as a formatted table in a drafting or legend view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `tag_walls` | écriture | — | 4 | Tag walls at their midpoints in the active view. Operates on the active view only. Tags all walls by default, or a subset via wallIds. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `wipe_empty_tags` | écriture destructif | oui | 4 | Find and remove empty or orphaned tags | **mineur** — erreur générique sans suggestion |
+| `create_spot_dimension` | écriture | — | 3 | Create a spot elevation annotation (a level/coordinate callout) at a point on an element's geometry. create_dimensions only builds linear dimensions;… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `manage_images` | écriture | — | 3 | Imports a raster/PDF file as an image and places it in a view (survey scan, surveyor underlay). action=list\|place. place needs filePath (bmp/jpg/jpeg/… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+
 ### Parameters — 8 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
@@ -405,18 +299,6 @@ documentation.
 | `manage_global_parameters` | écriture destructif | — | 4 | Manage global parameters (project-level named values). Actions: list \| get \| create \| set \| delete \| rename \| set_formula \| move_up \| move_down \| sort… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `transfer_parameters` | écriture destructif | oui | 4 | Copy parameter values from source element to one or more target elements. | **mineur** — erreur générique sans suggestion |
 | `sync_csv_parameters` | écriture destructif | oui | 2 | Synchronize parameter values from CSV data into Revit elements. | **signal** — clé imbriquée annoncée, absente du runtime : paramName1 |
-
-### Annotations — 7 outils
-
-| Outil | Nature | dryRun | Int. | Effet | Défaut probable |
-|---|---|---|---:|---|---|
-| `create_dimensions` | écriture | — | 5 | Create dimension annotations in the active view. Pass a JSON array of dimension specs. Element mode: [{viewId, referenceIds:[...], linePoint:{x,y,z},… | **mineur** — pas de dryRun |
-| `create_text_note` | écriture | — | 5 | Create text notes in a view. Pass a JSON array: [{text, position:{x,y,z}, viewId?, textNoteTypeId?, width?, horizontalAlignment?, verticalAlignment?,… | **mineur** — pas de dryRun |
-| `tag_rooms` | écriture | — | 5 | Tag rooms in the active view. Operates on the active view only — activate the correct view first. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `create_color_legend` | écriture | — | 4 | Color elements by parameter value and optionally create a legend view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `import_table` | écriture | — | 4 | Import a CSV/TSV file as a formatted table in a drafting or legend view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `tag_walls` | écriture | — | 4 | Tag walls at their midpoints in the active view. Operates on the active view only. Tags all walls by default, or a subset via wallIds. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `wipe_empty_tags` | écriture destructif | oui | 4 | Find and remove empty or orphaned tags | **mineur** — erreur générique sans suggestion |
 
 ### Sheets — 5 outils
 
@@ -477,7 +359,7 @@ documentation.
 
 ## Exposé par l'API Revit, pas encore outillé
 
-Vérifié par recherche sur les 295 noms d'outils : aucune de ces capacités n'a de
+Vérifié par recherche sur les 196 noms d'outils : aucune de ces capacités n'a de
 point d'entrée. Priorité jugée sur les spécialités de l'agence. Effort : **S** de
 l'ordre de la journée, **M** de la semaine, **L** au-delà.
 

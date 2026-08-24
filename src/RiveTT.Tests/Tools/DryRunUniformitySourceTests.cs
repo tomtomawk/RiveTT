@@ -1,5 +1,4 @@
 using System.IO;
-using System.Text.RegularExpressions;
 using Xunit;
 
 namespace RiveTT.Tests.Tools;
@@ -27,19 +26,6 @@ public class DryRunUniformitySourceTests
     {
         var src = ReadSource("RiveTT.Tools", "Utilities", "ToolHelpers.cs");
         Assert.Contains("public static bool GetDryRun(JObject input, bool defaultValue = true)", src);
-    }
-
-    [Theory]
-    [InlineData("StructuralSteelConnectionTools.cs", 7)]
-    [InlineData("StructuralSteelConnectionTypeTools.cs", 5)]
-    [InlineData("StructuralSteelCutTools.cs", 4)]
-    [InlineData("StructuralSteelFabricationTools.cs", 1)]
-    public void SteelTools_UseTheSharedReader_NoImplicitFalseDefault(string file, int expectedReaders)
-    {
-        var src = ReadSource("RiveTT.Tools", "StructuralSteel", file);
-        Assert.DoesNotContain("input[\"dryRun\"]?.Value<bool?>() == true", src);
-        var readers = Regex.Matches(src, @"ToolHelpers\.GetDryRun\(input\)");
-        Assert.Equal(expectedReaders, readers.Count);
     }
 
     [Fact]
@@ -84,27 +70,5 @@ public class DryRunUniformitySourceTests
         var section = end > start ? src.Substring(start, end - start) : src.Substring(start);
         Assert.Contains("dryRun", section);
         Assert.Contains("p[\"dryRun\"] = dryRun", section);
-    }
-
-    [Fact]
-    public void SteelServerWrappers_DocumentTheNewDefault_AndForwardDryRunForTheFiveTools()
-    {
-        var src = ReadSource("RiveTT.Server", "Tools", "StructuralSteelTools.cs");
-        Assert.DoesNotContain("Default false\")] bool? dryRun", src);
-        foreach (var tool in new[]
-                 {
-                     "modify_steel_connection_inputs",
-                     "set_steel_connection_approval",
-                     "set_steel_connection_status",
-                     "remove_steel_solid_cut",
-                     "remove_steel_instance_void_cut",
-                 })
-        {
-            var start = src.IndexOf($"Name = \"{tool}\"", System.StringComparison.Ordinal);
-            Assert.True(start >= 0, $"wrapper for {tool} not found");
-            var end = src.IndexOf("[McpServerTool", start, System.StringComparison.Ordinal);
-            var section = end > start ? src.Substring(start, end - start) : src.Substring(start);
-            Assert.Contains("dryRun", section);
-        }
     }
 }
