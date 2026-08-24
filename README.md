@@ -1,6 +1,6 @@
 # RiveTT
 
-MCP local pour **Autodesk Revit 2027**, basé sur RiveTT (licence MIT).
+MCP local pour **Autodesk Revit 2027**, basé sur RevitCortex (licence MIT).
 
 ## Principes
 
@@ -100,6 +100,11 @@ dotnet build .\RiveTT.sln -c Release
 Le build compile les DLL du plugin, les outils et le serveur, puis prépare le
 paquet dans `distribution`.
 
+## Contribuer
+
+Règles d'architecture, contrat outils, verrou d'écriture et commandes de
+vérification : voir [AGENTS.md](AGENTS.md).
+
 ## Licence
 
-Ce dérivé conserve la licence [MIT](LICENSE) du projet source RiveTT.
+Ce dérivé conserve la licence [MIT](LICENSE) du projet source RevitCortex.
