@@ -136,6 +136,19 @@ public static class StoreyAndGroupTools
         return (await revit.ExecuteAsync("manage_images", p, ct)).ToString();
     }
 
+    [McpServerTool(Name = "synchronize_with_central"), Description("Synchronizes the local model with the workshared central file. AFFECTS THE WHOLE TEAM, not just this session, and cannot be undone from here. Requires the ribbon write lock AND dryRun:false (dryRun defaults to true and only reports state). Only usable on a workshared document.")]
+    public static async Task<string> SynchronizeWithCentral(
+        RevitConnectionManager revit,
+        [Description("Preview only, no change made. Default: true — pass false to actually synchronize.")] bool dryRun = true,
+        [Description("Sync comment shown to other users")] string? comment = null,
+        [Description("Relinquish all worksets/elements/checked-out items on sync. Default: true")] bool relinquishAll = true,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["dryRun"] = dryRun, ["relinquishAll"] = relinquishAll };
+        if (comment != null) p["comment"] = comment;
+        return (await revit.ExecuteAsync("synchronize_with_central", p, ct)).ToString();
+    }
+
     [McpServerTool(Name = "list_design_options"), Description("Lists existing design option sets and their options, and (with elementId) reports which option an element belongs to. Creating a design option set/option has no public Revit API (confirmed unsupported) — create them in Revit's own Design Options dialog, then read them here.")]
     public static async Task<string> ListDesignOptions(
         RevitConnectionManager revit,
