@@ -20,6 +20,55 @@ public static class CreationTools
         return result.ToString();
     }
 
+    [McpServerTool(Name = "manage_area_plans"), Description("Builds regulatory area surfaces (SHAB/SU/SDP): area schemes, area plan views, area boundary lines, and Area elements. action=list_schemes|duplicate_scheme|create_plan|create_boundary|create_area. AreaScheme creation from scratch is confirmed unsupported by the public Revit API — duplicate_scheme copies an existing one instead (every template ships 'Gross Building').")]
+    public static async Task<string> ManageAreaPlans(
+        RevitConnectionManager revit,
+        [Description("Action: list_schemes | duplicate_scheme | create_plan | create_boundary | create_area. Default: list_schemes")] string action = "list_schemes",
+        [Description("AreaScheme element ID to duplicate (duplicate_scheme)")] long? sourceSchemeId = null,
+        [Description("New area scheme name (duplicate_scheme)")] string? newName = null,
+        [Description("AreaScheme element ID (create_plan)")] long? areaSchemeId = null,
+        [Description("Level element ID (create_plan)")] long? levelId = null,
+        [Description("Area plan view element ID (create_boundary, create_area)")] long? viewId = null,
+        [Description("JSON array of curve specs forming a closed loop (create_boundary): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] string? curves = null,
+        [Description("Point inside a closed area boundary, JSON {x,y} in mm (create_area)")] string? point = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["action"] = action };
+        if (sourceSchemeId != null) p["sourceSchemeId"] = sourceSchemeId;
+        if (newName != null) p["newName"] = newName;
+        if (areaSchemeId != null) p["areaSchemeId"] = areaSchemeId;
+        if (levelId != null) p["levelId"] = levelId;
+        if (viewId != null) p["viewId"] = viewId;
+        if (curves != null) p["curves"] = JArray.Parse(curves);
+        if (point != null) p["point"] = JObject.Parse(point);
+        var result = await revit.ExecuteAsync("manage_area_plans", p, ct);
+        return result.ToString();
+    }
+
+    [McpServerTool(Name = "create_opening"), Description("Cuts an opening or a vertical shaft. openingType=shaft|host|wall. shaft: baseLevelId+topLevelId+curves (closed loop, mm) — a vertical shaft through every floor/roof between the two levels. host: hostElementId (a floor or roof)+curves (closed loop, mm) — cutIsVoid defaults to true. wall: hostElementId (a wall)+point1+point2 ({x,y,z} mm).")]
+    public static async Task<string> CreateOpening(
+        RevitConnectionManager revit,
+        [Description("shaft | host | wall")] string openingType,
+        [Description("Base level element ID (shaft)")] long? baseLevelId = null,
+        [Description("Top level element ID (shaft)")] long? topLevelId = null,
+        [Description("Host floor/roof/wall element ID (host, wall)")] long? hostElementId = null,
+        [Description("JSON array of curve specs forming a closed loop (shaft, host): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] string? curves = null,
+        [Description("Whether the cut is a void vs. solid addition (host). Default: true")] bool cutIsVoid = true,
+        [Description("First corner point, JSON {x,y,z} in mm (wall)")] string? point1 = null,
+        [Description("Second (opposite) corner point, JSON {x,y,z} in mm (wall)")] string? point2 = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["openingType"] = openingType, ["cutIsVoid"] = cutIsVoid };
+        if (baseLevelId != null) p["baseLevelId"] = baseLevelId;
+        if (topLevelId != null) p["topLevelId"] = topLevelId;
+        if (hostElementId != null) p["hostElementId"] = hostElementId;
+        if (curves != null) p["curves"] = JArray.Parse(curves);
+        if (point1 != null) p["point1"] = JObject.Parse(point1);
+        if (point2 != null) p["point2"] = JObject.Parse(point2);
+        var result = await revit.ExecuteAsync("create_opening", p, ct);
+        return result.ToString();
+    }
+
     [McpServerTool(Name = "create_line_based_element"), Description("Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, height?, baseLevel?, baseOffset?}]. Add pMid to make a curved (arc) wall/beam. Coordinates in mm.")]
     public static async Task<string> CreateLineBasedElement(
         RevitConnectionManager revit,
