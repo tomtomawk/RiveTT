@@ -6,12 +6,14 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using RiveTT.Tools.Rebar;
 using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Project;
 
 /// <summary>
-/// Lists, creates, or assigns revisions to sheets.
+/// Lists, creates, or assigns revisions to sheets, and draws the cloud that localizes
+/// one on a view (create_revision alone only created the Revision element itself).
 /// </summary>
 [ToolSafety(false, false)]
 public class CreateRevisionTool : ICortexTool
@@ -20,7 +22,7 @@ public class CreateRevisionTool : ICortexTool
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Lists, creates, updates, or assigns revisions to sheets. Actions: list, create, set, add_to_sheets.";
+    public string Description => "Lists, creates, updates, or assigns revisions to sheets, and draws revision clouds. Actions: list, create, set, add_to_sheets, create_cloud.";
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -37,15 +39,76 @@ public class CreateRevisionTool : ICortexTool
                 "create" => CreateNewRevision(doc, input),
                 "set" => SetRevision(doc, input),
                 "add_to_sheets" => AddToSheets(doc, input),
+                "create_cloud" => CreateCloud(doc, input),
                 _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                     $"Unknown action: {action}",
-                    suggestion: "Use: list, create, set, or add_to_sheets")
+                    suggestion: "Use: list, create, set, add_to_sheets, or create_cloud")
             };
         }
         catch (Exception ex)
         {
             return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Draws a revision cloud in a view (RevisionCloud.Create). Revit refuses this once
+    /// the revision has been marked Issued — the failure surfaces as a clear message
+    /// rather than a raw exception.
+    /// </summary>
+    private static CortexResult<object> CreateCloud(Document doc, JObject input)
+    {
+        var revisionIdLong = input["revisionId"]?.Value<long?>() ?? 0;
+        var viewIdLong = input["viewId"]?.Value<long?>() ?? 0;
+        var curvesArray = input["curves"] as JArray;
+        if (revisionIdLong <= 0 || viewIdLong <= 0 || curvesArray == null || curvesArray.Count == 0)
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                "revisionId, viewId, and a non-empty curves array are required",
+                suggestion: "Provide {\"revisionId\":123, \"viewId\":456, \"curves\":[{\"type\":\"line\",\"start\":{...},\"end\":{...}}, ...]} forming a closed loop");
+
+        var revision = doc.GetElement(ToolHelpers.ToElementId(revisionIdLong)) as Revision;
+        if (revision == null)
+            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Revision {revisionIdLong} not found");
+        if (revision.Issued)
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                "This revision is marked Issued: Revit refuses new clouds on an issued revision",
+                suggestion: "Use a non-issued revision, or create_revision(action=create) a new one first");
+
+        var view = doc.GetElement(ToolHelpers.ToElementId(viewIdLong)) as View;
+        if (view == null)
+            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"View {viewIdLong} not found");
+
+        var curves = RebarToolHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
+        if (curveError != null)
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, curveError);
+
+        using var tx = new Transaction(doc, "RiveTT: Create Revision Cloud");
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
+        tx.Start();
+
+        RevisionCloud cloud;
+        try
+        {
+            cloud = RevisionCloud.Create(doc, view, revision.Id, curves);
+        }
+        catch (Exception ex)
+        {
+            tx.RollBack();
+            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"RevisionCloud.Create failed: {ex.Message}");
+        }
+
+        if (tx.Commit() != TransactionStatus.Committed)
+            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
+
+        return CortexResult<object>.Ok(new
+        {
+            action = "create_cloud",
+            revisionCloudId = ToolHelpers.GetElementIdValue(cloud.Id),
+            revisionId = ToolHelpers.GetElementIdValue(revision.Id),
+            viewId = ToolHelpers.GetElementIdValue(view.Id)
+        });
     }
 
     private static CortexResult<object> ListRevisions(Document doc)

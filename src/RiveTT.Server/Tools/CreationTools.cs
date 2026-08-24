@@ -342,10 +342,10 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_revision"), Description("List, create, update, or assign revisions to sheets. action=list|create|set|add_to_sheets. 'set' updates an existing revision (needs revisionId).")]
+    [McpServerTool(Name = "create_revision"), Description("List, create, update, or assign revisions to sheets, and draw revision clouds. action=list|create|set|add_to_sheets|create_cloud. 'set' updates an existing revision (needs revisionId). 'create_cloud' draws the cloud that localizes a revision on a view (needs revisionId, viewId, curves) — Revit refuses this once the revision is marked Issued.")]
     public static async Task<string> CreateRevision(
         RevitConnectionManager revit,
-        [Description("Action: list | create | set | add_to_sheets. Default: list")] string? action = null,
+        [Description("Action: list | create | set | add_to_sheets | create_cloud. Default: list")] string? action = null,
         [Description("Revision date (for create/set)")] string? date = null,
         [Description("Revision description (for create/set)")] string? description = null,
         [Description("Issued by (for create/set)")] string? issuedBy = null,
@@ -353,7 +353,9 @@ public static class CreationTools
         [Description("Mark the revision issued (true) or not (false), for create/set Pass \"true\" or \"false\"; omit to leave unchanged.")] string? issued = null,
         [Description("Revision visibility: cloud_and_tag | tag_visible | none, for create/set")] string? visibility = null,
         [Description("Sheet element IDs (for add_to_sheets). JSON array, e.g. [1,2]")] string? sheetIds = null,
-        [Description("Revision element ID (required for set and add_to_sheets)")] long? revisionId = null,
+        [Description("Revision element ID (required for set, add_to_sheets, and create_cloud)")] long? revisionId = null,
+        [Description("View element ID the cloud is drawn in (required for create_cloud)")] long? viewId = null,
+        [Description("JSON array of curve specs forming a closed loop (required for create_cloud): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] string? curves = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -376,6 +378,13 @@ public static class CreationTools
             p["sheetIds"] = sheetIdsArray;
         }
         if (revisionId != null) p["revisionId"] = revisionId;
+        if (viewId != null) p["viewId"] = viewId;
+        if (curves != null)
+        {
+            if (!JsonArrayParam.TryParse(curves, out var curvesArray))
+                return JsonArrayParam.InvalidArrayResult("create_revision", "curves", curves);
+            p["curves"] = curvesArray;
+        }
         var result = await revit.ExecuteAsync("create_revision", p, ct);
         return result.ToString();
     }

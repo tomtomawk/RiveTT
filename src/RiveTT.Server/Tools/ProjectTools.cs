@@ -175,6 +175,23 @@ public static class ProjectTools
         return result.ToString();
     }
 
+    [McpServerTool(Name = "manage_sheet_sets"), Description("List, create, or delete named view/sheet sets (ViewSheetSet), so batch_export/printing can reuse a saved list instead of one passed on every call. action=list|create|delete. create needs name + viewIds/sheetIds. No rename API: recreate under a new name instead.")]
+    public static async Task<string> ManageSheetSets(
+        RevitConnectionManager revit,
+        [Description("Action: list | create | delete. Default: list")] string action = "list",
+        [Description("Sheet set name (create), or exact name to match (delete, alternative to elementId)")] string? name = null,
+        [Description("View or sheet element IDs to include, as a JSON array of numbers (create)")] string? viewIds = null,
+        [Description("Sheet set element ID (delete, alternative to name)")] long? elementId = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["action"] = action };
+        if (name != null) p["name"] = name;
+        if (viewIds != null) p["viewIds"] = JArray.Parse(viewIds);
+        if (elementId != null) p["elementId"] = elementId;
+        var result = await revit.ExecuteAsync("manage_sheet_sets", p, ct);
+        return result.ToString();
+    }
+
     [McpServerTool(Name = "clash_detection"), Description("Detect clashes between two element categories. Uses true solid-geometry intersection by default (fewer false positives than bounding boxes).")]
     public static async Task<string> ClashDetection(
         RevitConnectionManager revit,

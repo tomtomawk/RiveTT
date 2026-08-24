@@ -80,11 +80,18 @@ public class CreateViewTool : ICortexTool
                 case "callout":
                     createdView = CreateCalloutView(doc, input, out calloutError);
                     break;
+                case "legend":
+                    // Confirmed unsupported: the Revit API exposes no method to build a
+                    // Legend view from scratch, only View.Duplicate() on an existing one.
+                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                        "Legend view creation is unsupported: the Revit API cannot build a Legend view from scratch",
+                        suggestion: "Find an existing legend view and duplicate it with duplicate_view instead");
                 default:
                     return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                         $"Unsupported viewType: {viewType}",
                         suggestion: "Use: floorplan | ceilingplan | section | elevation | drafting | callout | " +
-                                    "3d (aliases: isometric, ThreeD)");
+                                    "3d (aliases: isometric, ThreeD). Legend views cannot be created from scratch " +
+                                    "(only duplicated — see duplicate_view).");
             }
 
             if (createdView == null)
