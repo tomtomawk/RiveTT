@@ -82,6 +82,37 @@ public static class LifecycleAndStairTools
         return (await revit.ExecuteAsync("create_stair", p, ct)).ToString();
     }
 
+    [McpServerTool(Name = "create_ramp"), Description(
+        "Create a native component ramp between two levels (accessibility/PMR). runs is a JSON array " +
+        "[{p0:{x,y}, p1:{x,y}}, ...] in mm plan coordinates — the levels drive the elevation. Revit has no " +
+        "separate ramp API: this uses the same StairsEditScope mechanism as create_stair with an OST_Ramps " +
+        "type applied — rampTypeId is REQUIRED and must come from list_system_types(category: \"OST_Ramps\"); " +
+        "a stair type there produces a stair, not a ramp. The response reports the run slope against the " +
+        "common 1:12 (8.3%) PMR/code limit.")]
+    public static async Task<string> CreateRamp(
+        RevitConnectionManager revit,
+        [Description("Base level element ID")] long baseLevelId,
+        [Description("Top level element ID (must be above the base level)")] long topLevelId,
+        [Description("Runs JSON: [{p0:{x,y}, p1:{x,y}}, ...] in mm")] string runs,
+        [Description("OST_Ramps type element ID (required) — from list_system_types(category: \"OST_Ramps\")")] long rampTypeId,
+        [Description("Run width in mm. Omit for the type default")] double? widthMm = null,
+        [Description("Railing type ID to place on the treads (creates one railing per side)")] long? railingTypeId = null,
+        [Description("Preview without changing the model. Default: true")] bool dryRun = true,
+        CancellationToken ct = default)
+    {
+        var p = new JObject
+        {
+            ["baseLevelId"] = baseLevelId,
+            ["topLevelId"] = topLevelId,
+            ["runs"] = JArray.Parse(runs),
+            ["rampTypeId"] = rampTypeId,
+            ["dryRun"] = dryRun
+        };
+        if (widthMm != null) p["widthMm"] = widthMm;
+        if (railingTypeId != null) p["railingTypeId"] = railingTypeId;
+        return (await revit.ExecuteAsync("create_ramp", p, ct)).ToString();
+    }
+
     [McpServerTool(Name = "edit_group_members"), Description(
         "Add or remove members of a model group. The Revit API cannot edit group members in place, so this " +
         "ungroups the instance, changes the member set and creates a NEW group type: the type id changes and " +
