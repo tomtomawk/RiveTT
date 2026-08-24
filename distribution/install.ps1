@@ -5,20 +5,20 @@ $revitYear = '2027'
 $addinRoot = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$revitYear"
 $pluginSource = Join-Path $scriptRoot 'plugin'
 $serverSource = Join-Path $scriptRoot 'server'
-$pluginTarget = Join-Path $addinRoot 'MCPRVTT27'
-$manifestSource = Join-Path $scriptRoot 'MCPRVTT27.addin'
-$manifestTarget = Join-Path $addinRoot 'MCPRVTT27.addin'
-$serverTarget = Join-Path $env:LOCALAPPDATA 'MCPRVTT27\server'
+$pluginTarget = Join-Path $addinRoot 'RiveTT'
+$manifestSource = Join-Path $scriptRoot 'RiveTT.addin'
+$manifestTarget = Join-Path $addinRoot 'RiveTT.addin'
+$serverTarget = Join-Path $env:LOCALAPPDATA 'RiveTT\server'
 
 if (-not (Test-Path $pluginSource) -or -not (Test-Path $manifestSource)) {
     throw 'Paquet plugin incomplet. Exécutez build.ps1 avant de lancer cet installateur.'
 }
-if (-not (Test-Path (Join-Path $serverSource 'MCPRVTT27.Server.exe'))) {
+if (-not (Test-Path (Join-Path $serverSource 'RiveTT.Server.exe'))) {
     throw 'Paquet serveur incomplet. Exécutez build.ps1 avant de lancer cet installateur.'
 }
 
 $revitProcesses = @(Get-Process -Name Revit -ErrorAction SilentlyContinue)
-$serverProcesses = @(Get-Process -Name 'MCPRVTT27.Server' -ErrorAction SilentlyContinue)
+$serverProcesses = @(Get-Process -Name 'RiveTT.Server' -ErrorAction SilentlyContinue)
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 
 # Windows refuses to OVERWRITE a file that a process has loaded — a DLL held by
@@ -87,8 +87,8 @@ Get-ChildItem $pluginTarget, $serverTarget -Recurse -File | ForEach-Object {
     Unblock-File -LiteralPath $_.FullName -ErrorAction SilentlyContinue
 }
 
-$serverExe = Join-Path $serverTarget 'MCPRVTT27.Server.exe'
-Write-Host 'MCPRVTT27 installé pour Revit 2027.' -ForegroundColor Green
+$serverExe = Join-Path $serverTarget 'RiveTT.Server.exe'
+Write-Host 'RiveTT installé pour Revit 2027.' -ForegroundColor Green
 Write-Host "Add-in : $pluginTarget"
 Write-Host "Serveur stdio : $serverExe"
 
@@ -112,4 +112,4 @@ if ($serverProcesses.Count -gt 0) {
 Write-Host ''
 Write-Host 'Ouvrez Revit 2027 : la connexion par pipe local démarre automatiquement, sans port TCP.'
 Write-Host 'Ajoutez le serveur MCP avec la commande :'
-Write-Host "  codex mcp add MCPRVTT27 -- `"$serverExe`""
+Write-Host "  codex mcp add RiveTT -- `"$serverExe`""

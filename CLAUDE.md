@@ -1,4 +1,4 @@
-# MCPRVTT27
+# RiveTT
 
 Follow [AGENTS.md](AGENTS.md). This repository targets Revit 2027 and .NET 10
 only. The active transport is the C# stdio server plus a current-user Windows

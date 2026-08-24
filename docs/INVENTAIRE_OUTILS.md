@@ -1,4 +1,4 @@
-# Inventaire des outils MCPRVTT27
+# Inventaire des outils RiveTT
 
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
@@ -442,10 +442,10 @@ documentation.
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
-| `get_server_capabilities` | lecture | oui | 5 | Report MCPRVTT27's effective automatic-mode, dry-run, audit, response, selection, document, and lifecycle capability contract. | — |
+| `get_server_capabilities` | lecture | oui | 5 | Report RiveTT's effective automatic-mode, dry-run, audit, response, selection, document, and lifecycle capability contract. | — |
 | `clear_cache` | lecture | — | 4 | Clear every entry from the plugin-side tool-result cache. | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `get_cache_stats` | lecture | — | 4 | Return diagnostic hit/miss telemetry from the plugin-side tool-result cache. | — |
-| `say_hello` | lecture | — | 2 | Test MCP connection to RevitCortex. Displays a greeting in Revit. | — |
+| `say_hello` | lecture | — | 2 | Test MCP connection to RiveTT. Displays a greeting in Revit. | — |
 
 ### Documents — 4 outils
 

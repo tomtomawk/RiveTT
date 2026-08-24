@@ -228,7 +228,7 @@ Ce qui a été ajouté :
 
 - `WriteAccessPolicy` (Core) : instantané immuable échangé atomiquement, lu sans
   verrou par le routeur à chaque appel, porté par `CortexSession.WriteAccess` ;
-- panneau **Compléments → MCPRVTT27** : groupe radio *Lecture seule* / *Écriture*
+- panneau **Compléments → RiveTT** : groupe radio *Lecture seule* / *Écriture*
   et bouton *État*. Icônes embarquées comme ressources — pas de fichier à perdre
   à côté de la DLL, pas d'URI `pack://` à enregistrer dans le contexte de
   chargement de Revit — et régénérables par `tools/make-ribbon-icons.ps1` ;
@@ -248,7 +248,7 @@ Décisions à assumer :
 | Lecture seule au démarrage de chaque session, sans persistance | Le défaut sûr est celui qui ne peut pas toucher une maquette tout seul. Non persisté pour que l'autorisation reste une décision explicite, jamais héritée d'hier |
 | `dryRun: true` ne passe pas | Une prévisualisation est une promesse de l'outil, pas une frontière de permission. La respecter rendrait le verrou aussi solide que le plus faible des 250 outils |
 | Refus **par outil**, pas par action | `manage_model_groups action=inventory` est donc refusé aussi. Une permission dépendante des arguments dépendrait de 250 implémentations ; celle-ci ne dépend que du classement `toolReadOnly` déjà publié |
-| Aucun outil ne peut lever le verrou | Un outil capable de le faire serait le premier réflexe d'un agent après un refus. Un test parcourt les sources de `RevitCortex.Tools` et échoue si l'un appelle `WriteAccess.Set(` |
+| Aucun outil ne peut lever le verrou | Un outil capable de le faire serait le premier réflexe d'un agent après un refus. Un test parcourt les sources de `RiveTT.Tools` et échoue si l'un appelle `WriteAccess.Set(` |
 | Le verrou survit à `Reinitialize` | Ouvrir, fermer ou enregistrer sous un document ne doit pas rendre silencieusement une permission retirée par un humain |
 
 Le panneau ne démarre rien : le canal s'ouvre avec Revit quoi qu'il arrive, et
@@ -258,8 +258,8 @@ l'échec de construction du ruban est attrapé et tracé sans empêcher le servi
 
 Version du connecteur : **0.2.0** (plugin et serveur MCP).
 
-    dotnet build .\RevitCortex.sln -c Release
-    dotnet test .\src\RevitCortex.Tests\RevitCortex.Tests.csproj -c Release
+    dotnet build .\RiveTT.sln -c Release
+    dotnet test .\src\RiveTT.Tests\RiveTT.Tests.csproj -c Release
     .\build.ps1
 
 Suite de tests : **475 tests**, 474 verts, 1 ignoré.

@@ -1,4 +1,4 @@
-# Campagne de tests manuels MCPRVTT27 — Revit 2027
+# Campagne de tests manuels RiveTT — Revit 2027
 
 > Journal de campagne. Le traitement de chaque anomalie (cause racine réelle,
 > correction, test de non-régression) est consigné dans
@@ -10,7 +10,7 @@
 
 - **Scénario :** interroger le contrat effectif du serveur au début de la campagne.
 - **Résultat attendu :** obtenir les capacités, le mode d'exécution, le statut du document et les limitations connues.
-- **Résultat obtenu :** succès ; MCPRVTT27 0.1.0.0, Revit 2027, exécution automatique, `dryRunDefault: true`, locale `fr`, phases et modèle lié détectés. La réponse porte `execution.readOnly: true` parce que `get_server_capabilities` est lui-même un outil de lecture.
+- **Résultat obtenu :** succès ; RiveTT 0.1.0.0, Revit 2027, exécution automatique, `dryRunDefault: true`, locale `fr`, phases et modèle lié détectés. La réponse porte `execution.readOnly: true` parce que `get_server_capabilities` est lui-même un outil de lecture.
 - **Anomalie :** le nom `execution.readOnly` laisse croire à un mode global du serveur, alors qu'il décrit la classification de sécurité de l'outil courant. Cette ambiguïté a conduit à interpréter initialement la session comme verrouillée en lecture seule.
 - **Amélioration proposée :** renommer ce champ en `toolReadOnly` ou `operationReadOnly`. Exposer séparément un éventuel état global avec un champ explicite tel que `writesAllowed` et sa raison.
 
@@ -27,9 +27,9 @@
 ### `open_document` — outil non exposé
 
 - **Scénario :** ouvrir `C:\Users\theba\Desktop\Saint-Malo_avenue aristide briand_46.rvt`, correspondant au document actif sans le suffixe `_V2`.
-- **Résultat attendu :** ouvrir et activer ce projet Revit via MCPRVTT27, puis confirmer son chemin avec `get_project_info`.
-- **Résultat obtenu :** impossible à exécuter ; aucun outil MCPRVTT27 d'ouverture de document Revit n'est exposé. `get_server_capabilities` précise que `open_document` n'est pas disponible dans le gestionnaire `ExternalEvent`. La lecture de contrôle confirme que le document actif reste `Saint-Malo_avenue aristide briand_46_V2.rvt`.
-- **Anomalie :** limitation fonctionnelle bloquante pour les campagnes multi-fichiers ; MCPRVTT27 peut enregistrer un document et ouvrir/importer un IFC, mais ne peut pas ouvrir un autre fichier `.rvt`.
+- **Résultat attendu :** ouvrir et activer ce projet Revit via RiveTT, puis confirmer son chemin avec `get_project_info`.
+- **Résultat obtenu :** impossible à exécuter ; aucun outil RiveTT d'ouverture de document Revit n'est exposé. `get_server_capabilities` précise que `open_document` n'est pas disponible dans le gestionnaire `ExternalEvent`. La lecture de contrôle confirme que le document actif reste `Saint-Malo_avenue aristide briand_46_V2.rvt`.
+- **Anomalie :** limitation fonctionnelle bloquante pour les campagnes multi-fichiers ; RiveTT peut enregistrer un document et ouvrir/importer un IFC, mais ne peut pas ouvrir un autre fichier `.rvt`.
 - **Amélioration proposée :** fournir un orchestrateur dédié au cycle de vie des documents, avec un outil `open_document` acceptant un chemin absolu et renvoyant clairement l'état d'ouverture/activation. Prévoir la gestion d'un document actif modifié et des éventuels dialogues Revit.
 
 ## 2026-08-20 — Liste des pièces du RDC
@@ -66,9 +66,9 @@
 
 - **Scénario :** déterminer l'origine de `execution.readOnly: true` et vérifier s'il s'agit d'un mode global modifiable.
 - **Résultat attendu :** identifier clairement la source du réglage et la possibilité de l'autoriser.
-- **Résultat obtenu :** le champ est produit par `CortexRouter.IsToolReadOnly`/`IsToolReadOnly` à partir de `[ToolSafety]` ou des préfixes de noms. Les outils `get_*` sont marqués `true`, tandis que `save_as_document` est marqué `false`. Le fichier utilisateur `C:\Users\theba\.revitcortex\settings.json` ne contient que `DisabledTools` et `EnableCodeExecution`, sans option `ReadOnlyMode`.
-- **Anomalie :** le guide RevitCortex générique mentionne un ancien ou autre mécanisme `readOnlyMode`, absent de MCPRVTT27, et le champ de réponse actuel est ambigu.
-- **Amélioration proposée :** aligner la documentation sur MCPRVTT27 et distinguer explicitement la classification de l'outil d'une permission globale d'écriture.
+- **Résultat obtenu :** le champ est produit par `CortexRouter.IsToolReadOnly`/`IsToolReadOnly` à partir de `[ToolSafety]` ou des préfixes de noms. Les outils `get_*` sont marqués `true`, tandis que `save_as_document` est marqué `false`. Le fichier utilisateur `C:\Users\theba\.rivett\settings.json` ne contient que `DisabledTools` et `EnableCodeExecution`, sans option `ReadOnlyMode`.
+- **Anomalie :** le guide RiveTT générique mentionne un ancien ou autre mécanisme `readOnlyMode`, absent de RiveTT, et le champ de réponse actuel est ambigu.
+- **Amélioration proposée :** aligner la documentation sur RiveTT et distinguer explicitement la classification de l'outil d'une permission globale d'écriture.
 
 ## 2026-08-20 — Suppression du carré de murs dans la cafétéria
 
@@ -190,7 +190,7 @@ Bénéfice attendu : les agents IA (souvent entraînés sur des noms de paramèt
 
 - **Scénario :** tenter de couper la pièce avec une véritable ligne de séparation de pièces (Room Separation Line) plutôt qu'avec le mur, via `create_line_based_element` avec `category: "RoomSeparationLines"` puis `category: "OST_RoomSeparationLines"`.
 - **Résultat obtenu :** `RoomSeparationLines` → catégorie non reconnue. `OST_RoomSeparationLines` → catégorie reconnue mais rejetée avec `"No family types available for category OST_RoomSeparationLines"`. Les lignes de séparation de pièces sont une catégorie sans type de famille (comme les lignes de détail), ce que l'implémentation actuelle de `create_line_based_element` ne gère pas (elle suppose un `FamilySymbol`/type pour toute catégorie).
-- **Anomalie :** aucun outil MCPRVTT27 exposé ne permet de créer une ligne de séparation de pièces. Le contournement utilisé (mur porteur de limite de pièce, `Limite de pièce: 1`) fonctionne pour ce scénario mais n'est pas équivalent (un mur physique n'est pas une simple ligne de séparation, et n'est pas toujours souhaitable architecturalement).
+- **Anomalie :** aucun outil RiveTT exposé ne permet de créer une ligne de séparation de pièces. Le contournement utilisé (mur porteur de limite de pièce, `Limite de pièce: 1`) fonctionne pour ce scénario mais n'est pas équivalent (un mur physique n'est pas une simple ligne de séparation, et n'est pas toujours souhaitable architecturalement).
 - **Amélioration proposée :** ajouter un chemin dédié dans `create_line_based_element` (ou un nouvel outil `create_room_separation_line`) pour les catégories de courbes de modèle sans type de famille (lignes de séparation de pièces, lignes de pièce, lignes de surface).
 
 ### `create_room` sans `dryRun`, piège de placement dans une zone déjà occupée
@@ -225,13 +225,13 @@ Contexte : campagne libre sur modèle de test, `dryRun` allégé pour les écrit
 
 ### 4. Fonction « créer similaire » — dupliquer une fenêtre déjà présente
 
-- **Constat :** MCPRVTT27 n'expose pas de fonction nommée « créer similaire ». `copy_elements` (copie avec décalage, même document) en tient lieu efficacement : la fenêtre copiée s'est ré-hébergée automatiquement sur le mur présent à sa nouvelle position, sans qu'il soit nécessaire de repréciser un hôte. Pas d'anomalie, mais cette équivalence n'est pas documentée en tant que telle — à mentionner dans la doc utilisateur/agent pour éviter qu'un agent cherche en vain un outil dédié.
+- **Constat :** RiveTT n'expose pas de fonction nommée « créer similaire ». `copy_elements` (copie avec décalage, même document) en tient lieu efficacement : la fenêtre copiée s'est ré-hébergée automatiquement sur le mur présent à sa nouvelle position, sans qu'il soit nécessaire de repréciser un hôte. Pas d'anomalie, mais cette équivalence n'est pas documentée en tant que telle — à mentionner dans la doc utilisateur/agent pour éviter qu'un agent cherche en vain un outil dédié.
 
 ### 5. Lignes 2D (détail) et 3D (modèle) — non supporté
 
 - **Scénario :** créer une ligne de détail (`category: "Lines"`) puis une ligne de modèle (`category: "OST_Lines"`) via `create_line_based_element`.
 - **Résultat obtenu :** `"Lines"` → catégorie non reconnue. `"OST_Lines"` → catégorie reconnue mais rejetée avec `"No family types available for category OST_Lines"`, exactement comme pour les lignes de séparation de pièces (2026-08-21, test précédent). `create_line_based_element` est conçu uniquement pour des éléments de ligne basés sur une famille (murs, poutres) et ne gère aucune catégorie de courbe pure (lignes de détail, lignes de modèle, lignes de séparation de pièces).
-- **Anomalie :** aucun outil MCPRVTT27 ne permet de tracer une ligne 2D ou 3D générique. C'est une lacune fonctionnelle transverse (troisième occurrence du même type de blocage après les lignes de séparation de pièces).
+- **Anomalie :** aucun outil RiveTT ne permet de tracer une ligne 2D ou 3D générique. C'est une lacune fonctionnelle transverse (troisième occurrence du même type de blocage après les lignes de séparation de pièces).
 - **Amélioration proposée :** ajouter un outil dédié `create_detail_line`/`create_model_line` (ou étendre `create_line_based_element` avec un mode « courbe pure » sans `FamilySymbol`) pour couvrir les catégories `OST_Lines` (lignes de modèle) et les lignes de détail (portées par une vue).
 
 ### 6. `create_railing` — garde-corps
@@ -248,7 +248,7 @@ Contexte : campagne libre sur modèle de test, `dryRun` allégé pour les écrit
 
 ### 8. Création d'un escalier — aucun outil disponible
 
-- **Constat :** recherche exhaustive de tout outil MCPRVTT27 lié aux escaliers (`create_stair`, `stairs`, `escalier`, `run`, `landing`, `flight`) : aucun résultat. Il n'existe aucun moyen de créer un escalier natif Revit via ce connecteur.
+- **Constat :** recherche exhaustive de tout outil RiveTT lié aux escaliers (`create_stair`, `stairs`, `escalier`, `run`, `landing`, `flight`) : aucun résultat. Il n'existe aucun moyen de créer un escalier natif Revit via ce connecteur.
 - **Anomalie :** lacune fonctionnelle majeure pour un usage architecture réel (bâtiment R+6 avec circulations verticales). Cohérent avec les limitations déjà déclarées par `get_server_capabilities.lifecycleLimitations` (`open_document`, `edit_family`) : la création d'escalier standard Revit passe par un éditeur d'esquisse modal (Stair by Sketch) difficilement pilotable depuis un `ExternalEvent` non modal, ce qui explique probablement l'absence de l'outil plutôt qu'un simple oubli.
 - **Amélioration proposée :** documenter explicitement cette limitation dans `get_server_capabilities.lifecycleLimitations` (comme pour `open_document`) pour que les agents ne perdent pas de temps à chercher l'outil ; évaluer si l'API Revit 2027 permet de construire un escalier par composant (`StairsEditScope` non-interactif ou création par `Stairs.CreateSketchedStairs`) sans passer par l'UI modale, pour une future implémentation.
 
@@ -270,7 +270,7 @@ Contexte : campagne libre sur modèle de test, `dryRun` allégé pour les écrit
 - **Résultat obtenu :** dans les deux cas, `create_sheet` réussit mais la feuille créée a pour `Famille et type` la valeur `593` — le type système « Feuille » par défaut de Revit, sans aucun cartouche, avec une taille fixe de 210×297mm (A4). Le paramètre `titleBlockId` fourni est totalement ignoré, sans erreur ni avertissement.
 - **Impact concret :** la feuille produite est visuellement vide (pas de cartouche, pas de cadre, pas de bloc titre) et de taille minuscule par rapport à une feuille de présentation réelle (A1/A0 attendue), ce qui explique aussi que la vue placée dessus paraisse « excentrée » : elle est en fait correctement centrée sur une feuille beaucoup plus petite que prévu.
 - **Tentative de contournement — échec :** `create_point_based_element` avec `category: "Cartouches"` et le bon `typeId` ne permet pas de cibler une feuille précise (le schéma n'expose qu'un `levelId`, pas de `sheetId`/`viewId`) ; le dryRun montre que l'instance serait rattachée à un niveau de plan (RDC par défaut) et non posée sur la feuille — ce qui produirait un cartouche orphelin ailleurs dans le modèle plutôt qu'un vrai cartouche de feuille. Non exécuté pour éviter de polluer le modèle.
-- **Anomalie confirmée bloquante :** aucun outil ni combinaison d'outils MCPRVTT27 ne permet actuellement de produire une feuille de présentation avec cartouche fonctionnel.
+- **Anomalie confirmée bloquante :** aucun outil ni combinaison d'outils RiveTT ne permet actuellement de produire une feuille de présentation avec cartouche fonctionnel.
 - **Amélioration proposée :** corriger `create_sheet` pour qu'il applique réellement `titleBlockId` (probable oubli de passer le type au constructeur `ViewSheet.Create(document, titleBlockTypeId)` au lieu de `ViewSheet.Create(document, ElementId.InvalidElementId)` suivi d'une étape de placement manquante). À défaut, exposer un outil dédié `place_title_block(sheetId, titleBlockTypeId)` s'appuyant sur `NewFamilyInstance(location, symbol, sheetView)`.
 
 ### `delete_element` sur une feuille (`ViewSheet`) — comportement incohérent
@@ -295,7 +295,7 @@ Contexte : demande utilisateur de créer un nouveau fichier avec le gabarit arch
 
 - **Scénario :** créer un nouveau fichier Revit vierge basé sur le gabarit architectural, indépendant du modèle Saint-Malo en cours.
 - **Résultat attendu :** un outil type `new_document`/`create_project(templatePath)` permettant de partir d'un `.rte` propre.
-- **Résultat obtenu :** recherche exhaustive des ~280 outils MCPRVTT27 (via `ToolSearch` et `get_server_capabilities.lifecycleLimitations`) : aucun outil de création de document n'existe. Seul `save_as_document` est disponible, et il **duplique le document actuellement ouvert** (avec tous ses niveaux, familles, éléments de test antérieurs) sous un nouveau chemin — ce n'est pas un nouveau projet vierge.
+- **Résultat obtenu :** recherche exhaustive des ~280 outils RiveTT (via `ToolSearch` et `get_server_capabilities.lifecycleLimitations`) : aucun outil de création de document n'existe. Seul `save_as_document` est disponible, et il **duplique le document actuellement ouvert** (avec tous ses niveaux, familles, éléments de test antérieurs) sous un nouveau chemin — ce n'est pas un nouveau projet vierge.
 - **Anomalie :** blocage fonctionnel majeur, cohérent avec la limitation déjà documentée sur `open_document` (ExternalEvent ne peut piloter `Application.NewProjectDocument`/`OpenAndActivateDocument`). Conséquence concrète : le fichier livré `Appartement_T2_MCP_Test.rvt` contient encore la totalité de l'opération Saint-Malo (tous les niveaux, familles, la Nomenclature Fenêtres de test, etc.), simplement enrichi de deux nouveaux niveaux et de l'appartement T2. Ce n'est pas le "gabarit architectural" demandé.
 - **Contournement appliqué :** `save_as_document` depuis le document Saint-Malo déjà ouvert (qui est un projet basé sur un gabarit architectural francophone), en ajoutant deux niveaux dédiés très au-dessus du bâtiment existant (z=30,00 m et 32,50 m) pour isoler géométriquement le T2 et éviter toute interférence visuelle avec le modèle existant.
 - **Amélioration proposée :** exposer un outil `create_document(templatePath, targetPath)` s'appuyant sur `Application.NewProjectDocument` hors du dispatcher `ExternalEvent` (orchestrateur dédié, cf. limitation déjà remontée pour `open_document`/`edit_family`). À défaut, documenter clairement dans `get_server_capabilities` que "nouveau document" doit se lire "dupliquer le document actif".

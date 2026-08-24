@@ -1,5 +1,5 @@
 #requires -Version 5.1
-# Generates the ribbon icons of the MCPRVTT27 panel. Committing the generator
+# Generates the ribbon icons of the RiveTT panel. Committing the generator
 # rather than only the PNGs keeps the set reproducible: rerun it to change a
 # colour or a size instead of hand-editing binaries nobody can review.
 #
@@ -9,7 +9,7 @@
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 
-$outDir = Join-Path (Split-Path -Parent $PSScriptRoot) 'src\RevitCortex.Plugin\Resources'
+$outDir = Join-Path (Split-Path -Parent $PSScriptRoot) 'src\RiveTT.Plugin\Resources'
 if (-not (Test-Path -LiteralPath $outDir)) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }
 
 # Mid-saturation tones stay legible on both the light and the dark Revit theme;
@@ -100,7 +100,7 @@ function Draw-Status($ctx, $colour) {
     $white.Dispose(); $brush.Dispose()
 }
 
-Write-Host 'Icones ecrites dans src\RevitCortex.Plugin\Resources :'
+Write-Host 'Icones ecrites dans src\RiveTT.Plugin\Resources :'
 foreach ($size in 32, 16) {
     $ctx = New-Bitmap $size; Draw-Padlock $ctx $amber $false; Save-Bitmap $ctx "lock-$size.png"
     $ctx = New-Bitmap $size; Draw-Padlock $ctx $green $true;  Save-Bitmap $ctx "unlock-$size.png"

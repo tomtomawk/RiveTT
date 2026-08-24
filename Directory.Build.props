@@ -2,15 +2,15 @@
   <!--
     Single source of truth for the connector version. It surfaces to callers as
     execution.serverVersion (read from the plugin assembly) and as the MCP
-    ServerInfo version in src/RevitCortex.Server/Program.cs — keep that literal
+    ServerInfo version in src/RiveTT.Server/Program.cs — keep that literal
     in step when bumping this.
   -->
   <PropertyGroup>
     <Version>0.2.0</Version>
     <AssemblyVersion>0.2.0.0</AssemblyVersion>
     <FileVersion>0.2.0.0</FileVersion>
-    <Product>MCPRVTT27</Product>
-    <Company>MCPRVTT27</Company>
-    <Copyright>MIT — derived from RevitCortex</Copyright>
+    <Product>RiveTT</Product>
+    <Company>RiveTT</Company>
+    <Copyright>MIT — derived from RiveTT</Copyright>
   </PropertyGroup>
 </Project>

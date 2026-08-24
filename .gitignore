@@ -10,7 +10,7 @@ publish/
 # Generated distribution package (build.ps1 rebuilds it; never commit binaries)
 distribution/plugin/
 distribution/server/
-distribution/MCPRVTT27.addin
+distribution/RiveTT.addin
 
 # Local run logs from deploy/install scripts
 /*.log

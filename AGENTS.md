@@ -1,15 +1,15 @@
-# MCPRVTT27 — contributor guide
+# RiveTT — contributor guide
 
-MCPRVTT27 supports Autodesk Revit 2027 only. The runtime is .NET 10 on
+RiveTT supports Autodesk Revit 2027 only. The runtime is .NET 10 on
 Windows x64; do not reintroduce R23–R26 configurations or `net48`/`net8`
 compatibility branches.
 
 ## Architecture
 
     MCP client
-      -> MCPRVTT27.Server (stdio)
+      -> RiveTT.Server (stdio)
       -> Windows named pipe (current user only)
-      -> MCPRVTT27.Plugin (Revit ExternalEvent)
+      -> RiveTT.Plugin (Revit ExternalEvent)
       -> CortexRouter
       -> ICortexTool implementations
 
@@ -19,8 +19,8 @@ never committed.
 
 ## The two-sided contract
 
-The MCP surface (`src/RevitCortex.Server/Tools`) and the runtime tools
-(`src/RevitCortex.Tools`) are separate assemblies that agree only by JSON key
+The MCP surface (`src/RiveTT.Server/Tools`) and the runtime tools
+(`src/RiveTT.Tools`) are separate assemblies that agree only by JSON key
 name. Every parameter published by a wrapper MUST be read by the tool it is
 forwarded to.
 
@@ -44,7 +44,7 @@ When you add or rename a parameter:
 Every Revit session starts read-only. `CortexRouter.Route` refuses any tool whose
 `toolReadOnly` classification is false with `PermissionDenied`, before the cache
 and before the open-document check, until a human presses *Écriture* in the
-**MCPRVTT27** ribbon panel (Add-Ins tab).
+**RiveTT** ribbon panel (Add-Ins tab).
 
 Consequences for anything you add here:
 
@@ -54,7 +54,7 @@ Consequences for anything you add here:
   so do not silence that trace.
 - Never read the lock from a tool, and never write to it: `WriteAccessPolicy.Set`
   belongs to the ribbon. `WriteAccessGateTests` scans the whole of
-  `RevitCortex.Tools` and fails if a tool calls it.
+  `RiveTT.Tools` and fails if a tool calls it.
 - `dryRun` is not an exemption. A preview is a tool's own promise; the lock
   cannot depend on 250 implementations keeping it.
 - The lock is session state, not document state: `CortexSession.Reinitialize`
@@ -75,7 +75,7 @@ Consequences for anything you add here:
   the pipe), and cancelled in a `finally` so Revit never stays in edit mode.
 - Writes use a `Transaction`, return a structured `CortexResult`, and must
   not leak exceptions across the router.
-- Keep `dryRun` preview behavior where a tool supports it. MCPRVTT27 does not
+- Keep `dryRun` preview behavior where a tool supports it. RiveTT does not
   display confirmation or licensing dialogs.
 - Keep the Roslyn sandbox and local audit log intact.
 - Use language-independent IDs and `BuiltInCategory` values when possible.
@@ -98,8 +98,8 @@ Consequences for anything you add here:
 
 ## Verification
 
-    dotnet test .\src\RevitCortex.Tests\RevitCortex.Tests.csproj -c Release
-    dotnet build .\RevitCortex.sln -c Release
+    dotnet test .\src\RiveTT.Tests\RiveTT.Tests.csproj -c Release
+    dotnet build .\RiveTT.sln -c Release
     .\build.ps1
 
 The last command prepares the ignored distribution binaries and the generated

@@ -1,8 +1,8 @@
-# Guide MCPRVTT27
+# Guide RiveTT
 
-MCPRVTT27 connecte un client MCP à Autodesk Revit 2027. Il démarre avec Revit
+RiveTT connecte un client MCP à Autodesk Revit 2027. Il démarre avec Revit
 et ne nécessite ni interrupteur de démarrage ni port réseau. Le seul élément
-d'interface est le panneau **MCPRVTT27** de l'onglet *Compléments*, qui porte le
+d'interface est le panneau **RiveTT** de l'onglet *Compléments*, qui porte le
 verrou d'écriture décrit ci-dessous.
 
 ## Installation
@@ -11,7 +11,7 @@ Prérequis : Revit 2027 x64 et le SDK/runtime .NET 10.
 
     .\build.ps1
     .\distribution\install.ps1
-    codex mcp add MCPRVTT27 -- "%LOCALAPPDATA%\MCPRVTT27\server\MCPRVTT27.Server.exe"
+    codex mcp add RiveTT -- "%LOCALAPPDATA%\RiveTT\server\RiveTT.Server.exe"
 
 `install.ps1` remplace l'installation précédente : **aucune désinstallation
 préalable n'est nécessaire**, et il n'est **pas nécessaire de fermer Revit ni le
@@ -25,7 +25,7 @@ En revanche le code déjà chargé reste en mémoire. Pour utiliser la nouvelle
 version :
 
 - **redémarrer Revit** si le plugin a été remplacé pendant qu'il tournait ;
-- **reconnecter le serveur MCP** dans le client si `MCPRVTT27.Server` tournait.
+- **reconnecter le serveur MCP** dans le client si `RiveTT.Server` tournait.
 
 Puis ouvrir un projet et attendre quelques secondes que sa session soit publiée.
 Vérifier la version active avec `get_server_capabilities`
@@ -35,7 +35,7 @@ Vérifier la version active avec `get_server_capabilities`
 
 Le connecteur se charge avec Revit et ne demande aucune autorisation par appel.
 Sans interrupteur, la seule limite entre un agent connecté et la maquette serait
-son propre jugement. D'où le panneau **Compléments → MCPRVTT27** :
+son propre jugement. D'où le panneau **Compléments → RiveTT** :
 
 | Bouton | Effet |
 |---|---|
@@ -200,7 +200,7 @@ Chaque succès contient `execution.connector`, `serverVersion`, `revitVersion`,
 aperçu d'écriture contient toujours `dryRun:true` et `mutated:false`.
 
 `toolReadOnly` classe **l'outil qui répond**, ce n'est pas un état de session :
-MCPRVTT27 n'a pas de mode lecture seule, `writesAllowed` vaut toujours `true`.
+RiveTT n'a pas de mode lecture seule, `writesAllowed` vaut toujours `true`.
 `cached: true` signale une réponse servie par le cache. Tout cache est vidé
 après `save_document`/`save_as_document`.
 
@@ -236,13 +236,13 @@ Restent indisponibles, et `get_server_capabilities` le déclare :
   supportées.
 
 Les autres outils sont exposés par les wrappers C# de
-`src/RevitCortex.Server/Tools`.
+`src/RiveTT.Server/Tools`.
 
 ## Diagnostic
 
-- « No MCPRVTT27 Revit 2027 session » : démarrer Revit 2027 et ouvrir un
+- « No RiveTT Revit 2027 session » : démarrer Revit 2027 et ouvrir un
   projet.
 - Plugin absent : vérifier
-  `%APPDATA%\Autodesk\Revit\Addins\2027\MCPRVTT27.addin`.
-- Journal : `%LOCALAPPDATA%\MCPRVTT27\audit.jsonl`.
+  `%APPDATA%\Autodesk\Revit\Addins\2027\RiveTT.addin`.
+- Journal : `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
 - Réinstaller après avoir fermé Revit si une DLL est verrouillée.

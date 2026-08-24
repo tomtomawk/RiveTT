@@ -42,8 +42,8 @@ import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-SERVER = os.path.join(ROOT, "src", "RevitCortex.Server", "Tools")
-RUNTIME = os.path.join(ROOT, "src", "RevitCortex.Tools")
+SERVER = os.path.join(ROOT, "src", "RiveTT.Server", "Tools")
+RUNTIME = os.path.join(ROOT, "src", "RiveTT.Tools")
 OUT = os.path.join(ROOT, "docs", "INVENTAIRE_OUTILS.md")
 OUT_HTML = os.path.join(ROOT, "docs", "inventaire.html")
 
@@ -425,7 +425,7 @@ def emit(rows):
 
     out = []
     add = out.append
-    add("# Inventaire des outils MCPRVTT27\n")
+    add("# Inventaire des outils RiveTT\n")
     add("> Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :\n"
         "> relancer le script après toute modification de la surface d'outils.\n")
     add("Relevé du %s — connecteur %s — **%d outils publiés**, %d classes runtime.\n"
