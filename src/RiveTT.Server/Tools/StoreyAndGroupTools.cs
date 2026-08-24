@@ -104,4 +104,46 @@ public static class StoreyAndGroupTools
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         return (await revit.ExecuteAsync("manage_model_groups", p, ct)).ToString();
     }
+
+    [McpServerTool(Name = "create_assembly"), Description("Groups elements into an AssemblyInstance (prefabrication/shop drawings), or splits them into Parts (demolition/phasing sequencing). action=create_assembly|create_parts. create_assembly needs elementIds and categoryName. create_parts needs elementIds; Revit builds the parts at the next regeneration.")]
+    public static async Task<string> CreateAssembly(
+        RevitConnectionManager revit,
+        [Description("Action: create_assembly | create_parts")] string action,
+        [Description("Element IDs to group/split, as a JSON array of numbers")] string elementIds,
+        [Description("The assembly's own category (create_assembly), e.g. OST_Assemblies")] string? categoryName = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["action"] = action, ["elementIds"] = JArray.Parse(elementIds) };
+        if (categoryName != null) p["categoryName"] = categoryName;
+        return (await revit.ExecuteAsync("create_assembly", p, ct)).ToString();
+    }
+
+    [McpServerTool(Name = "manage_images"), Description("Imports a raster/PDF file as an image and places it in a view (survey scan, surveyor underlay). action=list|place. place needs filePath (bmp/jpg/jpeg/png/tif/pdf) and viewId.")]
+    public static async Task<string> ManageImages(
+        RevitConnectionManager revit,
+        [Description("Action: list | place. Default: list")] string action = "list",
+        [Description("Path to the image/PDF file (place)")] string? filePath = null,
+        [Description("View element ID to place the image in (place)")] long? viewId = null,
+        [Description("Placement center point, JSON {x,y,z} in mm. Default: view origin (place)")] string? position = null,
+        [Description("Import resolution in DPI. Default: 300 (place)")] double? resolutionDpi = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["action"] = action };
+        if (filePath != null) p["filePath"] = filePath;
+        if (viewId != null) p["viewId"] = viewId;
+        if (position != null) p["position"] = JObject.Parse(position);
+        if (resolutionDpi != null) p["resolutionDpi"] = resolutionDpi;
+        return (await revit.ExecuteAsync("manage_images", p, ct)).ToString();
+    }
+
+    [McpServerTool(Name = "list_design_options"), Description("Lists existing design option sets and their options, and (with elementId) reports which option an element belongs to. Creating a design option set/option has no public Revit API (confirmed unsupported) — create them in Revit's own Design Options dialog, then read them here.")]
+    public static async Task<string> ListDesignOptions(
+        RevitConnectionManager revit,
+        [Description("Element ID to report the design option of, instead of listing all sets")] long? elementId = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject();
+        if (elementId != null) p["elementId"] = elementId;
+        return (await revit.ExecuteAsync("list_design_options", p, ct)).ToString();
+    }
 }

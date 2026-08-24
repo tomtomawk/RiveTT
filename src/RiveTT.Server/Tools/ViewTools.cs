@@ -263,6 +263,19 @@ public static class ViewTools
         return result.ToString();
     }
 
+    [McpServerTool(Name = "create_key_schedule"), Description("Creates a key schedule (ViewSchedule.CreateKeySchedule) — a reusable finish/typology key table (room finish keys, dwelling-unit typologies), different from create_schedule/create_preset_schedule which only build element-instance schedules.")]
+    public static async Task<string> CreateKeySchedule(
+        RevitConnectionManager revit,
+        [Description("Category the keys apply to (e.g. Rooms, OST_Rooms)")] string categoryName,
+        [Description("Name for the new key schedule")] string? name = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["categoryName"] = categoryName };
+        if (name != null) p["name"] = name;
+        var result = await revit.ExecuteAsync("create_key_schedule", p, ct);
+        return result.ToString();
+    }
+
     [McpServerTool(Name = "get_schedule_data"), Description("Export schedule data as JSON from an existing schedule view. availableFields is omitted unless includeAvailableFields=true: it lists every schedulable parameter of the project and used to dwarf a 10-row request.")]
     public static async Task<string> GetScheduleData(
         RevitConnectionManager revit,
