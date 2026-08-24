@@ -123,6 +123,30 @@ public static class CreationTools
         return result.ToString();
     }
 
+    [McpServerTool(Name = "create_spot_dimension"), Description("Create a spot elevation annotation (a level/coordinate callout) at a point on an element's geometry. create_dimensions only builds linear dimensions; use this for altimetry.")]
+    public static async Task<string> CreateSpotDimension(
+        RevitConnectionManager revit,
+        [Description("Element ID whose face/edge is tagged")] long elementId,
+        [Description("Point to read the elevation at, as JSON {\"x\":mm,\"y\":mm,\"z\":mm}; must lie on or very near the element's geometry")] string point,
+        [Description("Owning view element ID. Default: the active view")] long? viewId = null,
+        [Description("Elbow point as JSON {x,y,z} in mm. Default: derived from the view's up direction")] string? bend = null,
+        [Description("Leader end point as JSON {x,y,z} in mm. Default: derived from the view's right direction")] string? end = null,
+        [Description("Show a leader line. Default: true")] bool hasLeader = true,
+        CancellationToken ct = default)
+    {
+        var p = new JObject
+        {
+            ["elementId"] = elementId,
+            ["point"] = JObject.Parse(point),
+            ["hasLeader"] = hasLeader
+        };
+        if (viewId != null) p["viewId"] = viewId;
+        if (bend != null) p["bend"] = JObject.Parse(bend);
+        if (end != null) p["end"] = JObject.Parse(end);
+        var result = await revit.ExecuteAsync("create_spot_dimension", p, ct);
+        return result.ToString();
+    }
+
     [McpServerTool(Name = "color_elements"), Description("Color the active view's elements of a category by grouping them on a parameter value, or reset (clear) those color overrides. action=color|reset. Operates on the ACTIVE model view (not a sheet).")]
     public static async Task<string> ColorElements(
         RevitConnectionManager revit,

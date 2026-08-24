@@ -391,6 +391,27 @@ public static class ViewTools
         return result.ToString();
     }
 
+    [McpServerTool(Name = "manage_scope_boxes"), Description("Inventory, rename, move, or assign-to-views existing scope boxes (OST_VolumeOfInterest). The Revit API has no method to create one from scratch — draw it by hand once, then manage it here. action=list|rename|move|assign_to_views|create (create returns a structured unsupported result).")]
+    public static async Task<string> ManageScopeBoxes(
+        RevitConnectionManager revit,
+        [Description("Action: list | rename | move | assign_to_views | create. Default: list")] string action = "list",
+        [Description("Scope box element ID (rename, move)")] long? elementId = null,
+        [Description("New name (rename)")] string? newName = null,
+        [Description("Move translation as JSON {x,y,z} in mm (move)")] string? translation = null,
+        [Description("Scope box element ID to assign, or 0 to clear (assign_to_views)")] long? scopeBoxId = null,
+        [Description("View element IDs to apply the scope box to, as a JSON array of numbers (assign_to_views)")] string? viewIds = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["action"] = action };
+        if (elementId != null) p["elementId"] = elementId;
+        if (newName != null) p["newName"] = newName;
+        if (translation != null) p["translation"] = JObject.Parse(translation);
+        if (scopeBoxId != null) p["scopeBoxId"] = scopeBoxId;
+        if (viewIds != null) p["viewIds"] = JArray.Parse(viewIds);
+        var result = await revit.ExecuteAsync("manage_scope_boxes", p, ct);
+        return result.ToString();
+    }
+
     [McpServerTool(Name = "manage_unplaced_views"), Description("List or delete views that are not placed on any sheet")]
     public static async Task<string> ManageUnplacedViews(
         RevitConnectionManager revit,
