@@ -90,7 +90,7 @@ public sealed class CreateDocumentTool : ICortexTool
         if (application == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "No Revit application context is available yet",
-                suggestion: "Open Revit 2027 and wait for its session to be published.");
+                suggestion: "Open Revit (2026.5+ or 2027) and wait for its session to be published.");
 
         // Captured up front: creating the document ends with Close(false), which
         // fires DocumentClosing and clears the session store. Resolving the
@@ -124,7 +124,8 @@ public sealed class CreateDocumentTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "No template available: templatePath was not provided and Revit has no default project template configured.",
                 suggestion: "Pass templatePath explicitly, e.g. " +
-                            "C:\\ProgramData\\Autodesk\\RVT 2027\\Templates\\French\\Modele-architecture.rte");
+                            "C:\\ProgramData\\Autodesk\\RVT <year>\\Templates\\French\\Modele-architecture.rte " +
+                            "(<year> is 2026 or 2027, matching the running Revit).");
 
         var targetDirectory = Path.GetDirectoryName(targetPath) ?? "";
         var targetExists = File.Exists(targetPath);
@@ -230,8 +231,8 @@ public sealed class CreateDocumentTool : ICortexTool
         {
             return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
                 $"Could not create the document: {exception.Message}",
-                suggestion: "Check that the template path is a valid .rte for Revit 2027 and that no other " +
-                            "process holds the template or the target file.");
+                suggestion: "Check that the template path is a valid .rte for the running Revit version and that " +
+                            "no other process holds the template or the target file.");
         }
         finally
         {

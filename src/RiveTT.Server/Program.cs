@@ -17,7 +17,7 @@ builder.Services
             Version = "0.2.0"
         };
         options.ServerInstructions =
-            "RiveTT connects automatically to the active Revit 2027 session through a local Windows named pipe. " +
+            "RiveTT connects automatically to the active Revit session (2026.5+ or 2027) through a local Windows named pipe. " +
             "It is always in automatic mode: commands never open an authorization dialog. " +
             "BUT every Revit session starts READ-ONLY: tools that can modify the model are refused with " +
             "PermissionDenied until a human presses Ecriture in the RiveTT ribbon panel (Add-Ins tab). " +

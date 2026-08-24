@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Elements;
 
 /// <summary>
 /// Executes custom C# code snippets in the Revit context.
-/// Uses Roslyn on Revit 2027. The sandbox remains active, but script execution
+/// Uses Roslyn on Revit (2026.5+ or 2027). The sandbox remains active, but script execution
 /// never asks for user authorization in RiveTT.
 /// CortexRouter records every invocation in audit.jsonl with code snippet + SHA-256.
 /// Scripts are persisted to %LOCALAPPDATA%/RiveTT/scripts/ and cleaned up at Revit shutdown
@@ -31,7 +31,7 @@ public class SendCodeToRevitTool : ICortexTool
     public string Category => "Code";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "LAST RESORT ONLY — execute sandboxed custom C# code in the Revit 2027 context. Prefer dedicated tools. Globals: document (Document), uiDocument (UIDocument), app (Application).";
+    public string Description => "LAST RESORT ONLY — execute sandboxed custom C# code in the active Revit context. Prefer dedicated tools. Globals: document (Document), uiDocument (UIDocument), app (Application).";
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

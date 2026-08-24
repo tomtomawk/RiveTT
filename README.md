@@ -1,10 +1,11 @@
 # RiveTT
 
-MCP local pour **Autodesk Revit 2027**, basé sur RevitCortex (licence MIT).
+MCP local pour **Autodesk Revit 2026.5+ et 2027**, basé sur RevitCortex (licence MIT).
 
 ## Principes
 
-- une seule cible : Revit 2027 / .NET 10 / x64 ;
+- deux cibles, un seul code source : Revit 2026.5+ ou 2027 / .NET 10 / x64,
+  sélectionnées au build via `-p:RevitVersion=2026|2027` (voir « Compiler et installer » ci-dessous) ;
 - transport local par **Windows Named Pipe**, jamais par port TCP ;
 - démarrage automatique de l'add-in avec Revit, sans interrupteur de démarrage ;
 - verrou d'écriture au ruban (*Compléments → RiveTT*) : chaque session Revit
@@ -23,7 +24,7 @@ transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
 - création de murs avec aperçu et validation des niveaux/décalages réels ;
 - création de portes et fenêtres sur familles réellement présentes dans le projet ;
 - garde-corps natifs (`create_railing`) ;
-- association d'un mur à son mur hôte en Revit 2027 (`set_wall_host`) ;
+- association d'un mur à son mur hôte, Revit 2027 uniquement (`set_wall_host`) ;
 - sélection temporaire stable (`capture_selection`) et scopes bulk explicites ;
 - synchronisation localisée via `BuiltInParameter` ;
 - recherches paginées avec modes résumé, IDs et détails ;
@@ -68,16 +69,20 @@ transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
 
 ## Compiler et installer
 
-Prérequis : .NET SDK 10 et Revit 2027.
+Prérequis : .NET SDK 10 et Revit 2026.5+ ou 2027.
 
 ```powershell
 cd RiveTT
-.\build.ps1
+.\build.ps1                              # Revit 2027 par défaut
 .\distribution\install.ps1
+
+# Pour Revit 2026.5 :
+.\build.ps1 -RevitVersion 2026
+.\distribution\install.ps1 -RevitYear 2026
 ```
 
 L'installation est par utilisateur dans
-`%APPDATA%\Autodesk\Revit\Addins\2027\RiveTT` et ne demande pas de droits
+`%APPDATA%\Autodesk\Revit\Addins\<2026|2027>\RiveTT` et ne demande pas de droits
 administrateur. Elle prépare le serveur dans `%LOCALAPPDATA%\RiveTT\server`.
 
 Pour enregistrer le serveur dans Codex :
@@ -86,7 +91,7 @@ Pour enregistrer le serveur dans Codex :
 codex mcp add RiveTT -- "%LOCALAPPDATA%\RiveTT\server\RiveTT.Server.exe"
 ```
 
-Fermez Revit avant une réinstallation. Ouvrez ensuite Revit 2027 et un projet :
+Fermez Revit avant une réinstallation. Ouvrez ensuite Revit et un projet :
 la session est publiée automatiquement et le serveur MCP la découvre sans
 configuration de port.
 

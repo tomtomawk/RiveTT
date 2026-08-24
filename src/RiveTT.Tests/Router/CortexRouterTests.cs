@@ -83,7 +83,10 @@ public class CortexRouterTests
         Assert.True(result.Success);
         var data = Assert.IsType<JObject>(result.Data);
         Assert.Equal("RiveTT", data["execution"]!["connector"]!.Value<string>());
-        Assert.Equal("2027", data["execution"]!["revitVersion"]!.Value<string>());
+        // No real Document in this fake-tool test, so the router falls back to
+        // "unknown" rather than a hardcoded year — revitVersion is read from the
+        // active document's Application.VersionNumber (2026 or 2027), not a literal.
+        Assert.Equal("unknown", data["execution"]!["revitVersion"]!.Value<string>());
         Assert.Equal("automatic", data["execution"]!["mode"]!.Value<string>());
         Assert.False(data["mutated"]!.Value<bool>());
     }

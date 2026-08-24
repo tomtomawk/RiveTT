@@ -22,7 +22,11 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
         return CortexResult<object>.Ok(new
         {
             connector = "RiveTT",
-            revitVersion = 2027,
+            // Read from the active document rather than a literal: this connector's
+            // plugin/tools DLLs can be built for either Revit 2026 (-p:RevitVersion=2026,
+            // targeting the 2026.5 .NET 10 update) or 2027, and a hardcoded number here
+            // would lie about whichever one this session is actually running inside.
+            revitVersion = GetActiveRevitVersion(session),
             runtime = ".NET 10 / Windows x64",
             transport = "named_pipe_current_user",
             executionMode = "automatic",
@@ -111,5 +115,18 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
                 "Category labels are localized and sometimes ambiguous (French Revit names the viewport category 'Fenetres ', like windows): prefer the OST_* codes returned as categoryBic."
             }
         });
+    }
+
+    private static string GetActiveRevitVersion(CortexSession session)
+    {
+        try
+        {
+            return (session.Store.Get<object>("activeDocument") as Autodesk.Revit.DB.Document)
+                ?.Application?.VersionNumber ?? "unknown";
+        }
+        catch
+        {
+            return "unknown";
+        }
     }
 }

@@ -24,7 +24,7 @@ public class TransportErrorTests
     {
         var error = TransportError.Describe(
             "get_project_info",
-            new InvalidOperationException("No RiveTT Revit 2027 session is available."),
+            new InvalidOperationException("No RiveTT Revit session is available."),
             300);
 
         Assert.False(error["success"]!.Value<bool>());

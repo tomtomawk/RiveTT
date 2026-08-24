@@ -12,7 +12,7 @@ namespace RiveTT.Tools.Elements;
 
 /// <summary>
 /// Creates a Toposolid (site/ground surface) from a boundary loop — Toposolid.Create
-/// is Revit's current topography element (2024+; this connector targets 2027 only, so
+/// is Revit's current topography element (2024+; this connector's floor is 2026, so
 /// no version gate is needed). Nothing built a site surface or a hard/soft landscaping
 /// platform at all before this.
 /// </summary>

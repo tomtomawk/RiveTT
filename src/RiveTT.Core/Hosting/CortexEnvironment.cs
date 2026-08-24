@@ -4,7 +4,7 @@ using System.IO;
 namespace RiveTT.Core.Hosting;
 
 /// <summary>
-/// Local paths used by the automatic Revit 2027 integration.
+/// Local paths used by the automatic Revit integration (2026.5+ or 2027).
 /// </summary>
 public class CortexEnvironment
 {

@@ -8,8 +8,13 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <RevitVersion>2027</RevitVersion>
-    <DefineConstants>$(DefineConstants);REVIT2023_OR_GREATER;REVIT2024_OR_GREATER;REVIT2025_OR_GREATER;REVIT2026_OR_GREATER;REVIT2027_OR_GREATER</DefineConstants>
+    <!-- Overridable: dotnet build -p:RevitVersion=2026 targets Revit 2026.5 (also
+         .NET 10, per Autodesk's 2026.5 update notes) instead of the 2027 default. -->
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2027</RevitVersion>
+    <!-- REVIT2026_OR_GREATER is unconditional: 2026 is this connector's floor.
+         REVIT2027_OR_GREATER only when actually building the 2027 target. -->
+    <DefineConstants>$(DefineConstants);REVIT2023_OR_GREATER;REVIT2024_OR_GREATER;REVIT2025_OR_GREATER;REVIT2026_OR_GREATER</DefineConstants>
+    <DefineConstants Condition="'$(RevitVersion)' == '2027'">$(DefineConstants);REVIT2027_OR_GREATER</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

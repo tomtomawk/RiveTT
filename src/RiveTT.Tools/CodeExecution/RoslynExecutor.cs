@@ -13,7 +13,7 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.CodeExecution;
 
 /// <summary>
-/// Compiles and executes C# code snippets inside the Revit 2027 process.
+/// Compiles and executes C# code snippets inside the Revit process (2026.5+ or 2027).
 ///
 /// Roslyn isolation: Revit hosts every add-in in ONE shared AssemblyLoadContext, and sibling
 /// add-ins ship older System.Collections.Immutable / System.Reflection.Metadata copies. Simple-name

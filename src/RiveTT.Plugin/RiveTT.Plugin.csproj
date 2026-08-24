@@ -8,12 +8,18 @@
     <AssemblyName>RiveTT.Plugin</AssemblyName>
     <TargetFramework>net10.0-windows</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
-    <RevitVersion>2027</RevitVersion>
+    <!-- Overridable: dotnet build -p:RevitVersion=2026 targets Revit 2026.5 (also
+         .NET 10, per Autodesk's 2026.5 update notes) instead of the 2027 default. -->
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2027</RevitVersion>
     <!-- Ribbon icons are System.Windows.Media.ImageSource: the Revit UI API is
          WPF, so the plugin needs PresentationCore/WindowsBase. Nothing is copied
          locally - WPF ships with the Windows Desktop runtime Revit already uses. -->
     <UseWPF>true</UseWPF>
-    <DefineConstants>$(DefineConstants);REVIT2023_OR_GREATER;REVIT2024_OR_GREATER;REVIT2025_OR_GREATER;REVIT2026_OR_GREATER;REVIT2027_OR_GREATER</DefineConstants>
+    <!-- REVIT2026_OR_GREATER is unconditional: 2026 is this connector's floor.
+         REVIT2027_OR_GREATER only when actually building the 2027 target — code
+         behind it (e.g. the Coordination Model API) must not compile into a 2026 build. -->
+    <DefineConstants>$(DefineConstants);REVIT2023_OR_GREATER;REVIT2024_OR_GREATER;REVIT2025_OR_GREATER;REVIT2026_OR_GREATER</DefineConstants>
+    <DefineConstants Condition="'$(RevitVersion)' == '2027'">$(DefineConstants);REVIT2027_OR_GREATER</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

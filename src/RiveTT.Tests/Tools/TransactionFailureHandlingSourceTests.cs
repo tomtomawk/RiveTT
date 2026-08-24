@@ -113,7 +113,7 @@ public class TransactionFailureHandlingSourceTests
     /// The send_code_to_revit executors run user-provided C# inside a Revit
     /// transaction; without a preprocessor a warning at Commit() freezes the bridge,
     /// and an unchecked Commit()/Assimilate() reports a Revit rollback as success.
-    /// The Revit 2027 Roslyn executor must adopt the pattern.
+    /// The Roslyn executor must adopt the pattern.
     /// </summary>
     [Theory]
     [InlineData("CodeExecution", "RoslynExecutor.cs")]

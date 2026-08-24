@@ -31,7 +31,7 @@ public sealed class RevitPipeBridge : IDisposable
         if (pipeName == null)
         {
             throw new InvalidOperationException(
-                "No RiveTT Revit 2027 session is available. Open Revit 2027 and wait for the project window to appear.");
+                "No RiveTT Revit session is available. Open Revit (2026.5+ or 2027) and wait for the project window to appear.");
         }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -188,7 +188,7 @@ public static class TransportError
         var (code, suggestion) = exception switch
         {
             InvalidOperationException => ("NoRevitSession",
-                "Start Revit 2027, open a project, and wait for its session to be published."),
+                "Start Revit (2026.5+ or 2027), open a project, and wait for its session to be published."),
             TimeoutException => ("Timeout",
                 $"The Revit session did not answer within {timeoutSeconds}s. Revit may be busy, showing a " +
                 "modal dialog, or executing a long operation — check the Revit window, then retry with a " +

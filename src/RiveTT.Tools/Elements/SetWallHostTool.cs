@@ -32,6 +32,7 @@ public sealed class SetWallHostTool : ICortexTool
         if (wall == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Wall {wallId} was not found");
 
+#if REVIT2027_OR_GREATER
         if (ToolHelpers.GetDryRun(input))
             return CortexResult<object>.Ok(new
             {
@@ -67,5 +68,13 @@ public sealed class SetWallHostTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 $"Could not set wall host: {exception.Message}");
         }
+#else
+        // Wall.GetHostWallId/SetHostWallId (walls hosted on walls) is a Revit 2027
+        // API with no equivalent in 2026: report unsupported rather than fail to
+        // compile or throw a MissingMethodException at runtime.
+        return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            "set_wall_host requires Revit 2027 or newer: walls hosted on walls do not exist in this Revit version.",
+            suggestion: "Open the model in Revit 2027+ to use this feature.");
+#endif
     }
 }

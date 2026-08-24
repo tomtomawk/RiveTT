@@ -1,8 +1,21 @@
 # RiveTT — contributor guide
 
-RiveTT supports Autodesk Revit 2027 only. The runtime is .NET 10 on
-Windows x64; do not reintroduce R23–R26 configurations or `net48`/`net8`
-compatibility branches.
+RiveTT supports Autodesk Revit 2026.5+ and 2027 — both run on .NET 10 on Windows
+x64, so both build from the same `net10.0-windows` TFM; do not reintroduce
+R23–R25 configurations or `net48`/`net8` compatibility branches.
+
+The two targets share one codebase, selected at build time by the
+`RevitVersion` MSBuild property (`dotnet build -p:RevitVersion=2026`, default
+`2027`; see `build.ps1 -RevitVersion`). It drives both the
+`Nice3point.Revit.Api.RevitAPI` package version and the `REVITxxxx_OR_GREATER`
+`DefineConstants`. `REVIT2026_OR_GREATER` is unconditional (2026 is the floor);
+`REVIT2027_OR_GREATER` is only defined when building the 2027 target. Guard any
+API that genuinely doesn't exist in 2026 (e.g. the Coordination Model API,
+walls hosted on walls) behind `#if REVIT2027_OR_GREATER`, with an `#else`
+branch that reports the feature as unsupported rather than failing to compile
+— see `GetCoordinationModelsTool.cs` and `SetWallHostTool.cs` for the pattern.
+A single build of the plugin only ever runs against ONE Revit version at a
+time: it is not multi-targeted, it is rebuilt per target.
 
 ## Architecture
 
@@ -106,5 +119,6 @@ The last command prepares the ignored distribution binaries and the generated
 addin manifest. Installation is per-user through `distribution/install.ps1`.
 
 Behavior that only a live Revit session can prove (geometry, transactions,
-Revit error messages) must still be re-tested manually against a real 2027
-model, and the outcome logged in `docs/MCP_AGENT_IMPROVEMENTS.md`.
+Revit error messages) must still be re-tested manually against a real model —
+in both target versions when the change touches anything gated by
+`REVIT2027_OR_GREATER` — and the outcome logged in `docs/MCP_AGENT_IMPROVEMENTS.md`.

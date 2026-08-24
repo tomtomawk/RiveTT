@@ -342,7 +342,7 @@ public class CortexRouter
         {
             ["connector"] = "RiveTT",
             ["serverVersion"] = typeof(CortexRouter).Assembly.GetName().Version?.ToString() ?? "0.0.0.0",
-            ["revitVersion"] = "2027",
+            ["revitVersion"] = GetActiveRevitVersion(),
             ["mode"] = "automatic",
             // toolReadOnly classifies THIS tool. It was named "readOnly", which read
             // as a server-wide lock and made callers believe writes were forbidden.
@@ -354,6 +354,25 @@ public class CortexRouter
             ["cached"] = false
         };
         return CortexResult<object>.Ok(obj);
+    }
+
+    /// <summary>
+    /// Reads the real Revit version from the active document's Application, so this
+    /// connector reports "2026" correctly when its plugin/tools DLLs were built with
+    /// -p:RevitVersion=2026 and are running inside Revit 2026.5 — not a literal that
+    /// only ever matched the 2027-targeted build.
+    /// </summary>
+    private string GetActiveRevitVersion()
+    {
+        try
+        {
+            return (_session.Store.Get<object>("activeDocument") as Autodesk.Revit.DB.Document)
+                ?.Application?.VersionNumber ?? "unknown";
+        }
+        catch
+        {
+            return "unknown";
+        }
     }
 
     /// <summary>

@@ -1,7 +1,14 @@
 ﻿#requires -Version 5.1
+[CmdletBinding()]
+param(
+    # Must match the Revit version build.ps1 -RevitVersion produced the package for.
+    [ValidateSet('2026', '2027')]
+    [string] $RevitYear = '2027'
+)
+
 $ErrorActionPreference = 'Stop'
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$revitYear = '2027'
+$revitYear = $RevitYear
 $addinRoot = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$revitYear"
 $pluginSource = Join-Path $scriptRoot 'plugin'
 $serverSource = Join-Path $scriptRoot 'server'
@@ -88,7 +95,7 @@ Get-ChildItem $pluginTarget, $serverTarget -Recurse -File | ForEach-Object {
 }
 
 $serverExe = Join-Path $serverTarget 'RiveTT.Server.exe'
-Write-Host 'RiveTT installé pour Revit 2027.' -ForegroundColor Green
+Write-Host "RiveTT installé pour Revit $revitYear." -ForegroundColor Green
 Write-Host "Add-in : $pluginTarget"
 Write-Host "Serveur stdio : $serverExe"
 
@@ -110,6 +117,6 @@ if ($serverProcesses.Count -gt 0) {
 }
 
 Write-Host ''
-Write-Host 'Ouvrez Revit 2027 : la connexion par pipe local démarre automatiquement, sans port TCP.'
+Write-Host "Ouvrez Revit $revitYear : la connexion par pipe local démarre automatiquement, sans port TCP."
 Write-Host 'Ajoutez le serveur MCP avec la commande :'
 Write-Host "  codex mcp add RiveTT -- `"$serverExe`""
