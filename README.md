@@ -52,11 +52,18 @@ transactions et sont consignées dans `%LOCALAPPDATA%\MCPRVTT27\audit.jsonl`.
 - valeurs numériques accompagnées de leur unité et de la valeur interne Revit ;
 - catégories accompagnées de leur code `OST_*` (`categoryBic`), les libellés
   localisés étant ambigus ;
-- `execution.toolReadOnly` classe l'outil, pas la session : `writesAllowed` vaut
-  toujours `true` ; `execution.cached` signale une réponse issue du cache.
+- `execution.toolReadOnly` classe l'outil, pas la session ;
+  `execution.writesAllowed` donne l'état du verrou d'écriture du ruban — faux au
+  démarrage de chaque session Revit, et aucun outil ne peut le lever ;
+  `execution.cached` signale une réponse issue du cache.
 
-Détail des corrections issues de la campagne de tests :
-[docs/MCP_AGENT_FIXES.md](docs/MCP_AGENT_FIXES.md).
+- corrections issues de la campagne de tests :
+  [docs/MCP_AGENT_FIXES.md](docs/MCP_AGENT_FIXES.md) ;
+- lecture de l'audit de la surface d'outils et ordre de chantier :
+  [docs/AUDIT_OUTILS.md](docs/AUDIT_OUTILS.md) ;
+- inventaire des 295 outils, effet par effet, avec les défauts probables et les
+  capacités API non outillées : [docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md)
+  (généré par `tools/audit-tool-surface.py`).
 
 ## Compiler et installer
 
