@@ -21,7 +21,9 @@ public class CreateSurfaceBasedElementTool : ICortexTool
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Creates one or more surface-based elements: floors, ceilings, or roofs. Mirrors the fork's CreateSurfaceElementEventHandler logic.";
+    public string Description => "Creates one or more surface-based elements: floors, ceilings, or roofs. " +
+        "roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; " +
+        "omit for a flat roof. Mirrors the fork's CreateSurfaceElementEventHandler logic.";
     private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
@@ -264,9 +266,18 @@ public class CreateSurfaceBasedElementTool : ICortexTool
                     var roof = doc.Create.NewFootPrintRoof(roofCurves, baseLevel, roofType!, out modelCurves);
                     if (roof != null)
                     {
-                        // Flat roof — disable slopes on all edges
+                        // roofSlopeDegrees applies the SAME pitch to every footprint edge (a hip
+                        // roof) — the common case for a rectangular/polygon plan in logement.
+                        // SlopeAngle is a rise/run RATIO in the Revit API, not degrees, hence the
+                        // Math.Tan conversion. Omit it (or pass 0) for the previous flat behavior.
+                        var slopeDegrees = item["roofSlopeDegrees"]?.Value<double?>() ?? 0.0;
+                        var definesSlope = slopeDegrees > 0.0;
+                        var slopeRatio = definesSlope ? Math.Tan(slopeDegrees * Math.PI / 180.0) : 0.0;
                         foreach (ModelCurve mc in modelCurves)
-                            roof.set_DefinesSlope(mc, false);
+                        {
+                            roof.set_DefinesSlope(mc, definesSlope);
+                            if (definesSlope) roof.set_SlopeAngle(mc, slopeRatio);
+                        }
 
                         var offsetParam = roof.get_Parameter(BuiltInParameter.ROOF_LEVEL_OFFSET_PARAM);
                         offsetParam?.Set(baseOffset);

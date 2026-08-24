@@ -9,10 +9,10 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class CreationTools
 {
-    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements (floors, ceilings). Pass [{category, boundary:[{x,y,z}], typeId?, baseLevel?, baseOffset?}].")]
+    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs — a roof is a real FootPrintRoof, Document.Create.NewFootPrintRoof). Pass [{category, boundary:{outerLoop:[{p0,p1}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; omit for a flat roof.")]
     public static async Task<string> CreateSurfaceBasedElement(
         RevitConnectionManager revit,
-        [Description("JSON array of creation specs: [{category, boundary, typeId?, baseLevel?, baseOffset?}]")] string specs,
+        [Description("JSON array of creation specs: [{category, boundary:{outerLoop:[{p0:{x,y,z},p1:{x,y,z}}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees applies to OST_Roofs only.")] string specs,
         CancellationToken ct = default)
     {
         var p = new JObject { ["data"] = JArray.Parse(specs) };
