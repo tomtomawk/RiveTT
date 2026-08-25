@@ -11,15 +11,24 @@ namespace RiveTT.Tools.IFC;
 /// Sets the IFC family mapping file path in the session store.
 /// Subsequent ifc_export_basic and ifc_export_with_configuration calls
 /// will use this mapping file automatically.
+///
+/// Classified as a WRITE tool although it does not touch the model. Since the ribbon lock,
+/// [ToolSafety] is a permission boundary, not a label: this call changes persistent session
+/// state that silently alters the output of every later IFC export, so it belongs behind the
+/// same gate as those exports. It was marked read-only and passed straight through the lock
+/// — a read-only session could still redirect all subsequent exports. The name-prefix
+/// heuristic agrees: ifc_set_ is not a read prefix.
 /// </summary>
-[ToolSafety(true, false)]
+[ToolSafety(false, false)]
 public class IfcSetFamilyMappingFileTool : ICortexTool
 {
     public string Name => "ifc_set_family_mapping_file";
     public string Category => "IFC";
     public bool RequiresDocument => false;
     public bool IsDynamic => false;
-    public string Description => "Set the family mapping file for IFC exports (persists in session)";
+    public string Description =>
+        "Set the family mapping file used by subsequent IFC exports (persists for the session; pass an "
+        + "empty filePath to clear it). Counts as a write: it changes what every later IFC export produces.";
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

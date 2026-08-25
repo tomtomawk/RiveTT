@@ -386,15 +386,17 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "tag_rooms"), Description("Tag rooms in the active view. Operates on the active view only — activate the correct view first.")]
+    [McpServerTool(Name = "tag_rooms"), Description("Tag rooms in a view. Pass viewId to target a specific view; without it the active view is used. Nothing in this surface can activate a view, so viewId is the only way to tag a view the user is not currently looking at.")]
     public static async Task<string> TagRooms(
         RevitConnectionManager revit,
         [Description("Use leader on tags. Default: false")] bool useLeader = false,
         [Description("Room IDs to tag (optional; tags all rooms in view when omitted). JSON array, e.g. [1,2]")] string? roomIds = null,
+        [Description("View to tag in. Omit to use the currently active view.")] long? viewId = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         p["useLeader"] = useLeader;
+        if (viewId != null) p["viewId"] = viewId;
         if (roomIds != null)
         {
             if (!JsonArrayParam.TryParse(roomIds, out var roomIdsArray))
@@ -484,16 +486,17 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / bulk_modify_parameter_values; queries & filtering -> ai_element_filter / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views and schedules -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) — never for modal family editing (Document.EditFamily deadlocks from the tool's external-event context) — and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed, require an in-Revit confirmation, and frequently fail on add-in DLL conflicts.")]
+    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / bulk_modify_parameter_values; queries & filtering -> ai_element_filter / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views and schedules -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) — never for modal family editing (Document.EditFamily deadlocks from the tool's external-event context) — and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed and frequently fail on add-in DLL conflicts. There is NO in-Revit confirmation dialog: nothing stops a script once dryRun=false, so the dry run (the default) is the only review step — it runs the sandbox check and reports what would execute without executing it.")]
     public static async Task<string> SendCodeToRevit(
         RevitConnectionManager revit,
         [Description("C# code to execute. Globals available: document (Document), uiDocument (UIDocument), app (Application).")] string code,
+        [Description("Preview only: run the sandbox check and report what would execute, without running it or saving the script. Default: true")] bool dryRun = true,
         [Description("Transaction mode: auto | manual | readonly. Default: auto")] string? transactionMode = "auto",
         [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously — see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool reusable = false,
         [Description("Short human-readable name for the script file (no spaces, max 40 chars). Example: 'floor-thickness-audit'")] string? scriptName = null,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["code"] = code };
+        var p = new JObject { ["code"] = code, ["dryRun"] = dryRun };
         if (transactionMode != null) p["transactionMode"] = transactionMode;
         p["reusable"] = reusable;
         if (scriptName != null) p["scriptName"] = scriptName;
@@ -501,13 +504,15 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "workflow_clash_review"), Description("Detect clashes between two categories and create a 3D section-boxed view for visual review.")]
+    [McpServerTool(Name = "workflow_clash_review"), Description("Detect clashes between two categories and create a 3D section-boxed view for visual review. Uses the same true solid-geometry intersection as clash_detection (bounding-box pre-filter, then ElementIntersectsElementFilter), so the two tools return the same clashes on the same model.")]
     public static async Task<string> WorkflowClashReview(
         RevitConnectionManager revit,
         [Description("First category (e.g. OST_Walls)")] string categoryA,
         [Description("Second category (e.g. OST_Pipes)")] string categoryB,
         [Description("Intersection tolerance in mm. Default: 0")] double? tolerance = null,
         [Description("Create a section-boxed 3D view around detected clashes. Default: true")] bool createSectionBox = true,
+        [Description("Confirm each bounding-box candidate against the real solids. Default: true; false is faster but over-reports.")] bool useSolidGeometry = true,
+        [Description("Stop after this many clashes. Default: 100")] int? maxResults = null,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -516,7 +521,9 @@ public static class ProjectTools
             ["categoryB"] = categoryB,
         };
         if (tolerance != null) p["tolerance"] = tolerance;
+        if (maxResults != null) p["maxResults"] = maxResults;
         p["createSectionBox"] = createSectionBox;
+        p["useSolidGeometry"] = useSolidGeometry;
         var result = await revit.ExecuteAsync("workflow_clash_review", p, ct);
         return result.ToString();
     }
@@ -563,14 +570,15 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "workflow_sheet_set"), Description("Auto-create a set of sheets with title blocks from a definition list: [{number, name, viewIds?}].")]
+    [McpServerTool(Name = "workflow_sheet_set"), Description("Auto-create a set of sheets with title blocks from a definition list: [{number, name, viewIds?}]. Each definition's viewIds ARE placed on its sheet, centred in the title block's real frame. Previews by default; set dryRun=false to create.")]
     public static async Task<string> WorkflowSheetSet(
         RevitConnectionManager revit,
         [Description("JSON array of sheet specs: [{number, name, viewIds?}]")] string sheets,
         [Description("Default title block family-type name")] string? titleBlockName = null,
+        [Description("Preview without creating anything. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["sheets"] = JArray.Parse(sheets) };
+        var p = new JObject { ["sheets"] = JArray.Parse(sheets), ["dryRun"] = dryRun };
         if (titleBlockName != null) p["titleBlockName"] = titleBlockName;
         var result = await revit.ExecuteAsync("workflow_sheet_set", p, ct);
         return result.ToString();

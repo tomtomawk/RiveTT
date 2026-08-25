@@ -7,19 +7,32 @@ verrou d'écriture décrit ci-dessous.
 
 ## Installation
 
-Prérequis : Revit 2027 x64 et le SDK/runtime .NET 10.
+Prérequis : Revit 2026.5 ou supérieur, ou Revit 2027, en x64.
 
-    .\build.ps1
-    .\distribution\install.ps1
+Lancez `RiveTT-Setup-<version>.exe`, puis déclarez le serveur dans votre client :
+
     codex mcp add RiveTT -- "%LOCALAPPDATA%\RiveTT\server\RiveTT.Server.exe"
 
-`install.ps1` remplace l'installation précédente : **aucune désinstallation
+**Aucun droit administrateur n'est nécessaire** et Windows n'affiche pas d'invite
+UAC : tout est installé dans votre profil utilisateur. Rien n'exige non plus
+d'installer le runtime .NET — le serveur est autonome.
+
+L'installateur détecte les versions de Revit présentes et n'installe que pour
+celles-là. Si seul un Revit 2026.0 à 2026.4 est trouvé, il s'arrête en l'indiquant :
+ces versions tournent sur .NET 8 et ne peuvent pas charger le plugin. Appliquez la
+mise à jour 2026.5 depuis Autodesk Access.
+
+L'installateur remplace l'installation précédente : **aucune désinstallation
 préalable n'est nécessaire**, et il n'est **pas nécessaire de fermer Revit ni le
 client MCP**. Windows interdit d'écraser un fichier chargé par un processus mais
 autorise à le *renommer* : l'installateur renomme le fichier verrouillé en
 `<nom>.old-<horodatage>` — le processus en cours continue de l'utiliser — et
 écrit le neuf à sa place. Les copies garées sont supprimées à l'installation
-suivante. Le récapitulatif liste les fichiers concernés.
+suivante.
+
+Pour désinstaller, passez par *Applications installées* dans les paramètres
+Windows. Fermez Revit avant : contrairement à une mise à jour, il n'y a pas de
+nouveau fichier pour prendre la place de l'ancien.
 
 En revanche le code déjà chargé reste en mémoire. Pour utiliser la nouvelle
 version :

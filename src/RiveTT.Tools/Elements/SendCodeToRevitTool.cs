@@ -6,6 +6,7 @@ using RiveTT.Core.Security;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.CodeExecution;
+using RiveTT.Tools.Utilities;
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -31,7 +32,7 @@ public class SendCodeToRevitTool : ICortexTool
     public string Category => "Code";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "LAST RESORT ONLY — execute sandboxed custom C# code in the active Revit context. Prefer dedicated tools. Globals: document (Document), uiDocument (UIDocument), app (Application).";
+    public string Description => "LAST RESORT ONLY — execute sandboxed custom C# code in the active Revit context. Prefer dedicated tools. Defaults to dryRun=true: the preview runs the sandbox check and reports what would execute, without running it or writing the script to disk. Globals: document (Document), uiDocument (UIDocument), app (Application).";
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -43,15 +44,42 @@ public class SendCodeToRevitTool : ICortexTool
         var transactionMode = input["transactionMode"]?.Value<string>() ?? "auto";
         var reusable = input["reusable"]?.Value<bool>() ?? false;
         var scriptName = SanitizeName(input["scriptName"]?.Value<string>() ?? "script");
+        // The most powerful tool on the surface was the only destructive one with no preview
+        // at all: arbitrary C# ran on the model on the first call. It now previews by default
+        // like every other destructive tool.
+        var dryRun = ToolHelpers.GetDryRun(input);
 
         if (string.IsNullOrEmpty(code))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "code is required");
 
-        // Sandbox validation is a technical boundary, not an authorization flow.
+        // Sandbox validation is a technical boundary, not an authorization flow. It runs
+        // before the dryRun branch so a preview reports a rejection instead of a plan.
         var sandboxResult = CodeSandbox.Validate(code!);
         if (sandboxResult != null)
         {
             return sandboxResult;
+        }
+
+        if (dryRun)
+        {
+            // Nothing is written to disk here: persisting the script is itself a side effect.
+            return CortexResult<object>.Ok(new
+            {
+                dryRun = true,
+                message = "DryRun: the script passed the sandbox check and was NOT executed. "
+                        + "Review it, then set dryRun=false to run it.",
+                sandbox = "passed",
+                transactionMode,
+                wouldRunInDocument = doc.Title,
+                scriptName,
+                scriptLifetime = reusable ? "REUSABLE" : "TEMP (deleted at Revit close)",
+                wouldSaveTo = Path.Combine(ScriptsFolder, $"<timestamp>_{scriptName}.cs"),
+                codeLength = code!.Length,
+                codeLineCount = code!.Split('\n').Length,
+                warning = "Custom code is not bounded by a dedicated tool's guarantees: it can modify or "
+                        + "delete anything in the open document, and RiveTT cannot preview its effect. "
+                        + "Check that no dedicated tool covers the operation before running it."
+            });
         }
 
         // Persist script to the local RiveTT directory.

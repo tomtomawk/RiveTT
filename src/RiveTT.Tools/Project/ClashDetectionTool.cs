@@ -86,87 +86,28 @@ public class ClashDetectionTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "categoryB or elementIdsB required");
             }
 
-            var tolerance = toleranceMm / MmPerFoot;
-            var clashes = new List<object>();
-
-            // Pre-cache B bounding boxes (and a B id-set) once for the bbox pre-filter.
-            var setBWithBoxes = setB
-                .Select(b => new { Elem = b, Box = b.get_BoundingBox(null) })
-                .Where(x => x.Box != null)
-                .ToList();
-
-            foreach (var a in setA)
-            {
-                if (clashes.Count >= maxResults) break;
-                var bbA = a.get_BoundingBox(null);
-                if (bbA == null) continue;
-
-                // Bounding-box pre-filter: cheap, narrows the candidates.
-                var candidates = setBWithBoxes
-                    .Where(x => x.Elem.Id != a.Id && BoundingBoxesIntersect(bbA, x.Box!, tolerance))
-                    .Select(x => x.Elem)
-                    .ToList();
-                if (candidates.Count == 0) continue;
-
-                // Solid-geometry confirmation: ElementIntersectsElementFilter tests the
-                // actual solids, eliminating bbox false positives (e.g. an L-shaped beam
-                // whose box overlaps but whose solid does not).
-                HashSet<long>? solidHitIds = null;
-                if (useSolidGeometry)
-                {
-                    try
-                    {
-                        var candidateIds = candidates.Select(c => c.Id).ToList();
-                        var intersecting = new FilteredElementCollector(doc, candidateIds)
-                            .WherePasses(new ElementIntersectsElementFilter(a))
-                            .ToElementIds();
-                        solidHitIds = new HashSet<long>(intersecting.Select(id => ToolHelpers.GetElementIdValue(id)));
-                    }
-                    catch
-                    {
-                        // Some elements (no solid geometry) make the filter throw — fall
-                        // back to the bbox candidates for this A rather than dropping it.
-                        solidHitIds = null;
-                    }
-                }
-
-                foreach (var b in candidates)
-                {
-                    if (clashes.Count >= maxResults) break;
-                    if (solidHitIds != null && !solidHitIds.Contains(ToolHelpers.GetElementIdValue(b.Id)))
-                        continue;
-
-                    clashes.Add(new
-                    {
-                        elementIdA = ToolHelpers.GetElementIdValue(a.Id),
-                        elementIdB = ToolHelpers.GetElementIdValue(b.Id),
-                        categoryA = a.Category?.Name,
-                        categoryB = b.Category?.Name,
-                        nameA = a.Name,
-                        nameB = b.Name
-                    });
-                }
-            }
+            // The detection pass itself lives in ClashFinder so workflow_clash_review runs
+            // exactly this one and cannot drift back to a bbox-only answer.
+            var found = ClashFinder.Find(
+                doc, setA, setB, toleranceMm / MmPerFoot, maxResults, useSolidGeometry);
 
             return CortexResult<object>.Ok(new
             {
                 setACount = setA.Count,
                 setBCount = setB.Count,
-                method = useSolidGeometry ? "solid_geometry" : "bounding_box",
-                clashCount = clashes.Count,
-                clashes
+                method = found.Method,
+                clashCount = found.Hits.Count,
+                truncated = found.Truncated,
+                maxResults,
+                clashes = found.Hits
             });
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                $"Clash detection failed: {ex.Message}",
+                suggestion: "Check that both categories exist in this document (list them with "
+                          + "analyze_model_statistics) and lower maxResults on a very large model.");
         }
-    }
-
-    private static bool BoundingBoxesIntersect(BoundingBoxXYZ a, BoundingBoxXYZ b, double tolerance)
-    {
-        return a.Min.X - tolerance <= b.Max.X && a.Max.X + tolerance >= b.Min.X
-            && a.Min.Y - tolerance <= b.Max.Y && a.Max.Y + tolerance >= b.Min.Y
-            && a.Min.Z - tolerance <= b.Max.Z && a.Max.Z + tolerance >= b.Min.Z;
     }
 }

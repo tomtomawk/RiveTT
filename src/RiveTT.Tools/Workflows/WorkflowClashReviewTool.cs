@@ -20,7 +20,10 @@ public class WorkflowClashReviewTool : ICortexTool
     public string Category => "Workflows";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Detects clashes between two categories and optionally creates a section box view.";
+    public string Description =>
+        "Detects clashes between two categories and optionally creates a 3D section-boxed view for review. "
+        + "Uses the same true solid-geometry intersection as clash_detection (bounding-box pre-filter, then "
+        + "ElementIntersectsElementFilter); set useSolidGeometry=false for the faster box-only approximation.";
     private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
@@ -33,6 +36,10 @@ public class WorkflowClashReviewTool : ICortexTool
         var categoryB = input["categoryB"]?.Value<string>() ?? input["category2"]?.Value<string>();
         var toleranceMm = input["tolerance"]?.Value<double>() ?? 0;
         var createSectionBox = input["createSectionBox"]?.Value<bool>() ?? true;
+        var maxResults = input["maxResults"]?.Value<int>() ?? 100;
+        // Same default as clash_detection: the composed tool must not be laxer than the
+        // plain one it wraps.
+        var useSolidGeometry = input["useSolidGeometry"]?.Value<bool>() ?? true;
 
         if (string.IsNullOrEmpty(categoryA) || string.IsNullOrEmpty(categoryB))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "categoryA and categoryB required");
@@ -46,39 +53,16 @@ public class WorkflowClashReviewTool : ICortexTool
 
             var setA = new FilteredElementCollector(doc).OfCategoryId(catIdA).WhereElementIsNotElementType().ToList();
             var setB = new FilteredElementCollector(doc).OfCategoryId(catIdB).WhereElementIsNotElementType().ToList();
-            var tolerance = toleranceMm / MmPerFoot;
 
-            var clashes = new List<object>();
-            XYZ? minPt = null, maxPt = null;
+            // Bounding boxes alone made this tool report more clashes than clash_detection
+            // on the same model, and open a review view on pairs whose solids never touch.
+            // Both now run the same pass.
+            var found = ClashFinder.Find(
+                doc, setA, setB, toleranceMm / MmPerFoot, maxResults, useSolidGeometry);
 
-            foreach (var a in setA)
-            {
-                if (clashes.Count >= 100) break;
-                var bbA = a.get_BoundingBox(null);
-                if (bbA == null) continue;
-
-                foreach (var b in setB)
-                {
-                    if (clashes.Count >= 100) break;
-                    if (a.Id == b.Id) continue;
-                    var bbB = b.get_BoundingBox(null);
-                    if (bbB == null) continue;
-
-                    if (bbA.Min.X - tolerance <= bbB.Max.X && bbA.Max.X + tolerance >= bbB.Min.X
-                        && bbA.Min.Y - tolerance <= bbB.Max.Y && bbA.Max.Y + tolerance >= bbB.Min.Y
-                        && bbA.Min.Z - tolerance <= bbB.Max.Z && bbA.Max.Z + tolerance >= bbB.Min.Z)
-                    {
-                        clashes.Add(new { elementIdA = ToolHelpers.GetElementIdValue(a.Id), elementIdB = ToolHelpers.GetElementIdValue(b.Id),
-                            nameA = a.Name, nameB = b.Name });
-
-                        // Track combined bounding box for section box
-                        var cMin = new XYZ(Math.Min(bbA.Min.X, bbB.Min.X), Math.Min(bbA.Min.Y, bbB.Min.Y), Math.Min(bbA.Min.Z, bbB.Min.Z));
-                        var cMax = new XYZ(Math.Max(bbA.Max.X, bbB.Max.X), Math.Max(bbA.Max.Y, bbB.Max.Y), Math.Max(bbA.Max.Z, bbB.Max.Z));
-                        minPt = minPt == null ? cMin : new XYZ(Math.Min(minPt.X, cMin.X), Math.Min(minPt.Y, cMin.Y), Math.Min(minPt.Z, cMin.Z));
-                        maxPt = maxPt == null ? cMax : new XYZ(Math.Max(maxPt.X, cMax.X), Math.Max(maxPt.Y, cMax.Y), Math.Max(maxPt.Z, cMax.Z));
-                    }
-                }
-            }
+            var clashes = found.Hits;
+            var minPt = found.Min;
+            var maxPt = found.Max;
 
             long? sectionBoxViewId = null;
             if (createSectionBox && clashes.Count > 0 && minPt != null && maxPt != null)
@@ -123,7 +107,10 @@ public class WorkflowClashReviewTool : ICortexTool
             {
                 categoryA, categoryB,
                 setACount = setA.Count, setBCount = setB.Count,
+                method = found.Method,
                 clashCount = clashes.Count,
+                truncated = found.Truncated,
+                maxResults,
                 sectionBoxViewId,
                 suggestion,
                 clashes

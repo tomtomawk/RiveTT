@@ -154,6 +154,39 @@ public class CreateFloorTool : ICortexTool
                 }
             }
 
+            // Preview last, once everything is resolved: the useful part of a floor preview
+            // is which TYPE and which LEVEL it would land on, and both are decided above by
+            // fallbacks the caller never stated (nearest level, first architectural type).
+            if (ToolHelpers.GetDryRun(input))
+            {
+                var areaM2 = 0.0;
+                try
+                {
+                    // Outer loop area minus the holes, in m2. A quick sanity figure: a
+                    // boundary entered in metres instead of millimetres shows up here as a
+                    // number a million times too large, before anything is created.
+                    areaM2 = LoopAreaM2(loops[0]) - loops.Skip(1).Sum(LoopAreaM2);
+                }
+                catch
+                {
+                    // A self-intersecting loop has no meaningful area; the rest still stands.
+                }
+
+                return CortexResult<object>.Ok(new
+                {
+                    dryRun = true,
+                    message = $"DryRun: a floor of type '{floorType.Name}' would be created on level "
+                            + $"'{level.Name}'. Set dryRun=false to execute.",
+                    floorTypeName = floorType.Name,
+                    levelName = level.Name,
+                    levelElevationMm = Math.Round(level.Elevation * MmPerFoot, 1),
+                    holeCount = loops.Count - 1,
+                    approxAreaM2 = Math.Round(areaM2, 2),
+                    boundarySource = roomId > 0 ? $"room {roomId}" : "boundaryPoints",
+                    warnings
+                });
+            }
+
             using var tx = new Transaction(doc, "RiveTT: Create Floor");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -174,7 +207,32 @@ public class CreateFloorTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create floor: {ex.Message}");
+            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                $"Failed to create floor: {ex.Message}",
+                suggestion: "Run with dryRun=true to see the resolved type, level and boundary area "
+                          + "before committing. A boundary must be a closed, non-self-intersecting "
+                          + "loop of at least 3 points, in millimetres.");
         }
+    }
+
+    /// <summary>
+    /// Planar area of a closed loop in m2, by the shoelace formula on the XY projection.
+    /// Absolute value: loop orientation carries no meaning here.
+    /// </summary>
+    private static double LoopAreaM2(CurveLoop loop)
+    {
+        var points = loop.Select(curve => curve.GetEndPoint(0)).ToList();
+        if (points.Count < 3) return 0;
+
+        var twiceArea = 0.0;
+        for (var i = 0; i < points.Count; i++)
+        {
+            var a = points[i];
+            var b = points[(i + 1) % points.Count];
+            twiceArea += a.X * b.Y - b.X * a.Y;
+        }
+
+        // Revit stores feet; 1 ft2 = 0.09290304 m2.
+        return Math.Abs(twiceArea / 2.0) * 0.09290304;
     }
 }

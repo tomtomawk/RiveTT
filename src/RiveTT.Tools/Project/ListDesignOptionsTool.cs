@@ -48,9 +48,15 @@ public class ListDesignOptionsTool : ICortexTool
             });
         }
 
+        // DesignOptionSet is NOT a public Revit API type — it exists in the DB but its
+        // class is internal, so OfClass(typeof(DesignOptionSet)) does not compile. The
+        // sets are reachable only as plain Elements of OST_DesignOptionSets; Name and Id
+        // are all that is needed, and DesignOption (which IS public) links back through
+        // its OPTION_SET_ID parameter.
         var sets = new FilteredElementCollector(doc)
-            .OfClass(typeof(DesignOptionSet))
-            .Cast<DesignOptionSet>()
+            .OfCategory(BuiltInCategory.OST_DesignOptionSets)
+            .WhereElementIsNotElementType()
+            .Cast<Element>()
             .Select(set => new
             {
                 id = ToolHelpers.GetElementIdValue(set.Id),

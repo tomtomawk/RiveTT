@@ -1,7 +1,7 @@
 # 10 — send_code_to_revit Escalation
 
 **Scope:** Quando proporre uno script C# custom invece dei tool nativi.
-**Sources:** docs/SECURITY.md, src/RiveTT.Core/Security/CodeSandbox.cs
+**Sources:** docs/utilisation/SECURITY.md, src/RiveTT.Core/Security/CodeSandbox.cs
 **Last verified:** 2026-05-25
 
 ## Regola fondamentale

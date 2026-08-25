@@ -10,7 +10,11 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.Elements;
 
 /// <summary>
-/// Deletes a named saved selection filter.
+/// Deletes a named saved selection filter. Defaults to dryRun=true — see DeletionPreview
+/// for why the old RequestConfirmation call was not a safety net.
+///
+/// Only the FILTER is deleted, never the elements it lists; the preview says so explicitly,
+/// because "delete_selection" reads like it removes the selected elements.
 /// </summary>
 [ToolSafety(false, true)]
 public class DeleteSelectionTool : ICortexTool
@@ -19,7 +23,9 @@ public class DeleteSelectionTool : ICortexTool
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Deletes a named saved selection filter.";
+    public string Description =>
+        "Deletes a saved selection filter by name. Removes the SAVED LIST only — the elements it references "
+        + "are untouched (use delete_element for those). Defaults to dryRun=true; set dryRun=false to execute.";
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -39,10 +45,25 @@ public class DeleteSelectionTool : ICortexTool
 
             if (filter == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
-                    $"Selection '{name}' not found");
+                    $"Selection '{name}' not found",
+                    suggestion: "Call load_selection without a name to list the saved selections.");
 
-            if (!session.RequestConfirmation("delete", 1))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            if (ToolHelpers.GetDryRun(input))
+            {
+                var memberCount = 0;
+                try { memberCount = filter.GetElementIds().Count; } catch { }
+
+                return DeletionPreview.Build(doc, filter.Id,
+                    $"Saved selection '{name}'",
+                    new
+                    {
+                        selectionName = name,
+                        selectionId = ToolHelpers.GetElementIdValue(filter.Id),
+                        elementsInSelection = memberCount,
+                        note = "Only the saved list is deleted; the " + memberCount
+                             + " element(s) it references stay in the model."
+                    });
+            }
 
             using var tx = new Transaction(doc, "RiveTT: Delete Selection");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);

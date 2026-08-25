@@ -42,8 +42,12 @@ public sealed class RiveTTTests
     {
         var source = ReadSource("RiveTT.Tools", "CodeExecution", "RoslynExecutor.cs");
 
+        // The guard is that the loader points at the RENAMED assembly. The old name is
+        // what must be absent — the repo-wide RevitCortex -> RiveTT rename rewrote the
+        // literal inside DoesNotContain too, which inverted the test: it then demanded
+        // the absence of the very line Contains requires, and no source could satisfy both.
         Assert.Contains("RiveTT.Tools.dll", source);
-        Assert.DoesNotContain("Path.Combine(dir!, \"RiveTT.Tools.dll\")", source);
+        Assert.DoesNotContain("RevitCortex.Tools.dll", source);
     }
 
     [Fact]

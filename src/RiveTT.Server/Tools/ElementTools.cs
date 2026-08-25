@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
 using RiveTT.Server.Connection;
@@ -166,13 +166,14 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "delete_selection"), Description("Delete a saved selection filter by name")]
+    [McpServerTool(Name = "delete_selection"), Description("Delete a saved selection filter by name. Removes the SAVED LIST only — the elements it references are untouched (use delete_element for those). Previews by default; set dryRun=false to execute.")]
     public static async Task<string> DeleteSelection(
         RevitConnectionManager revit,
         [Description("Name of the saved selection to delete")] string name,
+        [Description("Preview without deleting. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["name"] = name };
+        var p = new JObject { ["name"] = name, ["dryRun"] = dryRun };
         var result = await revit.ExecuteAsync("delete_selection", p, ct);
         return result.ToString();
     }
@@ -327,10 +328,10 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "set_element_phase"), Description("Assign created/demolished phase to elements. Pass a JSON array of requests: [{elementId, phaseCreatedId?, phaseDemolishedId?}].")]
+    [McpServerTool(Name = "set_element_phase"), Description("Assign created/demolished phase to elements. Pass a JSON array of requests: [{elementId, createdPhaseId?, demolishedPhaseId?}]. The older names phaseCreatedId / phaseDemolishedId are still accepted.")]
     public static async Task<string> SetElementPhase(
         RevitConnectionManager revit,
-        [Description("JSON array of requests: [{elementId, phaseCreatedId?, phaseDemolishedId?}]")] string requests,
+        [Description("JSON array of requests: [{elementId, createdPhaseId?, demolishedPhaseId?}]")] string requests,
         CancellationToken ct = default)
     {
         var p = new JObject { ["requests"] = JArray.Parse(requests) };

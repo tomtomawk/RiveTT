@@ -10,7 +10,13 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.Project;
 
 /// <summary>
-/// Deletes a material from the project (with confirmation).
+/// Deletes a material from the project. Defaults to dryRun=true.
+///
+/// It previously called session.RequestConfirmation, which is a no-op that always returns
+/// true (RiveTT has no dialogs), so the "confirmation" in the old description was not a
+/// safety net at all: a single call destroyed the material outright. Deleting a material
+/// strips it from every compound structure and paint that referenced it, which is why the
+/// preview probes the real cascade instead of only naming the material.
 /// </summary>
 [ToolSafety(false, true)]
 public class DeleteMaterialTool : ICortexTool
@@ -19,7 +25,9 @@ public class DeleteMaterialTool : ICortexTool
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Deletes a material from the project. Shows confirmation dialog before executing.";
+    public string Description =>
+        "Deletes a material from the project by ID or name. Defaults to dryRun=true: the preview names the "
+        + "material and reports the real deletion cascade. Set dryRun=false to execute.";
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -63,9 +71,10 @@ public class DeleteMaterialTool : ICortexTool
 
             var matName = material.Name;
 
-            // Confirmation dialog
-            if (!session.RequestConfirmation("delete material", 1))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            if (ToolHelpers.GetDryRun(input))
+                return DeletionPreview.Build(doc, material.Id,
+                    $"Material '{matName}'",
+                    new { materialId = ToolHelpers.GetElementIdValue(material.Id), materialName = matName });
 
             using (var tx = new Transaction(doc, "RiveTT: Delete Material"))
             {

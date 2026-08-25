@@ -20,7 +20,11 @@ public class BatchCreateSheetsTool : ICortexTool
     public string Category => "Sheets";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Creates multiple sheets at once with title blocks and optional view placement.";
+    public string Description =>
+        "Creates multiple sheets at once with title blocks and optional view placement. Viewports are centred "
+        + "in the title block's real frame (not the sheet origin, which is not the frame corner); several views "
+        + "on one sheet are tiled one per cell. Previews by default: set dryRun=false to create.";
+
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -29,6 +33,7 @@ public class BatchCreateSheetsTool : ICortexTool
 
         var sheetsArray = input["sheets"]?.ToObject<List<JObject>>() ?? new List<JObject>();
         var defaultTitleBlockName = input["defaultTitleBlockName"]?.Value<string>();
+        var dryRun = ToolHelpers.GetDryRun(input);
 
         if (sheetsArray.Count == 0)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sheets array is required");
@@ -38,7 +43,12 @@ public class BatchCreateSheetsTool : ICortexTool
             // Resolve default title block
             var defaultTbId = ResolveTitleBlock(doc, defaultTitleBlockName);
 
+            if (dryRun)
+                return Preview(doc, sheetsArray, defaultTbId, defaultTitleBlockName);
+
             var results = new List<object>();
+            var outsideFrame = 0;
+
             using var tx = new Transaction(doc, "RiveTT: Batch Create Sheets");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -63,24 +73,21 @@ public class BatchCreateSheetsTool : ICortexTool
                     if (!string.IsNullOrEmpty(number)) sheet.SheetNumber = number;
                     if (!string.IsNullOrEmpty(name)) sheet.Name = name;
 
-                    var placedViews = new List<object>();
-                    foreach (var vid in viewIds)
+                    // The frame must be measured AFTER the sheet exists: it comes from the
+                    // title block instance placed on it. Viewports used to go to a hardcoded
+                    // (0.5 ft; 0.5 ft), which is not the frame corner — on the French A1 block
+                    // whose origin sits 650 mm inside the frame, every drawing landed off the
+                    // paper. SheetFrame is shared with place_viewport so the two agree.
+                    var frame = SheetFrame.Measure(doc, sheet);
+                    var cells = SheetFrame.Subdivide(frame, viewIds.Count);
+
+                    var placedViews = new List<SheetFrame.Placement>();
+                    for (var i = 0; i < viewIds.Count; i++)
                     {
-#if REVIT2024_OR_GREATER
-                        var viewEid = new ElementId(vid);
-#else
-                        var viewEid = new ElementId((int)vid);
-#endif
-                        if (Viewport.CanAddViewToSheet(doc, sheet.Id, viewEid))
-                        {
-                            var vp = Viewport.Create(doc, sheet.Id, viewEid, new XYZ(0.5, 0.5, 0));
-                            placedViews.Add(new { viewId = vid, viewportId = ToolHelpers.GetElementIdValue(vp.Id), success = true });
-                        }
-                        else
-                        {
-                            placedViews.Add(new { viewId = vid, viewportId = (long?)null, success = false });
-                        }
+                        placedViews.Add(SheetFrame.PlaceCentred(
+                            doc, sheet, ToolHelpers.ToElementId(viewIds[i]), cells[i]));
                     }
+                    outsideFrame += SheetFrame.CountOutsideFrame(placedViews);
 
                     results.Add(new
                     {
@@ -88,6 +95,7 @@ public class BatchCreateSheetsTool : ICortexTool
                         number = sheet.SheetNumber,
                         name = sheet.Name,
                         success = true,
+                        frameOutlineMm = SheetFrame.Describe(frame),
                         placedViews
                     });
                 }
@@ -101,16 +109,105 @@ public class BatchCreateSheetsTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
+            // A viewport that overflows the frame is only visible by opening the sheet.
+            // Surface it here rather than reporting an unqualified success.
             return CortexResult<object>.Ok(new
             {
                 createdCount = results.Count(r => ((dynamic)r).success),
-                sheets = results
+                sheets = results,
+                viewportsOutsideFrame = outsideFrame,
+                warnings = outsideFrame == 0
+                    ? Array.Empty<string>()
+                    : new[]
+                    {
+                        $"{outsideFrame} viewport(s) are larger than the sheet frame and draw outside the "
+                        + "border. Crop those views first: paper size = crop size / view scale."
+                    }
             });
         }
         catch (Exception ex)
         {
             return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Reports what would be created without touching the model: the resolved title block
+    /// per sheet, the views that would be placed, and any sheet number already taken —
+    /// Revit rejects a duplicate number, and finding that out mid-batch leaves half a set.
+    /// </summary>
+    private static CortexResult<object> Preview(
+        Document doc, List<JObject> sheetsArray, ElementId defaultTbId, string? defaultTitleBlockName)
+    {
+        var existingNumbers = new HashSet<string>(
+            new FilteredElementCollector(doc)
+                .OfClass(typeof(ViewSheet))
+                .Cast<ViewSheet>()
+                .Select(s => s.SheetNumber),
+            StringComparer.OrdinalIgnoreCase);
+
+        // A view already placed on a sheet cannot be placed again. CanAddViewToSheet needs a
+        // real sheet id, which does not exist yet in a preview, so the check is done against
+        // the existing viewports instead.
+        var viewsOnSheets = new Dictionary<long, string>();
+        foreach (var vp in new FilteredElementCollector(doc).OfClass(typeof(Viewport)).Cast<Viewport>())
+        {
+            var host = doc.GetElement(vp.SheetId) as ViewSheet;
+            viewsOnSheets[ToolHelpers.GetElementIdValue(vp.ViewId)] = host?.SheetNumber ?? "?";
+        }
+
+        var planned = new List<object>();
+        foreach (var sheetDef in sheetsArray)
+        {
+            var number = sheetDef["number"]?.Value<string>();
+            var name = sheetDef["name"]?.Value<string>();
+            var tbName = sheetDef["titleBlockName"]?.Value<string>();
+            var viewIds = sheetDef["viewIds"]?.ToObject<List<long>>() ?? new List<long>();
+
+            var tbId = !string.IsNullOrEmpty(tbName) ? ResolveTitleBlock(doc, tbName) : defaultTbId;
+            var tb = tbId != ElementId.InvalidElementId ? doc.GetElement(tbId) as FamilySymbol : null;
+
+            var views = viewIds.Select(vid =>
+            {
+                var view = doc.GetElement(ToolHelpers.ToElementId(vid)) as View;
+                var onSheet = viewsOnSheets.TryGetValue(vid, out var hostNumber) ? hostNumber : null;
+                return (object)new
+                {
+                    viewId = vid,
+                    found = view != null,
+                    viewName = view?.Name,
+                    viewScale = view?.Scale,
+                    cropActive = view?.CropBoxActive,
+                    alreadyOnSheet = onSheet != null,
+                    alreadyOnSheetNumber = onSheet
+                };
+            }).ToList();
+
+            planned.Add(new
+            {
+                number,
+                name,
+                titleBlock = tb != null ? $"{tb.FamilyName}: {tb.Name}" : null,
+                titleBlockFound = tb != null,
+                numberAlreadyUsed = !string.IsNullOrEmpty(number) && existingNumbers.Contains(number!),
+                viewCount = viewIds.Count,
+                views
+            });
+        }
+
+        var blocked = planned.Count(p => ((dynamic)p).numberAlreadyUsed || !((dynamic)p).titleBlockFound);
+
+        return CortexResult<object>.Ok(new
+        {
+            dryRun = true,
+            message = $"DryRun: {sheetsArray.Count} sheet(s) would be created"
+                    + (blocked > 0 ? $", {blocked} blocked (duplicate number or missing title block)" : "")
+                    + ". Set dryRun=false to execute.",
+            wouldCreateCount = sheetsArray.Count - blocked,
+            blockedCount = blocked,
+            defaultTitleBlock = defaultTitleBlockName,
+            sheets = planned
+        });
     }
 
     private static ElementId ResolveTitleBlock(Document doc, string? name)

@@ -18,33 +18,6 @@ Les appels transitent uniquement entre le client MCP, le serveur stdio et le
 processus Revit de l'utilisateur courant. Les écritures Revit restent dans des
 transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
 
-## Fonctions ajoutées
-
-- capacités serveur et contrat d'exécution (`get_server_capabilities`) ;
-- création de murs avec aperçu et validation des niveaux/décalages réels ;
-- création de portes et fenêtres sur familles réellement présentes dans le projet ;
-- garde-corps natifs (`create_railing`) ;
-- association d'un mur à son mur hôte, Revit 2027 uniquement (`set_wall_host`) ;
-- sélection temporaire stable (`capture_selection`) et scopes bulk explicites ;
-- synchronisation localisée via `BuiltInParameter` ;
-- recherches paginées avec modes résumé, IDs et détails ;
-- duplication transactionnelle d'étage (`duplicate_storey`) ;
-- contraintes/attaches de murs et gestion contrôlée des groupes ;
-- diagnostics Revit normalisés et audit entrée/sortie ;
-- sauvegarde et sauvegarde sous du projet actif (`save_document`,
-  `save_as_document`), avec aperçu `dryRun` ;
-- énumération des types système (`list_system_types`) : murs, sols, plafonds,
-  toits, garde-corps, escaliers, cartouches ;
-- lignes de détail, lignes de modèle et séparations de pièces
-  (`create_detail_line`, `create_model_line`, `create_room_separation_line`) ;
-- pose d'un cartouche sur une feuille existante (`place_title_block`) ;
-- création d'un **projet vierge** depuis un gabarit `.rte` (`create_document`) et
-  ouverture/activation d'un fichier (`open_document`) ;
-- **escaliers** par composant entre deux niveaux, volées droites et paliers
-  automatiques (`create_stair`) ;
-- édition des membres d'un groupe dans les limites de l'API
-  (`edit_group_members`).
-
 ## Contrat de réponse
 
 - noms de paramètres résolus en anglais **ou** dans la langue du document
@@ -58,32 +31,83 @@ transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
   démarrage de chaque session Revit, et aucun outil ne peut le lever ;
   `execution.cached` signale une réponse issue du cache.
 
-- corrections issues de la campagne de tests :
-  [docs/MCP_AGENT_FIXES.md](docs/MCP_AGENT_FIXES.md) ;
-- lecture de l'audit de la surface d'outils et ordre de chantier :
-  [docs/AUDIT_OUTILS.md](docs/AUDIT_OUTILS.md) ;
-- inventaire des 196 outils, effet par effet, avec les défauts probables et les
-  capacités API non outillées : [docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md),
-  ou la même matière filtrable dans [docs/inventaire.html](docs/inventaire.html).
-  Les deux sont générés par `tools/audit-tool-surface.py`.
+## Documentation
 
-## Compiler et installer
+Séparée par usage. Vous n'avez besoin que d'une colonne à la fois.
 
-Prérequis : .NET SDK 10 et Revit 2026.5+ ou 2027.
+**Se servir du connecteur**
+
+| Document | Quand |
+|---|---|
+| [docs/utilisation/USER_GUIDE.md](docs/utilisation/USER_GUIDE.md) | Installation, verrou d'écriture, gestes courants |
+| [docs/utilisation/IFC.md](docs/utilisation/IFC.md) | Export, liaison, reconstruction d'IFC en éléments natifs |
+| [docs/utilisation/SECURITY.md](docs/utilisation/SECURITY.md) | Ce que le connecteur s'autorise, et ce qui l'en empêche |
+
+**Développer dessus**
+
+| Document | Quand |
+|---|---|
+| [AGENTS.md](AGENTS.md) | **À lire en premier.** Architecture, contrat à deux faces, verrou d'écriture. Les agents de code le chargent automatiquement comme instructions projet |
+| [docs/developpement/AUDIT_OUTILS.md](docs/developpement/AUDIT_OUTILS.md) | État de la surface d'outils : ce qui a cassé, ce qui reste, dans quel ordre |
+| [docs/developpement/PROTOCOLE_TEST.md](docs/developpement/PROTOCOLE_TEST.md) | Vérifier une version sur maquette — ce que `dotnet test` ne couvre pas |
+
+**Référence commune**
+
+[docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md) — les 196 outils, effet par
+effet, avec les défauts connus et les capacités API non outillées. Généré par
+`tools/audit-tool-surface.py`, jamais édité à la main.
+
+La liste des outils n'est pas recopiée ici. Elle l'a été, sous forme de section
+« Fonctions ajoutées » tenue à la main, et elle a cessé d'être tenue : il y manquait
+seize capacités. L'inventaire généré est la seule liste exacte par construction.
+
+## Installer
+
+Téléchargez `RiveTT-Setup-<version>.exe` et lancez-le. **Aucun droit administrateur
+n'est demandé** : le manifeste de l'installateur est `asInvoker`, Windows n'affiche
+donc jamais d'invite UAC.
+
+Il détecte les Revit présents et n'installe que pour ceux-là :
+
+| Revit | Pris en charge |
+|---|---|
+| 2026.5 et supérieur | oui |
+| 2026.0 à 2026.4 | **non** — tourne sur .NET 8, l'installateur le dit et s'arrête |
+| 2027.x | oui |
+
+La détection lit la version de `Revit.exe`, pas le registre : la valeur `Version`
+du registre garde celle de l'installation d'origine et affiche encore
+`26.0.4.409` sur un poste réellement en 2026.5.
+
+Pour préparer un poste où Revit n'est pas encore installé :
+`RiveTT-Setup-<version>.exe /REVIT=2026,2027`.
+
+## Compiler
+
+Prérequis : .NET SDK 10, et [Inno Setup 6](https://jrsoftware.org/isdl.php) pour
+produire l'installateur (`winget install JRSoftware.InnoSetup --scope user`).
 
 ```powershell
 cd RiveTT
-.\build.ps1                              # Revit 2027 par défaut
-.\distribution\install.ps1
-
-# Pour Revit 2026.5 :
-.\build.ps1 -RevitVersion 2026
-.\distribution\install.ps1 -RevitYear 2026
+.\build.ps1                              # les deux cibles Revit + l'installateur
+.\build.ps1 -RevitVersion 2027           # une seule cible
+.\build.ps1 -SkipInstaller               # binaires seuls, sans Inno Setup
 ```
 
+Tout ce qui est généré atterrit dans `dist\` (ignoré par git) :
+
+    dist\2026\plugin\   add-in compilé contre Revit 2026.5
+    dist\2027\plugin\   add-in compilé contre Revit 2027
+    dist\server\        RiveTT.Server.exe, autonome, partagé par les deux
+    dist\RiveTT-Setup-<version>.exe
+
+Le serveur ne référence pas l'API Revit : il est compilé une fois et partagé. Il est
+**autonome** (~38 Mo) et n'exige aucun runtime .NET installé — c'était la seule pièce
+qui aurait imposé des droits administrateur.
+
 L'installation est par utilisateur dans
-`%APPDATA%\Autodesk\Revit\Addins\<2026|2027>\RiveTT` et ne demande pas de droits
-administrateur. Elle prépare le serveur dans `%LOCALAPPDATA%\RiveTT\server`.
+`%APPDATA%\Autodesk\Revit\Addins\<2026|2027>\RiveTT`, le serveur dans
+`%LOCALAPPDATA%\RiveTT\server`.
 
 Pour enregistrer le serveur dans Codex :
 
@@ -91,9 +115,13 @@ Pour enregistrer le serveur dans Codex :
 codex mcp add RiveTT -- "%LOCALAPPDATA%\RiveTT\server\RiveTT.Server.exe"
 ```
 
-Fermez Revit avant une réinstallation. Ouvrez ensuite Revit et un projet :
-la session est publiée automatiquement et le serveur MCP la découvre sans
-configuration de port.
+Revit n'a **pas** besoin d'être fermé pour une mise à jour : l'installateur renomme
+les fichiers verrouillés en `.old-<horodatage>` et écrit les neufs à leur place.
+Redémarrez Revit ensuite — l'instance en cours garde l'ancien code en mémoire. Il faut
+en revanche le fermer pour **désinstaller**.
+
+Ouvrez Revit et un projet : la session est publiée automatiquement et le serveur MCP
+la découvre sans configuration de port.
 
 ## Vérifier
 
@@ -102,8 +130,11 @@ dotnet test .\src\RiveTT.Tests\RiveTT.Tests.csproj -c Release
 dotnet build .\RiveTT.sln -c Release
 ```
 
-Le build compile les DLL du plugin, les outils et le serveur, puis prépare le
-paquet dans `distribution`.
+13 échecs sont attendus hors poste Revit : ces tests chargent `RevitAPI.dll` à
+l'exécution, et le paquet NuGet ne fournit qu'un assembly de référence.
+
+`.uild.ps1` compile les deux cibles, publie le serveur et produit l'installateur
+dans `dist\`.
 
 ## Contribuer
 

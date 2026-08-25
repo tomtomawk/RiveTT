@@ -112,14 +112,15 @@ public static class MaterialTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "delete_material"), Description("Delete a material from the project by ID or name.")]
+    [McpServerTool(Name = "delete_material"), Description("Delete a material from the project by ID or name. Previews by default: the dry run names the material and reports the deletion cascade. Set dryRun=false to execute.")]
     public static async Task<string> DeleteMaterial(
         RevitConnectionManager revit,
         [Description("Material element ID (alternative to materialName)")] long? materialId = null,
         [Description("Material name (alternative to materialId)")] string? materialName = null,
+        [Description("Preview without deleting. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject();
+        var p = new JObject { ["dryRun"] = dryRun };
         if (materialId != null) p["materialId"] = materialId;
         if (materialName != null) p["materialName"] = materialName;
         var result = await revit.ExecuteAsync("delete_material", p, ct);

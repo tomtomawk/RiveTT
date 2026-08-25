@@ -121,36 +121,57 @@ public class CreateDimensionsTool : ICortexTool
         Document doc, View view, JArray elementIds, JObject spec,
         List<long> createdIds, List<string> warnings)
     {
-        var refs = new ReferenceArray();
-        XYZ? firstCenter = null;
-        XYZ? lastCenter = null;
-
+        // Two passes on purpose. The measurement direction is only known once every
+        // element centre is known, and the reference to pick on each element DEPENDS on
+        // that direction: dimensioning two parallel walls means taking the faces that
+        // face each other, not whichever face the geometry iterator yields first.
+        //
+        // The single-pass version took `the first face with a Reference` on each element.
+        // Between two walls 7000 mm apart that measured two arbitrary, often
+        // perpendicular faces, and Revit answered with a degenerate segment — a constant
+        // -304.8 mm (-1 ft) per segment, identical whatever the real gap.
+        var resolved = new List<(long Id, Element Element, XYZ Centre)>();
         foreach (var idToken in elementIds)
         {
             var eid = idToken.Value<long>();
-#if REVIT2024_OR_GREATER
-            var elem = doc.GetElement(new ElementId(eid));
-#else
-            var elem = doc.GetElement(new ElementId((int)eid));
-#endif
+            var elem = doc.GetElement(ToolHelpers.ToElementId(eid));
             if (elem == null)
             {
                 warnings.Add($"Element {eid} not found, skipping");
                 continue;
             }
+            resolved.Add((eid, elem, GetElementCenter(elem)));
+        }
 
-            var reference = GetBestReference(elem, view);
+        if (resolved.Count < 2)
+        {
+            warnings.Add("Need at least 2 valid elements for a dimension "
+                       + $"({resolved.Count} of {elementIds.Count} resolved)");
+            return;
+        }
+
+        var firstCenter = resolved[0].Centre;
+        var lastCenter = resolved[^1].Centre;
+        var span = lastCenter - firstCenter;
+
+        if (span.GetLength() < 1e-6)
+        {
+            warnings.Add("The elements share the same centre, so there is no direction to "
+                       + "measure along. Dimension not created.");
+            return;
+        }
+        var dir = span.Normalize();
+
+        var refs = new ReferenceArray();
+        foreach (var (eid, elem, _) in resolved)
+        {
+            var reference = GetBestReference(elem, view, dir);
             if (reference == null)
             {
                 warnings.Add($"Cannot find dimensionable reference for element {eid}");
                 continue;
             }
-
             refs.Append(reference);
-
-            var center = GetElementCenter(elem);
-            if (firstCenter == null) firstCenter = center;
-            lastCenter = center;
         }
 
         if (refs.Size < 2)
@@ -168,24 +189,26 @@ public class CreateDimensionsTool : ICortexTool
         }
         else
         {
-            // Offset from midpoint
-            var mid = (firstCenter! + lastCenter!) / 2.0;
-            linePoint = mid + view.UpDirection * (3.0 / MmPerFoot * 1000); // 3 feet offset
+            // Offset the dimension line clear of the elements. 2000 mm, converted once:
+            // the previous expression was 3.0 / 304.8 * 1000 with a comment claiming
+            // "3 feet offset", and actually produced 9.84 feet.
+            var mid = (firstCenter + lastCenter) / 2.0;
+            linePoint = mid + view.UpDirection * (2000.0 / MmPerFoot);
         }
 
-        var dimLine = Line.CreateBound(firstCenter!, lastCenter!);
-        // Project dimension line through the offset point
-        var dir = (lastCenter! - firstCenter!).Normalize();
-        var projectedStart = linePoint - dir * 1000;
-        var projectedEnd = linePoint + dir * 1000;
+        // A bound line along the measurement direction, through the offset point, long
+        // enough to cover the span with a margin. It used to extend `dir * 1000` each way
+        // — Revit works in FEET, so that was a 610 m dimension line.
+        var half = span.GetLength() / 2.0 + (500.0 / MmPerFoot);
+        Line dimLine;
         try
         {
-            dimLine = Line.CreateBound(projectedStart, projectedEnd);
+            dimLine = Line.CreateBound(linePoint - dir * half, linePoint + dir * half);
         }
         catch
         {
             // fallback: use element centers line
-            dimLine = Line.CreateBound(firstCenter!, lastCenter!);
+            dimLine = Line.CreateBound(firstCenter, lastCenter);
         }
 
         var dim = doc.Create.NewDimension(view, dimLine, refs);
@@ -221,9 +244,23 @@ public class CreateDimensionsTool : ICortexTool
             return;
         }
 
-        // For point-to-point dimensions we need detail lines as references.
-        var detailLine1 = doc.Create.NewDetailCurve(view, Line.CreateBound(p0, p0 + XYZ.BasisZ * 0.01));
-        var detailLine2 = doc.Create.NewDetailCurve(view, Line.CreateBound(p1, p1 + XYZ.BasisZ * 0.01));
+        // A detail curve must lie IN the view's plane, so both anchors are projected onto
+        // it first. Whatever z the caller passes is therefore irrelevant, which is worth
+        // knowing: trying z=0 and then the level elevation both failed before, because
+        // the z was never the problem.
+        var normal = view.ViewDirection;
+        p0 -= normal * normal.DotProduct(p0 - view.Origin);
+        p1 -= normal * normal.DotProduct(p1 - view.Origin);
+
+        // The anchor tick must ALSO lie in the view plane. It used to run along
+        // XYZ.BasisZ, which is perpendicular to a plan view's plane — Revit rejected
+        // every point-to-point dimension with "Curve must be in the plane", at any z.
+        // UpDirection is in-plane by construction, and perpendicular to a horizontal
+        // measurement, which is where a witness line belongs.
+        var tick = view.UpDirection.Multiply(10.0 / MmPerFoot);
+
+        var detailLine1 = doc.Create.NewDetailCurve(view, Line.CreateBound(p0, p0 + tick));
+        var detailLine2 = doc.Create.NewDetailCurve(view, Line.CreateBound(p1, p1 + tick));
 
         // The two anchor detail lines are only useful while the dimension that
         // references them exists. Without cleanup they accumulate as invisible
@@ -240,7 +277,9 @@ public class CreateDimensionsTool : ICortexTool
             var linePointToken = spec["linePoint"];
             XYZ linePoint = linePointToken != null
                 ? ParseXYZ(linePointToken)
-                : (p0 + p1) / 2.0 + view.UpDirection * (2.0 / MmPerFoot * 1000);
+                // 2000 mm, converted once. The old expression read 2.0 / 304.8 * 1000,
+                // which is 6.56 feet, not the 2 it looked like.
+                : (p0 + p1) / 2.0 + view.UpDirection * (2000.0 / MmPerFoot);
 
             var dimLine = Line.CreateBound(p0, p1);
             var dim = doc.Create.NewDimension(view, dimLine, refs);
@@ -279,42 +318,69 @@ public class CreateDimensionsTool : ICortexTool
         }
     }
 
-    private static Reference? GetBestReference(Element elem, View view)
+    /// <summary>
+    /// The reference to dimension this element by, chosen for the direction being
+    /// measured: the planar face whose normal is most parallel to <paramref name="direction"/>.
+    ///
+    /// A linear dimension only means something between faces that face each other. Taking
+    /// the first face the geometry iterator happens to yield gave two arbitrary,
+    /// frequently perpendicular faces, and Revit produced a degenerate segment — a
+    /// constant -1 ft whatever the real distance.
+    ///
+    /// A face perpendicular to the direction (|dot| near 0) is the worst possible pick and
+    /// is what the old code kept landing on; the best is |dot| near 1.
+    /// </summary>
+    private static Reference? GetBestReference(Element elem, View view, XYZ direction)
     {
         var options = new Options { View = view, ComputeReferences = true };
         var geom = elem.get_Geometry(options);
         if (geom == null) return null;
 
+        Reference? best = null;
+        var bestScore = -1.0;
+        Reference? fallback = null;
+
+        void Consider(Solid solid)
+        {
+            foreach (Face face in solid.Faces)
+            {
+                if (face.Reference == null) continue;
+                fallback ??= face.Reference;
+
+                // Only a planar face has a single meaningful normal; a curved one cannot
+                // be dimensioned to reliably.
+                if (face is not PlanarFace planar) continue;
+
+                var score = Math.Abs(planar.FaceNormal.DotProduct(direction));
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = face.Reference;
+                }
+            }
+        }
+
         foreach (var obj in geom)
         {
             if (obj is Solid solid)
             {
-                foreach (Face face in solid.Faces)
-                {
-                    if (face.Reference != null)
-                        return face.Reference;
-                }
+                Consider(solid);
             }
             else if (obj is Line line && line.Reference != null)
             {
-                return line.Reference;
+                fallback ??= line.Reference;
             }
             else if (obj is GeometryInstance gi)
             {
                 foreach (var innerObj in gi.GetInstanceGeometry())
-                {
                     if (innerObj is Solid innerSolid)
-                    {
-                        foreach (Face face in innerSolid.Faces)
-                        {
-                            if (face.Reference != null)
-                                return face.Reference;
-                        }
-                    }
-                }
+                        Consider(innerSolid);
             }
         }
-        return null;
+
+        // A face roughly perpendicular to the measurement is not worth returning as if it
+        // were a choice; below ~30 degrees off-axis the dimension is meaningless anyway.
+        return bestScore > 0.5 ? best : (best ?? fallback);
     }
 
     private static XYZ GetElementCenter(Element elem)

@@ -87,4 +87,52 @@ public static class ToolHelpers
     {
         return input["dryRun"]?.Value<bool>() ?? defaultValue;
     }
+
+    /// <summary>
+    /// The view a view-scoped tool should act on: <c>viewId</c> when given, otherwise the
+    /// document's active view.
+    ///
+    /// Tools that only ever read doc.ActiveView cannot be driven from outside — nothing in
+    /// the MCP surface activates a view, so an agent had to ask a human to click the right
+    /// tab before every call. Accepting viewId removes that round trip and makes the
+    /// operation reproducible.
+    /// </summary>
+    /// <param name="error">Set when no usable view could be resolved; the tool returns it.</param>
+    public static View? ResolveTargetView(Document doc, JObject input, out CortexResult<object>? error)
+    {
+        error = null;
+        var viewId = input["viewId"]?.Value<long?>();
+
+        if (viewId is > 0)
+        {
+            var element = doc.GetElement(ToElementId(viewId.Value));
+            if (element is not View requested)
+            {
+                error = CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    $"viewId {viewId} is not a view (found: {element?.GetType().Name ?? "nothing"}).",
+                    suggestion: "Pass the element id of a view, or omit viewId to use the active view.");
+                return null;
+            }
+
+            // A template is not a place to put annotations, and neither is a sheet.
+            if (requested.IsTemplate)
+            {
+                error = CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    $"'{requested.Name}' is a view TEMPLATE, not a view.",
+                    suggestion: "Pass a real view; apply_view_template edits templates.");
+                return null;
+            }
+
+            return requested;
+        }
+
+        var active = doc.ActiveView;
+        if (active == null)
+        {
+            error = CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                "No active view in the document, and no viewId was given.",
+                suggestion: "Pass viewId explicitly.");
+        }
+        return active;
+    }
 }

@@ -6,8 +6,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>false</SelfContained>
     <AssemblyName>RiveTT.Server</AssemblyName>
+    <!-- SELF-CONTAINED ON PURPOSE. This is the only piece of RiveTT that runs as its own
+         process; the plugin runs inside Revit, which brings its own .NET 10. Framework
+         dependent, this exe needs the .NET 10 runtime in C:\Program Files\dotnet — and
+         installing THAT requires local admin, which is exactly what the per-user
+         installer exists to avoid. One 38 MB single file removes the dependency and the
+         admin prompt with it.
+         Do NOT add PublishTrimmed: the MCP SDK and Newtonsoft.Json resolve types by
+         reflection, and trimming silently breaks tool serialisation. -->
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>

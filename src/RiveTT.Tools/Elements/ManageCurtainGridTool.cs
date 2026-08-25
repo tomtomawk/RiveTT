@@ -67,13 +67,19 @@ public class ManageCurtainGridTool : ICortexTool
         }
     }
 
-    /// <summary>Curtain grids are read from the host, not looked up by id.</summary>
+    /// <summary>
+    /// Curtain grids are read from the host, not looked up by id. A Wall has ONE grid
+    /// (`CurtainGrid`); a CurtainSystem has one PER FACE (`CurtainGrids`, a
+    /// CurtainGridSet that is null when the system carries none), so the singular
+    /// property does not exist there. Only the first face is addressed here — a
+    /// multi-face system needs a face selector, which the tool does not publish.
+    /// </summary>
     private static CurtainGrid? GetCurtainGrid(Element? host)
     {
         return host switch
         {
             Wall wall => wall.CurtainGrid,
-            CurtainSystem system => system.CurtainGrid,
+            CurtainSystem system => system.CurtainGrids?.Cast<CurtainGrid>().FirstOrDefault(),
             _ => null
         };
     }
