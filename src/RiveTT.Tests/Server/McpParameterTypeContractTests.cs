@@ -67,8 +67,12 @@ public class McpParameterTypeContractTests
         var tools = McpTools().ToList();
 
         // Sanity: if reflection stops finding the tools, the test above would pass
-        // vacuously and the guard would be worthless.
-        Assert.True(tools.Count > 250, $"Only {tools.Count} MCP tools discovered by reflection.");
+        // vacuously and the guard would be worthless. The floor was 250 when the surface
+        // still carried the Rebar and StructuralSteel tools; removing those 112 left 196
+        // and the floor outlived them, failing the build on a surface that was correct.
+        // Keep it well under the real count — this asserts "reflection still works", not
+        // a tool budget.
+        Assert.True(tools.Count > 150, $"Only {tools.Count} MCP tools discovered by reflection.");
         Assert.All(tools, tool => Assert.False(string.IsNullOrWhiteSpace(tool.ToolName)));
     }
 
