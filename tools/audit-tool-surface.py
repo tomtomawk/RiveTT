@@ -28,9 +28,10 @@ d'architecture — logement, equipement, tertiaire, sante — pas une propriete 
 code. Il vit dans les listes TIER5/TIER4/TIER2 ci-dessous et se corrige en les
 editant.
 
-Le script ecrit deux sorties depuis les memes donnees : docs/INVENTAIRE_OUTILS.md
-et docs/inventaire.html, page autonome filtrable rendue depuis
-tools/inventory-template.html. Les deux sont versionnees.
+Le script ecrit une seule sortie, docs/INVENTAIRE_OUTILS.md, versionnee. Une page
+HTML autonome a existe en parallele : meme matiere, second format, regeneree et
+versionnee en meme temps, pour un diff illisible en revue. Le Markdown est la forme
+canonique parce qu'il se relit dans une pull request.
 """
 import collections
 import datetime
@@ -45,7 +46,6 @@ ROOT = os.path.dirname(HERE)
 SERVER = os.path.join(ROOT, "src", "RiveTT.Server", "Tools")
 RUNTIME = os.path.join(ROOT, "src", "RiveTT.Tools")
 OUT = os.path.join(ROOT, "docs", "INVENTAIRE_OUTILS.md")
-OUT_HTML = os.path.join(ROOT, "docs", "inventaire.html")
 
 # Prefixes que le routeur considere comme lecture seule quand [ToolSafety] manque.
 # Doit rester aligne sur CortexRouter.ReadOnlyPrefixes.
@@ -615,150 +615,6 @@ def emit(rows):
             "confirmed": len(confirmed), "signals": len(signals)}
 
 
-def emit_html(rows, path):
-    """Rend la meme matiere en page HTML autonome, depuis inventory-template.html.
-
-    Volontairement sans dependance : polices systeme, aucune requete reseau, un
-    seul fichier qui s'ouvre depuis le depot. Le JavaScript ne sert qu'au filtrage
-    et la page reste complete sans lui — toutes les lignes sont dans le HTML.
-    """
-    total = len(rows)
-    by_cat = collections.Counter(r["category"] or "(sans)" for r in rows)
-    off = sum(1 for r in rows if r["category"] in OUT_OF_SCOPE)
-    writes = sum(1 for r in rows if r["readOnly"] is False)
-    no_dry = [r for r in rows if r["readOnly"] is False and not r["hasDryRun"]]
-    no_dry_archi = [r for r in no_dry if r["category"] not in OUT_OF_SCOPE]
-    generic = [r for r in rows if any(m == "erreur générique sans suggestion"
-                                      for _, m in r["flags"])]
-    bbox = [r for r in rows if any(m == "géométrie par boîte englobante"
-                                   for _, m in r["flags"])]
-    mismatch = [r for r in rows if any(m.startswith("classement déclaré")
-                                       for _, m in r["flags"])]
-    confirmed = [r for r in rows if r["sev"] in ("critique", "majeur")]
-    signals = [r for r in rows if r["sev"] == "signal"]
-
-    def esc(text):
-        return (re.sub(r"\s+", " ", text or "").strip()
-                .replace("&", "&amp;").replace("<", "&lt;")
-                .replace(">", "&gt;").replace('"', "&quot;"))
-
-    def rich(text):
-        """esc(), then `code` spans -> <code>. The same strings feed the Markdown
-        document, where the backticks render; on the page they were showing raw."""
-        return re.sub(r"`([^`]+)`", r"<code>\1</code>", esc(text))
-
-    summary = "".join(
-        "<tr><td>%s</td><td class=\"num n\">%s</td></tr>" % (label, value)
-        for label, value in (
-            ("Outils publiés", "<strong>%d</strong>" % total),
-            ("Dont écriture — la part que le verrou du ruban gouverne",
-             "<strong>%d</strong> (%.0f&nbsp;%%)" % (writes, writes / total * 100)),
-            ("Écritures sans <code>dryRun</code>", "<strong>%d</strong>" % len(no_dry)),
-            ("Erreurs génériques <code>Failed: …</code> sans suggestion",
-             "<strong>%d</strong>" % len(generic)),
-            ("Géométrie par boîte englobante", "<strong>%d</strong>" % len(bbox)),
-            ("Classement <code>[ToolSafety]</code> en désaccord avec le nom",
-             "<strong>%d</strong>" % len(mismatch)),
-            ("Défauts critiques et majeurs corrigés", "<strong>%d</strong>" % len(FIXED)),
-            ("Lacunes API comblées depuis le relevé précédent",
-             "<strong>%d</strong> sur 19" % len(COVERED)),
-            ("Défauts confirmés ouverts", "<strong>%d</strong>" % len(confirmed)),
-            ("Signaux à vérifier", "<strong>%d</strong>" % len(signals))))
-
-    dist = "".join(
-        "<tr><td>%s</td><td class=\"num n\">%d</td><td class=\"num n\">%.0f&nbsp;%%</td></tr>"
-        % (esc(cat), count, count / total * 100)
-        for cat, count in by_cat.most_common())
-
-    conf_rows = "".join(
-        "<tr><td><code>%s</code></td><td class=\"sev sev-%s\">%s</td><td>%s</td></tr>"
-        % (esc(r["name"]), r["sev"], r["sev"], rich(r["defect"]))
-        for r in sorted(confirmed, key=lambda r: (SEV_ORDER[r["sev"]], r["name"])))
-
-    sig_rows = "".join(
-        "<tr><td><code>%s</code></td><td>%s</td></tr>"
-        % (esc(r["name"]), rich(r["defect"]))
-        for r in sorted(signals, key=lambda r: r["name"]))
-
-    ordered = sorted(rows, key=lambda r: (SEV_ORDER[r["sev"]], -r["interest"], r["name"]))
-    tool_rows = []
-    for row in ordered:
-        kind = "lecture" if row["readOnly"] else (
-            "ecriture" if row["readOnly"] is False else "?")
-        nature = "lecture" if kind == "lecture" else (
-            "écriture" + (", destructif" if row["destructive"] else "")
-            if kind == "ecriture" else "?")
-        facade = " → <code>%s</code>" % esc(row["runtimeTool"]) if row["facade"] else ""
-        tool_rows.append(
-            "<tr data-cat=\"%s\" data-sev=\"%s\" data-int=\"%d\" data-kind=\"%s\" "
-            "data-txt=\"%s\">"
-            "<td><code>%s</code>%s</td><td>%s</td><td>%s</td><td>%s</td>"
-            "<td class=\"num n\">%d</td><td>%s</td>"
-            "<td><span class=\"sev sev-%s\">%s</span>%s</td></tr>"
-            % (esc(row["category"]), row["sev"] or "none", row["interest"], kind,
-               esc((row["name"] + " " + row["description"] + " " + row["defect"]).lower()),
-               esc(row["name"]), facade, esc(row["category"]) or "—", nature,
-               "oui" if row["hasDryRun"] else ("—" if kind == "lecture" else "non"),
-               row["interest"], esc(cell(row["description"], 220)) or "—",
-               row["sev"] or "none", row["sev"] or "—",
-               (" — " + rich(row["defect"])) if row["defect"] else ""))
-
-    cats = "".join('<option value="%s">%s (%d)</option>' % (esc(c), esc(c), count)
-                   for c, count in by_cat.most_common())
-
-    order = {"haute": 0, "moyenne": 1, "à arbitrer": 2, "basse": 3}
-    gaps = "".join(
-        "<tr><td><strong>%s</strong></td><td><code>%s</code></td><td>%s</td>"
-        "<td>%s</td><td class=\"num\">%s</td></tr>"
-        % (esc(name), esc(api), esc(prio), rich(why), esc(effort))
-        for name, api, prio, why, effort in sorted(GAPS, key=lambda g: (order[g[2]], g[0])))
-
-    fixed_rows = "".join(
-        "<tr><td><code>%s</code></td><td class=\"sev sev-%s\">%s</td><td>%s</td><td>%s</td></tr>"
-        % (esc(name), sev, sev, rich(was), rich(now))
-        for name, sev, was, now in sorted(FIXED, key=lambda f: (SEV_ORDER[f[1]], f[0])))
-
-    covered_rows = "".join(
-        "<tr><td><strong>%s</strong></td><td><code>%s</code></td><td><code>%s</code></td></tr>"
-        % (esc(name), esc(api), esc(tool))
-        for name, api, tool in sorted(COVERED, key=lambda c: c[0]))
-
-    limit_rows = "".join(
-        "<tr><td><strong>%s</strong></td><td><code>%s</code></td><td>%s</td></tr>"
-        % (esc(name), esc(api), rich(why))
-        for name, api, why in sorted(API_LIMITS, key=lambda a: a[0]))
-
-    version = "inconnue"
-    props = os.path.join(ROOT, "Directory.Build.props")
-    if os.path.exists(props):
-        found = re.search(r"<Version>([^<]+)</Version>", read(props))
-        if found:
-            version = found.group(1)
-
-    page = read(os.path.join(HERE, "inventory-template.html"))
-    for token, value in (
-            ("__DATE__", datetime.date.today().isoformat()),
-            ("__VERSION__", version),
-            ("__TOTAL__", str(total)),
-            ("__SUMMARY__", summary),
-            ("__DIST__", dist),
-            ("__FIXED__", fixed_rows),
-            ("__CONFIRMED__", conf_rows),
-            ("__SIGNALS__", sig_rows),
-            ("__CATS__", cats),
-            ("__ROWS__", "".join(tool_rows)),
-            ("__COVERED__", covered_rows),
-            ("__LIMITS__", limit_rows),
-            ("__GAPS__", gaps)):
-        page = page.replace(token, value)
-
-    leftover = sorted(set(re.findall(r"__[A-Z]+__", page)))
-    if leftover:
-        raise SystemExit("jeton non remplace dans le template : %s" % ", ".join(leftover))
-
-    io.open(path, "w", encoding="utf-8", newline="\n").write(page)
-
-
 def main():
     server = load_server()
     runtime = load_runtime()
@@ -767,11 +623,9 @@ def main():
         if os.sep + "obj" + os.sep not in f and os.sep + "bin" + os.sep not in f)
     rows = analyse(server, runtime, corpus)
     stats = emit(rows)
-    emit_html(rows, OUT_HTML)
     print("serveur %d / runtime %d" % (len(server), len(runtime)))
     print(json.dumps(stats, indent=1))
     print("ecrit : %s" % os.path.relpath(OUT, ROOT))
-    print("ecrit : %s" % os.path.relpath(OUT_HTML, ROOT))
 
 
 if __name__ == "__main__":

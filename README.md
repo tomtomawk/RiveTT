@@ -18,33 +18,6 @@ Les appels transitent uniquement entre le client MCP, le serveur stdio et le
 processus Revit de l'utilisateur courant. Les écritures Revit restent dans des
 transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
 
-## Fonctions ajoutées
-
-- capacités serveur et contrat d'exécution (`get_server_capabilities`) ;
-- création de murs avec aperçu et validation des niveaux/décalages réels ;
-- création de portes et fenêtres sur familles réellement présentes dans le projet ;
-- garde-corps natifs (`create_railing`) ;
-- association d'un mur à son mur hôte, Revit 2027 uniquement (`set_wall_host`) ;
-- sélection temporaire stable (`capture_selection`) et scopes bulk explicites ;
-- synchronisation localisée via `BuiltInParameter` ;
-- recherches paginées avec modes résumé, IDs et détails ;
-- duplication transactionnelle d'étage (`duplicate_storey`) ;
-- contraintes/attaches de murs et gestion contrôlée des groupes ;
-- diagnostics Revit normalisés et audit entrée/sortie ;
-- sauvegarde et sauvegarde sous du projet actif (`save_document`,
-  `save_as_document`), avec aperçu `dryRun` ;
-- énumération des types système (`list_system_types`) : murs, sols, plafonds,
-  toits, garde-corps, escaliers, cartouches ;
-- lignes de détail, lignes de modèle et séparations de pièces
-  (`create_detail_line`, `create_model_line`, `create_room_separation_line`) ;
-- pose d'un cartouche sur une feuille existante (`place_title_block`) ;
-- création d'un **projet vierge** depuis un gabarit `.rte` (`create_document`) et
-  ouverture/activation d'un fichier (`open_document`) ;
-- **escaliers** par composant entre deux niveaux, volées droites et paliers
-  automatiques (`create_stair`) ;
-- édition des membres d'un groupe dans les limites de l'API
-  (`edit_group_members`).
-
 ## Contrat de réponse
 
 - noms de paramètres résolus en anglais **ou** dans la langue du document
@@ -58,14 +31,22 @@ transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
   démarrage de chaque session Revit, et aucun outil ne peut le lever ;
   `execution.cached` signale une réponse issue du cache.
 
-- corrections issues de la campagne de tests :
-  [docs/MCP_AGENT_FIXES.md](docs/MCP_AGENT_FIXES.md) ;
-- lecture de l'audit de la surface d'outils et ordre de chantier :
-  [docs/AUDIT_OUTILS.md](docs/AUDIT_OUTILS.md) ;
-- inventaire des 196 outils, effet par effet, avec les défauts probables et les
-  capacités API non outillées : [docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md),
-  ou la même matière filtrable dans [docs/inventaire.html](docs/inventaire.html).
-  Les deux sont générés par `tools/audit-tool-surface.py`.
+## Documentation
+
+| Document | Pour qui, et quand |
+|---|---|
+| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Utiliser le connecteur au quotidien : installation, verrou d'écriture, gestes courants |
+| [docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md) | **Les 196 outils, effet par effet**, avec les défauts connus et les capacités API non outillées. Généré par `tools/audit-tool-surface.py` — ne pas éditer à la main |
+| [docs/AUDIT_OUTILS.md](docs/AUDIT_OUTILS.md) | La lecture de cet inventaire : ce qui a cassé, ce qui reste à faire, dans quel ordre |
+| [docs/RiveTT_IFC_GUIDE.md](docs/RiveTT_IFC_GUIDE.md) | Les 20 outils IFC : export, liaison, reconstruction en éléments natifs |
+| [docs/PROTOCOLE_TEST.md](docs/PROTOCOLE_TEST.md) | Vérifier une version sur maquette réelle — ce que `dotnet test` ne peut pas couvrir |
+| [docs/SECURITY.md](docs/SECURITY.md) | Limites de confiance, journal d'audit, bac à sable du code |
+| [AGENTS.md](AGENTS.md) | Contribuer au code : architecture, contrat à deux faces, verrou d'écriture |
+| [docs/MCP_AGENT_IMPROVEMENTS.md](docs/MCP_AGENT_IMPROVEMENTS.md) · [docs/MCP_AGENT_FIXES.md](docs/MCP_AGENT_FIXES.md) | Historique : anomalies relevées en session Revit, et leur traitement |
+
+La liste des outils n'est pas recopiée ici. Elle l'a été, sous forme de section
+« Fonctions ajoutées » tenue à la main, et elle a cessé d'être tenue : il y manquait
+seize capacités. L'inventaire généré est la seule liste exacte par construction.
 
 ## Installer
 
@@ -121,9 +102,13 @@ Pour enregistrer le serveur dans Codex :
 codex mcp add RiveTT -- "%LOCALAPPDATA%\RiveTT\server\RiveTT.Server.exe"
 ```
 
-Fermez Revit avant une réinstallation. Ouvrez ensuite Revit et un projet :
-la session est publiée automatiquement et le serveur MCP la découvre sans
-configuration de port.
+Revit n'a **pas** besoin d'être fermé pour une mise à jour : l'installateur renomme
+les fichiers verrouillés en `.old-<horodatage>` et écrit les neufs à leur place.
+Redémarrez Revit ensuite — l'instance en cours garde l'ancien code en mémoire. Il faut
+en revanche le fermer pour **désinstaller**.
+
+Ouvrez Revit et un projet : la session est publiée automatiquement et le serveur MCP
+la découvre sans configuration de port.
 
 ## Vérifier
 
@@ -132,8 +117,11 @@ dotnet test .\src\RiveTT.Tests\RiveTT.Tests.csproj -c Release
 dotnet build .\RiveTT.sln -c Release
 ```
 
-Le build compile les DLL du plugin, les outils et le serveur, puis prépare le
-paquet dans `distribution`.
+13 échecs sont attendus hors poste Revit : ces tests chargent `RevitAPI.dll` à
+l'exécution, et le paquet NuGet ne fournit qu'un assembly de référence.
+
+`.uild.ps1` compile les deux cibles, publie le serveur et produit l'installateur
+dans `dist\`.
 
 ## Contribuer
 

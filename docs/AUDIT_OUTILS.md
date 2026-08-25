@@ -13,17 +13,16 @@ L'audit est fait par extraction des sources — attributs `[McpServerTool]` du
 serveur MCP croisés avec les classes `ICortexTool` du runtime — et non à la main.
 Reproductible, et il a trouvé des choses qu'une relecture n'aurait pas vues.
 
-Même matière en page filtrable, dans le dépôt :
-[inventaire.html](inventaire.html) — un seul fichier, polices système, aucune
-requête réseau, recherche et filtres en JavaScript inline. Il s'ouvre hors ligne
-depuis le dépôt et se régénère avec le Markdown :
+Régénérer l'inventaire :
 
 ```powershell
 python tools/audit-tool-surface.py
 ```
 
-Les deux sorties viennent des mêmes données et sont versionnées ; le gabarit est
-`tools/inventory-template.html`.
+Le script écrivait aussi une page HTML filtrable de la même matière. Elle a été
+retirée : deux formats de la même donnée générée, versionnés et régénérés ensemble,
+pour un diff illisible dès qu'une description d'outil changeait. Le Markdown reste
+parce qu'une modification de la surface d'outils doit se relire dans une pull request.
 
 ## Le dépôt ne compilait pas
 
