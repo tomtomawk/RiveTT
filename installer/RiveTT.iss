@@ -277,7 +277,14 @@ begin
   if CurStep <> ssInstall then
     Exit;
 
-  Stamp := GetDateTimeString('yyyymmdd-hhnnss', '-', '');
+  { GetDateTimeString takes CHAR separators, not strings: passing '' raised a
+    "Type Mismatch" runtime error that aborted the whole install at ssInstall.
+    A null char selects the default separator, and the format string carries its
+    own literal dash anyway, with no / or : placeholder for them to apply to.
+    (Keep that null-char literal off the start of a line: the Inno preprocessor
+    runs before Pascal comments are parsed and reads a leading hash as one of its
+    own directives.) }
+  Stamp := GetDateTimeString('yyyymmdd-hhnnss', #0, #0);
 
   { Built element by element rather than as a literal: array literals only compile on
     Inno 6.3 and later, and this must build on whatever the release machine has. }
