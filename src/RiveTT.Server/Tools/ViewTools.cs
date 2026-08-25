@@ -463,14 +463,15 @@ public static class ViewTools
 
     // ── Sheet tools ─────────────────────────────────────────────────────
 
-    [McpServerTool(Name = "batch_create_sheets"), Description("Create multiple sheets with title blocks and optional view placement. sheets is a JSON array: [{number, name, titleBlockName?, viewIds?}].")]
+    [McpServerTool(Name = "batch_create_sheets"), Description("Create multiple sheets with title blocks and optional view placement. sheets is a JSON array: [{number, name, titleBlockName?, viewIds?}]. Each sheet's viewIds are centred in the title block's real frame (the sheet origin is NOT the frame corner) and tiled one per cell when there are several. Previews by default — the dry run reports duplicate sheet numbers and views already placed elsewhere; set dryRun=false to create.")]
     public static async Task<string> BatchCreateSheets(
         RevitConnectionManager revit,
         [Description("JSON array of sheet specs: [{number, name, titleBlockName?, viewIds?}]")] string sheets,
         [Description("Default title block family-type name used when a sheet spec omits titleBlockName")] string? defaultTitleBlockName = null,
+        [Description("Preview without creating anything. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["sheets"] = JArray.Parse(sheets) };
+        var p = new JObject { ["sheets"] = JArray.Parse(sheets), ["dryRun"] = dryRun };
         if (defaultTitleBlockName != null) p["defaultTitleBlockName"] = defaultTitleBlockName;
         var result = await revit.ExecuteAsync("batch_create_sheets", p, ct);
         return result.ToString();
@@ -553,14 +554,15 @@ public static class ViewTools
 
     // ── Schedule tools ──────────────────────────────────────────────────
 
-    [McpServerTool(Name = "delete_schedule"), Description("Delete a schedule by ID or name")]
+    [McpServerTool(Name = "delete_schedule"), Description("Delete a schedule by ID or name. Previews by default: the dry run names the schedule and reports the cascade, including the viewports that placed it on sheets. Set dryRun=false to execute.")]
     public static async Task<string> DeleteSchedule(
         RevitConnectionManager revit,
         [Description("Schedule element ID")] long? scheduleId = null,
         [Description("Schedule name")] string? scheduleName = null,
+        [Description("Preview without deleting. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject();
+        var p = new JObject { ["dryRun"] = dryRun };
         if (scheduleId != null) p["scheduleId"] = scheduleId;
         if (scheduleName != null) p["scheduleName"] = scheduleName;
         var result = await revit.ExecuteAsync("delete_schedule", p, ct);

@@ -101,14 +101,24 @@ plus cher jusqu'ici : <strong>un paramètre publié est-il vraiment lu</strong>.
 <thead><tr><th>Catégorie</th><th class="num">Outils</th><th class="num">Part</th></tr></thead>
 <tbody>__DIST__</tbody>
 </table></div>
-<p class="note">Une agence de 37 personnes en logement, équipement, tertiaire et santé
-n'utilisera jamais __OFFPCT__ % de cette surface. Ces outils ne sont pas neutres : ils
-occupent le catalogue que l'agent lit à chaque session et diluent le choix de l'outil
-juste. Un filtre de catégories au chargement du plugin retirerait __OFF__ outils sans
-supprimer une ligne de code.</p>
+<p class="note">Le ferraillage et la charpente métallique — 112 outils, 38 % de la surface —
+ont été retirés du dépôt, pas filtrés. Ce qui reste est le catalogue que l'agent lit à chaque
+session, entièrement dans le périmètre logement, équipement, tertiaire et santé.</p>
+
+<h2>Défauts corrigés</h2>
+<p>Les huit défauts critiques et majeurs du relevé précédent. Ils restent listés : un
+inventaire qui oublie ce qui a cassé une fois laisse le même défaut revenir sans que
+personne le reconnaisse. <code>ConfirmedDefectFixSourceTests</code> échoue si l'un revient.</p>
+<div class="scroll"><table>
+<thead><tr><th>Outil</th><th>Gravité</th><th>Ce que le code faisait</th>
+<th>Ce qu'il fait maintenant</th></tr></thead>
+<tbody>__FIXED__</tbody>
+</table></div>
 
 <h2>Défauts confirmés</h2>
-<p>Lus dans le code, pas déduits.</p>
+<p>Lus dans le code, pas déduits. Restent deux arbitrages : <code>batch_export</code> et
+<code>workflow_data_roundtrip</code> sont classés lecture seule et écrivent sur le disque —
+le modèle n'est pas touché, mais le verrou du ruban ne les arrête pas.</p>
 <div class="scroll"><table>
 <thead><tr><th>Outil</th><th>Gravité</th><th>Ce que le code fait</th></tr></thead>
 <tbody>__CONFIRMED__</tbody>
@@ -166,20 +176,34 @@ runtime.</p>
 <tbody id="tb">__ROWS__</tbody>
 </table></div>
 
+<h2>Lacunes comblées depuis le relevé précédent</h2>
+<p>Seize des dix-neuf capacités listées comme absentes ont désormais un point d'entrée. Les
+quatre manques dits structurels — toitures, surfaces réglementaires, rampes, trémies — en
+font partie : une maquette de logement peut maintenant être produite de bout en bout par le
+connecteur.</p>
+<div class="scroll"><table>
+<thead><tr><th>Capacité</th><th>API utilisée</th><th>Outil</th></tr></thead>
+<tbody>__COVERED__</tbody>
+</table></div>
+
 <h2>Exposé par l'API Revit, pas encore outillé</h2>
-<p>Vérifié par recherche sur les __TOTAL__ noms d'outils : aucune de ces capacités n'a de
-point d'entrée. Effort : <strong>S</strong> de l'ordre de la journée, <strong>M</strong> de
-la semaine, <strong>L</strong> au-delà.</p>
+<p>Vérifié par recherche de l'API dans <code>src/RiveTT.Tools</code> sur les __TOTAL__
+outils : aucune de ces capacités n'a de point d'entrée. Effort : <strong>S</strong> de
+l'ordre de la journée, <strong>M</strong> de la semaine, <strong>L</strong> au-delà.</p>
 <div class="scroll"><table>
 <thead><tr><th>Capacité absente</th><th>API concernée</th><th>Priorité</th>
 <th>Ce que ça coûte aujourd'hui</th><th>Effort</th></tr></thead>
 <tbody>__GAPS__</tbody>
 </table></div>
-<p class="note">Les nuages de révision, les cotes de niveau, les vues de détail et les
-zones de délimitation sont quatre efforts « S » sur des gestes quotidiens. Les toitures,
-les surfaces réglementaires, les rampes et les trémies sont quatre manques structurels :
-sans eux, une maquette de logement ne peut pas être produite de bout en bout par le
-connecteur.</p>
+<p class="note">Trois manques de priorité basse. Aucun ne bloque une production courante.</p>
+
+<h2>Ce que l'API Revit ne permet pas</h2>
+<p>Ni lacune ni dette : une frontière. Ces capacités ont été réinscrites comme des manques à
+chaque relecture ; elles sont ici pour qu'on cesse de les chercher.</p>
+<div class="scroll"><table>
+<thead><tr><th>Capacité</th><th>API</th><th>Pourquoi c'est fermé</th></tr></thead>
+<tbody>__LIMITS__</tbody>
+</table></div>
 
 <footer>
 Régénérer : <code>python tools/audit-tool-surface.py</code> — écrit cette page et

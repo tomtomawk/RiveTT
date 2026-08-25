@@ -10,7 +10,8 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.Project;
 
 /// <summary>
-/// Deletes a Revit schedule by ID or name.
+/// Deletes a Revit schedule by ID or name. Defaults to dryRun=true — see DeletionPreview
+/// for why the old RequestConfirmation call was not a safety net.
 /// </summary>
 [ToolSafety(false, true)]
 public class DeleteScheduleTool : ICortexTool
@@ -19,7 +20,9 @@ public class DeleteScheduleTool : ICortexTool
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Deletes a Revit schedule by ID or name.";
+    public string Description =>
+        "Deletes a Revit schedule by ID or name. Defaults to dryRun=true: the preview names the schedule and "
+        + "reports the cascade, including the viewports that placed it on sheets. Set dryRun=false to execute.";
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -50,12 +53,18 @@ public class DeleteScheduleTool : ICortexTool
             }
 
             if (schedule == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Schedule not found");
-
-            if (!session.RequestConfirmation("delete schedule", 1))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    "Schedule not found",
+                    suggestion: "List the schedules with get_schedule_data or export_schedule, or pass "
+                              + "scheduleId instead of scheduleName.");
 
             var name = schedule.Name;
+
+            if (ToolHelpers.GetDryRun(input))
+                return DeletionPreview.Build(doc, schedule.Id,
+                    $"Schedule '{name}'",
+                    new { scheduleId = ToolHelpers.GetElementIdValue(schedule.Id), scheduleName = name });
+
             using var tx = new Transaction(doc, "RiveTT: Delete Schedule");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -69,7 +78,9 @@ public class DeleteScheduleTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                $"Failed to delete the schedule: {ex.Message}",
+                suggestion: "Run again with dryRun=true to see what the deletion would cascade to.");
         }
     }
 }

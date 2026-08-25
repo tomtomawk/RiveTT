@@ -186,7 +186,8 @@ manage_view_templates create_view_filter override_graphics export_elements_data
 export_room_data export_to_excel import_from_excel create_dimensions batch_rename
 renumber_elements bulk_modify_parameter_values manage_project_parameters get_materials
 purge_unused check_model_health get_worksets manage_links add_linked_file
-get_linked_elements create_revision get_selected_elements edit_group_members""".split()
+get_linked_elements create_revision get_selected_elements edit_group_members
+manage_area_plans synchronize_with_central""".split()
 
 TIER4 = """duplicate_system_type duplicate_family_type change_element_type
 match_element_properties transfer_parameters add_prefix_suffix clear_parameter_values
@@ -208,13 +209,15 @@ manage_additional_settings create_surface_based_element create_point_based_eleme
 create_line_based_element create_structural_framing_system delete_selection
 delete_material get_element_solid_geometry lines_per_view_count workflow_clash_review
 workflow_data_roundtrip clear_cache get_cache_stats get_linked_file_instances
-get_link_transform""".split()
+get_link_transform create_ramp create_opening create_spot_dimension manage_sheet_sets
+create_key_schedule manage_curtain_grid create_toposolid manage_images
+manage_scope_boxes list_design_options""".split()
 
 TIER2 = """say_hello send_code_to_revit sync_csv_parameters get_elements_by_unique_id
 cross_app_selection show_cross_model_elements highlight_linked_element
 get_coordination_models get_selected_linked_elements pin_unpin_link_instance
 move_link_instance reload_linked_file_from align_link_to_host list_family_sizes
-detach_wall_constraint set_wall_host""".split()
+detach_wall_constraint set_wall_host create_assembly""".split()
 
 # The Rebar and StructuralSteel tool folders (112 tools, 38% of the surface at the
 # time) were removed from the repository entirely rather than filtered — there is
@@ -222,24 +225,11 @@ detach_wall_constraint set_wall_host""".split()
 OUT_OF_SCOPE = ()
 
 # ── defauts confirmes a la lecture du code, qui priment sur les detections
+#
+# Les huit defauts critiques et majeurs du releve du 2026-08-24 sont corriges ; ils
+# sont listes dans FIXED plus bas plutot que supprimes, pour que la regression soit
+# visible si l'un d'eux revient. Ne restent ici que les deux arbitrages ouverts.
 CONFIRMED = {
-    "workflow_sheet_set": ("critique",
-        "`viewIds` est publié dans la spec et jamais lu : les feuilles sortent vides, "
-        "sans aucun signalement."),
-    "batch_create_sheets": ("critique",
-        "fenêtres placées à (0,5 ft ; 0,5 ft) en dur, alors que l'origine de la feuille "
-        "n'est pas le coin du cadre : hors cadre sur le cartouche A1 français."),
-    "workflow_clash_review": ("majeur",
-        "détection par boîtes englobantes alors que `clash_detection` utilise "
-        "l'intersection solide : l'outil composé rend plus de faux positifs que le simple."),
-    "send_code_to_revit": ("majeur", "aucun dryRun sur l'outil le plus puissant."),
-    "delete_selection": ("majeur",
-        "destructif sans dryRun, alors que `delete_element` en a un par défaut."),
-    "delete_material": ("majeur", "destructif sans dryRun."),
-    "delete_schedule": ("majeur", "destructif sans dryRun."),
-    "ifc_set_family_mapping_file": ("majeur",
-        "classé lecture seule alors qu'il modifie un réglage d'export persistant : "
-        "il traverse donc le verrou d'écriture du ruban."),
     "batch_export": ("mineur",
         "classé lecture seule et écrit sur le disque. Volontaire (le modèle n'est pas "
         "touché) mais à arbitrer : le verrou n'empêche pas cet écrit."),
@@ -247,53 +237,98 @@ CONFIRMED = {
         "même cas que `batch_export` : écrit un .xlsx en mode lecture seule."),
 }
 
+# ── defauts corriges, gardes par src/RiveTT.Tests/Tools/ConfirmedDefectFixSourceTests.cs
+# Le tableau du document les rappelle : un inventaire qui oublie ce qui a casse une fois
+# laisse le meme defaut revenir sans que personne le reconnaisse.
+FIXED = [
+    ("workflow_sheet_set", "critique",
+     "`viewIds` était publié dans la spec et jamais lu : les feuilles sortaient vides, sans "
+     "signalement.",
+     "Les `viewIds` sont lus et placés ; la réponse réconcilie `requestedViewCount` et "
+     "`placedViewCount`."),
+    ("batch_create_sheets", "critique",
+     "fenêtres placées à (0,5 ft ; 0,5 ft) en dur, alors que l'origine de la feuille n'est pas "
+     "le coin du cadre : hors cadre sur le cartouche A1 français.",
+     "Le cadre est mesuré sur l'instance de cartouche via `SheetFrame`, partagé avec "
+     "`place_viewport` ; plusieurs vues sont pavées au lieu d'être empilées."),
+    ("workflow_clash_review", "majeur",
+     "détection par boîtes englobantes alors que `clash_detection` utilise l'intersection "
+     "solide : l'outil composé rendait plus de faux positifs que le simple.",
+     "Les deux outils appellent la même passe `ClashFinder` (pré-filtre par boîtes, puis "
+     "`ElementIntersectsElementFilter`)."),
+    ("send_code_to_revit", "majeur",
+     "aucun dryRun sur l'outil le plus puissant, et la description annonçait une confirmation "
+     "dans Revit qui n'existe pas.",
+     "`dryRun` par défaut : la sandbox est vérifiée, rien n'est exécuté ni écrit sur disque. "
+     "La description ne promet plus de dialogue."),
+    ("delete_selection", "majeur",
+     "destructif sans dryRun, alors que `delete_element` en a un par défaut.",
+     "`dryRun` par défaut via `DeletionPreview` ; la réponse précise que seule la liste "
+     "enregistrée est supprimée, pas les éléments."),
+    ("delete_material", "majeur", "destructif sans dryRun.",
+     "`dryRun` par défaut via `DeletionPreview`, qui sonde la cascade réelle."),
+    ("delete_schedule", "majeur", "destructif sans dryRun.",
+     "`dryRun` par défaut via `DeletionPreview`, qui sonde la cascade réelle."),
+    ("ifc_set_family_mapping_file", "majeur",
+     "classé lecture seule alors qu'il modifie un réglage d'export persistant : il traversait "
+     "le verrou d'écriture du ruban.",
+     "Reclassé `[ToolSafety(false, false)]` : il passe désormais par le verrou."),
+]
+
+# Les trois outils de suppression appelaient `session.RequestConfirmation`, une methode de
+# compatibilite qui retourne toujours true : la « confirmation » annoncee dans leur
+# description n'a jamais rien bloque. C'est le dryRun qui la remplace.
+
 SEV_ORDER = {"critique": 0, "majeur": 1, "signal": 2, "mineur": 3, "": 4}
 
 # ── capacites exposees par l'API Revit et non outillees
+#
+# Seize des dix-neuf lacunes du releve precedent sont comblees ; elles sont listees dans
+# COVERED, avec l'outil qui les couvre. Ne restent ici que celles qui n'ont toujours
+# aucun point d'entree — verifiees par recherche de l'API dans src/RiveTT.Tools.
 GAPS = [
-    ("Toitures", "FootPrintRoof, ExtrusionRoof", "haute",
-     "`create_surface_based_element` couvre les sols et les plafonds, pas les toitures. "
-     "Aucune couverture possible en logement.", "M"),
-    ("Plans de surface", "Area, AreaScheme, AreaTag", "haute",
-     "Rien pour les surfaces réglementaires (SHAB, SU, SDP) : `create_room` crée des "
-     "pièces, pas des surfaces.", "M"),
-    ("Rampes", "NewRamp, ou volée à pente nulle", "haute",
-     "`create_stair` existe, aucune rampe. Accessibilité PMR en équipement et santé.", "M"),
-    ("Trémies et réservations", "Document.NewOpening, ShaftOpening", "haute",
-     "Aucun percement de dalle, de mur ou de gaine verticale.", "M"),
-    ("Nuages de révision", "RevisionCloud.Create", "haute",
-     "`create_revision` crée la révision, pas le nuage qui la localise sur le plan.", "S"),
-    ("Cotes de niveau", "SpotDimension.Create", "moyenne",
-     "`create_dimensions` ne fait que les cotes linéaires : ni altimétrie en plan, "
-     "ni cote de niveau en coupe.", "S"),
-    ("Zones de délimitation", "OST_VolumeOfInterest", "moyenne",
-     "Cadrage coordonné des vues, dès qu'un plan est découpé sur plusieurs feuilles.", "S"),
-    ("Vues de détail", "ViewSection.CreateCallout", "moyenne",
-     "`create_view` ne les propose pas alors que `workflow_room_documentation` les crée "
-     "déjà en interne : la capacité est écrite mais pas exposée.", "S"),
-    ("Légendes", "ViewType.Legend", "moyenne",
-     "Aucune vue de légende (nomenclature graphique des cloisons, des menuiseries).", "S"),
-    ("Murs-rideaux", "CurtainGrid, CurtainSystem, Mullion", "moyenne",
-     "Ni création ni redécoupage. Façades tertiaires.", "L"),
-    ("Jeux de feuilles", "ViewSheetSet, PrintManager", "moyenne",
-     "`batch_export` exporte une liste passée à chaque appel ; aucun jeu enregistré.", "S"),
-    ("Toposolides et plateformes", "Toposolid, BuildingPad", "moyenne",
-     "Aucun terrain : plans de masse et sols extérieurs restent manuels.", "M"),
-    ("Options de conception", "DesignOption, DesignOptionSet", "basse",
-     "`get_server_capabilities` détecte leur présence, aucun outil ne les gère.", "M"),
-    ("Synchronisation centrale", "Document.SynchronizeWithCentral", "à arbitrer",
-     "`manage_worksets` gère les sous-projets, pas la synchronisation. Structurant à 37, "
-     "mais une synchro déclenchée par un agent demande une décision explicite.", "M"),
-    ("Nomenclatures de clés", "ScheduleDefinition en mode clé", "basse",
-     "Finitions par pièce, typologies de logement.", "M"),
     ("Repères de texte", "KeynoteTag et table de repères", "basse",
-     "Annotation normalisée par référence plutôt que texte libre.", "M"),
-    ("Images et fonds de plan", "ImageType, ImageInstance", "basse",
-     "Impossible d'insérer un relevé scanné ou un fond de géomètre.", "S"),
+     "Annotation normalisée par référence plutôt que texte libre. Aucune occurrence de "
+     "`Keynote` dans le runtime.", "M"),
     ("Lignes de raccord", "Matchline, ViewBreak", "basse",
-     "Grands linéaires découpés sur plusieurs feuilles.", "S"),
-    ("Assemblages et pièces", "AssemblyInstance, PartUtils", "basse",
-     "Préfabrication et découpe : peu d'usage en conception.", "L"),
+     "Grands linéaires découpés sur plusieurs feuilles. Aucune occurrence de `Matchline`.", "S"),
+    ("Plateformes de construction", "BuildingPad", "basse",
+     "`create_toposolid` couvre le terrain, pas la plateforme décaissée qui s'y inscrit.", "S"),
+]
+
+# ── lacunes comblees depuis le releve precedent, avec l'outil qui les couvre
+COVERED = [
+    ("Toitures", "FootPrintRoof", "create_surface_based_element (OST_Roofs)"),
+    ("Plans de surface", "Area, AreaScheme", "manage_area_plans (SHAB, SU, SDP)"),
+    ("Rampes", "StairsEditScope sur un type OST_Ramps", "create_ramp"),
+    ("Trémies et réservations", "Document.Create.NewOpening", "create_opening (shaft | host | wall)"),
+    ("Nuages de révision", "RevisionCloud.Create", "create_revision (action=create_cloud)"),
+    ("Cotes de niveau", "SpotDimension.Create", "create_spot_dimension"),
+    ("Zones de délimitation", "OST_VolumeOfInterest", "manage_scope_boxes"),
+    ("Vues de détail", "ViewSection.CreateCallout", "create_view (type=callout)"),
+    ("Murs-rideaux", "CurtainGrid, Mullion", "manage_curtain_grid"),
+    ("Jeux de feuilles", "ViewSheetSet", "manage_sheet_sets"),
+    ("Toposolides", "Toposolid", "create_toposolid"),
+    ("Options de conception", "DesignOption", "list_design_options (lecture seule, voir API_LIMITS)"),
+    ("Synchronisation centrale", "Document.SynchronizeWithCentral", "synchronize_with_central"),
+    ("Nomenclatures de clés", "ViewSchedule.CreateKeySchedule", "create_key_schedule"),
+    ("Images et fonds de plan", "ImageType, ImageInstance", "manage_images"),
+    ("Assemblages et pièces", "AssemblyInstance, PartUtils", "create_assembly"),
+]
+
+# ── ce que l'API Revit ne permet pas : ni lacune ni dette, une frontiere
+# A distinguer des lacunes : rien a outiller ici, seulement a dire au bon endroit pour
+# que la capacite ne soit pas re-inscrite comme un manque a chaque relecture.
+API_LIMITS = [
+    ("Légendes", "ViewType.Legend",
+     "L'API ne crée pas de vue de légende de zéro : seul `View.Duplicate()` sur une légende "
+     "existante fonctionne. `create_view` le signale explicitement plutôt que d'échouer."),
+    ("Options de conception", "DesignOption, DesignOptionSet",
+     "Ni jeu ni option ne se créent par l'API, et `DesignOptionSet` n'est même pas un type "
+     "public. `list_design_options` lit ce que la boîte de dialogue Revit a créé."),
+    ("Zones de délimitation", "OST_VolumeOfInterest",
+     "Aucune méthode de création : `manage_scope_boxes` inventorie, renomme, déplace et "
+     "affecte aux vues des boîtes dessinées dans Revit."),
 ]
 
 
@@ -461,10 +496,11 @@ def emit(rows):
     add("| Outils publiés | **%d** |" % total)
     add("| Dont écriture | **%d** (%.0f %%) — c'est la part que le verrou du ruban gouverne |"
         % (writes, writes / total * 100))
-    add("| Ferraillage et charpente métallique | **%d** (%.0f %%), hors périmètre d'une "
-        "agence d'architecture, chargés à chaque session |" % (off, off / total * 100))
-    add("| Écritures sans `dryRun` | **%d**, dont **%d** hors ferraillage, alors que le "
-        "contrat annonce `dryRunDefault: true` |" % (len(no_dry), len(no_dry_archi)))
+    add("| Écritures sans `dryRun` | **%d**, alors que le contrat annonce "
+        "`dryRunDefault: true` |" % len(no_dry))
+    add("| Défauts critiques et majeurs corrigés | **%d**, gardés par "
+        "`ConfirmedDefectFixSourceTests` |" % len(FIXED))
+    add("| Lacunes API comblées depuis le relevé précédent | **%d** sur 19 |" % len(COVERED))
     add("| Erreurs génériques `Failed: …` sans suggestion | **%d** |" % len(generic))
     add("| Géométrie par boîte englobante | **%d** |" % len(bbox))
     add("| Classement `[ToolSafety]` en désaccord avec le nom | **%d** |" % len(mismatch))
@@ -478,18 +514,36 @@ def emit(rows):
     for cat, count in by_cat.most_common():
         add("| %s | %d | %.0f %% |" % (cat, count, count / total * 100))
     add("")
-    add("Une agence de 37 personnes en logement, équipement, tertiaire et santé n'utilisera\n"
-        "jamais %.0f %% de cette surface. Ces outils ne sont pas neutres : ils occupent le\n"
-        "catalogue que l'agent lit à chaque session et diluent le choix de l'outil juste.\n"
-        % (off / total * 100))
+    add("Le ferraillage et la charpente métallique — 112 outils, 38 %% de la surface — ont été\n"
+        "retirés du dépôt, pas filtrés. Ce qui reste est le catalogue que l'agent lit à chaque\n"
+        "session : %d outils dont %.0f %% d'écriture, tous dans le périmètre logement,\n"
+        "équipement, tertiaire et santé.\n" % (total, writes / total * 100))
+
+    add("## Défauts corrigés\n")
+    add("Les huit défauts critiques et majeurs du relevé précédent. Ils restent listés :\n"
+        "un inventaire qui oublie ce qui a cassé une fois laisse le même défaut revenir sans\n"
+        "que personne le reconnaisse. `ConfirmedDefectFixSourceTests` échoue si l'un revient.\n")
+    add("| Outil | Gravité | Ce que le code faisait | Ce qu'il fait maintenant |")
+    add("|---|---|---|---|")
+    for name, sev, was, now in sorted(FIXED, key=lambda f: (SEV_ORDER[f[1]], f[0])):
+        add("| `%s` | %s | %s | %s |" % (cell(name), sev, cell(was), cell(now)))
+    add("")
 
     add("## Défauts confirmés\n")
-    add("Lus dans le code, pas déduits.\n")
-    add("| Outil | Gravité | Ce que le code fait |")
-    add("|---|---|---|")
-    for row in sorted(confirmed, key=lambda r: (SEV_ORDER[r["sev"]], r["name"])):
-        add("| `%s` | %s | %s |" % (row["name"], row["sev"], cell(row["defect"])))
+    if confirmed:
+        add("Lus dans le code, pas déduits.\n")
+        add("| Outil | Gravité | Ce que le code fait |")
+        add("|---|---|---|")
+        for row in sorted(confirmed, key=lambda r: (SEV_ORDER[r["sev"]], r["name"])):
+            add("| `%s` | %s | %s |" % (row["name"], row["sev"], cell(row["defect"])))
+    else:
+        add("Aucun défaut critique ou majeur ouvert.\n")
     add("")
+
+    add("### Arbitrages ouverts\n")
+    add("Deux outils classés lecture seule écrivent sur le disque. Le modèle n'est pas touché,\n"
+        "donc le classement se défend — mais le verrou du ruban ne les arrête pas, et c'est une\n"
+        "décision à prendre, pas un oubli : `batch_export` et `workflow_data_roundtrip`.\n")
 
     add("## Signaux à vérifier\n")
     add("Détection automatique. Un signal n'est pas un défaut : la lecture passe peut-être\n"
@@ -521,21 +575,39 @@ def emit(rows):
                 if row["sev"] else "—"))
         add("")
 
+    add("## Lacunes comblées depuis le relevé précédent\n")
+    add("Seize des dix-neuf capacités listées comme absentes ont désormais un point d'entrée.\n"
+        "Les quatre manques dits structurels — toitures, surfaces réglementaires, rampes,\n"
+        "trémies — en font partie : une maquette de logement peut maintenant être produite de\n"
+        "bout en bout par le connecteur.\n")
+    add("| Capacité | API utilisée | Outil |")
+    add("|---|---|---|")
+    for name, api, tool in sorted(COVERED, key=lambda c: c[0]):
+        # cell() escapes the pipes: "create_opening (shaft | host | wall)" would otherwise
+        # split into three columns.
+        add("| %s | `%s` | `%s` |" % (cell(name), cell(api), cell(tool)))
+    add("")
+
     add("## Exposé par l'API Revit, pas encore outillé\n")
-    add("Vérifié par recherche sur les %d noms d'outils : aucune de ces capacités n'a de\n"
-        "point d'entrée. Priorité jugée sur les spécialités de l'agence. Effort : **S** de\n"
-        "l'ordre de la journée, **M** de la semaine, **L** au-delà.\n" % total)
+    add("Vérifié par recherche de l'API dans `src/RiveTT.Tools` sur les %d outils : aucune de\n"
+        "ces capacités n'a de point d'entrée. Effort : **S** de l'ordre de la journée, **M** de\n"
+        "la semaine, **L** au-delà.\n" % total)
     add("| Capacité absente | API concernée | Priorité | Ce que ça coûte aujourd'hui | Effort |")
     add("|---|---|---|---|---|")
     order = {"haute": 0, "moyenne": 1, "à arbitrer": 2, "basse": 3}
     for name, api, prio, why, effort in sorted(GAPS, key=lambda g: (order[g[2]], g[0])):
-        add("| %s | `%s` | %s | %s | %s |" % (name, api, prio, cell(why), effort))
+        add("| %s | `%s` | %s | %s | %s |" % (cell(name), cell(api), prio, cell(why), effort))
     add("")
-    add("Les nuages de révision, les cotes de niveau, les vues de détail et les zones de\n"
-        "délimitation sont quatre efforts **S** sur des gestes quotidiens. Les toitures, les\n"
-        "surfaces réglementaires, les rampes et les trémies sont quatre manques structurels :\n"
-        "sans eux, une maquette de logement ne peut pas être produite de bout en bout par le\n"
-        "connecteur.\n")
+    add("Trois manques de priorité basse. Aucun ne bloque une production courante.\n")
+
+    add("## Ce que l'API Revit ne permet pas\n")
+    add("Ni lacune ni dette : une frontière. Ces capacités ont été réinscrites comme des\n"
+        "manques à chaque relecture ; elles sont ici pour qu'on cesse de les chercher.\n")
+    add("| Capacité | API | Pourquoi c'est fermé |")
+    add("|---|---|---|")
+    for name, api, why in sorted(API_LIMITS, key=lambda a: a[0]):
+        add("| %s | `%s` | %s |" % (cell(name), cell(api), cell(why)))
+    add("")
 
     io.open(OUT, "w", encoding="utf-8", newline="\n").write("\n".join(out))
     return {"total": total, "writes": writes, "off": off, "noDry": len(no_dry),
@@ -570,22 +642,27 @@ def emit_html(rows, path):
                 .replace("&", "&amp;").replace("<", "&lt;")
                 .replace(">", "&gt;").replace('"', "&quot;"))
 
+    def rich(text):
+        """esc(), then `code` spans -> <code>. The same strings feed the Markdown
+        document, where the backticks render; on the page they were showing raw."""
+        return re.sub(r"`([^`]+)`", r"<code>\1</code>", esc(text))
+
     summary = "".join(
         "<tr><td>%s</td><td class=\"num n\">%s</td></tr>" % (label, value)
         for label, value in (
             ("Outils publiés", "<strong>%d</strong>" % total),
             ("Dont écriture — la part que le verrou du ruban gouverne",
              "<strong>%d</strong> (%.0f&nbsp;%%)" % (writes, writes / total * 100)),
-            ("Ferraillage et charpente métallique, hors périmètre",
-             "<strong>%d</strong> (%.0f&nbsp;%%)" % (off, off / total * 100)),
-            ("Écritures sans <code>dryRun</code>, dont %d hors ferraillage"
-             % len(no_dry_archi), "<strong>%d</strong>" % len(no_dry)),
+            ("Écritures sans <code>dryRun</code>", "<strong>%d</strong>" % len(no_dry)),
             ("Erreurs génériques <code>Failed: …</code> sans suggestion",
              "<strong>%d</strong>" % len(generic)),
             ("Géométrie par boîte englobante", "<strong>%d</strong>" % len(bbox)),
             ("Classement <code>[ToolSafety]</code> en désaccord avec le nom",
              "<strong>%d</strong>" % len(mismatch)),
-            ("Défauts confirmés", "<strong>%d</strong>" % len(confirmed)),
+            ("Défauts critiques et majeurs corrigés", "<strong>%d</strong>" % len(FIXED)),
+            ("Lacunes API comblées depuis le relevé précédent",
+             "<strong>%d</strong> sur 19" % len(COVERED)),
+            ("Défauts confirmés ouverts", "<strong>%d</strong>" % len(confirmed)),
             ("Signaux à vérifier", "<strong>%d</strong>" % len(signals))))
 
     dist = "".join(
@@ -595,12 +672,12 @@ def emit_html(rows, path):
 
     conf_rows = "".join(
         "<tr><td><code>%s</code></td><td class=\"sev sev-%s\">%s</td><td>%s</td></tr>"
-        % (esc(r["name"]), r["sev"], r["sev"], esc(r["defect"]))
+        % (esc(r["name"]), r["sev"], r["sev"], rich(r["defect"]))
         for r in sorted(confirmed, key=lambda r: (SEV_ORDER[r["sev"]], r["name"])))
 
     sig_rows = "".join(
         "<tr><td><code>%s</code></td><td>%s</td></tr>"
-        % (esc(r["name"]), esc(r["defect"]))
+        % (esc(r["name"]), rich(r["defect"]))
         for r in sorted(signals, key=lambda r: r["name"]))
 
     ordered = sorted(rows, key=lambda r: (SEV_ORDER[r["sev"]], -r["interest"], r["name"]))
@@ -624,7 +701,7 @@ def emit_html(rows, path):
                "oui" if row["hasDryRun"] else ("—" if kind == "lecture" else "non"),
                row["interest"], esc(cell(row["description"], 220)) or "—",
                row["sev"] or "none", row["sev"] or "—",
-               (" — " + esc(row["defect"])) if row["defect"] else ""))
+               (" — " + rich(row["defect"])) if row["defect"] else ""))
 
     cats = "".join('<option value="%s">%s (%d)</option>' % (esc(c), esc(c), count)
                    for c, count in by_cat.most_common())
@@ -633,8 +710,23 @@ def emit_html(rows, path):
     gaps = "".join(
         "<tr><td><strong>%s</strong></td><td><code>%s</code></td><td>%s</td>"
         "<td>%s</td><td class=\"num\">%s</td></tr>"
-        % (esc(name), esc(api), esc(prio), esc(why), esc(effort))
+        % (esc(name), esc(api), esc(prio), rich(why), esc(effort))
         for name, api, prio, why, effort in sorted(GAPS, key=lambda g: (order[g[2]], g[0])))
+
+    fixed_rows = "".join(
+        "<tr><td><code>%s</code></td><td class=\"sev sev-%s\">%s</td><td>%s</td><td>%s</td></tr>"
+        % (esc(name), sev, sev, rich(was), rich(now))
+        for name, sev, was, now in sorted(FIXED, key=lambda f: (SEV_ORDER[f[1]], f[0])))
+
+    covered_rows = "".join(
+        "<tr><td><strong>%s</strong></td><td><code>%s</code></td><td><code>%s</code></td></tr>"
+        % (esc(name), esc(api), esc(tool))
+        for name, api, tool in sorted(COVERED, key=lambda c: c[0]))
+
+    limit_rows = "".join(
+        "<tr><td><strong>%s</strong></td><td><code>%s</code></td><td>%s</td></tr>"
+        % (esc(name), esc(api), rich(why))
+        for name, api, why in sorted(API_LIMITS, key=lambda a: a[0]))
 
     version = "inconnue"
     props = os.path.join(ROOT, "Directory.Build.props")
@@ -648,14 +740,15 @@ def emit_html(rows, path):
             ("__DATE__", datetime.date.today().isoformat()),
             ("__VERSION__", version),
             ("__TOTAL__", str(total)),
-            ("__OFFPCT__", "%.0f" % (off / total * 100)),
-            ("__OFF__", str(off)),
             ("__SUMMARY__", summary),
             ("__DIST__", dist),
+            ("__FIXED__", fixed_rows),
             ("__CONFIRMED__", conf_rows),
             ("__SIGNALS__", sig_rows),
             ("__CATS__", cats),
             ("__ROWS__", "".join(tool_rows)),
+            ("__COVERED__", covered_rows),
+            ("__LIMITS__", limit_rows),
             ("__GAPS__", gaps)):
         page = page.replace(token, value)
 
