@@ -56,6 +56,20 @@ SolidCompression=yes
 ; Both Revit targets ship the same ~21 MB of third-party dependencies. Solid
 ; compression is what keeps the package from being twice the size for no reason.
 
+; Restart Manager OFF, and this is load-bearing rather than a tidy-up.
+;
+; Enabled (the default) Inno detects Revit holding the plugin DLLs and tries to CLOSE
+; it before copying. Revit refuses, and setup then asks the user to close it — or, run
+; silently, aborts outright: "Some applications could not be shut down. User canceled
+; the installation process." Measured with Revit open, exit code 5, nothing installed.
+;
+; That defeats the entire point of parking locked files as .old-<stamp> in
+; CurStepChanged, which runs AFTER Restart Manager has already given up. With it off,
+; the rename happens first and the copy lands on a free name, so an update proceeds
+; with Revit open — which is the normal case for an agency updating mid-session.
+CloseApplications=no
+RestartApplications=no
+
 WizardStyle=modern
 ShowLanguageDialog=no
 UninstallDisplayName={#AppName} {#AppVersion}
