@@ -26,10 +26,15 @@ time: it is not multi-targeted, it is rebuilt per target.
       -> CortexRouter
       -> ICortexTool implementations
 
-The C# server is the only server implementation. Generated distribution
-outputs live under `distribution/<year>/plugin` and `distribution/<year>/server`
-(one subfolder per Revit target — see `build.ps1 -RevitVersion`) and are
-never committed.
+The C# server is the only server implementation. Everything generated lives under
+`dist/` and is never committed: `dist/<year>/plugin` per Revit target, plus
+`dist/server` — built ONCE and shared, because the server carries no Revit API
+reference. The installer SOURCE is `installer/RiveTT.iss` and is versioned.
+
+The server is published self-contained. Framework-dependent it would need the
+.NET 10 runtime under Program Files, and installing that requires local admin —
+the one thing the per-user installer exists to avoid. Do not add `PublishTrimmed`:
+the MCP SDK and Newtonsoft.Json resolve types by reflection.
 
 ## The two-sided contract
 
@@ -116,8 +121,13 @@ Consequences for anything you add here:
     dotnet build .\RiveTT.sln -c Release
     .\build.ps1
 
-The last command prepares the ignored distribution binaries and the generated
-addin manifest. Installation is per-user through `distribution/install.ps1`.
+The last command builds every Revit target and compiles the per-user installer
+into `dist/`. Installation is through `dist/RiveTT-Setup-<version>.exe`, which
+requests `asInvoker` and never prompts for elevation.
+
+`build.ps1` is UTF-8 WITH BOM and must stay so: Windows PowerShell 5.1 reads a
+BOM-less script as Windows-1252, and the multi-byte characters then decode into
+curly quotes that it honours as string delimiters.
 
 Behavior that only a live Revit session can prove (geometry, transactions,
 Revit error messages) must still be re-tested manually against a real model —

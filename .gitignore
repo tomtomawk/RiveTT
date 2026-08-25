@@ -7,10 +7,11 @@ obj/
 release/
 publish/
 
-# Generated distribution packages (build.ps1 rebuilds them; never commit binaries)
-# One subfolder per Revit target: distribution/2026/, distribution/2027/.
-distribution/2026/
-distribution/2027/
+# Generated build output (build.ps1 rebuilds all of it; never commit binaries).
+# Everything generated lives under dist/ and nothing else does — the installer SOURCE
+# is installer/RiveTT.iss and stays versioned. The old distribution/ folder mixed the
+# two, which is why it is gone.
+dist/
 
 # Local run logs from deploy/install scripts
 /*.log

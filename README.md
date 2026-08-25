@@ -67,23 +67,53 @@ transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
   ou la même matière filtrable dans [docs/inventaire.html](docs/inventaire.html).
   Les deux sont générés par `tools/audit-tool-surface.py`.
 
-## Compiler et installer
+## Installer
 
-Prérequis : .NET SDK 10 et Revit 2026.5+ ou 2027.
+Téléchargez `RiveTT-Setup-<version>.exe` et lancez-le. **Aucun droit administrateur
+n'est demandé** : le manifeste de l'installateur est `asInvoker`, Windows n'affiche
+donc jamais d'invite UAC.
+
+Il détecte les Revit présents et n'installe que pour ceux-là :
+
+| Revit | Pris en charge |
+|---|---|
+| 2026.5 et supérieur | oui |
+| 2026.0 à 2026.4 | **non** — tourne sur .NET 8, l'installateur le dit et s'arrête |
+| 2027.x | oui |
+
+La détection lit la version de `Revit.exe`, pas le registre : la valeur `Version`
+du registre garde celle de l'installation d'origine et affiche encore
+`26.0.4.409` sur un poste réellement en 2026.5.
+
+Pour préparer un poste où Revit n'est pas encore installé :
+`RiveTT-Setup-<version>.exe /REVIT=2026,2027`.
+
+## Compiler
+
+Prérequis : .NET SDK 10, et [Inno Setup 6](https://jrsoftware.org/isdl.php) pour
+produire l'installateur (`winget install JRSoftware.InnoSetup --scope user`).
 
 ```powershell
 cd RiveTT
-.\build.ps1                              # Revit 2027 par défaut
-.\distribution\install.ps1
-
-# Pour Revit 2026.5 :
-.\build.ps1 -RevitVersion 2026
-.\distribution\install.ps1 -RevitYear 2026
+.\build.ps1                              # les deux cibles Revit + l'installateur
+.\build.ps1 -RevitVersion 2027           # une seule cible
+.\build.ps1 -SkipInstaller               # binaires seuls, sans Inno Setup
 ```
 
+Tout ce qui est généré atterrit dans `dist\` (ignoré par git) :
+
+    dist\2026\plugin\   add-in compilé contre Revit 2026.5
+    dist\2027\plugin\   add-in compilé contre Revit 2027
+    dist\server\        RiveTT.Server.exe, autonome, partagé par les deux
+    dist\RiveTT-Setup-<version>.exe
+
+Le serveur ne référence pas l'API Revit : il est compilé une fois et partagé. Il est
+**autonome** (~38 Mo) et n'exige aucun runtime .NET installé — c'était la seule pièce
+qui aurait imposé des droits administrateur.
+
 L'installation est par utilisateur dans
-`%APPDATA%\Autodesk\Revit\Addins\<2026|2027>\RiveTT` et ne demande pas de droits
-administrateur. Elle prépare le serveur dans `%LOCALAPPDATA%\RiveTT\server`.
+`%APPDATA%\Autodesk\Revit\Addins\<2026|2027>\RiveTT`, le serveur dans
+`%LOCALAPPDATA%\RiveTT\server`.
 
 Pour enregistrer le serveur dans Codex :
 
