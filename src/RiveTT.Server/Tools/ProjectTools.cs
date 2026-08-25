@@ -386,15 +386,17 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "tag_rooms"), Description("Tag rooms in the active view. Operates on the active view only — activate the correct view first.")]
+    [McpServerTool(Name = "tag_rooms"), Description("Tag rooms in a view. Pass viewId to target a specific view; without it the active view is used. Nothing in this surface can activate a view, so viewId is the only way to tag a view the user is not currently looking at.")]
     public static async Task<string> TagRooms(
         RevitConnectionManager revit,
         [Description("Use leader on tags. Default: false")] bool useLeader = false,
         [Description("Room IDs to tag (optional; tags all rooms in view when omitted). JSON array, e.g. [1,2]")] string? roomIds = null,
+        [Description("View to tag in. Omit to use the currently active view.")] long? viewId = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         p["useLeader"] = useLeader;
+        if (viewId != null) p["viewId"] = viewId;
         if (roomIds != null)
         {
             if (!JsonArrayParam.TryParse(roomIds, out var roomIdsArray))

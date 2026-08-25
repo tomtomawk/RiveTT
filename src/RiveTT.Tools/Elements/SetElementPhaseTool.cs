@@ -172,5 +172,13 @@ public class SetElementPhaseTool : ICortexTool
         public long ElementId { get; set; }
         public long? CreatedPhaseId { get; set; }
         public long? DemolishedPhaseId { get; set; }
+
+        // The MCP description advertised phaseCreatedId / phaseDemolishedId — the words in
+        // the other order — for as long as this tool existed. Newtonsoft simply ignored
+        // them, so a caller following the documentation set no phase at all and got a
+        // success back. The description is corrected; these aliases keep the code already
+        // written against it working instead of leaving it silently inert.
+        public long? PhaseCreatedId { set { if (value.HasValue) CreatedPhaseId = value; } }
+        public long? PhaseDemolishedId { set { if (value.HasValue) DemolishedPhaseId = value; } }
     }
 }

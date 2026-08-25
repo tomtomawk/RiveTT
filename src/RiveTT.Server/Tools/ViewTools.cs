@@ -291,15 +291,23 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_preset_schedule"), Description("Create a schedule from a predefined template (e.g. RoomFinish, DoorHardware, WallQuantities, WindowSchedule).")]
+    [McpServerTool(Name = "create_preset_schedule"), Description("Create a schedule from a predefined template. preset = door_by_room | window_by_room | room_finish | material_takeoff | sheet_list | view_list. material_takeoff also requires categoryName (e.g. OST_Walls).")]
     public static async Task<string> CreatePresetSchedule(
         RevitConnectionManager revit,
-        [Description("Preset template name: RoomFinish, DoorHardware, WallQuantities, WindowSchedule")] string preset,
+        // The four names this described before — RoomFinish, DoorHardware, WallQuantities,
+        // WindowSchedule — did not exist. Every one was rejected with "Unknown preset", so
+        // following the documentation had a 100 % failure rate. These are read from the
+        // switch in CreatePresetScheduleTool.
+        [Description("Preset: door_by_room | window_by_room | room_finish | material_takeoff | sheet_list | view_list")] string preset,
         [Description("Custom name for the schedule")] string? name = null,
+        // Read by the runtime and never published, which made material_takeoff
+        // unreachable through MCP however it was called.
+        [Description("Category for material_takeoff, e.g. OST_Walls (ignored by the other presets)")] string? categoryName = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["preset"] = preset };
         if (name != null) p["name"] = name;
+        if (categoryName != null) p["categoryName"] = categoryName;
         var result = await revit.ExecuteAsync("create_preset_schedule", p, ct);
         return result.ToString();
     }

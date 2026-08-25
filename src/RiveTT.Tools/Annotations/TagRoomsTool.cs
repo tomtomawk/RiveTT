@@ -33,7 +33,10 @@ public class TagRoomsTool : ICortexTool
 
         try
         {
-            var view = doc.ActiveView;
+            // viewId when given, active view otherwise: nothing in the MCP surface can
+            // activate a view, so tagging used to require a human to switch tabs first.
+            var view = ToolHelpers.ResolveTargetView(doc, input, out var viewError);
+            if (view == null) return viewError!;
 
             // Get rooms
             IEnumerable<Room> rooms;

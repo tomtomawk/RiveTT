@@ -54,7 +54,9 @@ public class ColorElementsTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "No active document in session");
 
-        var activeView = doc.ActiveView;
+        // viewId when given, active view otherwise. See ToolHelpers.ResolveTargetView.
+        var activeView = ToolHelpers.ResolveTargetView(doc, input, out var viewError);
+        if (viewError != null) return viewError;
         if (activeView == null)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "No active view in the document");

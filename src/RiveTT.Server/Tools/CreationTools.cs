@@ -93,7 +93,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_floor"), Description("Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId.")]
+    [McpServerTool(Name = "create_floor"), Description("Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId. Previews by default: the dry run reports the floor type and level it resolved to — both come from fallbacks the caller usually does not state — plus the boundary area. Set dryRun=false to create.")]
     public static async Task<string> CreateFloor(
         RevitConnectionManager revit,
         [Description("JSON array of boundary points [{x, y}] in mm (outer loop). Omit if using roomId")] string? boundaryPoints = null,
@@ -101,9 +101,10 @@ public static class CreationTools
         [Description("Floor type name. Defaults to first architectural floor type")] string? floorTypeName = null,
         [Description("Target level elevation in mm (picks the nearest level). Ignored when roomId is given")] double? levelElevation = null,
         [Description("JSON array of holes, each a [{x,y}] inner loop, e.g. [[{x,y},{x,y},{x,y}]]")] string? holes = null,
+        [Description("Preview without creating the floor. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject();
+        var p = new JObject { ["dryRun"] = dryRun };
         if (boundaryPoints != null) p["boundaryPoints"] = JArray.Parse(boundaryPoints);
         if (roomId != null) p["roomId"] = roomId;
         if (floorTypeName != null) p["floorTypeName"] = floorTypeName;
@@ -161,10 +162,15 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_dimensions"), Description("Create dimension annotations in the active view. Pass a JSON array of dimension specs. Element mode: [{viewId, referenceIds:[...], linePoint:{x,y,z}, dimensionStyleId?}]. Point-to-point mode: [{viewId, startPoint:{x,y,z}, endPoint:{x,y,z}, linePoint?, dimensionStyleId?}]. dimensionStyleId is honored in both modes.")]
+    // The element-mode key is elementIds. This advertised referenceIds, which the runtime
+    // never reads, so every documented call fell through to "Provide either elementIds
+    // (2+) or startPoint/endPoint". Nested keys like this escape
+    // ServerRuntimeParameterContractTests, which only sees top-level parameters —
+    // NestedKeyContractTests now covers them.
+    [McpServerTool(Name = "create_dimensions"), Description("Create dimension annotations in a view. Pass a JSON array of dimension specs. Element mode: [{viewId, elementIds:[...], linePoint:{x,y,z}, dimensionStyleId?}] — elementIds needs at least 2 elements, and the dimension is measured between the faces facing each other. Point-to-point mode: [{viewId, startPoint:{x,y,z}, endPoint:{x,y,z}, linePoint?, dimensionStyleId?}] — both points must lie in the view's plane. dimensionStyleId is honored in both modes.")]
     public static async Task<string> CreateDimensions(
         RevitConnectionManager revit,
-        [Description("JSON array of dimension specs. Element mode uses referenceIds; point-to-point uses startPoint+endPoint. Both accept dimensionStyleId")] string dimensions,
+        [Description("JSON array of dimension specs. Element mode uses elementIds; point-to-point uses startPoint+endPoint. Both accept dimensionStyleId")] string dimensions,
         CancellationToken ct = default)
     {
         var p = new JObject { ["dimensions"] = JArray.Parse(dimensions) };
@@ -196,7 +202,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "color_elements"), Description("Color the active view's elements of a category by grouping them on a parameter value, or reset (clear) those color overrides. action=color|reset. Operates on the ACTIVE model view (not a sheet).")]
+    [McpServerTool(Name = "color_elements"), Description("Color a view's elements of a category by grouping them on a parameter value, or reset (clear) those color overrides. action=color|reset. Pass viewId to target a specific model view; without it the active view is used. Not a sheet.")]
     public static async Task<string> ColorElements(
         RevitConnectionManager revit,
         [Description("Category name or OST_* code (e.g. OST_Walls, Doors)")] string categoryName,
@@ -204,9 +210,11 @@ public static class CreationTools
         [Description("Action: color | reset. Default: color")] string? action = null,
         [Description("Use a blue→red gradient across groups. Default: false (random colors)")] bool useGradient = false,
         [Description("Optional explicit colors as JSON array [{r,g,b}, ...], cycled across groups")] string? customColors = null,
+        [Description("View to apply the overrides in. Omit to use the currently active view.")] long? viewId = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["categoryName"] = categoryName };
+        if (viewId != null) p["viewId"] = viewId;
         if (parameterName != null) p["parameterName"] = parameterName;
         if (action != null) p["action"] = action;
         p["useGradient"] = useGradient;

@@ -58,36 +58,70 @@ public class PlaceViewportTool : ICortexTool
             if (sheet == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Sheet not found");
             if (view == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View not found");
 
-            if (!Viewport.CanAddViewToSheet(doc, sheetEid, viewEid))
+            // A schedule is not a viewport. Revit places it with ScheduleSheetInstance,
+            // and CanAddViewToSheet answers a flat false — which used to surface as
+            // "already placed or not placeable" and sent the caller looking at the sheet
+            // instead of at the view type.
+            if (view is ViewSchedule)
                 return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                    "View cannot be added to this sheet (already placed or not placeable)");
+                    $"'{view.Name}' is a SCHEDULE, and a schedule is not placed as a viewport.",
+                    suggestion: "Schedules go on a sheet through ScheduleSheetInstance, which this tool "
+                              + "does not cover. Place it from the Revit project browser, or ask for a "
+                              + "dedicated tool.");
+
+            if (!Viewport.CanAddViewToSheet(doc, sheetEid, viewEid))
+            {
+                // Distinguish the two causes rather than reporting both at once: one is
+                // fixed by picking another view, the other by removing it from its sheet.
+                var placedOn = new FilteredElementCollector(doc)
+                    .OfClass(typeof(Viewport))
+                    .Cast<Viewport>()
+                    .FirstOrDefault(vp => vp.ViewId == viewEid);
+
+                if (placedOn != null)
+                {
+                    var host = doc.GetElement(placedOn.SheetId) as ViewSheet;
+                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                        $"'{view.Name}' is already placed on sheet {host?.SheetNumber ?? "?"} "
+                        + $"{host?.Name}. A view can live on one sheet only.",
+                        suggestion: "Delete that viewport first, or duplicate the view with "
+                                  + "duplicate_view and place the copy.");
+                }
+
+                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    $"Revit refuses '{view.Name}' ({view.ViewType}) on this sheet, and it is not "
+                    + "already placed elsewhere.",
+                    suggestion: "Legends and some view types cannot be placed on every sheet. Check "
+                              + "the view type with get_current_view_info.");
+            }
 
             var sheetWidthFt = sheet.get_Parameter(BuiltInParameter.SHEET_WIDTH)?.AsDouble() ?? 0;
             var sheetHeightFt = sheet.get_Parameter(BuiltInParameter.SHEET_HEIGHT)?.AsDouble() ?? 0;
 
-            // The frame reference is the title block INSTANCE's box, not [0, size]:
-            // the sheet origin is NOT necessarily the frame corner. The French A1
-            // title block has its origin 650 mm inside the frame and vertically
-            // centred, so a position computed from the sheet size lands off the paper
-            // — which is exactly how two correctly-placed viewports ended up outside
-            // the border.
-            var titleBlock = new FilteredElementCollector(doc, sheetEid)
-                .OfCategory(BuiltInCategory.OST_TitleBlocks)
-                .WhereElementIsNotElementType()
-                .FirstOrDefault();
-            BoundingBoxXYZ? frame = null;
-            try { frame = titleBlock?.get_BoundingBox(sheet); } catch { }
+            // Measured by the shared helper rather than inline here. This tool held the
+            // original, correct implementation; batch_create_sheets cloned a broken one and
+            // the two drifted. SheetFrame is that logic, once, and it adds the fallbacks
+            // this copy lacked — a sheet with no title block reported [0,0]x[0,0], which made
+            // fitsOnSheet permanently false with no usable paper size to work from.
+            var frame = SheetFrame.Measure(doc, sheet);
 
-            var frameMinXMm = frame != null ? frame.Min.X * MmPerFoot : 0;
-            var frameMinYMm = frame != null ? frame.Min.Y * MmPerFoot : 0;
-            var frameMaxXMm = frame != null ? frame.Max.X * MmPerFoot : sheetWidthFt * MmPerFoot;
-            var frameMaxYMm = frame != null ? frame.Max.Y * MmPerFoot : sheetHeightFt * MmPerFoot;
+            var frameMinXMm = frame.MinXMm;
+            var frameMinYMm = frame.MinYMm;
+            var frameMaxXMm = frame.MaxXMm;
+            var frameMaxYMm = frame.MaxYMm;
 
             if (centreOnSheet)
             {
+                if (!frame.IsKnown)
+                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                        $"Sheet {sheet.SheetNumber} has no title block and no measurable extent, "
+                        + "so there is no centre to place the view at.",
+                        suggestion: "Add a title block with place_title_block, or pass positionX and "
+                                  + "positionY explicitly in mm.");
+
                 // No position given: the middle of the frame, wherever the frame is.
-                posXMm = (frameMinXMm + frameMaxXMm) / 2;
-                posYMm = (frameMinYMm + frameMaxYMm) / 2;
+                posXMm = frame.CentreXMm;
+                posYMm = frame.CentreYMm;
             }
 
             var position = new XYZ(posXMm / MmPerFoot, posYMm / MmPerFoot, 0);
@@ -142,12 +176,19 @@ public class PlaceViewportTool : ICortexTool
 
             var sheetWidthMm = sheetWidthFt * MmPerFoot;
             var sheetHeightMm = sheetHeightFt * MmPerFoot;
-            var fits = !haveOutline ||
-                       (outMinX >= frameMinXMm - 1 && outMinY >= frameMinYMm - 1 &&
-                        outMaxX <= frameMaxXMm + 1 && outMaxY <= frameMaxYMm + 1);
+            // frame.Contains answers TRUE when the frame could not be measured: "unknown
+            // paper size" must not be reported as "your drawing overflows".
+            var fits = !haveOutline || frame.Contains(outMinX, outMinY, outMaxX, outMaxY);
 
             var warnings = new System.Collections.Generic.List<string>();
-            if (haveOutline && !fits)
+            if (!frame.IsKnown)
+            {
+                warnings.Add(
+                    $"Sheet {sheet.SheetNumber} has no title block and no measurable extent, so " +
+                    "fitsOnSheet could not be evaluated and is reported as null. Add a title block " +
+                    "with place_title_block to get a real frame.");
+            }
+            if (haveOutline && frame.IsKnown && !fits)
             {
                 warnings.Add(
                     $"The viewport spans {outMaxX - outMinX:F0} x {outMaxY - outMinY:F0} mm at " +
@@ -169,13 +210,9 @@ public class PlaceViewportTool : ICortexTool
                 centreMm = new { x = Math.Round(posXMm, 1), y = Math.Round(posYMm, 1) },
                 sheetSizeMm = new { width = Math.Round(sheetWidthMm, 1), height = Math.Round(sheetHeightMm, 1) },
                 // Where the printable frame actually is, in sheet coordinates. Use
-                // this to compute positions: it is NOT [0,0]..[width,height].
-                frameOutlineMm = new
-                {
-                    minX = Math.Round(frameMinXMm, 1), minY = Math.Round(frameMinYMm, 1),
-                    maxX = Math.Round(frameMaxXMm, 1), maxY = Math.Round(frameMaxYMm, 1),
-                    fromTitleBlock = frame != null
-                },
+                // this to compute positions: it is NOT [0,0]..[width,height]. `source`
+                // says whether it was measured on the title block or fell back.
+                frameOutlineMm = SheetFrame.Describe(frame),
                 viewportOutlineMm = haveOutline
                     ? new
                     {
@@ -187,7 +224,8 @@ public class PlaceViewportTool : ICortexTool
                     : null,
                 viewScale = view.Scale,
                 cropActive = view.CropBoxActive,
-                fitsOnSheet = fits,
+                // Null rather than false when there was nothing to measure against.
+                fitsOnSheet = (haveOutline && frame.IsKnown) ? fits : (bool?)null,
                 warnings
             });
         }

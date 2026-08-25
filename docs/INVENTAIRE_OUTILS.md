@@ -3,7 +3,7 @@
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-08-24 — connecteur 0.2.0 — **196 outils publiés**, 193 classes runtime.
+Relevé du 2026-08-26 — connecteur 0.2.0 — **196 outils publiés**, 193 classes runtime.
 
 ## Comment lire ce document
 
@@ -26,13 +26,13 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 |---|---|
 | Outils publiés | **196** |
 | Dont écriture | **136** (69 %) — c'est la part que le verrou du ruban gouverne |
-| Écritures sans `dryRun` | **81**, alors que le contrat annonce `dryRunDefault: true` |
+| Écritures sans `dryRun` | **80**, alors que le contrat annonce `dryRunDefault: true` |
 | Défauts critiques et majeurs corrigés | **8**, gardés par `ConfirmedDefectFixSourceTests` |
 | Lacunes API comblées depuis le relevé précédent | **16** sur 19 |
 | Erreurs génériques `Failed: …` sans suggestion | **133** |
-| Géométrie par boîte englobante | **16** |
+| Géométrie par boîte englobante | **15** |
 | Classement `[ToolSafety]` en désaccord avec le nom | **10** |
-| Défauts confirmés / signaux à vérifier | **0** / **9** |
+| Défauts confirmés / signaux à vérifier | **0** / **10** |
 
 ## Répartition par catégorie
 
@@ -96,13 +96,14 @@ documentation.
 |---|---|
 | `add_prefix_suffix` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds, savedSelectionName, scope, selectionToken |
 | `clear_parameter_values` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds, savedSelectionName, scope, selectionToken |
+| `color_elements` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
 | `cross_app_selection` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : append, createLinkedMarkers, createSectionBox, isolate, usePostCommandIsolate |
 | `detach_wall_constraint` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `duplicate_family_type` | clé imbriquée annoncée, absente du runtime : paramName |
 | `duplicate_storey` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `filter_by_parameter_value` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds |
-| `set_element_phase` | clé imbriquée annoncée, absente du runtime : phaseCreatedId, phaseDemolishedId |
 | `sync_csv_parameters` | clé imbriquée annoncée, absente du runtime : paramName1 |
+| `tag_rooms` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
 
 ## Inventaire complet
 
@@ -115,7 +116,7 @@ documentation.
 | `batch_rename` | écriture destructif | oui | 5 | Batch rename elements or system types in the Revit project. Supports both loadable-family elements and system types (wall/floor/ceiling/roof types). | **mineur** — erreur générique sans suggestion |
 | `copy_elements` | écriture | — | 5 | Copy elements with optional mm offset. Can target a different view (sourceViewId+targetViewId) or another OPEN document (targetDocumentTitle). | **mineur** — pas de dryRun |
 | `create_door` → `create_point_based_element` | écriture | oui | 5 | Place a door family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give z… | **mineur** — géométrie par boîte englobante |
-| `create_floor` | écriture | — | 5 | Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_floor` | écriture | oui | 5 | Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId. Previews by default: the dry run r… | **mineur** — erreur générique sans suggestion |
 | `create_grid` | écriture destructif | — | 5 | Create a grid system (X and/or Y grids by count + spacing), or rename/delete an existing grid. action=create\|rename\|delete. Spacing/extent values are… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_level` | écriture destructif | oui | 5 | Create, edit, rename, or delete a level. action=create\|set\|rename\|delete. For set/rename/delete identify the level by levelId or name. | **mineur** — erreur générique sans suggestion |
 | `create_room` | écriture | oui | 5 | Create a room at a point on a level. x/y are plan coordinates in mm; the level sets the elevation. The response reports enclosed and areaM2 - a point… | **mineur** — erreur générique sans suggestion |
@@ -138,11 +139,10 @@ documentation.
 | `manage_model_groups` | écriture destructif | oui | 5 | Inventory model groups, duplicate a group type and optionally swap selected instances, or ungroup selected model groups. Write actions preview by defa… | — |
 | `renumber_elements` | écriture destructif | oui | 5 | Renumber rooms/doors/windows by location or name. Writes into the specified parameter; supports prefix/suffix and start/increment. | — |
 | `set_element_parameters` | écriture destructif | oui | 5 | Set parameter values on one or more elements. Pass requests as a JSON-encoded array string. Supports parameterName by display name and builtInParamete… | — |
+| `color_elements` | écriture | — | 4 | Color a view's elements of a category by grouping them on a parameter value, or reset (clear) those color overrides. action=color\|reset. Pass viewId t… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
 | `duplicate_family_type` | écriture | — | 4 | Duplicate a loadable family type with a new name and optional parameter overrides. | **signal** — clé imbriquée annoncée, absente du runtime : paramName |
-| `set_element_phase` | écriture | — | 4 | Assign created/demolished phase to elements. Pass a JSON array of requests: [{elementId, phaseCreatedId?, phaseDemolishedId?}]. | **signal** — clé imbriquée annoncée, absente du runtime : phaseCreatedId, phaseDemolishedId |
 | `capture_selection` | lecture | — | 4 | Capture explicit element IDs or the current Revit selection as a reusable temporary token. Tokens expire and are scoped to the active document session… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `change_element_type` | écriture destructif | — | 4 | Change the type of one or more elements to a target type specified by ID or name. | **mineur** — pas de dryRun |
-| `color_elements` | écriture | — | 4 | Color the active view's elements of a category by grouping them on a parameter value, or reset (clear) those color overrides. action=color\|reset. Oper… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_array` | écriture | — | 4 | Create a linear or radial array. Default builds a real associative Revit ArrayElement (editable count); set associative=false for loose copies. linear… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_detail_line` | écriture | oui | 4 | Draw 2D detail lines in a view (view-owned, not visible in other views). path is a JSON array [{x,y,z}, ...] in mm; consecutive points become segments… | **mineur** — erreur générique sans suggestion |
 | `create_filled_region` | écriture | — | 4 | Create a filled region in a view from a closed boundary, optionally with holes (inner loops). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
@@ -166,6 +166,7 @@ documentation.
 | `measure_between_elements` | lecture | — | 4 | Measure distance between two elements or two points in mm. Provide either elementId1/elementId2, or point1/point2 (as JSON arrays [x,y,z]). | **mineur** — géométrie par boîte englobante |
 | `operate_element` | écriture destructif | — | 4 | Select, highlight, isolate, hide, or zoom to elements. Actions: select, selectionbox, setcolor, settransparency, hide, temphide, isolate, unhide, rese… | **mineur** — pas de dryRun |
 | `save_selection` | écriture destructif | — | 4 | Save element selection as named filter | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `set_element_phase` | écriture | — | 4 | Assign created/demolished phase to elements. Pass a JSON array of requests: [{elementId, createdPhaseId?, demolishedPhaseId?}]. The older names phaseC… | **mineur** — pas de dryRun |
 | `set_element_workset` | écriture | — | 4 | Move elements to a different workset. Pass a JSON array of requests: [{elementId, worksetName}]. Worksets are resolved by name only. | **mineur** — pas de dryRun |
 | `set_material_properties` | écriture destructif | oui | 4 | Set identity, appearance, product info, and asset assignments on Revit materials. Each request is a FLAT object keyed by materialId plus any of: name,… | **mineur** — erreur générique sans suggestion |
 | `create_line_based_element` | écriture | oui | 4 | Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, heig… | — |
@@ -204,7 +205,7 @@ documentation.
 | `cad_link_cleanup` | écriture destructif | — | 4 | Analyze and clean up imported/linked CAD files. action=list\|delete. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_key_schedule` | écriture | — | 4 | Creates a key schedule (ViewSchedule.CreateKeySchedule) — a reusable finish/typology key table (room finish keys, dwelling-unit typologies), different… | **mineur** — pas de dryRun |
 | `create_material` | écriture | — | 4 | Create a new material in the Revit project. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `create_preset_schedule` | écriture | — | 4 | Create a schedule from a predefined template (e.g. RoomFinish, DoorHardware, WallQuantities, WindowSchedule). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_preset_schedule` | écriture | — | 4 | Create a schedule from a predefined template. preset = door_by_room \| window_by_room \| room_finish \| material_takeoff \| sheet_list \| view_list. materi… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `delete_material` | écriture destructif | oui | 4 | Delete a material from the project by ID or name. Previews by default: the dry run names the material and reports the deletion cascade. Set dryRun=fal… | **mineur** — erreur générique sans suggestion |
 | `delete_schedule` | écriture destructif | oui | 4 | Delete a schedule by ID or name. Previews by default: the dry run names the schedule and reports the cascade, including the viewports that placed it o… | **mineur** — erreur générique sans suggestion |
 | `duplicate_material` | écriture | — | 4 | Duplicate an existing material with a new name. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
@@ -264,7 +265,7 @@ documentation.
 | `duplicate_view` | écriture | — | 5 | Duplicate an existing view in Revit. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `manage_view_templates` | écriture destructif | — | 5 | List, duplicate, delete, or rename view templates. action=list\|duplicate\|delete\|rename. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `override_graphics` | écriture | — | 5 | Override element graphics in a view (colors, transparency, halftone, line weight). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `place_viewport` | écriture | — | 5 | Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. Th… | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
+| `place_viewport` | écriture | — | 5 | Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. Th… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `batch_modify_view_range` | écriture | — | 4 | Modify view range offsets (top, cut plane, bottom, view depth) for multiple views. Offsets are in mm. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_views_from_rooms` | écriture | — | 4 | Create callout, section, or elevation views from rooms with a naming pattern. | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
 | `manage_scope_boxes` | écriture | — | 4 | Inventory, rename, move, or assign-to-views existing scope boxes (OST_VolumeOfInterest). The Revit API has no method to create one from scratch — draw… | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
@@ -292,9 +293,9 @@ documentation.
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
-| `create_dimensions` | écriture | — | 5 | Create dimension annotations in the active view. Pass a JSON array of dimension specs. Element mode: [{viewId, referenceIds:[...], linePoint:{x,y,z},… | **mineur** — pas de dryRun |
+| `tag_rooms` | écriture | — | 5 | Tag rooms in a view. Pass viewId to target a specific view; without it the active view is used. Nothing in this surface can activate a view, so viewId… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
+| `create_dimensions` | écriture | — | 5 | Create dimension annotations in a view. Pass a JSON array of dimension specs. Element mode: [{viewId, elementIds:[...], linePoint:{x,y,z}, dimensionSt… | **mineur** — pas de dryRun |
 | `create_text_note` | écriture | — | 5 | Create text notes in a view. Pass a JSON array: [{text, position:{x,y,z}, viewId?, textNoteTypeId?, width?, horizontalAlignment?, verticalAlignment?,… | **mineur** — pas de dryRun |
-| `tag_rooms` | écriture | — | 5 | Tag rooms in the active view. Operates on the active view only — activate the correct view first. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_color_legend` | écriture | — | 4 | Color elements by parameter value and optionally create a legend view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_spot_dimension` | écriture | — | 4 | Create a spot elevation annotation (a level/coordinate callout) at a point on an element's geometry. create_dimensions only builds linear dimensions;… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `import_table` | écriture | — | 4 | Import a CSV/TSV file as a formatted table in a drafting or legend view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |

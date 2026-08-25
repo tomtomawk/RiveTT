@@ -281,7 +281,14 @@ public class ServerRuntimeParameterContractTests
         // frame corner (the French A1 title block sits 650 mm inside it), so a
         // position derived from the sheet size lands off the paper.
         Assert.Contains("frameOutlineMm", runtime);
-        Assert.Contains("OST_TitleBlocks", runtime);
+
+        // That measurement now lives in SheetFrame, shared with batch_create_sheets and
+        // workflow_sheet_set — which is the point: this tool held the correct version
+        // while the other two carried a broken clone. The guarantee is unchanged, so the
+        // assertion follows it to its new home instead of pinning the copy back here.
+        Assert.Contains("SheetFrame.Measure(doc, sheet)", runtime);
+        Assert.Contains("OST_TitleBlocks",
+            ReadRepo("RiveTT.Tools", "Utilities", "SheetFrame.cs"));
     }
 
     [Fact]

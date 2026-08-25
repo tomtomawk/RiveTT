@@ -36,6 +36,17 @@ public static class SheetFrame
         /// </summary>
         public bool FromTitleBlock { get; init; }
 
+        /// <summary>
+        /// Which fallback produced this box: "titleBlock", "sheetSize", "viewOutline" or
+        /// "unknown". A caller that reads fitsOnSheet needs to know whether the frame was
+        /// measured or guessed — a sheet with no title block reported [0,0]x[0,0], which
+        /// made every viewport look like it overflowed.
+        /// </summary>
+        public string Source { get; init; } = "unknown";
+
+        /// <summary>False when no source could give a usable extent; fitsOnSheet is then meaningless.</summary>
+        public bool IsKnown => WidthMm > 1 && HeightMm > 1;
+
         public double CentreXMm => (MinXMm + MaxXMm) / 2;
         public double CentreYMm => (MinYMm + MaxYMm) / 2;
         public double WidthMm => MaxXMm - MinXMm;
@@ -44,9 +55,14 @@ public static class SheetFrame
         /// <summary>The frame centre as a sheet-coordinate point in FEET, for Viewport.Create.</summary>
         public XYZ CentreFeet => new(CentreXMm / MmPerFoot, CentreYMm / MmPerFoot, 0);
 
-        /// <summary>True when the outline (in mm) sits inside the frame, with a 1 mm tolerance.</summary>
+        /// <summary>
+        /// True when the outline (in mm) sits inside the frame, with a 1 mm tolerance.
+        /// An unmeasurable frame answers TRUE, not false: "I could not determine the paper
+        /// size" must not be reported as "your drawing overflows".
+        /// </summary>
         public bool Contains(double minXMm, double minYMm, double maxXMm, double maxYMm)
         {
+            if (!IsKnown) return true;
             return minXMm >= MinXMm - 1 && minYMm >= MinYMm - 1
                 && maxXMm <= MaxXMm + 1 && maxYMm <= MaxYMm + 1;
         }
@@ -77,7 +93,23 @@ public static class SheetFrame
         BoundingBoxXYZ? box = null;
         try { box = titleBlock?.get_BoundingBox(sheet); } catch { }
 
-        if (box == null)
+        if (box != null)
+        {
+            return new Frame
+            {
+                MinXMm = box.Min.X * MmPerFoot,
+                MinYMm = box.Min.Y * MmPerFoot,
+                MaxXMm = box.Max.X * MmPerFoot,
+                MaxYMm = box.Max.Y * MmPerFoot,
+                FromTitleBlock = true,
+                Source = "titleBlock"
+            };
+        }
+
+        // No title block. SHEET_WIDTH/SHEET_HEIGHT are driven BY the title block on most
+        // templates, so on a frameless sheet they are 0 — and returning [0,0]x[0,0] made
+        // every viewport report fitsOnSheet:false with no usable paper size to work from.
+        if (widthFt > 0 && heightFt > 0)
         {
             return new Frame
             {
@@ -85,17 +117,49 @@ public static class SheetFrame
                 MinYMm = 0,
                 MaxXMm = widthFt * MmPerFoot,
                 MaxYMm = heightFt * MmPerFoot,
-                FromTitleBlock = false
+                FromTitleBlock = false,
+                Source = "sheetSize"
             };
         }
 
+        // Last resort: the sheet's own paper-space bounds. Documented to return all
+        // zeros for an empty view, which is why it is checked rather than trusted.
+        try
+        {
+            var outline = sheet.Outline;
+            if (outline != null)
+            {
+                var width = (outline.Max.U - outline.Min.U) * MmPerFoot;
+                var height = (outline.Max.V - outline.Min.V) * MmPerFoot;
+                if (width > 1 && height > 1)
+                {
+                    return new Frame
+                    {
+                        MinXMm = outline.Min.U * MmPerFoot,
+                        MinYMm = outline.Min.V * MmPerFoot,
+                        MaxXMm = outline.Max.U * MmPerFoot,
+                        MaxYMm = outline.Max.V * MmPerFoot,
+                        FromTitleBlock = false,
+                        Source = "viewOutline"
+                    };
+                }
+            }
+        }
+        catch
+        {
+            // Outline is unavailable on some sheet states; fall through to unknown.
+        }
+
+        // Nothing could give an extent. Say so instead of reporting a zero-size frame
+        // that reads as a real measurement.
         return new Frame
         {
-            MinXMm = box.Min.X * MmPerFoot,
-            MinYMm = box.Min.Y * MmPerFoot,
-            MaxXMm = box.Max.X * MmPerFoot,
-            MaxYMm = box.Max.Y * MmPerFoot,
-            FromTitleBlock = true
+            MinXMm = 0,
+            MinYMm = 0,
+            MaxXMm = 0,
+            MaxYMm = 0,
+            FromTitleBlock = false,
+            Source = "unknown"
         };
     }
 
@@ -145,7 +209,21 @@ public static class SheetFrame
         minY = System.Math.Round(frame.MinYMm, 1),
         maxX = System.Math.Round(frame.MaxXMm, 1),
         maxY = System.Math.Round(frame.MaxYMm, 1),
-        fromTitleBlock = frame.FromTitleBlock
+        widthMm = System.Math.Round(frame.WidthMm, 1),
+        heightMm = System.Math.Round(frame.HeightMm, 1),
+        fromTitleBlock = frame.FromTitleBlock,
+        source = frame.Source,
+        known = frame.IsKnown,
+        note = frame.Source switch
+        {
+            "titleBlock" => null,
+            "sheetSize" => "No title block on this sheet: the frame is the full sheet, and its "
+                         + "origin is assumed to be (0,0).",
+            "viewOutline" => "No title block and no sheet size: the extent comes from the sheet's "
+                           + "own paper-space bounds.",
+            _ => "This sheet has no title block and no measurable extent, so fitsOnSheet cannot "
+               + "be judged. Add a title block with place_title_block."
+        }
     };
 
     /// <summary>
@@ -237,7 +315,9 @@ public static class SheetFrame
             HeightMm = haveOutline ? System.Math.Round(maxY - minY, 1) : null,
             ViewScale = view?.Scale,
             CropActive = view?.CropBoxActive,
-            FitsFrame = haveOutline ? fits : null,
+            // Null, not false, when there is nothing to judge against: no viewport outline,
+            // or no measurable frame.
+            FitsFrame = (haveOutline && frame.IsKnown) ? fits : null,
             Warning = fits
                 ? null
                 : $"The viewport spans {maxX - minX:F0} x {maxY - minY:F0} mm, larger than the frame "
