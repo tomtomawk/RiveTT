@@ -5,7 +5,7 @@
 - `src/RiveTT.Tools/<Category>/<ToolName>Tool.cs`: `ICortexTool` implementation.
 - `src/RiveTT.Server/Tools/<Category>Tools.cs`: typed MCP wrapper.
 - `src/RiveTT.Tests`: unit, contract, or source tests.
-- `docs/USER_GUIDE.md` and the relevant operator reference when behavior is user-facing.
+- `docs/utilisation/USER_GUIDE.md` and the relevant operator reference when behavior is user-facing.
 
 ## Requirements
 

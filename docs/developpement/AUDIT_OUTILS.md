@@ -1,7 +1,7 @@
 # Audit de la surface d'outils — 24 août 2026 (mis à jour après correction des 8 défauts)
 
 Ce document est la lecture de l'inventaire, pas l'inventaire lui-même : le détail
-outil par outil est dans [INVENTAIRE_OUTILS.md](INVENTAIRE_OUTILS.md), généré par
+outil par outil est dans [INVENTAIRE_OUTILS.md](../INVENTAIRE_OUTILS.md), généré par
 `tools/audit-tool-surface.py`. Version auditée : connecteur **0.2.0**.
 
 **Depuis le premier audit** : les modules Rebar et StructuralSteel (112 outils, 38 %
@@ -119,7 +119,7 @@ disque. Aujourd'hui « lecture seule » signifie « ne touche pas la maquette »
 désormais un outil — dont les quatre manques structurels, ce qui signifie qu'une
 maquette de logement peut être produite de bout en bout par le connecteur.
 
-Le tableau complet est dans [INVENTAIRE_OUTILS.md](INVENTAIRE_OUTILS.md), section
+Le tableau complet est dans [INVENTAIRE_OUTILS.md](../INVENTAIRE_OUTILS.md), section
 « Lacunes comblées ». Trois manques subsistent, tous de priorité basse : **repères de
 texte** (Keynote), **lignes de raccord** (Matchline), **plateformes** (BuildingPad).
 
@@ -148,7 +148,7 @@ ils chargent `RevitAPI.dll` à l'exécution, et le paquet NuGet ne fournit qu'un
 assembly de *référence*. Il faut une machine avec Revit installé.
 
 Les comportements suivants ne sont prouvables que sur maquette réelle, et sont à
-consigner dans [MCP_AGENT_IMPROVEMENTS.md](MCP_AGENT_IMPROVEMENTS.md) :
+consigner dans la pull request qui porte la correction :
 
 - le centrage des fenêtres sur un **cartouche A1 français réel** (c'est le cas qui a
   révélé le défaut) et le pavage de plusieurs vues sur une feuille ;

@@ -33,16 +33,29 @@ transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
 
 ## Documentation
 
-| Document | Pour qui, et quand |
+Séparée par usage. Vous n'avez besoin que d'une colonne à la fois.
+
+**Se servir du connecteur**
+
+| Document | Quand |
 |---|---|
-| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Utiliser le connecteur au quotidien : installation, verrou d'écriture, gestes courants |
-| [docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md) | **Les 196 outils, effet par effet**, avec les défauts connus et les capacités API non outillées. Généré par `tools/audit-tool-surface.py` — ne pas éditer à la main |
-| [docs/AUDIT_OUTILS.md](docs/AUDIT_OUTILS.md) | La lecture de cet inventaire : ce qui a cassé, ce qui reste à faire, dans quel ordre |
-| [docs/RiveTT_IFC_GUIDE.md](docs/RiveTT_IFC_GUIDE.md) | Les 20 outils IFC : export, liaison, reconstruction en éléments natifs |
-| [docs/PROTOCOLE_TEST.md](docs/PROTOCOLE_TEST.md) | Vérifier une version sur maquette réelle — ce que `dotnet test` ne peut pas couvrir |
-| [docs/SECURITY.md](docs/SECURITY.md) | Limites de confiance, journal d'audit, bac à sable du code |
-| [AGENTS.md](AGENTS.md) | Contribuer au code : architecture, contrat à deux faces, verrou d'écriture |
-| [docs/MCP_AGENT_IMPROVEMENTS.md](docs/MCP_AGENT_IMPROVEMENTS.md) · [docs/MCP_AGENT_FIXES.md](docs/MCP_AGENT_FIXES.md) | Historique : anomalies relevées en session Revit, et leur traitement |
+| [docs/utilisation/USER_GUIDE.md](docs/utilisation/USER_GUIDE.md) | Installation, verrou d'écriture, gestes courants |
+| [docs/utilisation/IFC.md](docs/utilisation/IFC.md) | Export, liaison, reconstruction d'IFC en éléments natifs |
+| [docs/utilisation/SECURITY.md](docs/utilisation/SECURITY.md) | Ce que le connecteur s'autorise, et ce qui l'en empêche |
+
+**Développer dessus**
+
+| Document | Quand |
+|---|---|
+| [AGENTS.md](AGENTS.md) | **À lire en premier.** Architecture, contrat à deux faces, verrou d'écriture. Les agents de code le chargent automatiquement comme instructions projet |
+| [docs/developpement/AUDIT_OUTILS.md](docs/developpement/AUDIT_OUTILS.md) | État de la surface d'outils : ce qui a cassé, ce qui reste, dans quel ordre |
+| [docs/developpement/PROTOCOLE_TEST.md](docs/developpement/PROTOCOLE_TEST.md) | Vérifier une version sur maquette — ce que `dotnet test` ne couvre pas |
+
+**Référence commune**
+
+[docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md) — les 196 outils, effet par
+effet, avec les défauts connus et les capacités API non outillées. Généré par
+`tools/audit-tool-surface.py`, jamais édité à la main.
 
 La liste des outils n'est pas recopiée ici. Elle l'a été, sous forme de section
 « Fonctions ajoutées » tenue à la main, et elle a cessé d'être tenue : il y manquait

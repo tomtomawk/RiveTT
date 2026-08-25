@@ -45,7 +45,7 @@ to uninstall.
 - `build.ps1` stays UTF-8 WITH BOM. Without it PowerShell 5.1 reads the file as
   Windows-1252 and multi-byte characters decode into curly quotes, which it honours
   as string delimiters — that silently stripped `$LASTEXITCODE` out of a guard.
-- `docs/USER_GUIDE.md` reflects changed user-facing tools.
+- `docs/utilisation/USER_GUIDE.md` reflects changed user-facing tools.
 - `send_code_to_revit` sandbox tests pass.
 - No references to the removed TCP, TypeScript, licensing, telemetry, updater,
   Power BI, or multi-version deployment stacks remain in active code.

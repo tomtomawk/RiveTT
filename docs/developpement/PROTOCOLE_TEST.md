@@ -5,7 +5,10 @@ poste Revit, et parce que tout ce qui touche à la géométrie, aux transactions
 messages d'erreur de Revit n'est prouvable que sur maquette. Le reste du dépôt est
 vérifié par `dotnet test` ; **ce qui suit ne l'est pas**.
 
-Consignez le résultat dans [MCP_AGENT_IMPROVEMENTS.md](MCP_AGENT_IMPROVEMENTS.md).
+Consignez le résultat dans la pull request ou le commit qui porte la correction : la
+fiche de résultat en fin de document est faite pour y être collée. Les deux journaux
+de campagne qui tenaient ce rôle ont été retirés — un historique qui grossit sans
+qu'on le relise ne vaut pas la ligne de contexte qu'il coûte.
 
 ---
 

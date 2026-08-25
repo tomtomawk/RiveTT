@@ -132,4 +132,6 @@ curly quotes that it honours as string delimiters.
 Behavior that only a live Revit session can prove (geometry, transactions,
 Revit error messages) must still be re-tested manually against a real model —
 in both target versions when the change touches anything gated by
-`REVIT2027_OR_GREATER` — and the outcome logged in `docs/MCP_AGENT_IMPROVEMENTS.md`.
+`REVIT2027_OR_GREATER` — and the outcome recorded in the commit or pull request that
+makes the change. `docs/developpement/PROTOCOLE_TEST.md` is the protocol to follow;
+its result sheet is what belongs in the description.
