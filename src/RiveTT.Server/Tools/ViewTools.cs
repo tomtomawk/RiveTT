@@ -81,10 +81,12 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_current_view_elements"), Description("List elements visible in the currently active view. categoryFilter is a single-category shortcut (OST code, English name or localized label); modelCategoryList/annotationCategoryList take several.")]
+    [McpServerTool(Name = "get_current_view_elements"), Description("List elements visible in the currently active view. categoryFilter is a single-category shortcut (OST code, English name or localized label); modelCategoryList/annotationCategoryList take several. Pages via pageSize/cursor: nextCursor in the response, passed back as cursor, reaches elements beyond the first page.")]
     public static async Task<string> GetCurrentViewElements(
         RevitConnectionManager revit,
-        [Description("Maximum number of elements to return")] int? limit = 50,
+        [Description("Maximum number of elements to return per page. Default: 200")] int? pageSize = null,
+        [Description("Legacy alias for pageSize")] int? limit = null,
+        [Description("Opaque cursor from a previous call's nextCursor, to fetch the next page")] string? cursor = null,
         [Description("Model category filters (e.g. OST_Walls, OST_Doors). JSON array, e.g. [\"A\",\"B\"]")] string? modelCategoryList = null,
         [Description("Annotation category filters (e.g. OST_Dimensions, OST_TextNotes). JSON array, e.g. [\"A\",\"B\"]")] string? annotationCategoryList = null,
         [Description("Legacy single-category filter; mapped into modelCategoryList for backward compatibility")] string? categoryFilter = null,
@@ -92,7 +94,9 @@ public static class ViewTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (limit != null) p["limit"] = limit;
+        if (pageSize != null) p["pageSize"] = pageSize;
+        else if (limit != null) p["pageSize"] = limit;
+        if (cursor != null) p["cursor"] = cursor;
         if (modelCategoryList != null)
         {
             if (!JsonArrayParam.TryParse(modelCategoryList, out var modelCategoryListArray))

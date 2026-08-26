@@ -37,7 +37,9 @@ namespace RiveTT.Tests.Server
             Assert.Collection(
                 parameters.Select(p => p.Name),
                 name => Assert.Equal("revit", name),
+                name => Assert.Equal("pageSize", name),
                 name => Assert.Equal("limit", name),
+                name => Assert.Equal("cursor", name),
                 name => Assert.Equal("modelCategoryList", name),
                 name => Assert.Equal("annotationCategoryList", name),
                 name => Assert.Equal("categoryFilter", name),
@@ -45,7 +47,9 @@ namespace RiveTT.Tests.Server
                 name => Assert.Equal("ct", name));
 
             Assert.Equal(typeof(RevitConnectionManager), GetParameter(method, "revit").ParameterType);
+            Assert.Equal(typeof(int?), GetParameter(method, "pageSize").ParameterType);
             Assert.Equal(typeof(int?), GetParameter(method, "limit").ParameterType);
+            Assert.Equal(typeof(string), GetParameter(method, "cursor").ParameterType);
             Assert.Equal(typeof(string), GetParameter(method, "modelCategoryList").ParameterType);
             Assert.Equal(typeof(string), GetParameter(method, "annotationCategoryList").ParameterType);
             Assert.Equal(typeof(string), GetParameter(method, "categoryFilter").ParameterType);
@@ -62,7 +66,8 @@ namespace RiveTT.Tests.Server
             AssertDescription(method,
                 "List elements visible in the currently active view. categoryFilter is a single-category " +
                 "shortcut (OST code, English name or localized label); modelCategoryList/" +
-                "annotationCategoryList take several.");
+                "annotationCategoryList take several. Pages via pageSize/cursor: nextCursor in the response, " +
+                "passed back as cursor, reaches elements beyond the first page.");
         }
 
         [Fact]

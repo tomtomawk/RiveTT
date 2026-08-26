@@ -74,16 +74,32 @@ public class OperateElementTool : ICortexTool
         ICollection<ElementId> elementIds = rawIds.Select(id => new ElementId((int)id)).ToList();
 #endif
 
-        // H31: 'delete' is destructive — validate IDs and confirm before dispatching.
-        if (string.Equals(action, "delete", StringComparison.OrdinalIgnoreCase))
+        // A single stale/invalid id must not abort a batch covering many valid
+        // ones: View.HideElements/UnhideElements/IsolateElementsTemporary and
+        // Selection.SetElementIds all throw on the FIRST unresolvable id,
+        // taking the whole action down with it. Drop what doesn't resolve and
+        // report it, the same contract delete_element already has — see P2.1
+        // in PLAN_CORRECTION.md.
+        var requestedCount = elementIds.Count;
+        var skippedIds = new List<long>();
+        if (!isResetIsolate)
         {
-            // Drop IDs that no longer resolve to an element, so doc.Delete never
-            // throws on a stale/invalid ID and the caller sees an accurate count.
-            elementIds = elementIds.Where(id => doc.GetElement(id) != null).ToList();
+            var valid = new List<ElementId>();
+            foreach (var id in elementIds)
+            {
+                if (doc.GetElement(id) != null) valid.Add(id);
+                else skippedIds.Add(ToolHelpers.GetElementIdValue(id));
+            }
+            elementIds = valid;
+
             if (elementIds.Count == 0)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                     "None of the supplied elementIds exist in the active document");
+        }
 
+        // H31: 'delete' is destructive — confirm before dispatching.
+        if (string.Equals(action, "delete", StringComparison.OrdinalIgnoreCase))
+        {
             if (!session.RequestConfirmation("delete", elementIds.Count))
                 return CortexResult<object>.Fail(CortexErrorCode.Cancelled,
                     "Operation cancelled by user");
@@ -99,7 +115,9 @@ public class OperateElementTool : ICortexTool
             {
                 message     = resultMessage,
                 action,
-                elementCount = elementIds.Count
+                elementCount = elementIds.Count,
+                requestedCount,
+                skippedIds
             });
         }
         catch (TransactionRolledBackException trbe)

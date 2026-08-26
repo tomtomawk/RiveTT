@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Newtonsoft.Json.Linq;
@@ -373,34 +372,11 @@ public class AIElementFilterTool : ICortexTool
     }
 
     private static string EncodeCursor(long documentVersion, int offset)
-        => Convert.ToBase64String(Encoding.UTF8.GetBytes($"{documentVersion}:{offset}"));
+        => PageCursor.Encode(documentVersion, offset);
 
     private static bool TryDecodeCursor(string? cursor, long documentVersion,
         out int offset, out string? error)
-    {
-        offset = 0;
-        error = null;
-        if (string.IsNullOrWhiteSpace(cursor)) return true;
-        try
-        {
-            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
-            var parts = decoded.Split(':');
-            if (parts.Length != 2 || !long.TryParse(parts[0], out var version) ||
-                !int.TryParse(parts[1], out offset) || offset < 0)
-                throw new FormatException();
-            if (version != documentVersion)
-            {
-                error = "The search cursor expired because the Revit document changed";
-                return false;
-            }
-            return true;
-        }
-        catch
-        {
-            error = "The search cursor is invalid";
-            return false;
-        }
-    }
+        => PageCursor.TryDecode(cursor, documentVersion, out offset, out error);
 
     // ── Element info builders ──────────────────────────────────────────────
 
