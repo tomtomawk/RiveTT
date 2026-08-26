@@ -41,7 +41,7 @@ public static class ArchitectureTools
         {
             ["data"] = new JArray(wall),
             ["dryRun"] = dryRun
-        }, ct)).ToString();
+        }, ct, publicToolName: "create_wall")).ToString();
     }
 
     [McpServerTool(Name = "create_door"), Description("Place a door family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give z relative to levelId (z=0 = floor level), which is usually what you want. A point outside the host wall vertical range is refused with the valid range in mm, instead of Revit's 'instances do not cut anything'.")]
@@ -57,7 +57,7 @@ public static class ArchitectureTools
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
         => CreateHostedOpening(revit, "OST_Doors", typeId, hostWallId, locationPoint, levelId,
-            facingFlipped, handFlipped, zMode, dryRun, ct);
+            facingFlipped, handFlipped, zMode, dryRun, ct, publicToolName: "create_door");
 
     [McpServerTool(Name = "create_window"), Description("Place a window family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give z as a sill height above levelId. A point outside the host wall vertical range, or a type wider than the wall, is refused with the numbers in mm.")]
     public static Task<string> CreateWindow(
@@ -71,7 +71,7 @@ public static class ArchitectureTools
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
         => CreateHostedOpening(revit, "OST_Windows", typeId, hostWallId, locationPoint, levelId,
-            facingFlipped, false, zMode, dryRun, ct);
+            facingFlipped, false, zMode, dryRun, ct, publicToolName: "create_window");
 
     [McpServerTool(Name = "create_railing"), Description("Create a native Revit guardrail from a connected horizontal path. The path JSON is [{x,y,z}, ...] in mm.")]
     public static async Task<string> CreateRailing(
@@ -109,7 +109,7 @@ public static class ArchitectureTools
     private static async Task<string> CreateHostedOpening(
         RevitConnectionManager revit, string category, long typeId, long hostWallId,
         string locationPoint, long levelId, bool facingFlipped, bool handFlipped,
-        string? zMode, bool dryRun, CancellationToken ct)
+        string? zMode, bool dryRun, CancellationToken ct, string publicToolName)
     {
         var spec = new JObject
         {
@@ -127,6 +127,6 @@ public static class ArchitectureTools
         {
             ["data"] = new JArray(spec),
             ["dryRun"] = dryRun
-        }, ct)).ToString();
+        }, ct, publicToolName: publicToolName)).ToString();
     }
 }

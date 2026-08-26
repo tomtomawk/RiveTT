@@ -48,6 +48,22 @@ public class WriteAccessGateTests
     }
 
     [Fact]
+    public void ReadOnly_WriteTool_RefusalNamesThePublicToolWhenGiven()
+    {
+        // create_wall etc. route through a shared generic internal tool
+        // (e.g. create_line_based_element): the refusal must name what the
+        // caller actually invoked, not the internal handler — see P1.6 in
+        // PLAN_CORRECTION.md.
+        var router = CreateRouter(out _, writesAllowed: false);
+
+        var result = router.Route("create_thing", new JObject(), publicToolName: "create_wall");
+
+        Assert.False(result.Success);
+        Assert.Contains("'create_wall'", result.Error!.Message);
+        Assert.DoesNotContain("create_thing", result.Error.Message);
+    }
+
+    [Fact]
     public void ReadOnly_DryRunDoesNotBypassTheLock()
     {
         var router = CreateRouter(out _, writesAllowed: false);
