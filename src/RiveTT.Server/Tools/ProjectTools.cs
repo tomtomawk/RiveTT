@@ -55,15 +55,16 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "load_family"), Description("Load a family into the Revit project.")]
+    [McpServerTool(Name = "load_family"), Description("Load a family into the Revit project, or reload one already there (e.g. after editing its .rfa outside Revit). Also lists loaded families or duplicates a family type.")]
     public static async Task<string> LoadFamily(
         RevitConnectionManager revit,
         [Description("Action to perform (e.g. list, load)")] string action = "list",
         [Description("Path to the family file (.rfa)")] string? familyPath = null,
         [Description("Filter by category")] string? categoryFilter = null,
+        [Description("When a same-named family already exists, overwrite it (updates its types/parameters). Default: true. Set false to leave an existing family untouched.")] bool overwriteExisting = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["action"] = action };
+        var p = new JObject { ["action"] = action, ["overwriteExisting"] = overwriteExisting };
         if (familyPath != null) p["familyPath"] = familyPath;
         if (categoryFilter != null) p["categoryFilter"] = categoryFilter;
         var result = await revit.ExecuteAsync("load_family", p, ct);
@@ -260,7 +261,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_room"), Description("Create a room at a point on a level. x/y are plan coordinates in mm; the level sets the elevation. The response reports enclosed and areaM2 - a point that is not inside a closed loop of room-bounding elements, or that falls in an existing room, yields an unusable room with area 0 and a warning. dryRun reports which room already occupies the point.")]
+    [McpServerTool(Name = "create_room"), Description("Create a room at a point on a level. x/y are plan coordinates in mm; the level sets the elevation. A point that is not inside a closed loop of room-bounding elements, or that falls in an existing room, is refused (area 0, nothing left in the model) unless allowUnenclosed=true. dryRun reports which room already occupies the point.")]
     public static async Task<string> CreateRoom(
         RevitConnectionManager revit,
         [Description("Level element ID where the room will be placed")] long levelId,
@@ -269,6 +270,7 @@ public static class ProjectTools
         [Description("Room name")] string? name = null,
         [Description("Room number")] string? number = null,
         [Description("Department")] string? department = null,
+        [Description("Keep the room even if it is not enclosed (area 0). Default: false (refused)")] bool allowUnenclosed = false,
         [Description("Preview without creating: reports the room already occupying the point. Default: false")] bool dryRun = false,
         CancellationToken ct = default)
     {
@@ -276,6 +278,7 @@ public static class ProjectTools
         {
             ["levelId"] = levelId,
             ["location"] = new JObject { ["x"] = x, ["y"] = y, ["z"] = 0 },
+            ["allowUnenclosed"] = allowUnenclosed,
         };
         if (name != null) p["name"] = name;
         if (number != null) p["number"] = number;

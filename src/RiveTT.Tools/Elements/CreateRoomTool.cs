@@ -21,7 +21,7 @@ public class CreateRoomTool : ICortexTool
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Creates a room at the specified location point inside enclosed walls. Supports dryRun. The response reports whether the room is actually enclosed and its area.";
+    public string Description => "Creates a room at the specified location point inside enclosed walls. Supports dryRun. An unenclosed result (area 0) is refused and nothing is left in the model, unless allowUnenclosed=true.";
     private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
@@ -43,6 +43,10 @@ public class CreateRoomTool : ICortexTool
         var limitOffsetMm = input["limitOffset"]?.Value<double>() ?? 0;
         var baseOffsetMm = input["baseOffset"]?.Value<double>() ?? 0;
         var dryRun = input["dryRun"]?.Value<bool>() ?? false;
+        // An unenclosed room (area = 0) is unusable for schedules, area
+        // takeoffs or tags. Refuse it by default rather than leaving a dead
+        // room in the model — see P2.3 in PLAN_CORRECTION.md.
+        var allowUnenclosed = input["allowUnenclosed"]?.Value<bool>() ?? false;
 
         try
         {
@@ -162,6 +166,23 @@ public class CreateRoomTool : ICortexTool
             var areaFt2 = room.get_Parameter(BuiltInParameter.ROOM_AREA)?.AsDouble() ?? 0;
             var enclosed = areaFt2 > 1e-6;
             var areaM2 = Math.Round(areaFt2 * 0.09290304, 3);
+
+            if (!enclosed && !allowUnenclosed)
+            {
+                var roomId = room.Id;
+                using var deleteTx = new Transaction(doc, "RiveTT: Discard Unenclosed Room");
+                TransactionFailureHandling.SuppressWarnings(deleteTx);
+                deleteTx.Start();
+                doc.Delete(roomId);
+                deleteTx.Commit();
+
+                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    "The room would not be enclosed (area = 0): the point is not inside a closed loop of " +
+                    "room-bounding elements, or it falls inside a room that already exists. Nothing was left " +
+                    "in the model.",
+                    suggestion: "Close the boundary (walls or a room separation line) and retry, or pass " +
+                                "allowUnenclosed=true to keep an unenclosed room deliberately.");
+            }
 
             return CortexResult<object>.Ok(new
             {
