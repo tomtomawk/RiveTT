@@ -83,9 +83,13 @@ public sealed class RoadmapImplementationTests
         // applies to API *event* handlers (Idling, DocumentChanged), not to the
         // ExternalEvent handler every tool runs in. Autodesk's guidance is that an
         // External Event is the supported and safe way to open-and-activate.
-        // What remains genuinely unavailable is opening the family document.
+        // edit_family (opening the family document) is not exposed as a TOOL yet,
+        // but — per P4.1 in PLAN_CORRECTION.md — Document.EditFamily itself does
+        // NOT deadlock from this dispatcher; the earlier claim that it did was
+        // false and is what made the capability get abandoned in the first place.
         Assert.Contains("edit_family (opening the family document) is not exposed", caps);
-        Assert.Contains("Document.EditFamily deadlocked", caps);
+        Assert.Contains("does NOT deadlock", caps);
+        Assert.DoesNotContain("Document.EditFamily deadlocked", caps);
         Assert.DoesNotContain("open_document is not exposed", caps);
     }
 

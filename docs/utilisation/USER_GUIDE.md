@@ -237,9 +237,13 @@ donc disponibles, conformément à la recommandation Autodesk (External Event =
 
 Restent indisponibles, et `get_server_capabilities` le déclare :
 
-- **ouverture du document de famille** (`Document.EditFamily`) : a provoqué un
-  interblocage depuis ce dispatcher. Pour modifier une famille : éditer le
-  `.rfa` hors Revit puis `load_family` ;
+- **ouverture du document de famille** (`Document.EditFamily`) : pas encore
+  exposée en tant qu'outil (`edit_family`), mais ne provoque **pas**
+  d'interblocage depuis ce dispatcher — l'affirmation contraire était fausse
+  (corrigée dans `docs/developpement/PLAN_CORRECTION.md`, P4.1) ;
+  `EditFamily` tourne déjà en production dans `export_families` et
+  `list_family_sizes`. En attendant `edit_family` : éditer le `.rfa` hors
+  Revit puis `load_family(overwriteExisting: true)` ;
 - **escaliers esquissés**, volées hélicoïdales et balancements :
   `create_stair` couvre l'escalier par composant (volées droites + paliers) ;
 - **édition de groupe en place** : l'API ne le permet pas,
