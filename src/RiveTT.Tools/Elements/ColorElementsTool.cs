@@ -117,16 +117,29 @@ public class ColorElementsTool : ICortexTool
 
             // Group elements by parameter value (instance → type → "None")
             var groups = new Dictionary<string, List<ElementId>>(StringComparer.Ordinal);
+            var resolvedOnAny = false;
 
             foreach (var element in elements)
             {
-                var paramVal = GetParameterValue(doc, element, parameterName!);
+                var paramVal = GetParameterValue(doc, element, parameterName!, out var resolved);
+                if (resolved) resolvedOnAny = true;
 
                 if (!groups.ContainsKey(paramVal))
                     groups[paramVal] = new List<ElementId>();
 
                 groups[paramVal].Add(element.Id);
             }
+
+            // The localized resolver (aliases + accent/case-insensitive match) found
+            // the parameter on none of the elements: report it instead of letting a
+            // silent "None" group read as "the parameter is empty" — see P2.4 in
+            // PLAN_CORRECTION.md.
+            var unresolvedParameterNames = resolvedOnAny
+                ? Array.Empty<string>()
+                : new[] { parameterName! };
+            var parameterSuggestions = resolvedOnAny
+                ? Array.Empty<string>()
+                : ParameterNameResolver.Suggest(parameterName!, ParameterNameResolver.AvailableNames(elements[0], doc)).ToArray();
 
             // Generate a color per group
             var colorMap = GenerateColors(groups.Keys.ToList(), useGradient, customColors);
@@ -181,7 +194,9 @@ public class ColorElementsTool : ICortexTool
                     message = $"Colored {elements.Count} element(s) across {groups.Count} group(s)",
                     totalElements = elements.Count,
                     coloredGroups = groups.Count,
-                    results = coloringResults
+                    results = coloringResults,
+                    unresolvedParameterNames,
+                    parameterSuggestions
                 });
             }
             catch
@@ -222,21 +237,13 @@ public class ColorElementsTool : ICortexTool
 
     // ── Parameter value extraction ────────────────────────────────────────────
 
-    private static string GetParameterValue(Document doc, Element element, string parameterName)
+    private static string GetParameterValue(Document doc, Element element, string parameterName, out bool resolved)
     {
-        // Instance parameter first
-        var param = element.LookupParameter(parameterName);
-
-        // Fallback to type parameter
-        if (param == null)
-        {
-            var typeId = element.GetTypeId();
-            if (typeId != ElementId.InvalidElementId)
-            {
-                var typeElem = doc.GetElement(typeId);
-                param = typeElem?.LookupParameter(parameterName);
-            }
-        }
+        // Same localized resolver as get_element_parameters: BuiltInParameter,
+        // exact display name, English/French alias table, then accent/case-
+        // insensitive match — a raw LookupParameter missed "Type Name" entirely.
+        var param = ParameterNameResolver.Resolve(element, parameterName, doc);
+        resolved = param != null;
 
         if (param == null || !param.HasValue)
             return "None";

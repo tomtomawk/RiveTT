@@ -86,11 +86,36 @@ public class CreateViewFilterTool : ICortexTool
 
         var filter = ParameterFilterElement.Create(doc, filterName, catIds);
 
-        // A sample element from the first category, used to resolve parameter ids by name.
-        var testElem = new FilteredElementCollector(doc)
-            .OfCategoryId(catIds[0])
-            .WhereElementIsNotElementType()
-            .FirstOrDefault();
+        // Elements AND types across every target category, used to resolve
+        // parameter ids by name. A single sample element misses a parameter
+        // (a shared one especially) that only part of the category carries —
+        // see P1.5 in PLAN_CORRECTION.md.
+        var probeElements = new List<Element>();
+        foreach (var catId in catIds)
+        {
+            var instances = new FilteredElementCollector(doc)
+                .OfCategoryId(catId)
+                .WhereElementIsNotElementType()
+                .ToElements();
+            probeElements.AddRange(instances);
+
+            var typeIds = instances.Select(e => e.GetTypeId())
+                .Where(id => id != ElementId.InvalidElementId)
+                .Distinct();
+            foreach (var typeId in typeIds)
+            {
+                var typeElem = doc.GetElement(typeId);
+                if (typeElem != null) probeElements.Add(typeElem);
+            }
+
+            if (instances.Count == 0)
+            {
+                probeElements.AddRange(new FilteredElementCollector(doc)
+                    .OfCategoryId(catId)
+                    .WhereElementIsElementType()
+                    .ToElements());
+            }
+        }
 
         // Collect rules: single (parameterName/filterRule/filterValue) and/or a `rules` array.
         var ruleSpecs = new List<(string name, string rule, string value)>();
@@ -113,13 +138,24 @@ public class CreateViewFilterTool : ICortexTool
 
         var rulesApplied = 0;
         var ruleWarnings = new List<string>();
-        if (ruleSpecs.Count > 0 && testElem != null)
+        if (ruleSpecs.Count > 0)
         {
             var filters = new List<ElementFilter>();
             foreach (var spec in ruleSpecs)
             {
-                var param = testElem.LookupParameter(spec.name);
-                if (param == null) { ruleWarnings.Add($"Parameter '{spec.name}' not found on sample element"); continue; }
+                Parameter? param = null;
+                foreach (var probe in probeElements)
+                {
+                    param = ParameterNameResolver.Resolve(probe, spec.name, doc);
+                    if (param != null) break;
+                }
+
+                if (param == null)
+                {
+                    ruleWarnings.Add($"Parameter '{spec.name}' was not found on any element or type in " +
+                                      "the target categories");
+                    continue;
+                }
                 var rule = CreateRule(param.Id, spec.rule, spec.value, param.StorageType);
                 if (rule == null) { ruleWarnings.Add($"Unsupported rule '{spec.rule}' for '{spec.name}'"); continue; }
                 filters.Add(new ElementParameterFilter(rule));
@@ -138,6 +174,20 @@ public class CreateViewFilterTool : ICortexTool
                     : (ElementFilter)new LogicalAndFilter(filters);
                 filter.SetElementFilter(combined);
                 rulesApplied = filters.Count;
+            }
+
+            // Rules were requested and none could be resolved: a filter with no
+            // rule matches (and colors) the entire category, which is not what
+            // was asked. Fail rather than hand back a filter that lies about
+            // being configured — see P1.5 in PLAN_CORRECTION.md.
+            if (rulesApplied == 0)
+            {
+                tx.RollBack();
+                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    $"None of the {ruleSpecs.Count} requested rule(s) could be resolved: " +
+                    string.Join("; ", ruleWarnings),
+                    suggestion: "Check the parameter names against get_element_parameters on a representative " +
+                                "element, or pass an explicit BuiltInParameter name.");
             }
         }
 
