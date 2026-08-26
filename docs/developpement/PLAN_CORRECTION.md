@@ -12,6 +12,22 @@ Chaque entrée porte son **statut de preuve** :
 
 Rien de ce qui suit n'a été corrigé pendant la campagne.
 
+## État — branche `dev/0.3.0`
+
+Corrigés (code compilé, tests unitaires verts ; non revérifiés en session Revit live,
+aucune n'étant disponible sur ce poste au moment des correctifs) : **P0.1, P0.2, P1.1,
+P1.3, P1.5, P1.6, P1.7, P2.1, P2.2, P2.3, P2.4, P2.5**, et le correctif documentaire de
+**P4.1** (l'affirmation d'interblocage d'`EditFamily`).
+
+Non corrigés, avec raison :
+
+- **P0.3, P1.2** — le code actuel contredit le défaut décrit (voir les notes ajoutées
+  dans chaque section). À revérifier en session Revit avant de rouvrir ou de refermer.
+- **P1.4** — hypothèse ; instruction du plan lui-même de ne pas corriger à l'aveugle.
+- **P3.1, P3.2** — hygiène, le plan demande une passe dédiée séparée.
+- **P4.1** — reste à construire : `open_template`, `open_family`, `close_document`,
+  `edit_family` en arrière-plan. Plus bloqué (P1.7 fait), taille d'un lot séparé.
+
 ---
 
 ## P0 — Bloquants
@@ -127,6 +143,43 @@ sans code, sans message, sans entrée d'audit. Impossible de distinguer « pas d
 actif » de « add-in injoignable » ou « verrou d'écriture ». Un agent ne peut pas décider
 quoi faire.
 
+**Précision mesurée le 26/08 en fin de campagne, qui restreint la recherche.** Revit
+fermé *après* le démarrage du serveur, le même appel rend une erreur **parfaitement
+structurée** :
+
+```json
+{ "code": "NoRevitSession", "tool": "get_element_parameters",
+  "message": "No RiveTT Revit session is available. Open Revit (2026.5+ or 2027)...",
+  "stage": "transport", "modelChanged": false }
+```
+
+Le chemin générique « aucune session Revit » est donc correct et n'est pas à refaire.
+L'erreur opaque est **spécifique au cas serveur-avant-Revit** : un chemin distinct, qui
+échoue avant d'atteindre la couche rendant `NoRevitSession`. C'est là qu'il faut
+chercher, pas dans la gestion d'erreur générale.
+
+**Investigation de code du 26/08 (branche `dev/0.3.0`), sans session Revit disponible
+pour rejouer le scénario.** `RevitPipeBridge.SendCommandAsync` relit déjà
+`%LOCALAPPDATA%\RiveTT\sessions\*.json` à **chaque appel** (`RevitSessionDiscovery.
+FindPreferredPipe`, pas de cache figé au démarrage), et `RevitConnectionManager.
+ExecuteAsync` capture déjà toute exception de transport vers `TransportError.Describe`
+(codes structurés `NoRevitSession`/`Timeout`/`PipeClosed`/`PipeAccessDenied`), ce que
+confirme la précision ci-dessus. Le code lu ne contredit donc PAS que le chemin
+générique fonctionne — mais il ne montre pas non plus de cache de session figé à
+corriger : aucune relecture différée trouvée sur aucun chemin.
+
+Piste restante, non vérifiée : `RevitConnectionManager._mutex` (`SemaphoreSlim(1,1)`)
+est acquis **avant** le `try/catch` qui mappe les exceptions. Si un appel antérieur
+reste bloqué dans `pipe.ConnectAsync` sans jamais atteindre son `finally`, tout appel
+suivant attend indéfiniment le sémaphore et remonte comme un timeout MCP générique
+plutôt que comme un code structuré — compatible avec le symptôme observé, non prouvé.
+À instrumenter (horodatage prise/relâche du mutex) en session réelle avant tout
+correctif.
+
+Aggravant confirmé côté code : `RevitPipeBridge.cs` n'appelle jamais `AuditLogger`
+(propre à `RiveTT.Plugin`, absent de `RiveTT.Server`) — un échec de transport n'est
+donc jamais audité, contrairement au refus `PermissionDenied`.
+
 **Correction.** Surveiller `%LOCALAPPDATA%\RiveTT\sessions\` (watcher ou relecture à
 chaque appel en échec de connexion), et mapper toute rupture sur un code explicite —
 `NoActiveDocument`, `NoRevitSession`, `PipeUnavailable` — avec le même bloc `context`
@@ -179,6 +232,17 @@ même feuille rend deux cadres différents selon l'ordre des appels.
 **Correction.** Quand aucun cadre n'est mesurable : refuser le centrage implicite avec le
 message prévu ; et ne jamais dériver le cadre d'un viewport posé par l'outil lui-même —
 seul un cartouche ou la taille de feuille Revit fait foi.
+
+**Déjà en place dans le code (26/08, branche `dev/0.3.0`), non revérifié en session
+Revit.** `src/RiveTT.Tools/Utilities/SheetFrame.cs` porte exactement ce contrat :
+`Measure` ne dérive `Frame` que du cartouche, de `SHEET_WIDTH`/`SHEET_HEIGHT` ou de
+`sheet.Outline` — jamais d'un `Viewport` — et `PlaceViewportTool.Execute` refuse
+explicitement le centrage (`CortexErrorCode.InvalidInput`) quand `!frame.IsKnown`. Les
+commentaires du fichier (« batch_create_sheets placed every viewport at a hardcoded
+(0.5 ft; 0.5 ft)… ») indiquent qu'un correctif antérieur au 26/08 a déjà unifié cette
+logique. Soit le binaire testé en session était antérieur à ce correctif (build/install
+non resynchronisé avec `main`), soit un scénario non couvert par cette lecture reste à
+isoler. À revérifier en session Revit avant de rouvrir ce point.
 
 ### P1.3 `create_sheet` sans `titleBlockId` pose un cartouche
 
