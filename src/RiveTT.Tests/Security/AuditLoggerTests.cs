@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using RiveTT.Core.Results;
 using RiveTT.Core.Security;
 using Xunit;
@@ -147,6 +149,49 @@ public class AuditLoggerTests : IDisposable
         var content = File.ReadAllText(_tempPath);
         Assert.Contains("...", content);
         Assert.DoesNotContain(longMessage, content);
+    }
+
+    [Fact]
+    public void Log_TransientSharingViolation_RetriesAndSucceeds()
+    {
+        // Two RiveTT sessions can share one audit.jsonl (P0.3 in
+        // PLAN_CORRECTION.md). Hold an exclusive lock briefly, as a concurrent
+        // writer would, and confirm the retry recovers instead of dropping
+        // the entry silently.
+        var lockHandle = new FileStream(_tempPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        _ = Task.Run(() => { Thread.Sleep(40); lockHandle.Dispose(); });
+
+        _logger.Log("locked_tool", "x", true);
+
+        var content = File.ReadAllText(_tempPath);
+        Assert.Contains("locked_tool", content);
+        Assert.Equal(0, _logger.WriteFailureCount);
+    }
+
+    [Fact]
+    public void Log_PermanentFailure_IncrementsCounterAndWritesVisibleFallback()
+    {
+        // P0.2: a silent Trace.WriteLine is invisible inside Revit.exe without a
+        // debugger attached, which is how audit.jsonl stopped growing unnoticed
+        // during the 2026-08-26 campaign. A write that can never succeed must
+        // leave a trace a person can actually find.
+        var dirAsFilePath = Path.Combine(Path.GetTempPath(), $"cortex_audit_dir_{Guid.NewGuid()}");
+        Directory.CreateDirectory(dirAsFilePath);
+        try
+        {
+            var logger = new AuditLogger(dirAsFilePath); // logPath IS a directory: every write fails
+            logger.Log("doomed_tool", "x", true);
+
+            Assert.Equal(1, logger.WriteFailureCount);
+            var fallbackPath = dirAsFilePath + ".errors.log";
+            Assert.True(File.Exists(fallbackPath));
+            Assert.Contains("doomed_tool", File.ReadAllText(fallbackPath));
+            File.Delete(fallbackPath);
+        }
+        finally
+        {
+            Directory.Delete(dirAsFilePath, true);
+        }
     }
 
     [Fact]

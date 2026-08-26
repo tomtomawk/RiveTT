@@ -3,6 +3,7 @@ using System.Reflection;
 using Newtonsoft.Json.Linq;
 using RiveTT.Core.Caching;
 using RiveTT.Core.Results;
+using RiveTT.Core.Security;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Plugin;
@@ -67,7 +68,11 @@ public class GetCoordinationModelsToolTests
     {
         var store = new SessionStore();
         var session = new CortexSession(store);
-        return new CortexRouter(session, new FakeAnalyzer());
+        // Explicit temp-file logger: without it this suite writes real entries
+        // to %LOCALAPPDATA%\RiveTT\audit.jsonl on every dotnet test run.
+        var auditPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+            "rc-audit-" + System.Guid.NewGuid().ToString("N") + ".jsonl");
+        return new CortexRouter(session, new FakeAnalyzer(), new AuditLogger(auditPath));
     }
 
     private static void Register(CortexRouter router, ICortexTool tool)

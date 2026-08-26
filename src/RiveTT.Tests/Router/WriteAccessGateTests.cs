@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
+using RiveTT.Core.Security;
 using RiveTT.Core.Session;
 using RiveTT.Plugin;
 using RiveTT.Tools.Meta;
@@ -20,7 +21,10 @@ public class WriteAccessGateTests
     {
         session = new CortexSession(new SessionStore());
         session.WriteAccess.Set(writesAllowed, "test");
-        var router = new CortexRouter(session, new FakeAnalyzer());
+        // Explicit temp-file logger: without it this suite writes real entries
+        // to %LOCALAPPDATA%\RiveTT\audit.jsonl on every dotnet test run.
+        var auditPath = Path.Combine(Path.GetTempPath(), "rc-audit-" + System.Guid.NewGuid().ToString("N") + ".jsonl");
+        var router = new CortexRouter(session, new FakeAnalyzer(), new AuditLogger(auditPath));
         router.RegisterTool(new FakeTool { Name = "create_thing" });
         router.RegisterTool(new FakeTool { Name = "get_thing" });
         return router;

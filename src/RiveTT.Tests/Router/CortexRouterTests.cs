@@ -1,6 +1,7 @@
 using Newtonsoft.Json.Linq;
 using RiveTT.Core.Discovery;
 using RiveTT.Core.Results;
+using RiveTT.Core.Security;
 using RiveTT.Core.Session;
 using RiveTT.Plugin;
 using RiveTT.Core.Tools;
@@ -15,7 +16,12 @@ public class CortexRouterTests
         var store = new SessionStore();
         session = new CortexSession(store);
         var an = analyzer ?? new FakeAnalyzer();
-        return new CortexRouter(session, an);
+        // An explicit temp-file logger, not the default %LOCALAPPDATA%\RiveTT\audit.jsonl:
+        // this suite runs on every `dotnet test` and was otherwise writing real audit
+        // entries on the dev machine, masking whether the real execution path logs at all.
+        var auditPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+            "rc-audit-" + System.Guid.NewGuid().ToString("N") + ".jsonl");
+        return new CortexRouter(session, an, new AuditLogger(auditPath));
     }
 
     [Fact]
