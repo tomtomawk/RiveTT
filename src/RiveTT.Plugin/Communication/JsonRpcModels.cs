@@ -16,6 +16,16 @@ public class JsonRpcRequest
 
     [JsonProperty("id")]
     public string? Id { get; set; }
+
+    /// <summary>
+    /// The tool name the caller actually invoked, when it differs from
+    /// <see cref="Method"/> — several agent-facing MCP tools (create_wall,
+    /// create_door, create_window) route through one shared generic RiveTT
+    /// tool. Used only for messages (e.g. the write-lock refusal); routing
+    /// always keys off <see cref="Method"/>. See P1.6 in PLAN_CORRECTION.md.
+    /// </summary>
+    [JsonProperty("publicTool", NullValueHandling = NullValueHandling.Ignore)]
+    public string? PublicTool { get; set; }
 }
 
 public class JsonRpcResponse

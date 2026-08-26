@@ -96,7 +96,7 @@ public sealed class RevitNamedPipeService : IDisposable
 
         try
         {
-            var result = _router.Route(request.Method, request.Params ?? new JObject());
+            var result = _router.Route(request.Method, request.Params ?? new JObject(), request.PublicTool);
             return result.Success
                 ? JsonConvert.SerializeObject(JsonRpcResponse.Success(request.Id, result.Data!))
                 : JsonConvert.SerializeObject(JsonRpcResponse.Fail(

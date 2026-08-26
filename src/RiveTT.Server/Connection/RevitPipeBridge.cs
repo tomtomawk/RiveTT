@@ -25,7 +25,8 @@ public sealed class RevitPipeBridge : IDisposable
         _commandTimeout = TimeSpan.FromSeconds(commandTimeoutSeconds);
     }
 
-    public async Task<JToken> SendCommandAsync(string method, JObject parameters, CancellationToken cancellationToken)
+    public async Task<JToken> SendCommandAsync(string method, JObject parameters, CancellationToken cancellationToken,
+        string? publicToolName = null)
     {
         var pipeName = RevitSessionDiscovery.FindPreferredPipe();
         if (pipeName == null)
@@ -62,6 +63,7 @@ public sealed class RevitPipeBridge : IDisposable
             ["params"] = parameters,
             ["id"] = id
         };
+        if (!string.IsNullOrEmpty(publicToolName)) request["publicTool"] = publicToolName;
         await writer.WriteLineAsync(request.ToString(Formatting.None)).ConfigureAwait(false);
         var line = await reader.ReadLineAsync(timeout.Token).ConfigureAwait(false);
         if (line == null) throw new IOException("The Revit pipe closed before returning a result.");
@@ -140,17 +142,18 @@ public sealed class RevitConnectionManager
 {
     private readonly SemaphoreSlim _mutex = new(1, 1);
 
-    public async Task<JToken> ExecuteAsync(string method, JObject parameters, CancellationToken cancellationToken = default)
-        => await ExecuteAsync(method, parameters, 300, cancellationToken).ConfigureAwait(false);
+    public async Task<JToken> ExecuteAsync(string method, JObject parameters, CancellationToken cancellationToken = default,
+        string? publicToolName = null)
+        => await ExecuteAsync(method, parameters, 300, cancellationToken, publicToolName).ConfigureAwait(false);
 
     public async Task<JToken> ExecuteAsync(string method, JObject parameters, int commandTimeoutSeconds,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? publicToolName = null)
     {
         await _mutex.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             using var bridge = new RevitPipeBridge(commandTimeoutSeconds);
-            return await bridge.SendCommandAsync(method, parameters, cancellationToken).ConfigureAwait(false);
+            return await bridge.SendCommandAsync(method, parameters, cancellationToken, publicToolName).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
