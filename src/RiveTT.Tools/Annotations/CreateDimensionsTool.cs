@@ -163,9 +163,23 @@ public class CreateDimensionsTool : ICortexTool
         var dir = span.Normalize();
 
         var refs = new ReferenceArray();
-        foreach (var (eid, elem, _) in resolved)
+        for (var i = 0; i < resolved.Count; i++)
         {
-            var reference = GetBestReference(elem, view, dir);
+            var (eid, elem, centre) = resolved[i];
+
+            // Direction toward the OTHER elements, computed per element — not the
+            // single shared `dir`. GetBestReference used to score by |dot|, which
+            // cannot tell "facing the other element" from "facing away from it":
+            // for two parallel walls this consistently kept picking the same
+            // relative side of each (e.g. both walls' "+X face"), which measures
+            // centre-to-centre instead of face-to-face. See P2.5 in
+            // PLAN_CORRECTION.md.
+            var othersCentre = resolved.Where((_, j) => j != i)
+                .Aggregate(XYZ.Zero, (acc, r) => acc + r.Centre) / (resolved.Count - 1);
+            var toOthers = othersCentre - centre;
+            var faceDirection = toOthers.GetLength() > 1e-9 ? toOthers.Normalize() : dir;
+
+            var reference = GetBestReference(elem, view, faceDirection);
             if (reference == null)
             {
                 warnings.Add($"Cannot find dimensionable reference for element {eid}");
@@ -319,16 +333,21 @@ public class CreateDimensionsTool : ICortexTool
     }
 
     /// <summary>
-    /// The reference to dimension this element by, chosen for the direction being
-    /// measured: the planar face whose normal is most parallel to <paramref name="direction"/>.
+    /// The reference to dimension this element by: the planar face whose OUTWARD
+    /// normal points most toward <paramref name="direction"/> (the other
+    /// element(s) being dimensioned to).
     ///
-    /// A linear dimension only means something between faces that face each other. Taking
-    /// the first face the geometry iterator happens to yield gave two arbitrary,
-    /// frequently perpendicular faces, and Revit produced a degenerate segment — a
-    /// constant -1 ft whatever the real distance.
+    /// A linear dimension only means something between faces that face each
+    /// other. Taking the first face the geometry iterator happens to yield gave
+    /// two arbitrary, frequently perpendicular faces, and Revit produced a
+    /// degenerate segment — a constant -1 ft whatever the real distance.
     ///
-    /// A face perpendicular to the direction (|dot| near 0) is the worst possible pick and
-    /// is what the old code kept landing on; the best is |dot| near 1.
+    /// The score is the SIGNED dot product, not its absolute value: for a face
+    /// whose normal points AWAY from the other element (dot near -1), abs() rated
+    /// it as good as the correct near-side face (dot near +1), and ties broke on
+    /// geometry-iterator order — which, for two similarly-oriented walls, landed
+    /// on the SAME relative side of both, measuring centre-to-centre instead of
+    /// face-to-face. See P2.5 in PLAN_CORRECTION.md.
     /// </summary>
     private static Reference? GetBestReference(Element elem, View view, XYZ direction)
     {
@@ -351,7 +370,7 @@ public class CreateDimensionsTool : ICortexTool
                 // be dimensioned to reliably.
                 if (face is not PlanarFace planar) continue;
 
-                var score = Math.Abs(planar.FaceNormal.DotProduct(direction));
+                var score = planar.FaceNormal.DotProduct(direction);
                 if (score > bestScore)
                 {
                     bestScore = score;
