@@ -241,9 +241,9 @@ l'interface Revit — le document actif change, donc tout appel suivant cible ce
 fichier jusqu'au retour sur le projet. `close_document` referme un document
 ouvert (projet, famille ou gabarit) ; fermer le document **actif** exige qu'un
 autre document soit ouvert pour y basculer d'abord — `Document.Close(false)`
-refuse le document actif (mesuré le 27/08/2026,
-`docs/developpement/CHANGELOG_0.3.0.md` P1.4), c'est une contrainte réelle de
-l'API, pas un défaut à contourner par un thread d'arrière-plan.
+refuse le document actif (mesuré sur maquette le 27/08/2026), c'est une
+contrainte réelle de l'API, pas un défaut à contourner par un thread
+d'arrière-plan.
 
 `edit_family` modifie les valeurs de paramètres de type d'une famille **en
 arrière-plan** (aucune fenêtre ne s'ouvre) : `Document.EditFamily` → modifier →
