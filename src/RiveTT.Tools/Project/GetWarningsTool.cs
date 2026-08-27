@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 [ToolSafety(true, false)]
 public class GetWarningsTool : ICortexTool
 {
-    public string Name => "get_warnings";
+    public string Name => "list_warnings";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

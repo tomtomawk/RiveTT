@@ -48,6 +48,12 @@ public class BatchCreateSheetsTool : ICortexTool
 
             var results = new List<object>();
             var outsideFrame = 0;
+            // Counted here, not read back off the result objects: a failed sheet has no view
+            // fields at all, and a dynamic read of a missing member throws. Reconciling
+            // requested vs. placed is what caught workflow_sheet_set's dropped viewIds before
+            // the two tools were merged — batch_create_sheets now carries that check itself.
+            var requestedViews = 0;
+            var placedTotal = 0;
 
             using var tx = new Transaction(doc, "RiveTT: Batch Create Sheets");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -59,6 +65,7 @@ public class BatchCreateSheetsTool : ICortexTool
                 var name = sheetDef["name"]?.Value<string>();
                 var tbName = sheetDef["titleBlockName"]?.Value<string>();
                 var viewIds = sheetDef["viewIds"]?.ToObject<List<long>>() ?? new List<long>();
+                requestedViews += viewIds.Count;
 
                 var tbId = !string.IsNullOrEmpty(tbName) ? ResolveTitleBlock(doc, tbName) : defaultTbId;
                 if (tbId == ElementId.InvalidElementId)
@@ -82,12 +89,16 @@ public class BatchCreateSheetsTool : ICortexTool
                     var cells = SheetFrame.Subdivide(frame, viewIds.Count);
 
                     var placedViews = new List<SheetFrame.Placement>();
+                    var placedHere = 0;
                     for (var i = 0; i < viewIds.Count; i++)
                     {
-                        placedViews.Add(SheetFrame.PlaceCentred(
-                            doc, sheet, ToolHelpers.ToElementId(viewIds[i]), cells[i]));
+                        var placement = SheetFrame.PlaceCentred(
+                            doc, sheet, ToolHelpers.ToElementId(viewIds[i]), cells[i]);
+                        placedViews.Add(placement);
+                        if (SheetFrame.WasPlaced(placement)) placedHere++;
                     }
                     outsideFrame += SheetFrame.CountOutsideFrame(placedViews);
+                    placedTotal += placedHere;
 
                     results.Add(new
                     {
@@ -96,6 +107,8 @@ public class BatchCreateSheetsTool : ICortexTool
                         name = sheet.Name,
                         success = true,
                         frameOutlineMm = SheetFrame.Describe(frame),
+                        requestedViewCount = viewIds.Count,
+                        placedCount = placedHere,
                         placedViews
                     });
                 }
@@ -109,20 +122,26 @@ public class BatchCreateSheetsTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
+
+            var warnings = new List<string>();
             // A viewport that overflows the frame is only visible by opening the sheet.
             // Surface it here rather than reporting an unqualified success.
+            if (outsideFrame > 0)
+                warnings.Add($"{outsideFrame} viewport(s) are larger than the sheet frame and draw outside the "
+                    + "border. Crop those views first: paper size = crop size / view scale.");
+            if (requestedViews != placedTotal)
+                warnings.Add($"{requestedViews - placedTotal} of {requestedViews} requested view(s) were not "
+                    + "placed: Revit refuses a view already placed on another sheet. See each sheet's "
+                    + "placedViews[].reason.");
+
             return CortexResult<object>.Ok(new
             {
                 createdCount = results.Count(r => ((dynamic)r).success),
                 sheets = results,
+                requestedViewCount = requestedViews,
+                placedViewCount = placedTotal,
                 viewportsOutsideFrame = outsideFrame,
-                warnings = outsideFrame == 0
-                    ? Array.Empty<string>()
-                    : new[]
-                    {
-                        $"{outsideFrame} viewport(s) are larger than the sheet frame and draw outside the "
-                        + "border. Crop those views first: paper size = crop size / view scale."
-                    }
+                warnings
             });
         }
         catch (Exception ex)

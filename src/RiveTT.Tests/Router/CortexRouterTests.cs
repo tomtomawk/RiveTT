@@ -53,13 +53,13 @@ public class CortexRouterTests
     public void Route_DynamicTool_NotEnabled_Fails()
     {
         var router = CreateRouter(out _);
-        var tool = new FakeTool { Name = "get_worksets", IsDynamic = true };
+        var tool = new FakeTool { Name = "list_worksets", IsDynamic = true };
         var field = typeof(CortexRouter).GetField("_tools",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
         var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.ICortexTool>)field.GetValue(router)!;
         tools[tool.Name] = tool;
 
-        var result = router.Route("get_worksets", new JObject());
+        var result = router.Route("list_worksets", new JObject());
         Assert.False(result.Success);
         Assert.Contains("not available", result.Error!.Message);
     }
@@ -68,13 +68,13 @@ public class CortexRouterTests
     public void Route_ValidTool_ExecutesSuccessfully()
     {
         var router = CreateRouter(out _);
-        var tool = new FakeTool { Name = "say_hello" };
+        var tool = new FakeTool { Name = "ping_revit" };
         var field = typeof(CortexRouter).GetField("_tools",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
         var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.ICortexTool>)field.GetValue(router)!;
         tools[tool.Name] = tool;
 
-        var result = router.Route("say_hello", new JObject());
+        var result = router.Route("ping_revit", new JObject());
         Assert.True(result.Success);
     }
 
@@ -122,7 +122,7 @@ public class CortexRouterTests
         router.OnDocumentChanged(new object());
 
         Assert.True(session.Capabilities.HasWorksets);
-        Assert.True(session.Capabilities.IsToolEnabled("get_worksets"));
+        Assert.True(session.Capabilities.IsToolEnabled("list_worksets"));
     }
 
     [Fact]

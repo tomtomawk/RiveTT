@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Annotations;
 [ToolSafety(false, true)]
 public class WipeEmptyTagsTool : ICortexTool
 {
-    public string Name => "wipe_empty_tags";
+    public string Name => "delete_empty_tags";
     public string Category => "Annotations";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

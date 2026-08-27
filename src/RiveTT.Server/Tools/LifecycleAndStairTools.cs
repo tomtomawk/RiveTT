@@ -113,32 +113,51 @@ public static class LifecycleAndStairTools
         return (await revit.ExecuteAsync("create_ramp", p, ct)).ToString();
     }
 
-    [McpServerTool(Name = "manage_curtain_grid"), Description(
-        "Adds curtain grid lines and mullions to an existing curtain wall/system (create the wall itself with " +
-        "create_line_based_element and a curtain wall type). action=get_grid_info|add_grid_line|add_mullions. " +
-        "hostElementId is required for every action. add_grid_line needs direction (u|v) and offsetMm. " +
-        "add_mullions needs mullionTypeId and applies to every ungridded segment unless gridLineIds narrows it.")]
-    public static async Task<string> ManageCurtainGrid(
+    [McpServerTool(Name = "get_curtain_grid_info"), Description(
+        "Reads an existing curtain wall/system grid: U/V grid line ids, panel ids, mullion ids. " +
+        "hostElementId is the curtain wall or curtain system element.")]
+    public static async Task<string> GetCurtainGridInfo(
         RevitConnectionManager revit,
         [Description("Curtain wall or curtain system element ID")] long hostElementId,
-        [Description("Action: get_grid_info | add_grid_line | add_mullions. Default: get_grid_info")] string action = "get_grid_info",
-        [Description("Grid line direction: u | v (add_grid_line)")] string? direction = null,
-        [Description("Offset in mm along the host's own axis for the new grid line (add_grid_line)")] double? offsetMm = null,
-        [Description("MullionType element ID (add_mullions) — from list_system_types(category: \"OST_CurtainWallMullions\")")] long? mullionTypeId = null,
-        [Description("Grid line element IDs to restrict add_mullions to, as a JSON array of numbers. Omit to cover every ungridded segment")] System.Text.Json.JsonElement? gridLineIds = null,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["hostElementId"] = hostElementId, ["action"] = action };
-        if (direction != null) p["direction"] = direction;
-        if (offsetMm != null) p["offsetMm"] = offsetMm;
-        if (mullionTypeId != null) p["mullionTypeId"] = mullionTypeId;
+        var p = new JObject { ["hostElementId"] = hostElementId };
+        return (await revit.ExecuteAsync("get_curtain_grid_info", p, ct)).ToString();
+    }
+
+    [McpServerTool(Name = "add_curtain_grid_line"), Description(
+        "Adds a grid line to an existing curtain wall/system's grid (create the wall itself with " +
+        "create_line_based_element and a curtain wall type). hostElementId, direction (u|v), and " +
+        "offsetMm (distance along the host's own axis, in mm) are required.")]
+    public static async Task<string> AddCurtainGridLine(
+        RevitConnectionManager revit,
+        [Description("Curtain wall or curtain system element ID")] long hostElementId,
+        [Description("Grid line direction: u | v")] string direction,
+        [Description("Offset in mm along the host's own axis for the new grid line")] double offsetMm,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["hostElementId"] = hostElementId, ["direction"] = direction, ["offsetMm"] = offsetMm };
+        return (await revit.ExecuteAsync("add_curtain_grid_line", p, ct)).ToString();
+    }
+
+    [McpServerTool(Name = "add_curtain_mullions"), Description(
+        "Adds mullions to an existing curtain wall/system's grid lines. hostElementId and mullionTypeId " +
+        "are required; applies to every ungridded segment unless gridLineIds narrows it.")]
+    public static async Task<string> AddCurtainMullions(
+        RevitConnectionManager revit,
+        [Description("Curtain wall or curtain system element ID")] long hostElementId,
+        [Description("MullionType element ID — from list_system_types(category: \"OST_CurtainWallMullions\")")] long mullionTypeId,
+        [Description("Grid line element IDs to restrict this to, as a JSON array of numbers. Omit to cover every ungridded segment")] System.Text.Json.JsonElement? gridLineIds = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["hostElementId"] = hostElementId, ["mullionTypeId"] = mullionTypeId };
         if (gridLineIds != null)
         {
             if (!JsonArrayParam.TryParse(gridLineIds, out var gridLineIdsArray))
-                return JsonArrayParam.InvalidArrayResult("manage_curtain_grid", "gridLineIds", gridLineIds);
+                return JsonArrayParam.InvalidArrayResult("add_curtain_mullions", "gridLineIds", gridLineIds);
             p["gridLineIds"] = gridLineIdsArray;
         }
-        return (await revit.ExecuteAsync("manage_curtain_grid", p, ct)).ToString();
+        return (await revit.ExecuteAsync("add_curtain_mullions", p, ct)).ToString();
     }
 
     [McpServerTool(Name = "create_toposolid"), Description(

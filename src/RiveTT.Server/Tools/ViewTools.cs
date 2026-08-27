@@ -199,7 +199,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_sheet"), Description("Create a sheet, with a title block. Pass titleBlockId (an OST_TitleBlocks family type id, from list_system_types or get_available_family_types) or a family/type name. Without any of them Revit creates a bare 210x297 mm sheet with no frame. The response reports the title block actually placed; an unusable titleBlockId is an error, not a silent fallback.")]
+    [McpServerTool(Name = "create_sheet"), Description("Create a sheet, with a title block. Pass titleBlockId (an OST_TitleBlocks family type id, from list_system_types or list_family_types) or a family/type name. Without any of them Revit creates a bare 210x297 mm sheet with no frame. The response reports the title block actually placed; an unusable titleBlockId is an error, not a silent fallback.")]
     public static async Task<string> CreateSheet(
         RevitConnectionManager revit,
         [Description("Sheet number (e.g. A101)")] string sheetNumber,

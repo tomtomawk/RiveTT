@@ -514,7 +514,7 @@ public class SetCompoundStructureTool : ICortexTool
             if (doc.GetElement(materialId) is not Material)
                 return (false, null,
                     $"materialId {matIdVal.Value} is not a material in this document. " +
-                    "List the real ones with get_materials (nameFilter is supported).");
+                    "List the real ones with list_materials (nameFilter is supported).");
         }
         else if (!string.IsNullOrWhiteSpace(matName))
         {
@@ -533,7 +533,7 @@ public class SetCompoundStructureTool : ICortexTool
                 return (false, null,
                     $"materialName '{matName}' does not exist in this document" +
                     (suggestions.Count > 0 ? $" — did you mean: {string.Join(", ", suggestions)}?" : "") +
-                    " Use get_materials to list the project materials, or create_material first.");
+                    " Use list_materials to list the project materials, or create_material first.");
             }
 
             materialId = mat.Id;

@@ -9,18 +9,18 @@ public class DocumentCapabilitiesTests
     public void EnableTool_MakesToolAvailable()
     {
         var caps = new DocumentCapabilities();
-        Assert.False(caps.IsToolEnabled("get_worksets"));
-        caps.EnableTool("get_worksets");
-        Assert.True(caps.IsToolEnabled("get_worksets"));
+        Assert.False(caps.IsToolEnabled("list_worksets"));
+        caps.EnableTool("list_worksets");
+        Assert.True(caps.IsToolEnabled("list_worksets"));
     }
 
     [Fact]
     public void DisableTool_RemovesTool()
     {
         var caps = new DocumentCapabilities();
-        caps.EnableTool("get_worksets");
-        caps.DisableTool("get_worksets");
-        Assert.False(caps.IsToolEnabled("get_worksets"));
+        caps.EnableTool("list_worksets");
+        caps.DisableTool("list_worksets");
+        Assert.False(caps.IsToolEnabled("list_worksets"));
     }
 
     [Fact]
@@ -30,14 +30,14 @@ public class DocumentCapabilitiesTests
         caps.HasWorksets = true;
         caps.HasPhases = true;
         caps.PresentCategories.Add("OST_Walls");
-        caps.EnableTool("get_worksets");
+        caps.EnableTool("list_worksets");
 
         caps.Reset();
 
         Assert.False(caps.HasWorksets);
         Assert.False(caps.HasPhases);
         Assert.Empty(caps.PresentCategories);
-        Assert.False(caps.IsToolEnabled("get_worksets"));
+        Assert.False(caps.IsToolEnabled("list_worksets"));
     }
 
     [Fact]

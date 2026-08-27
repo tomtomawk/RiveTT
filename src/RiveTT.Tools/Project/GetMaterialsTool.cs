@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 [ToolSafety(true, false)]
 public class GetMaterialsTool : ICortexTool, ICacheableTool
 {
-    public string Name => "get_materials";
+    public string Name => "list_materials";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

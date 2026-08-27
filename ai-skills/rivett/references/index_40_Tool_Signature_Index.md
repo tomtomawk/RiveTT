@@ -13,17 +13,17 @@ La fonte canonica delle signatures est le code du serveur C# ; aucun schéma gé
 | Prefisso | Categoria | Esempi |
 |---|---|---|
 | `get_`, `list_`, `find_`, `analyze_`, `check_`, `export_`, `measure_`, `audit_` | Read-only | `get_project_info`, `analyze_model_statistics` |
-| `set_`, `bulk_`, `sync_`, `create_`, `delete_`, `purge_`, `wipe_`, `rename_`, `modify_`, `override_`, `change_` | Write | `set_element_parameters`, `bulk_modify_parameter_values` |
+| `set_`, `batch_`, `sync_`, `create_`, `delete_`, `purge_`, `rename_`, `modify_`, `override_`, `change_` | Write | `set_element_parameters`, `batch_modify_parameter_values` |
 | `ifc_*` | IFC integration | `ifc_link`, `ifc_rebuild_walls`, `ifc_export_basic` |
-| `workflow_*` | Workflow composti | `workflow_model_audit`, `workflow_clash_review` |
-| `cross_app_*` | NavisCortex bridge | `cross_app_selection` |
-| `say_hello`, `get_*` | Meta | Diagnostica, capabilities |
+| `workflow_*` | Workflow composti | `workflow_model_audit`, `workflow_room_documentation` |
+| `sync_navisworks_selection` | NavisCortex bridge | (nessun prefisso comune, nome unico) |
+| `ping_revit`, `get_*` | Meta | Diagnostica, capabilities |
 
 ## Contrats RiveTT ajoutés
 
 - `get_server_capabilities()`
 - `capture_selection(elementIds?, ttlMinutes?)`
-- `ai_element_filter(..., pageSize?, cursor?, responseMode?)`
+- `filter_elements(..., pageSize?, cursor?, responseMode?)`
 - `duplicate_storey(sourceLevelId|sourceLevelName, targetElevationMm, ..., dryRun=true)`
 - `detach_wall_constraint(wallIds, mode, dryRun=true)`
 - `manage_model_groups(action, ..., dryRun=true)`
@@ -39,7 +39,7 @@ La fonte canonica delle signatures est le code du serveur C# ; aucun schéma gé
 - `get_elements_in_spatial_volume(..., containment?)`
 - `get_element_parameters(elementIds, includeTypeParameters?, parameterNames?, compact?)`
 - `get_schedule_data(scheduleId, maxRows?, includeAvailableFields?)`
-- `get_materials(nameFilter?, materialClass?, compact?)`
+- `list_materials(nameFilter?, materialClass?, compact?)`
 - `create_door(..., zMode?)` / `create_window(..., zMode?)`
 - `create_document(targetPath, templatePath?, overwrite?, activate?, dryRun?)`
 - `open_document(filePath, detachFromCentral?, dryRun?)`

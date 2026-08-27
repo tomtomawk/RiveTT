@@ -31,7 +31,7 @@ public static class ParameterTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "bulk_modify_parameter_values"), Description("Bulk modify parameter values across elements by category. Supports set, find-and-replace, and other operations.")]
+    [McpServerTool(Name = "batch_modify_parameter_values"), Description("Bulk modify parameter values across elements by category. Supports set, find-and-replace, and other operations.")]
     public static async Task<string> BulkModifyParameterValues(
         RevitConnectionManager revit,
         [Description("Parameter name to modify")] string parameterName,
@@ -57,7 +57,7 @@ public static class ParameterTools
         if (elementIds != null)
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
-                return JsonArrayParam.InvalidArrayResult("bulk_modify_parameter_values", "elementIds", elementIds);
+                return JsonArrayParam.InvalidArrayResult("batch_modify_parameter_values", "elementIds", elementIds);
             p["elementIds"] = elementIdsArray;
         }
         if (selectionToken != null) p["selectionToken"] = selectionToken;
@@ -70,7 +70,7 @@ public static class ParameterTools
         p["dryRun"] = dryRun;
         p["includeSample"] = includeSample;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
-        var result = await revit.ExecuteAsync("bulk_modify_parameter_values", p, ct);
+        var result = await revit.ExecuteAsync("batch_modify_parameter_values", p, ct);
         return result.ToString();
     }
 
@@ -133,7 +133,7 @@ public static class ParameterTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "add_prefix_suffix"), Description("Add a prefix and/or suffix to parameter values across the model or a selection. Runs as a dry-run preview by default; set dryRun=false to apply the changes.")]
+    [McpServerTool(Name = "batch_rename_affix"), Description("Add a prefix and/or suffix to parameter values across the model or a selection. Runs as a dry-run preview by default; set dryRun=false to apply the changes.")]
     public static async Task<string> AddPrefixSuffix(
         RevitConnectionManager revit,
         [Description("Parameter name to modify")] string parameterName,
@@ -160,7 +160,7 @@ public static class ParameterTools
         if (elementIds != null)
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
-                return JsonArrayParam.InvalidArrayResult("add_prefix_suffix", "elementIds", elementIds);
+                return JsonArrayParam.InvalidArrayResult("batch_rename_affix", "elementIds", elementIds);
             p["elementIds"] = elementIdsArray;
         }
         if (selectionToken != null) p["selectionToken"] = selectionToken;
@@ -168,12 +168,12 @@ public static class ParameterTools
         if (categories != null)
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
-                return JsonArrayParam.InvalidArrayResult("add_prefix_suffix", "categories", categories);
+                return JsonArrayParam.InvalidArrayResult("batch_rename_affix", "categories", categories);
             p["categories"] = categoriesArray;
         }
         p["includeDetails"] = includeDetails;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
-        var result = await revit.ExecuteAsync("add_prefix_suffix", p, ct);
+        var result = await revit.ExecuteAsync("batch_rename_affix", p, ct);
         return result.ToString();
     }
 

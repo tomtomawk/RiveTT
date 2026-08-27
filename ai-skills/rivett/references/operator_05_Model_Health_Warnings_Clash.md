@@ -10,12 +10,12 @@
 
 Sequenza canonica:
 1. `check_model_health` (compact: true)
-2. `get_warnings` con `maxWarnings: 10` (mai 500 di default)
-3. [opzionale] `clash_detection` su una coppia di discipline
+2. `list_warnings` con `maxWarnings: 10` (mai 500 di default)
+3. [opzionale] `detect_clashes` su una coppia di discipline
 
 Dopo questa sequenza, chiudere la sessione. Non incatenare task di authoring.
 
-### get_warnings
+### list_warnings
 
 | Scenario | maxWarnings |
 |---|---|
@@ -27,12 +27,12 @@ Dopo questa sequenza, chiudere la sessione. Non incatenare task di authoring.
 
 | Caso | Tool |
 |---|---|
-| Conteggio + lista ID | `clash_detection` (400-600 token) |
-| Review visuale 3D con section box | `workflow_clash_review` (800+ token) |
+| Conteggio + lista ID | `detect_clashes` (400-600 token) |
+| Review visuale 3D con section box | `show_clashes` (800+ token) |
 
 Su modelli architettonici, ricordare: colonne = `OST_Columns`, NON `OST_StructuralColumns`.
 
-### lines_per_view_count
+### count_lines_per_view
 
 ⚠️ ATTENZIONE: questo tool può crashare il server su modelli con 300+ viste.
 - Mai eseguire in parallelo con altri tool.
@@ -41,13 +41,13 @@ Su modelli architettonici, ricordare: colonne = `OST_Columns`, NON `OST_Structur
 
 ## Required checks
 
-- [ ] `get_warnings` chiamato con `maxWarnings` esplicito (mai default).
-- [ ] `clash_detection`: specificate le due categorie esatte.
+- [ ] `list_warnings` chiamato con `maxWarnings` esplicito (mai default).
+- [ ] `detect_clashes`: specificate le due categorie esatte.
 - [ ] `workflow_model_audit` usato solo se quick check non basta.
 
 ## Avoid
 
 - Non usare `workflow_model_audit` per un check veloce (3000+ token vs 500-800).
-- Non chiamare `get_warnings` senza `maxWarnings`.
-- Non eseguire `lines_per_view_count` in parallelo.
+- Non chiamare `list_warnings` senza `maxWarnings`.
+- Non eseguire `count_lines_per_view` in parallelo.
 - Non mescolare QA + authoring nella stessa sessione lunga.

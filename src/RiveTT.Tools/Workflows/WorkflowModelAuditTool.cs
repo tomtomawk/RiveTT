@@ -75,7 +75,7 @@ public class WorkflowModelAuditTool : ICortexTool
             var recommendations = new List<string>();
             if (unusedFamilies.Count > 10) recommendations.Add($"Purge {unusedFamilies.Count} unused families (use purge_unused tool)");
             if (inPlaceFamilies.Count > 3) recommendations.Add($"Convert {inPlaceFamilies.Count} in-place families to loadable families");
-            if (cadImports > 3) recommendations.Add($"Clean up {cadImports} CAD imports (use cad_link_cleanup tool)");
+            if (cadImports > 3) recommendations.Add($"Clean up {cadImports} CAD imports (use clean_cad_links tool)");
             if (allWarnings.Count > 20) recommendations.Add($"Resolve {allWarnings.Count} warnings");
 
             return CortexResult<object>.Ok(new

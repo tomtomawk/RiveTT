@@ -32,7 +32,7 @@ public static class ParameterLookup
 
         // Last resort: English/French alias table and accent-insensitive matching.
         // Without it every tool built on this helper (set_element_parameters,
-        // filter_by_parameter_value, bulk_modify_parameter_values, add_prefix_suffix,
+        // filter_by_parameter_value, batch_modify_parameter_values, batch_rename_affix,
         // clear_parameter_values, sync_csv_parameters) failed on a localized document
         // whenever the caller used the English API name.
         var resolved = Utilities.ParameterNameResolver.Resolve(element, parameterName, element.Document);

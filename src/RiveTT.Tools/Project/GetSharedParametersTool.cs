@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 [ToolSafety(true, false)]
 public class GetSharedParametersTool : ICortexTool
 {
-    public string Name => "get_shared_parameters";
+    public string Name => "list_shared_parameters";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

@@ -24,7 +24,7 @@ public class GetCoordinationModelsTool : ICortexTool, ICacheableTool
     private const int DefaultMaxInstances = 100;
     private const int MaxInstancesCap = 250;
 
-    public string Name => "get_coordination_models";
+    public string Name => "list_coordination_models";
     public string Category => "LinkedFiles";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

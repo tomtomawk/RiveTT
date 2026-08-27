@@ -133,5 +133,5 @@ Behavior that only a live Revit session can prove (geometry, transactions,
 Revit error messages) must still be re-tested manually against a real model —
 in both target versions when the change touches anything gated by
 `REVIT2027_OR_GREATER` — and the outcome recorded in the commit or pull request that
-makes the change. `docs/developpement/PROTOCOLE_TEST.md` is the protocol to follow;
-its result sheet is what belongs in the description.
+makes the change. `docs/developpement/CHANGELOG_0.3.0.md` §6 lists the points still
+open for live verification; add new ones there as they come up.

@@ -74,8 +74,15 @@ public class ConfirmedDefectFixSourceTests
     [Fact]
     public void DeleteSelection_PreviewsBeforeDeleting()
     {
-        var src = ReadSource("RiveTT.Tools", "Elements", "DeleteSelectionTool.cs");
-        AssertPreviewsBeforeWriting(src, "delete_selection");
+        // manage_selection replaced delete_selection (and save_selection/load_selection) with
+        // one action-dispatched tool: Save/Load/Delete are separate private methods in file
+        // order, so the shared before/after check must be scoped to the Delete method only —
+        // its own Transaction, not Save's, is what the dryRun check has to precede.
+        var full = ReadSource("RiveTT.Tools", "Elements", "ManageSelectionTool.cs");
+        var deleteStart = full.IndexOf("private static CortexResult<object> Delete(", StringComparison.Ordinal);
+        Assert.True(deleteStart >= 0, "manage_selection has no Delete method");
+        var src = full.Substring(deleteStart);
+        AssertPreviewsBeforeWriting(src, "manage_selection(action=delete)");
         Assert.Contains("DeletionPreview.Build", src);
         // The guard CALL must be gone. The prose above each tool still names the method to
         // explain why it was never a safety net, so match the call form, not the mention.
@@ -167,12 +174,13 @@ public class ConfirmedDefectFixSourceTests
     // ── critique: a published parameter nobody read ──────────────────────────────
 
     [Fact]
-    public void WorkflowSheetSet_ReadsAndPlacesViewIds()
+    public void BatchCreateSheets_ReadsAndPlacesViewIds()
     {
-        // viewIds was in the spec and never read: every sheet came out empty, reported as
-        // a success, with nothing to indicate the views had been dropped.
-        var src = ReadSource("RiveTT.Tools", "Workflows", "WorkflowSheetSetTool.cs");
-        Assert.Contains("sd[\"viewIds\"]", src);
+        // viewIds was in the spec and never read on workflow_sheet_set, the tool later
+        // retired into this one: every sheet came out empty, reported as a success, with
+        // nothing to indicate the views had been dropped.
+        var src = ReadSource("RiveTT.Tools", "Sheets", "BatchCreateSheetsTool.cs");
+        Assert.Contains("sheetDef[\"viewIds\"]", src);
         Assert.Contains("SheetFrame.PlaceCentred", src);
         // And the count must be reconciled, not assumed.
         Assert.Contains("requestedViewCount", src);
@@ -221,9 +229,8 @@ public class ConfirmedDefectFixSourceTests
     [Theory]
     [InlineData("MaterialTools.cs", "delete_material")]
     [InlineData("ViewTools.cs", "delete_schedule")]
-    [InlineData("ElementTools.cs", "delete_selection")]
+    [InlineData("ElementTools.cs", "manage_selection")]
     [InlineData("ViewTools.cs", "batch_create_sheets")]
-    [InlineData("ProjectTools.cs", "workflow_sheet_set")]
     [InlineData("ProjectTools.cs", "send_code_to_revit")]
     public void EveryToolThatGainedADryRun_PublishesItOnTheMcpSurface(string file, string toolName)
     {
@@ -237,7 +244,7 @@ public class ConfirmedDefectFixSourceTests
     [Fact]
     public void WorkflowClashReview_PublishesTheSolidGeometrySwitch()
     {
-        var wrapper = ServerWrapper("ProjectTools.cs", "workflow_clash_review");
+        var wrapper = ServerWrapper("ProjectTools.cs", "show_clashes");
         Assert.Contains("bool useSolidGeometry = true", wrapper);
         Assert.Contains("[\"useSolidGeometry\"] = useSolidGeometry", wrapper);
     }

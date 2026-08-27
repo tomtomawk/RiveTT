@@ -58,7 +58,7 @@ public class ServerRuntimeParameterContractTests
     /// </summary>
     private static readonly Dictionary<string, string> ClientSideOnly = new(StringComparer.Ordinal)
     {
-        ["get_coordination_models.compact"] = "response-shaping flag applied by ToolResponseShaper, never forwarded"
+        ["list_coordination_models.compact"] = "response-shaping flag applied by ToolResponseShaper, never forwarded"
     };
 
     private static string RepoPath(params string[] parts)

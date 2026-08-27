@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 [ToolSafety(true, false)]
 public class GetAvailableFamilyTypesTool : ICortexTool
 {
-    public string Name => "get_available_family_types";
+    public string Name => "list_family_types";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

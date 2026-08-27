@@ -18,7 +18,7 @@ namespace RiveTT.Server.Tools;
 ///
 /// A required array binds fine, so only optional ones are converted. The JSON
 /// string form is what this codebase already used for the parameters that worked
-/// (create_stair.runs, create_detail_line.path, ai_element_filter.levelFilter).
+/// (create_stair.runs, create_detail_line.path, filter_elements.levelFilter).
 ///
 /// That fix is necessary but not sufficient: every tool description for these
 /// parameters reads "JSON array, e.g. [\"A\",\"B\"]" — which correctly describes

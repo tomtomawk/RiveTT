@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
 using RiveTT.Server.Connection;
@@ -48,7 +48,7 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "ai_element_filter"), Description("Paginated element query by category, class, family symbol, bounding box, or level. Returns totalCount, returnedCount, appliedLimit and nextCursor. responseMode=summary (default), idsOnly, or details.")]
+    [McpServerTool(Name = "filter_elements"), Description("Paginated element query by category, class, family symbol, bounding box, or level. Returns totalCount, returnedCount, appliedLimit and nextCursor. responseMode=summary (default), idsOnly, or details.")]
     public static async Task<string> AIElementFilter(
         RevitConnectionManager revit,
         [Description("BuiltInCategory code, e.g. OST_Walls, OST_Doors")] string? filterCategory = null,
@@ -78,7 +78,7 @@ public static class ElementTools
         if (wallConstraintStatus != null) data["wallConstraintStatus"] = wallConstraintStatus;
 
         var p = new JObject { ["data"] = data };
-        var result = await revit.ExecuteAsync("ai_element_filter", p, ct);
+        var result = await revit.ExecuteAsync("filter_elements", p, ct);
         return result.ToString();
     }
 
@@ -123,8 +123,8 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "operate_element"), Description("Select, highlight, isolate, hide, or zoom to elements. Actions: select, selectionbox, setcolor, settransparency, hide, temphide, isolate, unhide, resetisolate, delete.")]
-    public static async Task<string> OperateElement(
+    [McpServerTool(Name = "manage_view_display"), Description("Select, highlight, isolate, hide, or zoom to elements in the active view. Actions: select, selectionbox, setcolor, settransparency, hide, temphide, isolate, unhide, resetisolate. To delete elements use delete_element.")]
+    public static async Task<string> ManageViewDisplay(
         RevitConnectionManager revit,
         [Description("Element IDs to operate on")] long[] elementIds,
         [Description("Action to perform")] string action,
@@ -136,7 +136,7 @@ public static class ElementTools
             ["action"] = action,
         };
         var p = new JObject { ["data"] = data };
-        var result = await revit.ExecuteAsync("operate_element", p, ct);
+        var result = await revit.ExecuteAsync("manage_view_display", p, ct);
         return result.ToString();
     }
 
@@ -166,15 +166,29 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "delete_selection"), Description("Delete a saved selection filter by name. Removes the SAVED LIST only — the elements it references are untouched (use delete_element for those). Previews by default; set dryRun=false to execute.")]
-    public static async Task<string> DeleteSelection(
+    [McpServerTool(Name = "manage_selection"), Description("CRUD on named saved selections (SelectionFilterElement). action=save|load|list|delete. name is required for save/load/delete (ignored for list). save: elementIds (absent = current UI selection) and overwrite (default false) apply only here. load: selectInView (default true) applies only here. delete: dryRun (default true) applies only here. Use capture_selection instead for a temporary session-scoped token — this tool always persists into the document.")]
+    public static async Task<string> ManageSelection(
         RevitConnectionManager revit,
-        [Description("Name of the saved selection to delete")] string name,
-        [Description("Preview without deleting. Default: true")] bool dryRun = true,
+        [Description("Action: save | load | list | delete")] string action,
+        [Description("Selection name (required for save/load/delete, ignored for list)")] string? name = null,
+        [Description("Element IDs to save (action=save only). Omit to save the current Revit selection. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
+        [Description("Replace an existing selection of the same name (action=save only). Default: false")] bool overwrite = false,
+        [Description("Select the elements in the active view (action=load only). Default: true")] bool selectInView = true,
+        [Description("Preview without deleting (action=delete only). Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["name"] = name, ["dryRun"] = dryRun };
-        var result = await revit.ExecuteAsync("delete_selection", p, ct);
+        var p = new JObject { ["action"] = action };
+        if (name != null) p["name"] = name;
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("manage_selection", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
+        p["overwrite"] = overwrite;
+        p["selectInView"] = selectInView;
+        p["dryRun"] = dryRun;
+        var result = await revit.ExecuteAsync("manage_selection", p, ct);
         return result.ToString();
     }
 
@@ -296,32 +310,7 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "save_selection"), Description("Save element selection as named filter")]
-    public static async Task<string> SaveSelection(
-        RevitConnectionManager revit,
-        [Description("Name for the saved selection")] string name,
-        CancellationToken ct = default)
-    {
-        var p = new JObject { ["name"] = name };
-        var result = await revit.ExecuteAsync("save_selection", p, ct);
-        return result.ToString();
-    }
-
-    [McpServerTool(Name = "load_selection"), Description("Load a saved selection by name, or list the saved selections when name is omitted.")]
-    public static async Task<string> LoadSelection(
-        RevitConnectionManager revit,
-        [Description("Name of the selection to load. Omit to list the saved selections")] string? name = null,
-        [Description("Select the elements in the active view. Default: true")] bool selectInView = true,
-        CancellationToken ct = default)
-    {
-        var p = new JObject();
-        if (name != null) p["name"] = name;
-        p["selectInView"] = selectInView;
-        var result = await revit.ExecuteAsync("load_selection", p, ct);
-        return result.ToString();
-    }
-
-    [McpServerTool(Name = "section_box_from_selection"), Description("Create a 3D section box from selected elements")]
+    [McpServerTool(Name = "create_section_box_from_selection"), Description("Create a 3D section box from selected elements")]
     public static async Task<string> SectionBoxFromSelection(
         RevitConnectionManager revit,
         [Description("Element IDs to create section box from. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
@@ -331,10 +320,10 @@ public static class ElementTools
         if (elementIds != null)
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
-                return JsonArrayParam.InvalidArrayResult("section_box_from_selection", "elementIds", elementIds);
+                return JsonArrayParam.InvalidArrayResult("create_section_box_from_selection", "elementIds", elementIds);
             p["elementIds"] = elementIdsArray;
         }
-        var result = await revit.ExecuteAsync("section_box_from_selection", p, ct);
+        var result = await revit.ExecuteAsync("create_section_box_from_selection", p, ct);
         return result.ToString();
     }
 

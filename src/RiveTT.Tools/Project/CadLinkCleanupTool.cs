@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 [ToolSafety(false, true)]
 public class CadLinkCleanupTool : ICortexTool
 {
-    public string Name => "cad_link_cleanup";
+    public string Name => "clean_cad_links";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

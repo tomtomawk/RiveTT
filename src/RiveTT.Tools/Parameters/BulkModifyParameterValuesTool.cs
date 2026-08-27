@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Parameters;
 [ToolSafety(false, true)]
 public class BulkModifyParameterValuesTool : ICortexTool
 {
-    public string Name => "bulk_modify_parameter_values";
+    public string Name => "batch_modify_parameter_values";
     public string Category => "Parameters";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

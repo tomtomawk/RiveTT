@@ -50,17 +50,17 @@ public static class LinkTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_linked_file_instances"), Description("Lists all linked Revit files grouped by type, with transforms and load status.")]
+    [McpServerTool(Name = "list_linked_file_instances"), Description("Lists all linked Revit files grouped by type, with transforms and load status.")]
     public static async Task<string> GetLinkedFileInstances(
         RevitConnectionManager revit,
         [Description("Strip transform matrix (origin/basisX/basisY) per instance. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
-        var result = await revit.ExecuteAsync("get_linked_file_instances", new JObject(), ct);
-        return ToolResponseShaper.Shape("get_linked_file_instances", result, compact, summaryOnly: false).ToString();
+        var result = await revit.ExecuteAsync("list_linked_file_instances", new JObject(), ct);
+        return ToolResponseShaper.Shape("list_linked_file_instances", result, compact, summaryOnly: false).ToString();
     }
 
-    [McpServerTool(Name = "get_coordination_models"), Description("Read-only listing of Autodesk Revit Coordination Models with type metadata and optional instances.")]
+    [McpServerTool(Name = "list_coordination_models"), Description("Read-only listing of Autodesk Revit Coordination Models with type metadata and optional instances.")]
     public static async Task<string> GetCoordinationModels(
         RevitConnectionManager revit,
         [Description("Optional case-insensitive filter applied to coordination model names.")] string? nameFilter = null,
@@ -74,8 +74,8 @@ public static class LinkTools
         p["includeInstances"] = includeInstances;
         if (maxInstances != null) p["maxInstances"] = maxInstances;
         if (compact) p["compact"] = compact;
-        var result = await revit.ExecuteAsync("get_coordination_models", p, ct);
-        return ToolResponseShaper.Shape("get_coordination_models", result, compact, summaryOnly: false).ToString();
+        var result = await revit.ExecuteAsync("list_coordination_models", p, ct);
+        return ToolResponseShaper.Shape("list_coordination_models", result, compact, summaryOnly: false).ToString();
     }
 
     [McpServerTool(Name = "get_selected_linked_elements"), Description("Returns info about currently selected link instances.")]
@@ -191,23 +191,7 @@ public static class LinkTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "reload_linked_file_from"), Description("Reloads a linked Revit file from a different file path.")]
-    public static async Task<string> ReloadLinkedFileFrom(
-        RevitConnectionManager revit,
-        [Description("Link TYPE element ID (not the instance ID)")] long linkTypeId,
-        [Description("New file path to reload the link from")] string newPath,
-        CancellationToken ct = default)
-    {
-        var p = new JObject
-        {
-            ["linkTypeId"] = linkTypeId,
-            ["newPath"] = newPath,
-        };
-        var result = await revit.ExecuteAsync("reload_linked_file_from", p, ct);
-        return result.ToString();
-    }
-
-    [McpServerTool(Name = "cad_link_cleanup"), Description("Analyze and clean up imported/linked CAD files. action=list|delete.")]
+    [McpServerTool(Name = "clean_cad_links"), Description("Analyze and clean up imported/linked CAD files. action=list|delete.")]
     public static async Task<string> CadLinkCleanup(
         RevitConnectionManager revit,
         [Description("Action: list | delete. Default: list")] string? action = null,
@@ -223,10 +207,10 @@ public static class LinkTools
         if (elementIds != null)
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
-                return JsonArrayParam.InvalidArrayResult("cad_link_cleanup", "elementIds", elementIds);
+                return JsonArrayParam.InvalidArrayResult("clean_cad_links", "elementIds", elementIds);
             p["elementIds"] = elementIdsArray;
         }
-        var result = await revit.ExecuteAsync("cad_link_cleanup", p, ct);
+        var result = await revit.ExecuteAsync("clean_cad_links", p, ct);
         return result.ToString();
     }
 }

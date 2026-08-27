@@ -47,7 +47,7 @@ public class ChangeElementTypeTool : ICortexTool
             if (targetTypeElemId == null || targetTypeElemId == ElementId.InvalidElementId)
                 return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                     $"Target type not found. targetTypeId={targetTypeId}, targetTypeName='{targetTypeName}', targetFamilyName='{targetFamilyName}'",
-                    suggestion: "Verify the type exists in the document using ai_element_filter with includeTypes=true");
+                    suggestion: "Verify the type exists in the document using filter_elements with includeTypes=true");
 
             var results = new List<object>();
             int successCount = 0;

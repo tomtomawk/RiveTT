@@ -84,7 +84,7 @@ public class AuditLoggerTests : IDisposable
     [Fact]
     public void LogWithPerf_RecordsOutputSummaryAndAffectedCount()
     {
-        _logger.LogWithPerf("bulk_modify_parameter_values", "scope=selection", true,
+        _logger.LogWithPerf("batch_modify_parameter_values", "scope=selection", true,
             elementsAffected: 103, outputSummary: "modified=103, skipped=0");
 
         var content = File.ReadAllText(_tempPath);
@@ -119,7 +119,7 @@ public class AuditLoggerTests : IDisposable
     [Fact]
     public void LogWithPerf_Failure_IncludesErrorMessage()
     {
-        _logger.LogWithPerf("bulk_modify_parameter_values", "(no params)", false,
+        _logger.LogWithPerf("batch_modify_parameter_values", "(no params)", false,
             errorCode: CortexErrorCode.Unknown,
             errorMessage: "Failed: Object reference not set to an instance of an object.");
 

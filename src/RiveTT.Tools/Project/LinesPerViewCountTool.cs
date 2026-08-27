@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Project;
 [ToolSafety(true, false)]
 public class LinesPerViewCountTool : ICortexTool
 {
-    public string Name => "lines_per_view_count";
+    public string Name => "count_lines_per_view";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

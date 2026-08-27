@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Project;
 [ToolSafety(true, false)]
 public class GetWorksetsTool : ICortexTool, ICacheableTool
 {
-    public string Name => "get_worksets";
+    public string Name => "list_worksets";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => true;

@@ -56,7 +56,7 @@ public class SendCodeDescriptionTests
     {
         var desc = ServerToolDescription();
         Assert.Contains("set_element_parameters", desc, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ai_element_filter", desc, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("filter_elements", desc, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

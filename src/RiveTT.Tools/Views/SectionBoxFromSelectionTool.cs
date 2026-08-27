@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Views;
 [ToolSafety(false, false)]
 public class SectionBoxFromSelectionTool : ICortexTool
 {
-    public string Name => "section_box_from_selection";
+    public string Name => "create_section_box_from_selection";
     public string Category => "Views";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

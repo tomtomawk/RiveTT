@@ -50,8 +50,8 @@ OUT = os.path.join(ROOT, "docs", "INVENTAIRE_OUTILS.md")
 # Prefixes que le routeur considere comme lecture seule quand [ToolSafety] manque.
 # Doit rester aligne sur CortexRouter.ReadOnlyPrefixes.
 READ_ONLY_PREFIXES = ["get_", "list_", "find_", "analyze_", "check_", "measure_",
-                      "audit_", "export_", "say_hello", "clash_detection",
-                      "lines_per_view_count", "ifc_get_", "ifc_list_", "ifc_export_",
+                      "audit_", "export_", "ping_revit", "detect_clashes",
+                      "count_lines_per_view", "ifc_get_", "ifc_list_", "ifc_export_",
                       "ifc_validate_", "ifc_analyze_", "ifc_compare_"]
 
 # Traites cote serveur (routeur, ToolResponseShaper) : leur absence du runtime est normale.
@@ -176,47 +176,47 @@ def action_values(text):
 TIER5 = """create_wall create_door create_window create_floor create_room create_level
 create_grid create_view create_sheet place_viewport place_title_block batch_create_sheets
 batch_export create_schedule get_schedule_data export_schedule list_system_types
-get_available_family_types get_element_parameters set_element_parameters get_project_info
-get_current_view_info get_current_view_elements filter_by_parameter_value ai_element_filter
+list_family_types get_element_parameters set_element_parameters get_project_info
+get_current_view_info get_current_view_elements filter_by_parameter_value filter_elements
 modify_element copy_elements delete_element manage_model_groups duplicate_view
-duplicate_storey create_room_separation_line tag_rooms create_text_note get_warnings
+duplicate_storey create_room_separation_line tag_rooms create_text_note list_warnings
 open_document save_document save_as_document create_document get_server_capabilities
 list_schedulable_fields create_stair create_railing apply_view_template
 manage_view_templates create_view_filter override_graphics export_elements_data
 export_room_data export_to_excel import_from_excel create_dimensions batch_rename
-renumber_elements bulk_modify_parameter_values manage_project_parameters get_materials
-purge_unused check_model_health get_worksets manage_links add_linked_file
+renumber_elements batch_modify_parameter_values manage_project_parameters list_materials
+purge_unused check_model_health list_worksets manage_links add_linked_file
 get_linked_elements create_revision get_selected_elements edit_group_members
 manage_area_plans synchronize_with_central""".split()
 
 TIER4 = """duplicate_system_type duplicate_family_type change_element_type
-match_element_properties transfer_parameters add_prefix_suffix clear_parameter_values
+match_element_properties transfer_parameters batch_rename_affix clear_parameter_values
 create_filled_region create_detail_line create_model_line import_table create_color_legend
 color_elements create_views_from_rooms create_placeholder_sheets
 duplicate_sheet_with_content duplicate_sheet_with_views align_viewports
-manage_unplaced_views batch_modify_view_range section_box_from_selection
+manage_unplaced_views batch_modify_view_range create_section_box_from_selection
 measure_between_elements get_elements_in_spatial_volume get_room_openings
 get_material_quantities set_compound_structure get_compound_structure create_material
-duplicate_material set_material_properties get_phases set_element_phase
+duplicate_material set_material_properties list_phases set_element_phase
 manage_phase_filters manage_worksets set_element_workset manage_project_units
-set_project_info get_shared_parameters add_shared_parameter manage_global_parameters
-find_untagged_elements find_undimensioned_elements wipe_empty_tags tag_walls audit_families
-analyze_model_statistics clash_detection workflow_model_audit workflow_sheet_set
+set_project_info list_shared_parameters add_shared_parameter manage_global_parameters
+find_untagged_elements find_undimensioned_elements delete_empty_tags tag_walls audit_families
+analyze_model_statistics detect_clashes workflow_model_audit
 workflow_room_documentation create_preset_schedule modify_schedule duplicate_schedule
-delete_schedule export_families load_family create_array operate_element capture_selection
-save_selection load_selection cad_link_cleanup ifc_export_basic ifc_link
+delete_schedule export_families load_family create_array manage_view_display capture_selection
+manage_selection clean_cad_links ifc_export_basic ifc_link
 manage_additional_settings create_surface_based_element create_point_based_element
-create_line_based_element create_structural_framing_system delete_selection
-delete_material get_element_solid_geometry lines_per_view_count workflow_clash_review
-workflow_data_roundtrip clear_cache get_cache_stats get_linked_file_instances
+create_line_based_element create_structural_framing_system
+delete_material get_element_solid_geometry count_lines_per_view show_clashes
+workflow_data_roundtrip clear_cache get_cache_stats list_linked_file_instances
 get_link_transform create_ramp create_opening create_spot_dimension manage_sheet_sets
-create_key_schedule manage_curtain_grid create_toposolid manage_images
-manage_scope_boxes list_design_options""".split()
+create_key_schedule get_curtain_grid_info add_curtain_grid_line add_curtain_mullions
+create_toposolid manage_images manage_scope_boxes list_design_options""".split()
 
-TIER2 = """say_hello send_code_to_revit sync_csv_parameters get_elements_by_unique_id
-cross_app_selection show_cross_model_elements highlight_linked_element
-get_coordination_models get_selected_linked_elements pin_unpin_link_instance
-move_link_instance reload_linked_file_from align_link_to_host list_family_sizes
+TIER2 = """ping_revit send_code_to_revit sync_csv_parameters get_elements_by_unique_id
+sync_navisworks_selection show_cross_model_elements highlight_linked_element
+list_coordination_models get_selected_linked_elements pin_unpin_link_instance
+move_link_instance align_link_to_host list_family_sizes
 detach_wall_constraint set_wall_host create_assembly""".split()
 
 # The Rebar and StructuralSteel tool folders (112 tools, 38% of the surface at the
@@ -245,17 +245,21 @@ FIXED = [
      "`viewIds` était publié dans la spec et jamais lu : les feuilles sortaient vides, sans "
      "signalement.",
      "Les `viewIds` sont lus et placés ; la réponse réconcilie `requestedViewCount` et "
-     "`placedViewCount`."),
+     "`placedViewCount`. Outil retiré depuis (chantier de consolidation 27/08) : ce "
+     "comportement vit maintenant dans `batch_create_sheets`."),
     ("batch_create_sheets", "critique",
      "fenêtres placées à (0,5 ft ; 0,5 ft) en dur, alors que l'origine de la feuille n'est pas "
      "le coin du cadre : hors cadre sur le cartouche A1 français.",
      "Le cadre est mesuré sur l'instance de cartouche via `SheetFrame`, partagé avec "
      "`place_viewport` ; plusieurs vues sont pavées au lieu d'être empilées."),
     ("workflow_clash_review", "majeur",
-     "détection par boîtes englobantes alors que `clash_detection` utilise l'intersection "
+     "détection par boîtes englobantes alors que `detect_clashes` utilise l'intersection "
      "solide : l'outil composé rendait plus de faux positifs que le simple.",
      "Les deux outils appellent la même passe `ClashFinder` (pré-filtre par boîtes, puis "
-     "`ElementIntersectsElementFilter`)."),
+     "`ElementIntersectsElementFilter`). Gardé distinct de `detect_clashes` lors du chantier "
+     "de consolidation du 27/08 : il crée une vue (écriture), l'autre reste lecture seule — "
+     "les fusionner aurait cassé le verrou d'écriture. Renommé `show_clashes` le 27/08 "
+     "(convention `show_`, cohérent avec `show_cross_model_elements`)."),
     ("send_code_to_revit", "majeur",
      "aucun dryRun sur l'outil le plus puissant, et la description annonçait une confirmation "
      "dans Revit qui n'existe pas.",
@@ -264,7 +268,8 @@ FIXED = [
     ("delete_selection", "majeur",
      "destructif sans dryRun, alors que `delete_element` en a un par défaut.",
      "`dryRun` par défaut via `DeletionPreview` ; la réponse précise que seule la liste "
-     "enregistrée est supprimée, pas les éléments."),
+     "enregistrée est supprimée, pas les éléments. Fusionné dans `manage_selection` "
+     "(action=delete) le 27/08, avec save_selection et load_selection — même comportement."),
     ("delete_material", "majeur", "destructif sans dryRun.",
      "`dryRun` par défaut via `DeletionPreview`, qui sonde la cascade réelle."),
     ("delete_schedule", "majeur", "destructif sans dryRun.",
@@ -306,7 +311,8 @@ COVERED = [
     ("Cotes de niveau", "SpotDimension.Create", "create_spot_dimension"),
     ("Zones de délimitation", "OST_VolumeOfInterest", "manage_scope_boxes"),
     ("Vues de détail", "ViewSection.CreateCallout", "create_view (type=callout)"),
-    ("Murs-rideaux", "CurtainGrid, Mullion", "manage_curtain_grid"),
+    ("Murs-rideaux", "CurtainGrid, Mullion",
+     "get_curtain_grid_info, add_curtain_grid_line, add_curtain_mullions"),
     ("Jeux de feuilles", "ViewSheetSet", "manage_sheet_sets"),
     ("Toposolides", "Toposolid", "create_toposolid"),
     ("Options de conception", "DesignOption", "list_design_options (lecture seule, voir API_LIMITS)"),
@@ -395,7 +401,7 @@ def analyse(server, runtime, corpus):
                               % ("lecture" if run["readOnly"] else "écriture")))
             if re.search(r'Viewport\.Create\([^)]*new XYZ\(\s*[0-9]', block, re.S):
                 flags.append(("mineur", "position de fenêtre codée en dur"))
-            if "get_BoundingBox(" in block and "Solid" not in block and name != "clash_detection":
+            if "get_BoundingBox(" in block and "Solid" not in block and name != "detect_clashes":
                 flags.append(("mineur", "géométrie par boîte englobante"))
             if re.search(r'CortexErrorCode\.Unknown,\s*\$"Failed', block):
                 flags.append(("mineur", "erreur générique sans suggestion"))

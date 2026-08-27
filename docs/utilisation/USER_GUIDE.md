@@ -217,7 +217,7 @@ RiveTT n'a pas de mode lecture seule, `writesAllowed` vaut toujours `true`.
 `cached: true` signale une réponse servie par le cache. Tout cache est vidé
 après `save_document`/`save_as_document`.
 
-`ai_element_filter` utilise `responseMode: summary | idsOnly | details` et
+`filter_elements` utilise `responseMode: summary | idsOnly | details` et
 retourne `totalCount`, `returnedCount`, `appliedLimit` et `nextCursor`. Un
 curseur devient invalide dès que le document Revit change, afin d'éviter de
 mélanger deux états du modèle.
@@ -242,7 +242,7 @@ fichier jusqu'au retour sur le projet. `close_document` referme un document
 ouvert (projet, famille ou gabarit) ; fermer le document **actif** exige qu'un
 autre document soit ouvert pour y basculer d'abord — `Document.Close(false)`
 refuse le document actif (mesuré le 27/08/2026,
-`docs/developpement/PLAN_CORRECTION.md` P1.4), c'est une contrainte réelle de
+`docs/developpement/CHANGELOG_0.3.0.md` P1.4), c'est une contrainte réelle de
 l'API, pas un défaut à contourner par un thread d'arrière-plan.
 
 `edit_family` modifie les valeurs de paramètres de type d'une famille **en

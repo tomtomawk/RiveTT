@@ -18,7 +18,7 @@ namespace RiveTT.Tools.Parameters;
 [ToolSafety(false, true)]
 public class AddPrefixSuffixTool : ICortexTool
 {
-    public string Name => "add_prefix_suffix";
+    public string Name => "batch_rename_affix";
     public string Category => "Parameters";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

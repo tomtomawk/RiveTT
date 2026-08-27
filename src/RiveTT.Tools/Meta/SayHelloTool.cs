@@ -8,7 +8,7 @@ namespace RiveTT.Tools.Meta;
 [ToolSafety(true, false)]
 public class SayHelloTool : ICortexTool
 {
-    public string Name => "say_hello";
+    public string Name => "ping_revit";
     public string Category => "Meta";
     public bool RequiresDocument => false;
     public bool IsDynamic => false;

@@ -41,7 +41,7 @@ public class DeleteMaterialTool : ICortexTool
         if (materialId == null && string.IsNullOrWhiteSpace(materialName))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "Provide materialId or materialName",
-                suggestion: "Use get_materials to find the material to delete");
+                suggestion: "Use list_materials to find the material to delete");
 
         try
         {
@@ -63,7 +63,7 @@ public class DeleteMaterialTool : ICortexTool
             if (material == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                     $"Material not found (id={materialId}, name={materialName})",
-                    suggestion: "Use get_materials to list available materials");
+                    suggestion: "Use list_materials to list available materials");
 
             var matName = material.Name;
 

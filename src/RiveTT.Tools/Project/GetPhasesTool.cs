@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 [ToolSafety(true, false)]
 public class GetPhasesTool : ICortexTool, ICacheableTool
 {
-    public string Name => "get_phases";
+    public string Name => "list_phases";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

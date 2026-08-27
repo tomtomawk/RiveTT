@@ -76,7 +76,7 @@ public class GetCurrentViewElementsTool : ICortexTool
         // it used to be dropped on the floor here.
         var categoryFilterToken      = input["categoryFilter"]?.Value<string>();
         var includeHidden            = input["includeHidden"]?.Value<bool>() ?? false;
-        // pageSize is the name every other paging tool (ai_element_filter) uses;
+        // pageSize is the name every other paging tool (filter_elements) uses;
         // limit is kept as an alias so existing callers keep working.
         var pageSize                 = Math.Clamp(input["pageSize"]?.Value<int>()
                                                     ?? input["limit"]?.Value<int>() ?? 200, 1, 2000);
@@ -155,7 +155,7 @@ public class GetCurrentViewElementsTool : ICortexTool
             int filteredCount = elements.Count;
 
             // Page through the filtered result with the same opaque-cursor
-            // contract as ai_element_filter, instead of a limit/truncated pair
+            // contract as filter_elements, instead of a limit/truncated pair
             // with no way to reach what came after — see P2.2 in
             // PLAN_CORRECTION.md.
             var page = offset < elements.Count

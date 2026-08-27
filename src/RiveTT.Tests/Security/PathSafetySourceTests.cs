@@ -41,7 +41,7 @@ public class PathSafetySourceTests
     [InlineData("IFC", "IfcLinkTool.cs")]
     [InlineData("IFC", "IfcReloadLinkTool.cs")]
     [InlineData("LinkedFiles", "AddLinkedFileTool.cs")]
-    [InlineData("LinkedFiles", "ReloadLinkedFileFromTool.cs")]
+    [InlineData("Project", "ManageLinksTool.cs")]
     public void PathAcceptingTool_CallsPathSafety(string folder, string file)
     {
         var src = ReadTool(folder, file);
@@ -52,7 +52,7 @@ public class PathSafetySourceTests
     [InlineData("IFC", "IfcLinkTool.cs")]
     [InlineData("IFC", "IfcReloadLinkTool.cs")]
     [InlineData("LinkedFiles", "AddLinkedFileTool.cs")]
-    [InlineData("LinkedFiles", "ReloadLinkedFileFromTool.cs")]
+    [InlineData("Project", "ManageLinksTool.cs")]
     public void LinkTool_AllowsNetworkPaths(string folder, string file)
     {
         var src = ReadTool(folder, file);

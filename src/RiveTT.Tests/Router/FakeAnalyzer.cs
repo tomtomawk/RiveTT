@@ -11,7 +11,7 @@ public class FakeAnalyzer : IDocumentAnalyzer
         capabilities.HasWorksets = HasWorksets;
         if (HasWorksets)
         {
-            capabilities.EnableTool("get_worksets");
+            capabilities.EnableTool("list_worksets");
         }
     }
 }

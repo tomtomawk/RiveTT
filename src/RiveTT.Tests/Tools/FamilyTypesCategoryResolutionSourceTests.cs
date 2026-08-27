@@ -4,7 +4,7 @@ using Xunit;
 namespace RiveTT.Tests.Tools;
 
 /// <summary>
-/// Source-text assertions for get_available_family_types category resolution.
+/// Source-text assertions for list_family_types category resolution.
 /// Audit 2026-06-11: a category that failed to resolve was silently skipped, and
 /// with zero resolved categories the filter was dropped entirely — the tool
 /// returned the whole model's types as Ok. Any unresolved category must now be

@@ -42,22 +42,21 @@ public class DocumentAnalyzer : IDocumentAnalyzer
 
         if (caps.HasWorksets)
         {
-            caps.EnableTool("get_worksets");
+            caps.EnableTool("list_worksets");
             caps.EnableTool("manage_worksets");
             caps.EnableTool("set_element_workset");
         }
 
         if (caps.HasPhases)
         {
-            caps.EnableTool("get_phases");
+            caps.EnableTool("list_phases");
             caps.EnableTool("set_element_phase");
         }
 
         if (caps.HasLinkedModels)
         {
-            caps.EnableTool("get_linked_file_instances");
+            caps.EnableTool("list_linked_file_instances");
             caps.EnableTool("get_link_transform");
-            caps.EnableTool("reload_linked_file_from");
             caps.EnableTool("pin_unpin_link_instance");
             caps.EnableTool("move_link_instance");
             caps.EnableTool("align_link_to_host");

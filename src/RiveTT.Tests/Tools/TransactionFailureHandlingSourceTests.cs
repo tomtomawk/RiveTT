@@ -44,7 +44,6 @@ public class TransactionFailureHandlingSourceTests
     [InlineData("Parameters", "AddPrefixSuffixTool.cs")]
     [InlineData("Parameters", "SyncCsvParametersTool.cs")]
     [InlineData("Elements", "BatchRenameTool.cs")]
-    [InlineData("Workflows", "WorkflowSheetSetTool.cs")]
     [InlineData("Workflows", "WorkflowRoomDocumentationTool.cs")]
     // 2026-06-19 transaction-safety sweep: tools hardened from the static audit.
     [InlineData("Elements", "CopyElementsTool.cs")]

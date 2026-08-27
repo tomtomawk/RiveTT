@@ -19,7 +19,7 @@ namespace RiveTT.Tools.LinkedFiles;
 [ToolSafety(true, false)]
 public class GetLinkedFileInstancesTool : ICortexTool, ICacheableTool
 {
-    public string Name => "get_linked_file_instances";
+    public string Name => "list_linked_file_instances";
     public string Category => "LinkedFiles";
     public bool RequiresDocument => true;
     public bool IsDynamic => true;

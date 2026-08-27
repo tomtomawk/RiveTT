@@ -20,7 +20,7 @@ namespace RiveTT.Tools.Elements;
 [ToolSafety(true, false)]
 public class AIElementFilterTool : ICortexTool
 {
-    public string Name => "ai_element_filter";
+    public string Name => "filter_elements";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;

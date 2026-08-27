@@ -62,7 +62,7 @@ public class DuplicateSystemTypeTool : ICortexTool
                 if (sourceType == null)
                     return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                         $"Type '{sourceTypeName}' not found" + (category != null ? $" in category {category}" : ""),
-                        // Pointing at get_available_family_types was actively
+                        // Pointing at list_family_types was actively
                         // misleading for system types: it used to enumerate only
                         // loadable families, so the suggested remedy returned nothing
                         // for exactly the categories this tool serves.

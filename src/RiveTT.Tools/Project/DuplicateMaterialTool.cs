@@ -39,7 +39,7 @@ public class DuplicateMaterialTool : ICortexTool
         if (sourceMaterialId == null && string.IsNullOrWhiteSpace(sourceMaterialName))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "Provide sourceMaterialId or sourceMaterialName",
-                suggestion: "Use get_materials to find the source material");
+                suggestion: "Use list_materials to find the source material");
 
         try
         {
@@ -61,7 +61,7 @@ public class DuplicateMaterialTool : ICortexTool
             if (source == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                     $"Source material not found (id={sourceMaterialId}, name={sourceMaterialName})",
-                    suggestion: "Use get_materials to list available materials");
+                    suggestion: "Use list_materials to list available materials");
 
             ElementId newMatId;
 

@@ -36,8 +36,8 @@ public class CortexRouter
     private static readonly string[] ReadOnlyPrefixes = new[]
     {
         "get_", "list_", "find_", "analyze_", "check_",
-        "measure_", "audit_", "export_", "say_hello",
-        "clash_detection", "lines_per_view_count",
+        "measure_", "audit_", "export_", "ping_revit",
+        "detect_clashes", "count_lines_per_view",
         "ifc_get_", "ifc_list_", "ifc_export_", "ifc_validate_",
         "ifc_analyze_", "ifc_compare_"
     };

@@ -43,7 +43,7 @@ public class CrossAppSelectionToolTests
     public void ToolMetadataIsCorrect()
     {
         var tool = new CrossAppSelectionTool();
-        Assert.Equal("cross_app_selection", tool.Name);
+        Assert.Equal("sync_navisworks_selection", tool.Name);
         Assert.Equal("Interop", tool.Category);
         Assert.True(tool.RequiresDocument);
     }

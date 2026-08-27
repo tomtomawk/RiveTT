@@ -9,36 +9,36 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class ProjectTools
 {
-    [McpServerTool(Name = "get_warnings"), Description("Get model warnings from the active Revit document.")]
+    [McpServerTool(Name = "list_warnings"), Description("Get model warnings from the active Revit document.")]
     public static async Task<string> GetWarnings(
         RevitConnectionManager revit,
         [Description("Maximum number of warnings to return")] int maxWarnings = 50,
         CancellationToken ct = default)
     {
         var p = new JObject { ["maxWarnings"] = maxWarnings };
-        var result = await revit.ExecuteAsync("get_warnings", p, ct);
+        var result = await revit.ExecuteAsync("list_warnings", p, ct);
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_phases"), Description("List all project phases in the active Revit document.")]
+    [McpServerTool(Name = "list_phases"), Description("List all project phases in the active Revit document.")]
     public static async Task<string> GetPhases(
         RevitConnectionManager revit,
         CancellationToken ct = default)
     {
-        var result = await revit.ExecuteAsync("get_phases", new JObject(), ct);
+        var result = await revit.ExecuteAsync("list_phases", new JObject(), ct);
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_worksets"), Description("List all worksets in the active Revit document.")]
+    [McpServerTool(Name = "list_worksets"), Description("List all worksets in the active Revit document.")]
     public static async Task<string> GetWorksets(
         RevitConnectionManager revit,
         CancellationToken ct = default)
     {
-        var result = await revit.ExecuteAsync("get_worksets", new JObject(), ct);
+        var result = await revit.ExecuteAsync("list_worksets", new JObject(), ct);
         return result.ToString();
     }
 
-    [McpServerTool(Name = "manage_worksets"), Description("Create, rename, delete, or set the active workset (workshared models only). To LIST worksets use get_worksets.")]
+    [McpServerTool(Name = "manage_worksets"), Description("Create, rename, delete, or set the active workset (workshared models only). To LIST worksets use list_worksets.")]
     public static async Task<string> ManageWorksets(
         RevitConnectionManager revit,
         [Description("Action: create | rename | delete | set_active")] string action,
@@ -93,7 +93,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_available_family_types"), Description("List available family types in the Revit project.")]
+    [McpServerTool(Name = "list_family_types"), Description("List available family types in the Revit project.")]
     public static async Task<string> GetAvailableFamilyTypes(
         RevitConnectionManager revit,
         [Description("Filter by category names (OST codes, English, or localized labels). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categoryList = null,
@@ -106,13 +106,13 @@ public static class ProjectTools
         if (categoryList != null)
         {
             if (!JsonArrayParam.TryParse(categoryList, out var categoryListArray))
-                return JsonArrayParam.InvalidArrayResult("get_available_family_types", "categoryList", categoryList);
+                return JsonArrayParam.InvalidArrayResult("list_family_types", "categoryList", categoryList);
             p["categoryList"] = categoryListArray;
         }
         if (familyNameFilter != null) p["familyNameFilter"] = familyNameFilter;
         if (limit != null) p["limit"] = limit;
-        var result = await revit.ExecuteAsync("get_available_family_types", p, ct);
-        return ToolResponseShaper.Shape("get_available_family_types", result, compact, summaryOnly: false).ToString();
+        var result = await revit.ExecuteAsync("list_family_types", p, ct);
+        return ToolResponseShaper.Shape("list_family_types", result, compact, summaryOnly: false).ToString();
     }
 
     [McpServerTool(Name = "analyze_model_statistics"), Description("Analyze element counts by category in the active Revit document.")]
@@ -220,7 +220,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "clash_detection"), Description("Detect clashes between two element categories. Uses true solid-geometry intersection by default (fewer false positives than bounding boxes).")]
+    [McpServerTool(Name = "detect_clashes"), Description("Detect clashes between two element categories. Uses true solid-geometry intersection by default (fewer false positives than bounding boxes).")]
     public static async Task<string> ClashDetection(
         RevitConnectionManager revit,
         [Description("First category for clash detection (e.g. OST_Walls)")] string categoryA,
@@ -238,7 +238,31 @@ public static class ProjectTools
             ["tolerance"] = tolerance,
         };
         p["useSolidGeometry"] = useSolidGeometry;
-        var result = await revit.ExecuteAsync("clash_detection", p, ct);
+        var result = await revit.ExecuteAsync("detect_clashes", p, ct);
+        return result.ToString();
+    }
+
+    [McpServerTool(Name = "show_clashes"), Description("Detect clashes between two categories and create a 3D section-boxed view for visual review. Uses the same true solid-geometry intersection as detect_clashes (bounding-box pre-filter, then ElementIntersectsElementFilter), so the two tools return the same clashes on the same model.")]
+    public static async Task<string> WorkflowClashReview(
+        RevitConnectionManager revit,
+        [Description("First category (e.g. OST_Walls)")] string categoryA,
+        [Description("Second category (e.g. OST_Pipes)")] string categoryB,
+        [Description("Intersection tolerance in mm. Default: 0")] double? tolerance = null,
+        [Description("Create a section-boxed 3D view around detected clashes. Default: true")] bool createSectionBox = true,
+        [Description("Confirm each bounding-box candidate against the real solids. Default: true; false is faster but over-reports.")] bool useSolidGeometry = true,
+        [Description("Stop after this many clashes. Default: 100")] int? maxResults = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject
+        {
+            ["categoryA"] = categoryA,
+            ["categoryB"] = categoryB,
+        };
+        if (tolerance != null) p["tolerance"] = tolerance;
+        if (maxResults != null) p["maxResults"] = maxResults;
+        p["createSectionBox"] = createSectionBox;
+        p["useSolidGeometry"] = useSolidGeometry;
+        var result = await revit.ExecuteAsync("show_clashes", p, ct);
         return result.ToString();
     }
 
@@ -460,7 +484,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "wipe_empty_tags"), Description("Find and remove empty or orphaned tags")]
+    [McpServerTool(Name = "delete_empty_tags"), Description("Find and remove empty or orphaned tags")]
     public static async Task<string> WipeEmptyTags(
         RevitConnectionManager revit,
         [Description("Preview changes without applying. Default: true")] bool dryRun = true,
@@ -473,10 +497,10 @@ public static class ProjectTools
         if (categories != null)
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
-                return JsonArrayParam.InvalidArrayResult("wipe_empty_tags", "categories", categories);
+                return JsonArrayParam.InvalidArrayResult("delete_empty_tags", "categories", categories);
             p["categories"] = categoriesArray;
         }
-        var result = await revit.ExecuteAsync("wipe_empty_tags", p, ct);
+        var result = await revit.ExecuteAsync("delete_empty_tags", p, ct);
         return result.ToString();
     }
 
@@ -531,7 +555,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / bulk_modify_parameter_values; queries & filtering -> ai_element_filter / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views and schedules -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) — never for family editing, which open_family (visual) and edit_family (background type-parameter values) already cover — and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed and frequently fail on add-in DLL conflicts. There is NO in-Revit confirmation dialog: nothing stops a script once dryRun=false, so the dry run (the default) is the only review step — it runs the sandbox check and reports what would execute without executing it.")]
+    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / batch_modify_parameter_values; queries & filtering -> filter_elements / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views and schedules -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) — never for family editing, which open_family (visual) and edit_family (background type-parameter values) already cover — and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed and frequently fail on add-in DLL conflicts. There is NO in-Revit confirmation dialog: nothing stops a script once dryRun=false, so the dry run (the default) is the only review step — it runs the sandbox check and reports what would execute without executing it.")]
     public static async Task<string> SendCodeToRevit(
         RevitConnectionManager revit,
         [Description("C# code to execute. Globals available: document (Document), uiDocument (UIDocument), app (Application).")] string code,
@@ -546,30 +570,6 @@ public static class ProjectTools
         p["reusable"] = reusable;
         if (scriptName != null) p["scriptName"] = scriptName;
         var result = await revit.ExecuteAsync("send_code_to_revit", p, ct);
-        return result.ToString();
-    }
-
-    [McpServerTool(Name = "workflow_clash_review"), Description("Detect clashes between two categories and create a 3D section-boxed view for visual review. Uses the same true solid-geometry intersection as clash_detection (bounding-box pre-filter, then ElementIntersectsElementFilter), so the two tools return the same clashes on the same model.")]
-    public static async Task<string> WorkflowClashReview(
-        RevitConnectionManager revit,
-        [Description("First category (e.g. OST_Walls)")] string categoryA,
-        [Description("Second category (e.g. OST_Pipes)")] string categoryB,
-        [Description("Intersection tolerance in mm. Default: 0")] double? tolerance = null,
-        [Description("Create a section-boxed 3D view around detected clashes. Default: true")] bool createSectionBox = true,
-        [Description("Confirm each bounding-box candidate against the real solids. Default: true; false is faster but over-reports.")] bool useSolidGeometry = true,
-        [Description("Stop after this many clashes. Default: 100")] int? maxResults = null,
-        CancellationToken ct = default)
-    {
-        var p = new JObject
-        {
-            ["categoryA"] = categoryA,
-            ["categoryB"] = categoryB,
-        };
-        if (tolerance != null) p["tolerance"] = tolerance;
-        if (maxResults != null) p["maxResults"] = maxResults;
-        p["createSectionBox"] = createSectionBox;
-        p["useSolidGeometry"] = useSolidGeometry;
-        var result = await revit.ExecuteAsync("workflow_clash_review", p, ct);
         return result.ToString();
     }
 
@@ -615,21 +615,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "workflow_sheet_set"), Description("Auto-create a set of sheets with title blocks from a definition list: [{number, name, viewIds?}]. Each definition's viewIds ARE placed on its sheet, centred in the title block's real frame. Previews by default; set dryRun=false to create.")]
-    public static async Task<string> WorkflowSheetSet(
-        RevitConnectionManager revit,
-        [Description("JSON array of sheet specs: [{number, name, viewIds?}]")] string sheets,
-        [Description("Default title block family-type name")] string? titleBlockName = null,
-        [Description("Preview without creating anything. Default: true")] bool dryRun = true,
-        CancellationToken ct = default)
-    {
-        var p = new JObject { ["sheets"] = JArray.Parse(sheets), ["dryRun"] = dryRun };
-        if (titleBlockName != null) p["titleBlockName"] = titleBlockName;
-        var result = await revit.ExecuteAsync("workflow_sheet_set", p, ct);
-        return result.ToString();
-    }
-
-    [McpServerTool(Name = "get_shared_parameters"), Description("List all project parameters with their bindings and categories, optionally filtered by category.")]
+    [McpServerTool(Name = "list_shared_parameters"), Description("List all project parameters with their bindings and categories, optionally filtered by category.")]
     public static async Task<string> GetSharedParameters(
         RevitConnectionManager revit,
         [Description("Category filter (e.g. OST_Walls); empty for all")] string? categoryFilter = null,
@@ -638,11 +624,11 @@ public static class ProjectTools
     {
         var p = new JObject();
         if (categoryFilter != null) p["categoryFilter"] = categoryFilter;
-        var result = await revit.ExecuteAsync("get_shared_parameters", p, ct);
-        return ToolResponseShaper.Shape("get_shared_parameters", result, compact, summaryOnly: false).ToString();
+        var result = await revit.ExecuteAsync("list_shared_parameters", p, ct);
+        return ToolResponseShaper.Shape("list_shared_parameters", result, compact, summaryOnly: false).ToString();
     }
 
-    [McpServerTool(Name = "lines_per_view_count"), Description("Count detail lines per view (single document pass, safe on any model size) plus a project-wide model line count. Model lines have no owner view, so they are reported once at project level, not per view.")]
+    [McpServerTool(Name = "count_lines_per_view"), Description("Count detail lines per view (single document pass, safe on any model size) plus a project-wide model line count. Model lines have no owner view, so they are reported once at project level, not per view.")]
     public static async Task<string> LinesPerViewCount(
         RevitConnectionManager revit,
         [Description("Only report views at or above this detail-line count. Default: 0")] int? threshold = null,
@@ -658,7 +644,7 @@ public static class ProjectTools
         p["includeModelLines"] = includeModelLines;
         if (limit != null) p["limit"] = limit;
         if (timeBudgetMs != null) p["timeBudgetMs"] = timeBudgetMs;
-        var result = await revit.ExecuteAsync("lines_per_view_count", p, ct);
+        var result = await revit.ExecuteAsync("count_lines_per_view", p, ct);
         return result.ToString();
     }
 

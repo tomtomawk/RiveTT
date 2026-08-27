@@ -113,14 +113,14 @@ public class DocumentChangeWatcherTests
         var session = new CortexSession(new SessionStore(), new ToolResultCache());
         var inv = new CacheInvalidator(session);
 
-        session.Cache.Set("get_phases", "h", CacheScope.Document,
+        session.Cache.Set("list_phases", "h", CacheScope.Document,
             session.DocumentVersion, CortexResult<object>.Ok("v1"));
-        Assert.True(session.Cache.TryGet("get_phases", "h", CacheScope.Document,
+        Assert.True(session.Cache.TryGet("list_phases", "h", CacheScope.Document,
             session.DocumentVersion, out _));
 
         inv.OnDocumentChanged();
 
-        Assert.False(session.Cache.TryGet("get_phases", "h", CacheScope.Document,
+        Assert.False(session.Cache.TryGet("list_phases", "h", CacheScope.Document,
             session.DocumentVersion, out _));
     }
 }

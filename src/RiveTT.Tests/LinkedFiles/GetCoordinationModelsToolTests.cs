@@ -21,7 +21,7 @@ public class GetCoordinationModelsToolTests
     {
         var tool = new GetCoordinationModelsTool();
 
-        Assert.Equal("get_coordination_models", tool.Name);
+        Assert.Equal("list_coordination_models", tool.Name);
         Assert.Equal("LinkedFiles", tool.Category);
         Assert.True(tool.RequiresDocument);
         Assert.False(tool.IsDynamic);
@@ -42,23 +42,23 @@ public class GetCoordinationModelsToolTests
         var router = CreateRouter();
         var tool = new CachingCountingTool
         {
-            Name = "get_coordination_models",
+            Name = "list_coordination_models",
             CacheScope = CacheScope.Document,
         };
         Register(router, tool);
 
         // Each input shape should miss the cache the first time.
-        router.Route("get_coordination_models",
+        router.Route("list_coordination_models",
             new JObject { ["nameFilter"] = "campus", ["includeInstances"] = true, ["maxInstances"] = 100 });
-        router.Route("get_coordination_models",
+        router.Route("list_coordination_models",
             new JObject { ["nameFilter"] = "north", ["includeInstances"] = true, ["maxInstances"] = 100 });
-        router.Route("get_coordination_models",
+        router.Route("list_coordination_models",
             new JObject { ["nameFilter"] = "campus", ["includeInstances"] = false, ["maxInstances"] = 100 });
-        router.Route("get_coordination_models",
+        router.Route("list_coordination_models",
             new JObject { ["nameFilter"] = "campus", ["includeInstances"] = true, ["maxInstances"] = 25 });
 
         // Re-issuing the very first input should hit the cache (no extra Execute).
-        router.Route("get_coordination_models",
+        router.Route("list_coordination_models",
             new JObject { ["nameFilter"] = "campus", ["includeInstances"] = true, ["maxInstances"] = 100 });
 
         Assert.Equal(4, tool.ExecuteCallCount);
@@ -85,7 +85,7 @@ public class GetCoordinationModelsToolTests
 
     private class CachingCountingTool : ICortexTool, ICacheableTool
     {
-        public string Name { get; set; } = "get_coordination_models";
+        public string Name { get; set; } = "list_coordination_models";
         public string Category => "Test";
         public bool RequiresDocument => false;
         public bool IsDynamic => false;
@@ -170,7 +170,7 @@ public class GetCoordinationModelsToolTests
         }
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_coordination_models", payload, compact: true, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_coordination_models", payload, compact: true, summaryOnly: false);
 
         // Top-level counters preserved (safety contract).
         Assert.True(shaped["apiAvailable"]!.Value<bool>());
@@ -220,7 +220,7 @@ public class GetCoordinationModelsToolTests
         }
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_coordination_models", payload, compact: false, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_coordination_models", payload, compact: false, summaryOnly: false);
 
         // No shaping applied: verbose fields retained.
         Assert.Equal("Cloud", shaped["models"]![0]!["pathType"]!.Value<string>());

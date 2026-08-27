@@ -34,7 +34,7 @@ public class GetMaterialPropertiesTool : ICortexTool
         if (materialId == null && string.IsNullOrWhiteSpace(materialName))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "Provide either materialId or materialName",
-                suggestion: "Use get_materials to find material IDs first");
+                suggestion: "Use list_materials to find material IDs first");
 
         try
         {
@@ -56,7 +56,7 @@ public class GetMaterialPropertiesTool : ICortexTool
             if (material == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                     $"Material not found (id={materialId}, name={materialName})",
-                    suggestion: "Use get_materials to list available materials");
+                    suggestion: "Use list_materials to list available materials");
 
             var result = new Dictionary<string, object?>
             {

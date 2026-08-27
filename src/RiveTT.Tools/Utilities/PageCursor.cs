@@ -5,7 +5,7 @@ namespace RiveTT.Tools.Utilities;
 
 /// <summary>
 /// Opaque offset cursor shared by every tool that pages through a
-/// FilteredElementCollector result — first introduced by ai_element_filter.
+/// FilteredElementCollector result — first introduced by filter_elements.
 /// Encodes the document version alongside the offset so a cursor from before
 /// an edit is rejected instead of silently returning a shifted page.
 /// </summary>

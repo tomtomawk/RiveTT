@@ -16,7 +16,7 @@ public class CortexRouterCacheTests
     /// <summary>Counts Execute() calls so tests can prove cache hit/miss behavior.</summary>
     private class CountingTool : ICortexTool
     {
-        public string Name { get; set; } = "get_phases";
+        public string Name { get; set; } = "list_phases";
         public string Category => "Test";
         public bool RequiresDocument => false;
         public bool IsDynamic => false;
@@ -61,12 +61,12 @@ public class CortexRouterCacheTests
     public void Route_ToolWithoutCacheableInterface_AlwaysCallsExecute()
     {
         var router = CreateRouter(out _);
-        var tool = new CountingTool { Name = "get_phases" }; // not ICacheableTool
+        var tool = new CountingTool { Name = "list_phases" }; // not ICacheableTool
         Register(router, tool);
 
-        router.Route("get_phases", new JObject());
-        router.Route("get_phases", new JObject());
-        router.Route("get_phases", new JObject());
+        router.Route("list_phases", new JObject());
+        router.Route("list_phases", new JObject());
+        router.Route("list_phases", new JObject());
 
         Assert.Equal(3, tool.ExecuteCallCount);
     }
@@ -96,21 +96,21 @@ public class CortexRouterCacheTests
         var router = CreateRouter(out var session);
         var tool = new CachingCountingTool
         {
-            Name = "get_phases",
+            Name = "list_phases",
             CacheScope = CacheScope.Document,
         };
         Register(router, tool);
 
         var input = new JObject { ["a"] = "b" };
 
-        router.Route("get_phases", input);
-        router.Route("get_phases", input); // hit
+        router.Route("list_phases", input);
+        router.Route("list_phases", input); // hit
         Assert.Equal(1, tool.ExecuteCallCount);
 
         session.BumpDocumentVersion();
         session.Cache.InvalidateScope(CacheScope.Document);
 
-        router.Route("get_phases", input); // miss after invalidation
+        router.Route("list_phases", input); // miss after invalidation
         Assert.Equal(2, tool.ExecuteCallCount);
     }
 
@@ -120,14 +120,14 @@ public class CortexRouterCacheTests
         var router = CreateRouter(out _);
         var tool = new CachingCountingTool
         {
-            Name = "get_warnings",
+            Name = "list_warnings",
             CacheScope = CacheScope.Document,
         };
         Register(router, tool);
 
-        router.Route("get_warnings", new JObject { ["severity"] = "high" });
-        router.Route("get_warnings", new JObject { ["severity"] = "low" });
-        router.Route("get_warnings", new JObject { ["severity"] = "high" }); // hit
+        router.Route("list_warnings", new JObject { ["severity"] = "high" });
+        router.Route("list_warnings", new JObject { ["severity"] = "low" });
+        router.Route("list_warnings", new JObject { ["severity"] = "high" }); // hit
 
         Assert.Equal(2, tool.ExecuteCallCount);
     }
@@ -138,16 +138,16 @@ public class CortexRouterCacheTests
         var router = CreateRouter(out _);
         var tool = new CachingCountingTool
         {
-            Name = "get_phases",
+            Name = "list_phases",
             CacheScope = CacheScope.Document,
             NextResult = CortexResult<object>.Fail(
                 CortexErrorCode.InvalidInput, "boom"),
         };
         Register(router, tool);
 
-        router.Route("get_phases", new JObject());
-        router.Route("get_phases", new JObject());
-        router.Route("get_phases", new JObject());
+        router.Route("list_phases", new JObject());
+        router.Route("list_phases", new JObject());
+        router.Route("list_phases", new JObject());
 
         Assert.Equal(3, tool.ExecuteCallCount);
     }
@@ -158,14 +158,14 @@ public class CortexRouterCacheTests
         var router = CreateRouter(out _);
         var tool = new CachingCountingTool
         {
-            Name = "get_linked_file_instances",
+            Name = "list_linked_file_instances",
             CacheScope = CacheScope.Document,
         };
         Register(router, tool);
 
         var input = new JObject { ["k"] = "v" };
-        router.Route("get_linked_file_instances", input);
-        router.Route("get_linked_file_instances", input);
+        router.Route("list_linked_file_instances", input);
+        router.Route("list_linked_file_instances", input);
 
         Assert.Equal(1, tool.ExecuteCallCount);
     }
@@ -176,7 +176,7 @@ public class CortexRouterCacheTests
         var router = CreateRouter(out _);
         var tool = new CachingCountingTool
         {
-            Name = "get_phases",
+            Name = "list_phases",
             CacheScope = CacheScope.Document,
         };
         Register(router, tool);
@@ -184,8 +184,8 @@ public class CortexRouterCacheTests
         var a = new JObject { ["alpha"] = 1, ["beta"] = 2 };
         var b = new JObject { ["beta"] = 2, ["alpha"] = 1 };
 
-        router.Route("get_phases", a);
-        router.Route("get_phases", b); // same canonical content → cache hit
+        router.Route("list_phases", a);
+        router.Route("list_phases", b); // same canonical content → cache hit
 
         Assert.Equal(1, tool.ExecuteCallCount);
     }

@@ -76,7 +76,7 @@ public class GetCompoundStructureTool : ICortexTool
                 if (hostType == null)
                     return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                         $"Type '{typeName}' not found" + (category != null ? $" in category {category}" : ""),
-                        suggestion: "Use get_available_family_types to list available types");
+                        suggestion: "Use list_family_types to list available types");
             }
             else
             {
