@@ -43,11 +43,7 @@ public class SectionBoxFromSelectionTool : ICortexTool
             XYZ? minPt = null, maxPt = null;
             foreach (var eid in elementIds)
             {
-#if REVIT2024_OR_GREATER
                 var elem = doc.GetElement(new ElementId(eid));
-#else
-                var elem = doc.GetElement(new ElementId((int)eid));
-#endif
                 if (elem == null) continue;
                 var bb = elem.get_BoundingBox(null);
                 if (bb == null) continue;

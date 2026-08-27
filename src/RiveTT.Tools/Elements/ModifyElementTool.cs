@@ -43,11 +43,7 @@ public class ModifyElementTool : ICortexTool
         var revitIds = elementIds
             .Select(id =>
             {
-#if REVIT2024_OR_GREATER
                 return new ElementId(id);
-#else
-                return new ElementId((int)id);
-#endif
             })
             .Where(id => doc.GetElement(id) != null)
             .ToList();
@@ -196,11 +192,7 @@ public class ModifyElementTool : ICortexTool
         {
             var newIds = newElementIds.Select(id =>
             {
-#if REVIT2024_OR_GREATER
                 return id.Value;
-#else
-                return (long)id.IntegerValue;
-#endif
             }).ToArray();
 
             return new

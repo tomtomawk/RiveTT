@@ -100,11 +100,7 @@ public class LinesPerViewCountTool : ICortexTool
                     {
                         viewStats.Add((detailLineCount, (object)new
                         {
-#if REVIT2024_OR_GREATER
                             viewId = view.Id.Value,
-#else
-                            viewId = (long)view.Id.IntegerValue,
-#endif
                             viewName    = view.Name,
                             viewType    = view.ViewType.ToString(),
                             detailLines = detailLineCount,

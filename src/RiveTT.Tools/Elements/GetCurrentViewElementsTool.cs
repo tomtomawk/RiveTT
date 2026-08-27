@@ -175,11 +175,7 @@ public class GetCurrentViewElementsTool : ICortexTool
 
             return CortexResult<object>.Ok(new
             {
-#if REVIT2024_OR_GREATER
                 viewId               = activeView.Id.Value,
-#else
-                viewId               = (long)activeView.Id.IntegerValue,
-#endif
                 viewName             = activeView.Name,
                 // Everything in the view, ignoring category filtering — NOT the
                 // count this call's category filter matched. Use
@@ -215,11 +211,7 @@ public class GetCurrentViewElementsTool : ICortexTool
 
         return new
         {
-#if REVIT2024_OR_GREATER
             id           = element.Id.Value,
-#else
-            id           = (long)element.Id.IntegerValue,
-#endif
             uniqueId     = element.UniqueId,
             name         = element.Name,
             category     = element.Category?.Name ?? "unknown",
@@ -286,11 +278,7 @@ public class GetCurrentViewElementsTool : ICortexTool
         // ElementId
         if (!filtered || fieldSet!.Contains("ElementId"))
         {
-#if REVIT2024_OR_GREATER
             props["ElementId"] = element.Id.Value.ToString();
-#else
-            props["ElementId"] = element.Id.IntegerValue.ToString();
-#endif
         }
 
         // Location coordinates (LocationPoint)
@@ -330,11 +318,7 @@ public class GetCurrentViewElementsTool : ICortexTool
                 StorageType.String    => param.AsString() ?? string.Empty,
                 StorageType.Double    => param.AsDouble().ToString("F2"),
                 StorageType.Integer   => param.AsInteger().ToString(),
-#if REVIT2024_OR_GREATER
                 StorageType.ElementId => param.AsElementId().Value.ToString(),
-#else
-                StorageType.ElementId => param.AsElementId().IntegerValue.ToString(),
-#endif
                 _                     => null
             };
 

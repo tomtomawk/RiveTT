@@ -46,11 +46,7 @@ public class ClashDetectionTool : ICortexTool
             {
                 setA = elementIdsA.Select(id =>
                 {
-#if REVIT2024_OR_GREATER
                     return doc.GetElement(new ElementId(id));
-#else
-                    return doc.GetElement(new ElementId((int)id));
-#endif
                 }).Where(e => e != null).ToList()!;
             }
             else if (!string.IsNullOrEmpty(categoryA))
@@ -69,11 +65,7 @@ public class ClashDetectionTool : ICortexTool
             {
                 setB = elementIdsB.Select(id =>
                 {
-#if REVIT2024_OR_GREATER
                     return doc.GetElement(new ElementId(id));
-#else
-                    return doc.GetElement(new ElementId((int)id));
-#endif
                 }).Where(e => e != null).ToList()!;
             }
             else if (!string.IsNullOrEmpty(categoryB))

@@ -36,11 +36,7 @@ public class ModifyScheduleTool : ICortexTool
             ViewSchedule? schedule = null;
             if (scheduleId.HasValue && scheduleId.Value > 0)
             {
-#if REVIT2024_OR_GREATER
                 schedule = doc.GetElement(new ElementId(scheduleId.Value)) as ViewSchedule;
-#else
-                schedule = doc.GetElement(new ElementId((int)scheduleId.Value)) as ViewSchedule;
-#endif
             }
             else if (!string.IsNullOrEmpty(scheduleName))
             {

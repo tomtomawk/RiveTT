@@ -234,11 +234,7 @@ public class CreateRevisionTool : ICortexTool
         ElementId revisionId;
         if (revisionIdLong > 0)
         {
-#if REVIT2024_OR_GREATER
             revisionId = new ElementId(revisionIdLong);
-#else
-            revisionId = new ElementId((int)revisionIdLong);
-#endif
         }
         else
         {
@@ -255,11 +251,7 @@ public class CreateRevisionTool : ICortexTool
         int updatedCount = 0;
         foreach (var sid in sheetIds)
         {
-#if REVIT2024_OR_GREATER
             var sheet = doc.GetElement(new ElementId(sid)) as ViewSheet;
-#else
-            var sheet = doc.GetElement(new ElementId((int)sid)) as ViewSheet;
-#endif
             if (sheet == null) continue;
 
             var existing = sheet.GetAdditionalRevisionIds().ToList();

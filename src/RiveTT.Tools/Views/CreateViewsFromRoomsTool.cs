@@ -62,11 +62,7 @@ public class CreateViewsFromRoomsTool : ICortexTool
 
             foreach (var rid in roomIds)
             {
-#if REVIT2024_OR_GREATER
                 var room = doc.GetElement(new ElementId(rid)) as Room;
-#else
-                var room = doc.GetElement(new ElementId((int)rid)) as Room;
-#endif
                 if (room == null) { warnings.Add($"Room {rid} not found"); continue; }
 
                 var bb = room.get_BoundingBox(null);

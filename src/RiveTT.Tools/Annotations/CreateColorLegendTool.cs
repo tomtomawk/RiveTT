@@ -44,11 +44,7 @@ public class CreateColorLegendTool : ICortexTool
         View? targetView;
         if (targetViewId > 0)
         {
-#if REVIT2024_OR_GREATER
             targetView = doc.GetElement(new ElementId(targetViewId)) as View;
-#else
-            targetView = doc.GetElement(new ElementId((int)targetViewId)) as View;
-#endif
         }
         else
         {

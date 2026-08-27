@@ -152,10 +152,6 @@ public static class ParameterLookup
 
     private static long GetElementIdValue(ElementId id)
     {
-#if REVIT2024_OR_GREATER
         return id.Value;
-#else
-        return id.IntegerValue;
-#endif
     }
 }

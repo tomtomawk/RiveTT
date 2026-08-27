@@ -46,11 +46,7 @@ public class DuplicateSheetWithContentTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var sourceSheet = doc.GetElement(new ElementId(sheetId)) as ViewSheet;
-#else
-            var sourceSheet = doc.GetElement(new ElementId((int)sheetId)) as ViewSheet;
-#endif
             if (sourceSheet == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Sheet not found");
 

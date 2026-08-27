@@ -156,29 +156,17 @@ public class CreateLineBasedElementTool : ICortexTool
 
         if (requestedTypeId > 0)
         {
-#if REVIT2024_OR_GREATER
             var typeElemId = new ElementId(requestedTypeId);
-#else
-            var typeElemId = new ElementId((int)requestedTypeId);
-#endif
             var typeElem = doc.GetElement(typeElemId);
             if (typeElem is FamilySymbol fs)
             {
                 symbol = fs;
-#if REVIT2024_OR_GREATER
                 builtInCategory = (BuiltInCategory)symbol.Category.Id.Value;
-#else
-                builtInCategory = (BuiltInCategory)symbol.Category.Id.IntegerValue;
-#endif
             }
             else if (typeElem is WallType wt)
             {
                 wallType = wt;
-#if REVIT2024_OR_GREATER
                 builtInCategory = (BuiltInCategory)wallType.Category.Id.Value;
-#else
-                builtInCategory = (BuiltInCategory)wallType.Category.Id.IntegerValue;
-#endif
             }
         }
 

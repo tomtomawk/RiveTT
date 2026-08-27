@@ -67,11 +67,7 @@ public class ApplyViewTemplateTool : ICortexTool
         View? template = null;
         if (templateId > 0)
         {
-#if REVIT2024_OR_GREATER
             template = doc.GetElement(new ElementId(templateId)) as View;
-#else
-            template = doc.GetElement(new ElementId((int)templateId)) as View;
-#endif
         }
         if (template == null && !string.IsNullOrEmpty(templateName))
         {
@@ -91,11 +87,7 @@ public class ApplyViewTemplateTool : ICortexTool
         int applied = 0;
         foreach (var vid in viewIds)
         {
-#if REVIT2024_OR_GREATER
             var view = doc.GetElement(new ElementId(vid)) as View;
-#else
-            var view = doc.GetElement(new ElementId((int)vid)) as View;
-#endif
             if (view != null && !view.IsTemplate) { view.ViewTemplateId = template.Id; applied++; }
         }
         if (tx.Commit() != TransactionStatus.Committed)
@@ -119,11 +111,7 @@ public class ApplyViewTemplateTool : ICortexTool
         int removed = 0;
         foreach (var vid in viewIds)
         {
-#if REVIT2024_OR_GREATER
             var view = doc.GetElement(new ElementId(vid)) as View;
-#else
-            var view = doc.GetElement(new ElementId((int)vid)) as View;
-#endif
             if (view != null && !view.IsTemplate) { view.ViewTemplateId = ElementId.InvalidElementId; removed++; }
         }
         if (tx.Commit() != TransactionStatus.Committed)

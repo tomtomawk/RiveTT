@@ -94,11 +94,7 @@ public class SetElementParametersTool : ICortexTool
         {
             foreach (var req in requests)
             {
-#if REVIT2024_OR_GREATER
                 var elementId = new ElementId(req.ElementId);
-#else
-                var elementId = new ElementId((int)req.ElementId);
-#endif
                 var element = doc.GetElement(elementId);
                 if (element == null)
                 {
@@ -215,13 +211,8 @@ public class SetElementParametersTool : ICortexTool
                     if (jToken.Type == JTokenType.String)
                         return SetDoubleFromString(param, jToken.Value<string>() ?? "");
                     return param.Set(jToken.Value<double>());
-#if REVIT2024_OR_GREATER
                 case StorageType.ElementId:
                     return param.Set(new ElementId(jToken.Value<long>()));
-#else
-                case StorageType.ElementId:
-                    return param.Set(new ElementId((int)jToken.Value<long>()));
-#endif
                 default:
                     return false;
             }
@@ -243,11 +234,7 @@ public class SetElementParametersTool : ICortexTool
                 return false;
             case StorageType.ElementId:
                 if (long.TryParse(value.ToString(), out var parsedId))
-#if REVIT2024_OR_GREATER
                     return param.Set(new ElementId(parsedId));
-#else
-                    return param.Set(new ElementId((int)parsedId));
-#endif
                 return false;
             default:
                 return false;

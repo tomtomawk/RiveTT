@@ -112,11 +112,7 @@ public static class SchedulableFieldResolver
     {
         try
         {
-#if REVIT2024_OR_GREATER
             return field.ParameterId.Value;
-#else
-            return field.ParameterId.IntegerValue;
-#endif
         }
         catch
         {

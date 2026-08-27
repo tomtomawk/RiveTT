@@ -264,11 +264,7 @@ public class ColorElementsTool : ICortexTool
         if (id == ElementId.InvalidElementId) return "None";
         var refElem = doc.GetElement(id);
         if (refElem != null) return refElem.Name;
-#if REVIT2024_OR_GREATER
         return id.Value.ToString();
-#else
-        return id.IntegerValue.ToString();
-#endif
     }
 
     // ── Color generation ──────────────────────────────────────────────────────
@@ -352,10 +348,6 @@ public class ColorElementsTool : ICortexTool
 
     private static long GetElementIdLong(ElementId id)
     {
-#if REVIT2024_OR_GREATER
         return id.Value;
-#else
-        return id.IntegerValue;
-#endif
     }
 }

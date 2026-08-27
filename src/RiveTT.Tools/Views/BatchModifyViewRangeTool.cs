@@ -52,11 +52,7 @@ public class BatchModifyViewRangeTool : ICortexTool
 
             foreach (var vid in viewIds)
             {
-#if REVIT2024_OR_GREATER
                 var view = doc.GetElement(new ElementId(vid)) as ViewPlan;
-#else
-                var view = doc.GetElement(new ElementId((int)vid)) as ViewPlan;
-#endif
                 if (view == null) continue;
 
                 var vr = view.GetViewRange();

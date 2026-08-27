@@ -43,11 +43,7 @@ public class CreateFilledRegionTool : ICortexTool
             View? view;
             if (viewIdLong > 0)
             {
-#if REVIT2024_OR_GREATER
                 view = doc.GetElement(new ElementId(viewIdLong)) as View;
-#else
-                view = doc.GetElement(new ElementId((int)viewIdLong)) as View;
-#endif
             }
             else
             {

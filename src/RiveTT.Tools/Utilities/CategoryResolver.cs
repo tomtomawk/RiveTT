@@ -122,11 +122,7 @@ public static class CategoryResolver
         if (category == null) return null;
         try
         {
-#if REVIT2024_OR_GREATER
             var raw = category.Id.Value;
-#else
-            var raw = (long)category.Id.IntegerValue;
-#endif
             if (raw > int.MaxValue || raw < int.MinValue) return null;
             var builtIn = (BuiltInCategory)(int)raw;
             return Enum.IsDefined(typeof(BuiltInCategory), builtIn) ? builtIn.ToString() : null;

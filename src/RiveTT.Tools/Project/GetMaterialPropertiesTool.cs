@@ -42,11 +42,7 @@ public class GetMaterialPropertiesTool : ICortexTool
 
             if (materialId.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 material = doc.GetElement(new ElementId(materialId.Value)) as Material;
-#else
-                material = doc.GetElement(new ElementId((int)materialId.Value)) as Material;
-#endif
             }
 
             if (material == null && !string.IsNullOrWhiteSpace(materialName))
@@ -64,11 +60,7 @@ public class GetMaterialPropertiesTool : ICortexTool
 
             var result = new Dictionary<string, object?>
             {
-#if REVIT2024_OR_GREATER
                 ["id"] = material.Id.Value,
-#else
-                ["id"] = (long)material.Id.IntegerValue,
-#endif
                 ["name"]             = material.Name,
                 ["materialClass"]    = material.MaterialClass,
                 ["materialCategory"] = material.MaterialCategory,

@@ -64,11 +64,7 @@ public class DeleteElementTool : ICortexTool
 
         foreach (var rawId in rawIds)
         {
-#if REVIT2024_OR_GREATER
             var elementId = new ElementId(rawId);
-#else
-            var elementId = new ElementId((int)rawId);
-#endif
             var elem = doc.GetElement(elementId);
             if (elem != null)
                 validElements.Add((elementId, elem));
@@ -318,19 +314,11 @@ public class DeleteElementTool : ICortexTool
 
     private static long GetElementIdLongFromId(ElementId id)
     {
-#if REVIT2024_OR_GREATER
         return id.Value;
-#else
-        return id.IntegerValue;
-#endif
     }
 
     private static long GetElementIdLong(Element elem)
     {
-#if REVIT2024_OR_GREATER
         return elem.Id.Value;
-#else
-        return elem.Id.IntegerValue;
-#endif
     }
 }

@@ -192,11 +192,7 @@ public class CopyElementsTool : ICortexTool
                 var elem = doc.GetElement(id);
                 return (object)new
                 {
-#if REVIT2024_OR_GREATER
                     id = id.Value,
-#else
-                    id = id.IntegerValue,
-#endif
                     name = elem?.Name ?? "",
                     category = elem?.Category?.Name ?? ""
                 };
@@ -218,10 +214,6 @@ public class CopyElementsTool : ICortexTool
 
     private static ElementId ToElementId(long id)
     {
-#if REVIT2024_OR_GREATER
         return new ElementId(id);
-#else
-        return new ElementId((int)id);
-#endif
     }
 }

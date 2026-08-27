@@ -63,20 +63,12 @@ public class GetWarningsTool : ICortexTool
 
                 var failingIds = warning.GetFailingElements().Select(id =>
                 {
-#if REVIT2024_OR_GREATER
                     return id.Value;
-#else
-                    return (long)id.IntegerValue;
-#endif
                 }).ToList();
 
                 var additionalIds = warning.GetAdditionalElements().Select(id =>
                 {
-#if REVIT2024_OR_GREATER
                     return id.Value;
-#else
-                    return (long)id.IntegerValue;
-#endif
                 }).ToList();
 
                 warnings.Add(new

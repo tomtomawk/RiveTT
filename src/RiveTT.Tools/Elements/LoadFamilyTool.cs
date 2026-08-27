@@ -138,11 +138,7 @@ public class LoadFamilyTool : ICortexTool
         if (sourceTypeId <= 0 || string.IsNullOrEmpty(newTypeName))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sourceTypeId and newTypeName required");
 
-#if REVIT2024_OR_GREATER
         var sourceType = doc.GetElement(new ElementId(sourceTypeId)) as FamilySymbol;
-#else
-        var sourceType = doc.GetElement(new ElementId((int)sourceTypeId)) as FamilySymbol;
-#endif
         if (sourceType == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Source family type not found");
 

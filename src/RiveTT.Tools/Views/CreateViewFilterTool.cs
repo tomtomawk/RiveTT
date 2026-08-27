@@ -215,13 +215,8 @@ public class CreateViewFilterTool : ICortexTool
         if (filterId <= 0 || viewId <= 0)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "filterId and viewId are required");
 
-#if REVIT2024_OR_GREATER
         var filter = doc.GetElement(new ElementId(filterId)) as ParameterFilterElement;
         var view = doc.GetElement(new ElementId(viewId)) as View;
-#else
-        var filter = doc.GetElement(new ElementId((int)filterId)) as ParameterFilterElement;
-        var view = doc.GetElement(new ElementId((int)viewId)) as View;
-#endif
         if (filter == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Filter not found");
         if (view == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View not found");
 

@@ -53,11 +53,7 @@ public class ListFamilySizesTool : ICortexTool
                     var catId = CategoryResolver.ResolveToId(doc, cat);
                     if (catId != null && catId != ElementId.InvalidElementId)
                     {
-#if REVIT2024_OR_GREATER
                         catIds.Add(catId.Value);
-#else
-                        catIds.Add((long)catId.IntegerValue);
-#endif
                     }
                 }
                 if (catIds.Count > 0)
@@ -65,11 +61,7 @@ public class ListFamilySizesTool : ICortexTool
                     families = families.Where(f =>
                     {
                         if (f.FamilyCategory == null) return false;
-#if REVIT2024_OR_GREATER
                         return catIds.Contains(f.FamilyCategory.Id.Value);
-#else
-                        return catIds.Contains((long)f.FamilyCategory.Id.IntegerValue);
-#endif
                     }).ToList();
                 }
             }
@@ -82,11 +74,7 @@ public class ListFamilySizesTool : ICortexTool
                 .Cast<FamilyInstance>())
             {
                 if (fi.Symbol == null) continue;
-#if REVIT2024_OR_GREATER
                 long typeIdValue = fi.Symbol.Id.Value;
-#else
-                long typeIdValue = (long)fi.Symbol.Id.IntegerValue;
-#endif
                 instanceCountByTypeId.TryGetValue(typeIdValue, out int existing);
                 instanceCountByTypeId[typeIdValue] = existing + 1;
             }
@@ -99,22 +87,14 @@ public class ListFamilySizesTool : ICortexTool
                 int instanceCount = 0;
                 foreach (var typeId in typeIds)
                 {
-#if REVIT2024_OR_GREATER
                     long key = typeId.Value;
-#else
-                    long key = (long)typeId.IntegerValue;
-#endif
                     if (instanceCountByTypeId.TryGetValue(key, out int count))
                         instanceCount += count;
                 }
 
                 return new FamilyInfo
                 {
-#if REVIT2024_OR_GREATER
                     FamilyId = f.Id.Value,
-#else
-                    FamilyId = (long)f.Id.IntegerValue,
-#endif
                     Family        = f,
                     FamilyName    = f.Name,
                     Category      = f.FamilyCategory?.Name ?? "Unknown",

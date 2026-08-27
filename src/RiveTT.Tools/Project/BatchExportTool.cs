@@ -58,19 +58,11 @@ public class BatchExportTool : ICortexTool
             var allIds = new List<ElementId>();
             foreach (var sid in sheetIds)
             {
-#if REVIT2024_OR_GREATER
                 allIds.Add(new ElementId(sid));
-#else
-                allIds.Add(new ElementId((int)sid));
-#endif
             }
             foreach (var vid in viewIds)
             {
-#if REVIT2024_OR_GREATER
                 allIds.Add(new ElementId(vid));
-#else
-                allIds.Add(new ElementId((int)vid));
-#endif
             }
 
             var results = new List<object>();

@@ -53,11 +53,7 @@ public class FindUndimensionedElementsTool : ICortexTool
             View targetView;
             if (viewIdToken.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 var viewElement = doc.GetElement(new ElementId(viewIdToken.Value));
-#else
-                var viewElement = doc.GetElement(new ElementId((int)viewIdToken.Value));
-#endif
                 targetView = viewElement as View
                     ?? throw new ArgumentException($"Element {viewIdToken.Value} is not a view");
             }
@@ -109,11 +105,7 @@ public class FindUndimensionedElementsTool : ICortexTool
                     var refElementId = reference.ElementId;
                     if (refElementId != ElementId.InvalidElementId)
                     {
-#if REVIT2024_OR_GREATER
                         dimensionedElementIds.Add(refElementId.Value);
-#else
-                        dimensionedElementIds.Add(refElementId.IntegerValue);
-#endif
                     }
                 }
             }
@@ -132,11 +124,7 @@ public class FindUndimensionedElementsTool : ICortexTool
                 foreach (var element in elementCollector)
                 {
                     totalChecked++;
-#if REVIT2024_OR_GREATER
                     long elementIdValue = element.Id.Value;
-#else
-                    long elementIdValue = element.Id.IntegerValue;
-#endif
                     if (!dimensionedElementIds.Contains(elementIdValue))
                     {
                         // Collect up to limit+1 so we can detect truncation
@@ -158,11 +146,7 @@ public class FindUndimensionedElementsTool : ICortexTool
 
             return CortexResult<object>.Ok(new
             {
-#if REVIT2024_OR_GREATER
                 viewId = targetView.Id.Value,
-#else
-                viewId = (long)targetView.Id.IntegerValue,
-#endif
                 viewName = targetView.Name,
                 totalElementsChecked = totalChecked,
                 undimensionedCount = returnedElements.Count,

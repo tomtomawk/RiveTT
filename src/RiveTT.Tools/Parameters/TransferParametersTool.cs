@@ -40,11 +40,7 @@ public class TransferParametersTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var source = doc.GetElement(new ElementId(sourceId));
-#else
-            var source = doc.GetElement(new ElementId((int)sourceId));
-#endif
             if (source == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Source element not found");
 
@@ -112,11 +108,7 @@ public class TransferParametersTool : ICortexTool
         var results = new List<object>();
         foreach (var tid in targetIds)
         {
-#if REVIT2024_OR_GREATER
             var target = doc.GetElement(new ElementId(tid));
-#else
-            var target = doc.GetElement(new ElementId((int)tid));
-#endif
             if (target == null) { results.Add(new { id = tid, success = false, reason = "Not found" }); continue; }
 
             int set = 0;
@@ -148,11 +140,7 @@ public class TransferParametersTool : ICortexTool
         var results = new List<object>();
         foreach (var tid in targetIds)
         {
-#if REVIT2024_OR_GREATER
             var target = doc.GetElement(new ElementId(tid));
-#else
-            var target = doc.GetElement(new ElementId((int)tid));
-#endif
             if (target == null) { results.Add(new { id = tid, success = false, reason = "Not found" }); continue; }
             var matchCount = sourceValues.Keys.Count(k => target.LookupParameter(k) != null);
             results.Add(new { id = tid, success = true, matchingParameters = matchCount });

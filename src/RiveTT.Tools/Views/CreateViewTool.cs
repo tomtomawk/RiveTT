@@ -150,11 +150,7 @@ public class CreateViewTool : ICortexTool
         Level? level = null;
         if (levelIdLong > 0)
         {
-#if REVIT2024_OR_GREATER
             level = doc.GetElement(new ElementId(levelIdLong)) as Level;
-#else
-            level = doc.GetElement(new ElementId((int)levelIdLong)) as Level;
-#endif
         }
         level ??= !string.IsNullOrEmpty(levelName)
             ? allLevels.FirstOrDefault(l => string.Equals(l.Name, levelName, StringComparison.OrdinalIgnoreCase))

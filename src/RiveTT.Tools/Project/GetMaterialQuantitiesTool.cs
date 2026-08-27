@@ -115,11 +115,7 @@ public class GetMaterialQuantitiesTool : ICortexTool
 
                     var entry = materialData[matId];
                     long elemIdLong;
-#if REVIT2024_OR_GREATER
                     elemIdLong = elem.Id.Value;
-#else
-                    elemIdLong = (long)elem.Id.IntegerValue;
-#endif
                     materialData[matId] = (
                         entry.name, entry.matClass,
                         entry.area + area,
@@ -139,11 +135,7 @@ public class GetMaterialQuantitiesTool : ICortexTool
                 .Take(maxResults)
                 .Select(kv => new
                 {
-#if REVIT2024_OR_GREATER
                     materialId = kv.Key.Value,
-#else
-                    materialId = (long)kv.Key.IntegerValue,
-#endif
                     materialName  = kv.Value.name,
                     materialClass = kv.Value.matClass,
                     area          = Math.Round(kv.Value.area, 4),

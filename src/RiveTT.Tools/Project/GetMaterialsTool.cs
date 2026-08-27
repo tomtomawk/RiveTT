@@ -48,11 +48,7 @@ public class GetMaterialsTool : ICortexTool, ICacheableTool
 
             var materials = allMaterials.Select(m => new
             {
-#if REVIT2024_OR_GREATER
                 id = m.Id.Value,
-#else
-                id = (long)m.Id.IntegerValue,
-#endif
                 name             = m.Name,
                 materialClass    = m.MaterialClass,
                 materialCategory = m.MaterialCategory,

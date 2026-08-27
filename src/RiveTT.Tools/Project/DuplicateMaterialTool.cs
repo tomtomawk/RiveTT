@@ -47,11 +47,7 @@ public class DuplicateMaterialTool : ICortexTool
 
             if (sourceMaterialId.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 source = doc.GetElement(new ElementId(sourceMaterialId.Value)) as Material;
-#else
-                source = doc.GetElement(new ElementId((int)sourceMaterialId.Value)) as Material;
-#endif
             }
 
             if (source == null && !string.IsNullOrWhiteSpace(sourceMaterialName))
@@ -143,11 +139,7 @@ public class DuplicateMaterialTool : ICortexTool
             }
 
             long newIdValue;
-#if REVIT2024_OR_GREATER
             newIdValue = newMatId.Value;
-#else
-            newIdValue = (long)newMatId.IntegerValue;
-#endif
 
             return CortexResult<object>.Ok(new
             {

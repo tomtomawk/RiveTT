@@ -111,11 +111,7 @@ public class CreateTextNoteTool : ICortexTool
         View? view;
         if (viewId > 0)
         {
-#if REVIT2024_OR_GREATER
             view = doc.GetElement(new ElementId(viewId)) as View;
-#else
-            view = doc.GetElement(new ElementId((int)viewId)) as View;
-#endif
         }
         else
         {
@@ -133,11 +129,7 @@ public class CreateTextNoteTool : ICortexTool
         var noteTypeId = defaultTypeId;
         if (typeId > 0)
         {
-#if REVIT2024_OR_GREATER
             var typeElem = doc.GetElement(new ElementId(typeId));
-#else
-            var typeElem = doc.GetElement(new ElementId((int)typeId));
-#endif
             if (typeElem is TextNoteType)
                 noteTypeId = typeElem.Id;
             else

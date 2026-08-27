@@ -68,11 +68,7 @@ public class OperateElementTool : ICortexTool
                 "elementIds is required for this action (use an array of element ID numbers)");
 
         // Build ElementId collection
-#if REVIT2024_OR_GREATER
         ICollection<ElementId> elementIds = rawIds.Select(id => new ElementId(id)).ToList();
-#else
-        ICollection<ElementId> elementIds = rawIds.Select(id => new ElementId((int)id)).ToList();
-#endif
 
         // A single stale/invalid id must not abort a batch covering many valid
         // ones: View.HideElements/UnhideElements/IsolateElementsTemporary and

@@ -90,11 +90,7 @@ public class ManageLinksTool : ICortexTool
         if (linkId <= 0)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "linkId required for reload");
 
-#if REVIT2024_OR_GREATER
         var linkInstance = doc.GetElement(new ElementId(linkId)) as RevitLinkInstance;
-#else
-        var linkInstance = doc.GetElement(new ElementId((int)linkId)) as RevitLinkInstance;
-#endif
         if (linkInstance == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link not found");
 
@@ -122,11 +118,7 @@ public class ManageLinksTool : ICortexTool
         if (linkId <= 0)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "linkId required for unload");
 
-#if REVIT2024_OR_GREATER
         var linkInstance = doc.GetElement(new ElementId(linkId)) as RevitLinkInstance;
-#else
-        var linkInstance = doc.GetElement(new ElementId((int)linkId)) as RevitLinkInstance;
-#endif
         if (linkInstance == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link not found");
 

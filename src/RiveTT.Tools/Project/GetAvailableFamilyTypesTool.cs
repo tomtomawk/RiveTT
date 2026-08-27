@@ -53,11 +53,7 @@ public class GetAvailableFamilyTypesTool : ICortexTool
                     var catId = CategoryResolver.ResolveToId(doc, catName);
                     if (catId != null && catId != ElementId.InvalidElementId)
                     {
-#if REVIT2024_OR_GREATER
                         validCatIds.Add(catId.Value);
-#else
-                        validCatIds.Add((long)catId.IntegerValue);
-#endif
                     }
                     else
                     {
@@ -76,11 +72,7 @@ public class GetAvailableFamilyTypesTool : ICortexTool
                 allElements = allElements.Where(et =>
                 {
                     if (et.Category == null) return false;
-#if REVIT2024_OR_GREATER
                     return validCatIds.Contains(et.Category.Id.Value);
-#else
-                    return validCatIds.Contains((long)et.Category.Id.IntegerValue);
-#endif
                 });
             }
 
@@ -108,11 +100,7 @@ public class GetAvailableFamilyTypesTool : ICortexTool
 
                 return new
                 {
-#if REVIT2024_OR_GREATER
                     familyTypeId = et.Id.Value,
-#else
-                    familyTypeId = (long)et.Id.IntegerValue,
-#endif
                     uniqueId   = et.UniqueId,
                     familyName,
                     typeName   = et.Name,

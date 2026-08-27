@@ -39,11 +39,7 @@ public class MoveLinkInstanceTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var element = doc.GetElement(new ElementId(instanceId));
-#else
-            var element = doc.GetElement(new ElementId((int)instanceId));
-#endif
             var linkInstance = element as RevitLinkInstance;
             if (linkInstance == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,

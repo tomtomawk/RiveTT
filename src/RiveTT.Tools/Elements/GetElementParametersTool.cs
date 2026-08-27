@@ -47,11 +47,7 @@ public class GetElementParametersTool : ICortexTool
 
         foreach (var id in elementIds)
         {
-#if REVIT2024_OR_GREATER
             var elementId = new ElementId(id);
-#else
-            var elementId = new ElementId((int)id);
-#endif
             var element = doc.GetElement(elementId);
             if (element == null)
             {
@@ -118,11 +114,7 @@ public class GetElementParametersTool : ICortexTool
 
             results.Add(new
             {
-#if REVIT2024_OR_GREATER
                 elementId = element.Id.Value,
-#else
-                elementId = element.Id.IntegerValue,
-#endif
                 found = true,
                 elementName = element.Name,
                 category = element.Category?.Name,

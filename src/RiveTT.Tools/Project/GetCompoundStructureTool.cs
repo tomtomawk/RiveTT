@@ -43,11 +43,7 @@ public class GetCompoundStructureTool : ICortexTool
             // Option 1: from element instance
             if (elementId.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 var elem = doc.GetElement(new ElementId(elementId.Value));
-#else
-                var elem = doc.GetElement(new ElementId((int)elementId.Value));
-#endif
                 if (elem == null)
                     return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                         $"Element {elementId} not found");
@@ -63,11 +59,7 @@ public class GetCompoundStructureTool : ICortexTool
             // Option 2: from type ID directly
             else if (typeId.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 hostType = doc.GetElement(new ElementId(typeId.Value)) as HostObjAttributes;
-#else
-                hostType = doc.GetElement(new ElementId((int)typeId.Value)) as HostObjAttributes;
-#endif
                 resolvedFrom = "typeId";
 
                 if (hostType == null)
@@ -122,11 +114,7 @@ public class GetCompoundStructureTool : ICortexTool
                 }
 
                 long matIdValue;
-#if REVIT2024_OR_GREATER
                 matIdValue = matId.Value;
-#else
-                matIdValue = (long)matId.IntegerValue;
-#endif
 
                 layers.Add(new
                 {
@@ -143,11 +131,7 @@ public class GetCompoundStructureTool : ICortexTool
             }
 
             long typeIdValue;
-#if REVIT2024_OR_GREATER
             typeIdValue = hostType.Id.Value;
-#else
-            typeIdValue = (long)hostType.Id.IntegerValue;
-#endif
 
             return CortexResult<object>.Ok(new
             {

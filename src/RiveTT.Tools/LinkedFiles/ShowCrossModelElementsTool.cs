@@ -529,11 +529,7 @@ public class ShowCrossModelElementsTool : ICortexTool
 
     private static ElementId ToElementId(long id)
     {
-#if REVIT2024_OR_GREATER
         return new ElementId(id);
-#else
-        return new ElementId((int)id);
-#endif
     }
 
     private static void AddBoundingBox(ICollection<BoundingBoxXYZ> boxes, BoundingBoxXYZ? box)

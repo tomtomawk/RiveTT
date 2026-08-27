@@ -55,11 +55,7 @@ public class FindUntaggedElementsTool : ICortexTool
             View targetView;
             if (viewIdToken.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 var viewElement = doc.GetElement(new ElementId(viewIdToken.Value));
-#else
-                var viewElement = doc.GetElement(new ElementId((int)viewIdToken.Value));
-#endif
                 targetView = viewElement as View
                     ?? throw new ArgumentException($"Element {viewIdToken.Value} is not a view");
             }
@@ -107,11 +103,7 @@ public class FindUntaggedElementsTool : ICortexTool
                 {
                     if (id != ElementId.InvalidElementId)
                     {
-#if REVIT2024_OR_GREATER
                         taggedElementIds.Add(id.Value);
-#else
-                        taggedElementIds.Add(id.IntegerValue);
-#endif
                     }
                 }
             }
@@ -133,11 +125,7 @@ public class FindUntaggedElementsTool : ICortexTool
 
                 if (taggedElement != null)
                 {
-#if REVIT2024_OR_GREATER
                     taggedElementIds.Add(taggedElement.Id.Value);
-#else
-                    taggedElementIds.Add(taggedElement.Id.IntegerValue);
-#endif
                 }
             }
 
@@ -155,11 +143,7 @@ public class FindUntaggedElementsTool : ICortexTool
                 foreach (var element in elementCollector)
                 {
                     totalChecked++;
-#if REVIT2024_OR_GREATER
                     long elementIdValue = element.Id.Value;
-#else
-                    long elementIdValue = element.Id.IntegerValue;
-#endif
                     if (!taggedElementIds.Contains(elementIdValue))
                     {
                         // Collect up to limit+1 so we can detect truncation
@@ -181,11 +165,7 @@ public class FindUntaggedElementsTool : ICortexTool
 
             return CortexResult<object>.Ok(new
             {
-#if REVIT2024_OR_GREATER
                 viewId = targetView.Id.Value,
-#else
-                viewId = (long)targetView.Id.IntegerValue,
-#endif
                 viewName = targetView.Name,
                 totalElementsChecked = totalChecked,
                 untaggedCount = returnedElements.Count,

@@ -355,11 +355,7 @@ public class ManageGlobalParametersTool : ICortexTool
                 case StringParameterValue  spv: valueStr = spv.Value ?? "";            valueType = "string";    break;
                 case IntegerParameterValue ipv: valueStr = ipv.Value.ToString();       valueType = "integer";   break;
                 case ElementIdParameterValue epv:
-#if REVIT2024_OR_GREATER
                     valueStr = epv.Value.Value.ToString();
-#else
-                    valueStr = epv.Value.IntegerValue.ToString();
-#endif
                     valueType = "elementId";
                     break;
             }

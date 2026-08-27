@@ -44,17 +44,10 @@ public class PlaceViewportTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var sheet = doc.GetElement(new ElementId(sheetId)) as ViewSheet;
             var view = doc.GetElement(new ElementId(viewId)) as View;
             var viewEid = new ElementId(viewId);
             var sheetEid = new ElementId(sheetId);
-#else
-            var sheet = doc.GetElement(new ElementId((int)sheetId)) as ViewSheet;
-            var view = doc.GetElement(new ElementId((int)viewId)) as View;
-            var viewEid = new ElementId((int)viewId);
-            var sheetEid = new ElementId((int)sheetId);
-#endif
             if (sheet == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Sheet not found");
             if (view == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View not found");
 

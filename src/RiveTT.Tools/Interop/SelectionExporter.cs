@@ -101,21 +101,13 @@ namespace RiveTT.Tools.Interop
             long catId = 0;
             if (category != null)
             {
-#if REVIT2024_OR_GREATER
                 catId = category.Id.Value;
-#else
-                catId = (long)category.Id.IntegerValue;
-#endif
             }
             var catCode = FormatCategory(catId, category?.Name);
 
             var ifcParam = element.LookupParameter("IFC GUID")?.AsString();
             long elementIdValue =
-#if REVIT2024_OR_GREATER
                 element.Id.Value;
-#else
-                (long)element.Id.IntegerValue;
-#endif
 
             return new CortexElementRef
             {
@@ -182,11 +174,7 @@ namespace RiveTT.Tools.Interop
         private static long GetIdValue(ElementId id)
         {
             if (id == null || id == ElementId.InvalidElementId) return 0;
-#if REVIT2024_OR_GREATER
             return id.Value;
-#else
-            return (long)id.IntegerValue;
-#endif
         }
 
         private static bool IsFatal(Exception ex)

@@ -134,20 +134,12 @@ public class CreatePointBasedElementTool : ICortexTool
         FamilySymbol? symbol = null;
         if (requestedTypeId > 0)
         {
-#if REVIT2024_OR_GREATER
             var typeElemId = new ElementId(requestedTypeId);
-#else
-            var typeElemId = new ElementId((int)requestedTypeId);
-#endif
             var typeElem = doc.GetElement(typeElemId);
             if (typeElem is FamilySymbol fs)
             {
                 symbol = fs;
-#if REVIT2024_OR_GREATER
                 builtInCategory = (BuiltInCategory)symbol.Category.Id.Value;
-#else
-                builtInCategory = (BuiltInCategory)symbol.Category.Id.IntegerValue;
-#endif
             }
         }
 

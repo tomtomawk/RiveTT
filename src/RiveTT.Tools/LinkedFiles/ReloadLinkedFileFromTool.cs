@@ -45,11 +45,7 @@ public class ReloadLinkedFileFromTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var linkType = doc.GetElement(new ElementId(linkTypeId)) as RevitLinkType;
-#else
-            var linkType = doc.GetElement(new ElementId((int)linkTypeId)) as RevitLinkType;
-#endif
             if (linkType == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "RevitLinkType not found");
 

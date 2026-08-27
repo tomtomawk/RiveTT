@@ -44,11 +44,7 @@ public class TagRoomsTool : ICortexTool
             {
                 rooms = roomIds.Select(id =>
                 {
-#if REVIT2024_OR_GREATER
                     return doc.GetElement(new ElementId(id)) as Room;
-#else
-                    return doc.GetElement(new ElementId((int)id)) as Room;
-#endif
                 }).Where(r => r != null)!;
             }
             else

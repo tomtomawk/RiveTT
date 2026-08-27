@@ -120,11 +120,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
                     spatialElements = new List<Element>();
                     foreach (var id in volumeIds)
                     {
-#if REVIT2024_OR_GREATER
                         var elem = doc.GetElement(new ElementId(id));
-#else
-                        var elem = doc.GetElement(new ElementId((int)id));
-#endif
                         if (elem != null)
                             spatialElements.Add(elem);
                     }
@@ -190,13 +186,8 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
                     }
 
                     // Exclude the spatial element itself from results
-#if REVIT2024_OR_GREATER
                     long spatialIdVal = spatial.Id.Value;
                     elements = elements.Where(e => e.Id.Value != spatialIdVal).ToList();
-#else
-                    int spatialIdVal = spatial.Id.IntegerValue;
-                    elements = elements.Where(e => e.Id.IntegerValue != spatialIdVal).ToList();
-#endif
 
                     // Build a human-readable volume name
                     string volumeName;
@@ -222,11 +213,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
                     volumeResults.Add(new
                     {
                         volumeType        = normalizedVolumeType,
-#if REVIT2024_OR_GREATER
                         volumeId          = spatial.Id.Value,
-#else
-                        volumeId          = (long)spatial.Id.IntegerValue,
-#endif
                         volumeName,
                         // State the geometry actually used: "solid" excludes bounding
                         // elements, "boundingBox" over-reports, and the difference
@@ -319,11 +306,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
     {
         return new
         {
-#if REVIT2024_OR_GREATER
             elementId  = e.Id.Value,
-#else
-            elementId  = (long)e.Id.IntegerValue,
-#endif
             name       = e.Name,
             category   = e.Category?.Name ?? "Unknown",
             familyName = (e as FamilyInstance)?.Symbol?.FamilyName ?? "",

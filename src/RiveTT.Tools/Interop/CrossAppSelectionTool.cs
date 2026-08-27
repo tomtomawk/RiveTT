@@ -131,11 +131,7 @@ namespace RiveTT.Tools.Interop
 
         private static long GetIdValue(ElementId id)
         {
-#if REVIT2024_OR_GREATER
             return id.Value;
-#else
-            return (long)id.IntegerValue;
-#endif
         }
     }
 

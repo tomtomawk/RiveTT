@@ -258,11 +258,7 @@ public class AIElementFilterTool : ICortexTool
         // 3. Family-symbol filter (instances only)
         if (!isElementType && filterFamilySymId > 0)
         {
-#if REVIT2024_OR_GREATER
             var symId = new ElementId((long)filterFamilySymId);
-#else
-            var symId = new ElementId(filterFamilySymId);
-#endif
             var symElem = doc.GetElement(symId);
             if (symElem is FamilySymbol symbol)
             {
@@ -679,21 +675,13 @@ public class AIElementFilterTool : ICortexTool
     private static long GetElementIdLong(Element? elem)
     {
         if (elem == null) return -1;
-#if REVIT2024_OR_GREATER
         return elem.Id.Value;
-#else
-        return elem.Id.IntegerValue;
-#endif
     }
 
     private static string? GetBuiltInCategoryName(Element elem)
     {
         if (elem.Category == null) return null;
-#if REVIT2024_OR_GREATER
         return Enum.GetName(typeof(BuiltInCategory), (BuiltInCategory)(int)elem.Category.Id.Value);
-#else
-        return Enum.GetName(typeof(BuiltInCategory), (BuiltInCategory)elem.Category.Id.IntegerValue);
-#endif
     }
 
     private static object? GetLevelInfo(Document doc, Element elem)

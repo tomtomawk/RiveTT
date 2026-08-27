@@ -44,11 +44,7 @@ public class HighlightLinkedElementTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var element = doc.GetElement(new ElementId(instanceId));
-#else
-            var element = doc.GetElement(new ElementId((int)instanceId));
-#endif
             var linkInstance = element as RevitLinkInstance;
             if (linkInstance == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
@@ -60,11 +56,7 @@ public class HighlightLinkedElementTool : ICortexTool
                     "Linked document is not loaded");
 
             // Find the element in the linked document
-#if REVIT2024_OR_GREATER
             var linkedElement = linkDoc.GetElement(new ElementId(linkedElementId));
-#else
-            var linkedElement = linkDoc.GetElement(new ElementId((int)linkedElementId));
-#endif
             if (linkedElement == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                     $"Element {linkedElementId} not found in linked document");

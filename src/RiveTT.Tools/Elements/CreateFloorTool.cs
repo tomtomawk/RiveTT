@@ -61,11 +61,7 @@ public class CreateFloorTool : ICortexTool
             CurveLoop loop;
             if (roomId > 0)
             {
-#if REVIT2024_OR_GREATER
                 var room = doc.GetElement(new ElementId(roomId)) as Room;
-#else
-                var room = doc.GetElement(new ElementId((int)roomId)) as Room;
-#endif
                 if (room == null)
                     return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Room {roomId} not found");
 
@@ -98,11 +94,7 @@ public class CreateFloorTool : ICortexTool
             Level? level = null;
             if (roomId > 0)
             {
-#if REVIT2024_OR_GREATER
                 var roomForLevel = doc.GetElement(new ElementId(roomId)) as Room;
-#else
-                var roomForLevel = doc.GetElement(new ElementId((int)roomId)) as Room;
-#endif
                 if (roomForLevel != null)
                     level = doc.GetElement(roomForLevel.LevelId) as Level;
             }

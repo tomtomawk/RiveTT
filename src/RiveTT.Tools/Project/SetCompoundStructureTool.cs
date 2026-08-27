@@ -43,11 +43,7 @@ public class SetCompoundStructureTool : ICortexTool
 
             if (typeId.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 hostType = doc.GetElement(new ElementId(typeId.Value)) as HostObjAttributes;
-#else
-                hostType = doc.GetElement(new ElementId((int)typeId.Value)) as HostObjAttributes;
-#endif
             }
             else if (!string.IsNullOrWhiteSpace(typeName))
             {
@@ -338,11 +334,7 @@ public class SetCompoundStructureTool : ICortexTool
         var materialName = input["materialName"]?.Value<string>();
         if (materialId.HasValue)
         {
-#if REVIT2024_OR_GREATER
             layer.MaterialId = new ElementId(materialId.Value);
-#else
-            layer.MaterialId = new ElementId((int)materialId.Value);
-#endif
             changes.Add("material");
         }
         else if (!string.IsNullOrWhiteSpace(materialName))
@@ -517,11 +509,7 @@ public class SetCompoundStructureTool : ICortexTool
 
         if (matIdVal.HasValue)
         {
-#if REVIT2024_OR_GREATER
             materialId = new ElementId(matIdVal.Value);
-#else
-            materialId = new ElementId((int)matIdVal.Value);
-#endif
             if (doc.GetElement(materialId) is not Material)
                 return (false, null,
                     $"materialId {matIdVal.Value} is not a material in this document. " +

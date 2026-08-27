@@ -47,11 +47,7 @@ public class CreateSheetTool : ICortexTool
 
             if (titleBlockTypeId > 0)
             {
-#if REVIT2024_OR_GREATER
                 var elem = doc.GetElement(new ElementId(titleBlockTypeId));
-#else
-                var elem = doc.GetElement(new ElementId((int)titleBlockTypeId));
-#endif
                 if (elem is FamilySymbol symbolCandidate &&
                     symbolCandidate.Category?.Id == new ElementId(BuiltInCategory.OST_TitleBlocks))
                 {
@@ -200,11 +196,7 @@ public class CreateSheetTool : ICortexTool
 
     private static string DescribeElement(Document doc, long rawId)
     {
-#if REVIT2024_OR_GREATER
         var element = doc.GetElement(new ElementId(rawId));
-#else
-        var element = doc.GetElement(new ElementId((int)rawId));
-#endif
         if (element == null) return "no element with this id";
         return $"{element.GetType().Name} '{element.Name}' (category {element.Category?.Name ?? "none"})";
     }

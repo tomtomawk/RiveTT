@@ -105,11 +105,7 @@ public class CreatePlaceholderSheetsTool : ICortexTool
         ElementId tbId;
         if (titleBlockId > 0)
         {
-#if REVIT2024_OR_GREATER
             tbId = new ElementId(titleBlockId);
-#else
-            tbId = new ElementId((int)titleBlockId);
-#endif
         }
         else
         {
@@ -130,11 +126,7 @@ public class CreatePlaceholderSheetsTool : ICortexTool
 
         foreach (var sid in sheetIds)
         {
-#if REVIT2024_OR_GREATER
             var sheet = doc.GetElement(new ElementId(sid)) as ViewSheet;
-#else
-            var sheet = doc.GetElement(new ElementId((int)sid)) as ViewSheet;
-#endif
             if (sheet == null || !sheet.IsPlaceholder)
             {
                 results.Add(new { sheetId = sid, success = false, reason = "Not a placeholder sheet" });
@@ -181,11 +173,7 @@ public class CreatePlaceholderSheetsTool : ICortexTool
         int deleted = 0;
         foreach (var sid in sheetIds)
         {
-#if REVIT2024_OR_GREATER
             var sheet = doc.GetElement(new ElementId(sid)) as ViewSheet;
-#else
-            var sheet = doc.GetElement(new ElementId((int)sid)) as ViewSheet;
-#endif
             if (sheet != null) { doc.Delete(sheet.Id); deleted++; }
         }
         if (tx.Commit() != TransactionStatus.Committed)

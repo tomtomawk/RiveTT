@@ -40,11 +40,7 @@ public class AlignViewportsTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var sourceVp = doc.GetElement(new ElementId(sourceViewportId)) as Viewport;
-#else
-            var sourceVp = doc.GetElement(new ElementId((int)sourceViewportId)) as Viewport;
-#endif
             if (sourceVp == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Source viewport not found");
 
@@ -59,11 +55,7 @@ public class AlignViewportsTool : ICortexTool
 
             foreach (var tid in targetViewportIds)
             {
-#if REVIT2024_OR_GREATER
                 var targetVp = doc.GetElement(new ElementId(tid)) as Viewport;
-#else
-                var targetVp = doc.GetElement(new ElementId((int)tid)) as Viewport;
-#endif
                 if (targetVp == null)
                 {
                     results.Add(new { viewportId = tid, success = false, reason = "Viewport not found" });

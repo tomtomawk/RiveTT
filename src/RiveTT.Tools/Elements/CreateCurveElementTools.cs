@@ -104,11 +104,7 @@ internal static class CurveInput
     {
         if (viewId > 0)
         {
-#if REVIT2024_OR_GREATER
             return doc.GetElement(new ElementId(viewId)) as View;
-#else
-            return doc.GetElement(new ElementId((int)viewId)) as View;
-#endif
         }
 
         return doc.ActiveView;
@@ -402,11 +398,7 @@ public sealed class PlaceTitleBlockTool : ICortexTool
         if (sheetId <= 0)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sheetId is required");
 
-#if REVIT2024_OR_GREATER
         var sheet = doc.GetElement(new ElementId(sheetId)) as ViewSheet;
-#else
-        var sheet = doc.GetElement(new ElementId((int)sheetId)) as ViewSheet;
-#endif
         if (sheet == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                 $"Element {sheetId} is not a sheet (ViewSheet)");
@@ -418,11 +410,7 @@ public sealed class PlaceTitleBlockTool : ICortexTool
                 suggestion: "Pick one of the ids listed in availableTitleBlocks.",
                 context: new Dictionary<string, object> { ["availableTitleBlocks"] = available });
 
-#if REVIT2024_OR_GREATER
         var symbol = doc.GetElement(new ElementId(titleBlockId)) as FamilySymbol;
-#else
-        var symbol = doc.GetElement(new ElementId((int)titleBlockId)) as FamilySymbol;
-#endif
         if (symbol == null || symbol.Category?.Id != new ElementId(BuiltInCategory.OST_TitleBlocks))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 $"titleBlockId {titleBlockId} is not an OST_TitleBlocks family type",

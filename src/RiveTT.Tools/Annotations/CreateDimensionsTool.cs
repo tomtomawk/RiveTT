@@ -82,11 +82,7 @@ public class CreateDimensionsTool : ICortexTool
         View? view;
         if (viewId > 0)
         {
-#if REVIT2024_OR_GREATER
             view = doc.GetElement(new ElementId(viewId)) as View;
-#else
-            view = doc.GetElement(new ElementId((int)viewId)) as View;
-#endif
         }
         else
         {
@@ -234,11 +230,7 @@ public class CreateDimensionsTool : ICortexTool
             var dimensionStyleId = spec["dimensionStyleId"]?.Value<long>() ?? -1;
             if (dimensionStyleId > 0)
             {
-#if REVIT2024_OR_GREATER
                 var styleElem = doc.GetElement(new ElementId(dimensionStyleId));
-#else
-                var styleElem = doc.GetElement(new ElementId((int)dimensionStyleId));
-#endif
                 if (styleElem is DimensionType dt)
                     dim.DimensionType = dt;
             }
@@ -306,11 +298,7 @@ public class CreateDimensionsTool : ICortexTool
                 var dimensionStyleId = spec["dimensionStyleId"]?.Value<long>() ?? -1;
                 if (dimensionStyleId > 0)
                 {
-#if REVIT2024_OR_GREATER
                     var styleElem = doc.GetElement(new ElementId(dimensionStyleId));
-#else
-                    var styleElem = doc.GetElement(new ElementId((int)dimensionStyleId));
-#endif
                     if (styleElem is DimensionType dt)
                         dim.DimensionType = dt;
                 }

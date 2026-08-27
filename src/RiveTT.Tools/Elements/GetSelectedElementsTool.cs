@@ -45,11 +45,7 @@ public class GetSelectedElementsTool : ICortexTool
 
             var elements = selectedElements.Select(e => new
             {
-#if REVIT2024_OR_GREATER
                 id = e.Id.Value,
-#else
-                id = (long)e.Id.IntegerValue,
-#endif
                 uniqueId = e.UniqueId,
                 name     = e.Name,
                 category = e.Category?.Name

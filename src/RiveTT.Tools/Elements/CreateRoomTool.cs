@@ -59,11 +59,7 @@ public class CreateRoomTool : ICortexTool
             Level? level;
             if (levelId > 0)
             {
-#if REVIT2024_OR_GREATER
                 level = doc.GetElement(new ElementId(levelId)) as Level;
-#else
-                level = doc.GetElement(new ElementId((int)levelId)) as Level;
-#endif
             }
             else
             {

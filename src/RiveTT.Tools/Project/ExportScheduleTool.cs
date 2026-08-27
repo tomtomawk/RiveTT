@@ -47,11 +47,7 @@ public class ExportScheduleTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var schedule = doc.GetElement(new ElementId(scheduleId)) as ViewSchedule;
-#else
-            var schedule = doc.GetElement(new ElementId((int)scheduleId)) as ViewSchedule;
-#endif
             if (schedule == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Schedule not found");
 

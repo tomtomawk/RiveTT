@@ -49,11 +49,7 @@ public class DeleteMaterialTool : ICortexTool
 
             if (materialId.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 material = doc.GetElement(new ElementId(materialId.Value)) as Material;
-#else
-                material = doc.GetElement(new ElementId((int)materialId.Value)) as Material;
-#endif
             }
 
             if (material == null && !string.IsNullOrWhiteSpace(materialName))
