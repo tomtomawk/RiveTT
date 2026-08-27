@@ -85,11 +85,7 @@ public class CreateMaterialTool : ICortexTool
             }
 
             long idValue;
-#if REVIT2024_OR_GREATER
             idValue = newMatId.Value;
-#else
-            idValue = (long)newMatId.IntegerValue;
-#endif
 
             return CortexResult<object>.Ok(new
             {

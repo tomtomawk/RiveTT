@@ -3,6 +3,7 @@ using System.Reflection;
 using Newtonsoft.Json.Linq;
 using RiveTT.Core.Caching;
 using RiveTT.Core.Results;
+using RiveTT.Core.Security;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Plugin;
@@ -15,7 +16,7 @@ public class CortexRouterCacheTests
     /// <summary>Counts Execute() calls so tests can prove cache hit/miss behavior.</summary>
     private class CountingTool : ICortexTool
     {
-        public string Name { get; set; } = "get_phases";
+        public string Name { get; set; } = "list_phases";
         public string Category => "Test";
         public bool RequiresDocument => false;
         public bool IsDynamic => false;
@@ -41,7 +42,11 @@ public class CortexRouterCacheTests
     {
         var store = new SessionStore();
         session = new CortexSession(store);
-        return new CortexRouter(session, new FakeAnalyzer());
+        // Explicit temp-file logger: without it this suite writes real entries
+        // to %LOCALAPPDATA%\RiveTT\audit.jsonl on every dotnet test run.
+        var auditPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+            "rc-audit-" + System.Guid.NewGuid().ToString("N") + ".jsonl");
+        return new CortexRouter(session, new FakeAnalyzer(), new AuditLogger(auditPath));
     }
 
     private static void Register(CortexRouter router, ICortexTool tool)
@@ -52,21 +57,26 @@ public class CortexRouterCacheTests
         tools[tool.Name] = tool;
     }
 
-    [Fact]
+    // A successful Route() reaches EnrichResult, whose GetActiveRevitVersion() casts to
+    // Autodesk.Revit.DB.Document — the JIT resolves that type eagerly even though the cast
+    // target is null here, so RevitAPI must be loadable for the method to run at all.
+    // Route_FailedResult_IsNotCached below stays a plain [Fact]: EnrichResult only runs on
+    // success, so a failing tool never touches Document.
+    [RequiresRevitDbApiFact]
     public void Route_ToolWithoutCacheableInterface_AlwaysCallsExecute()
     {
         var router = CreateRouter(out _);
-        var tool = new CountingTool { Name = "get_phases" }; // not ICacheableTool
+        var tool = new CountingTool { Name = "list_phases" }; // not ICacheableTool
         Register(router, tool);
 
-        router.Route("get_phases", new JObject());
-        router.Route("get_phases", new JObject());
-        router.Route("get_phases", new JObject());
+        router.Route("list_phases", new JObject());
+        router.Route("list_phases", new JObject());
+        router.Route("list_phases", new JObject());
 
         Assert.Equal(3, tool.ExecuteCallCount);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_SessionCacheableTool_ExecutesOnceForSameInput()
     {
         var router = CreateRouter(out _);
@@ -85,44 +95,44 @@ public class CortexRouterCacheTests
         Assert.Equal(1, tool.ExecuteCallCount);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_DocumentCacheableTool_ReExecutesAfterDocumentVersionBump()
     {
         var router = CreateRouter(out var session);
         var tool = new CachingCountingTool
         {
-            Name = "get_phases",
+            Name = "list_phases",
             CacheScope = CacheScope.Document,
         };
         Register(router, tool);
 
         var input = new JObject { ["a"] = "b" };
 
-        router.Route("get_phases", input);
-        router.Route("get_phases", input); // hit
+        router.Route("list_phases", input);
+        router.Route("list_phases", input); // hit
         Assert.Equal(1, tool.ExecuteCallCount);
 
         session.BumpDocumentVersion();
         session.Cache.InvalidateScope(CacheScope.Document);
 
-        router.Route("get_phases", input); // miss after invalidation
+        router.Route("list_phases", input); // miss after invalidation
         Assert.Equal(2, tool.ExecuteCallCount);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_DifferentInputs_DoNotShareCacheEntry()
     {
         var router = CreateRouter(out _);
         var tool = new CachingCountingTool
         {
-            Name = "get_warnings",
+            Name = "list_warnings",
             CacheScope = CacheScope.Document,
         };
         Register(router, tool);
 
-        router.Route("get_warnings", new JObject { ["severity"] = "high" });
-        router.Route("get_warnings", new JObject { ["severity"] = "low" });
-        router.Route("get_warnings", new JObject { ["severity"] = "high" }); // hit
+        router.Route("list_warnings", new JObject { ["severity"] = "high" });
+        router.Route("list_warnings", new JObject { ["severity"] = "low" });
+        router.Route("list_warnings", new JObject { ["severity"] = "high" }); // hit
 
         Assert.Equal(2, tool.ExecuteCallCount);
     }
@@ -133,45 +143,45 @@ public class CortexRouterCacheTests
         var router = CreateRouter(out _);
         var tool = new CachingCountingTool
         {
-            Name = "get_phases",
+            Name = "list_phases",
             CacheScope = CacheScope.Document,
             NextResult = CortexResult<object>.Fail(
                 CortexErrorCode.InvalidInput, "boom"),
         };
         Register(router, tool);
 
-        router.Route("get_phases", new JObject());
-        router.Route("get_phases", new JObject());
-        router.Route("get_phases", new JObject());
+        router.Route("list_phases", new JObject());
+        router.Route("list_phases", new JObject());
+        router.Route("list_phases", new JObject());
 
         Assert.Equal(3, tool.ExecuteCallCount);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_DocumentCacheable_SameInputTwice_OnlyExecutesOnce()
     {
         var router = CreateRouter(out _);
         var tool = new CachingCountingTool
         {
-            Name = "get_linked_file_instances",
+            Name = "list_linked_file_instances",
             CacheScope = CacheScope.Document,
         };
         Register(router, tool);
 
         var input = new JObject { ["k"] = "v" };
-        router.Route("get_linked_file_instances", input);
-        router.Route("get_linked_file_instances", input);
+        router.Route("list_linked_file_instances", input);
+        router.Route("list_linked_file_instances", input);
 
         Assert.Equal(1, tool.ExecuteCallCount);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_HashIgnoresKeyOrder()
     {
         var router = CreateRouter(out _);
         var tool = new CachingCountingTool
         {
-            Name = "get_phases",
+            Name = "list_phases",
             CacheScope = CacheScope.Document,
         };
         Register(router, tool);
@@ -179,8 +189,8 @@ public class CortexRouterCacheTests
         var a = new JObject { ["alpha"] = 1, ["beta"] = 2 };
         var b = new JObject { ["beta"] = 2, ["alpha"] = 1 };
 
-        router.Route("get_phases", a);
-        router.Route("get_phases", b); // same canonical content → cache hit
+        router.Route("list_phases", a);
+        router.Route("list_phases", b); // same canonical content → cache hit
 
         Assert.Equal(1, tool.ExecuteCallCount);
     }

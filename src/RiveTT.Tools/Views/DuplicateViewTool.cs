@@ -54,11 +54,7 @@ public class DuplicateViewTool : ICortexTool
 
             foreach (var vid in viewIds)
             {
-#if REVIT2024_OR_GREATER
                 var view = doc.GetElement(new ElementId(vid)) as View;
-#else
-                var view = doc.GetElement(new ElementId((int)vid)) as View;
-#endif
                 if (view == null) continue;
 
                 var newId = view.Duplicate(option);

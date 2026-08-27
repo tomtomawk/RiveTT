@@ -5,6 +5,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -12,7 +13,6 @@ namespace RiveTT.Tools.Elements;
 [ToolSafety(false, false)]
 public sealed class SetWallHostTool : ICortexTool
 {
-    private const double MmPerFoot = 304.8;
 
     public string Name => "set_wall_host";
     public string Category => "Architecture";

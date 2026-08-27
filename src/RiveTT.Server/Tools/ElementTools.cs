@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
 using RiveTT.Server.Connection;
@@ -13,7 +13,7 @@ public static class ElementTools
         RevitConnectionManager revit,
         [Description("Array of Revit element IDs to query")] long[] elementIds,
         [Description("Include type-level parameters. Default: true")] bool includeTypeParameters = true,
-        [Description("Only these parameters, resolved in English or in the document language. Unresolved names are reported in unresolvedParameterNames. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
+        [Description("Only these parameters, resolved in English or in the document language. Unresolved names are reported in unresolvedParameterNames. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
         [Description("Return compact parameter rows (name+value only) and skip empty params. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
@@ -48,7 +48,7 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "ai_element_filter"), Description("Paginated element query by category, class, family symbol, bounding box, or level. Returns totalCount, returnedCount, appliedLimit and nextCursor. responseMode=summary (default), idsOnly, or details.")]
+    [McpServerTool(Name = "filter_elements"), Description("Paginated element query by category, class, family symbol, bounding box, or level. Returns totalCount, returnedCount, appliedLimit and nextCursor. responseMode=summary (default), idsOnly, or details.")]
     public static async Task<string> AIElementFilter(
         RevitConnectionManager revit,
         [Description("BuiltInCategory code, e.g. OST_Walls, OST_Doors")] string? filterCategory = null,
@@ -78,7 +78,7 @@ public static class ElementTools
         if (wallConstraintStatus != null) data["wallConstraintStatus"] = wallConstraintStatus;
 
         var p = new JObject { ["data"] = data };
-        var result = await revit.ExecuteAsync("ai_element_filter", p, ct);
+        var result = await revit.ExecuteAsync("filter_elements", p, ct);
         return result.ToString();
     }
 
@@ -94,7 +94,7 @@ public static class ElementTools
     [McpServerTool(Name = "capture_selection"), Description("Capture explicit element IDs or the current Revit selection as a reusable temporary token. Tokens expire and are scoped to the active document session.")]
     public static async Task<string> CaptureSelection(
         RevitConnectionManager revit,
-        [Description("Optional explicit element IDs; omit to capture the current Revit selection. JSON array, e.g. [1,2]")] string? elementIds = null,
+        [Description("Optional explicit element IDs; omit to capture the current Revit selection. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
         [Description("Token lifetime in minutes, 1-120. Default: 15")] int? ttlMinutes = null,
         CancellationToken ct = default)
     {
@@ -123,8 +123,8 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "operate_element"), Description("Select, highlight, isolate, hide, or zoom to elements. Actions: select, selectionbox, setcolor, settransparency, hide, temphide, isolate, unhide, resetisolate, delete.")]
-    public static async Task<string> OperateElement(
+    [McpServerTool(Name = "manage_view_display"), Description("Select, highlight, isolate, hide, or zoom to elements in the active view. Actions: select, selectionbox, setcolor, settransparency, hide, temphide, isolate, unhide, resetisolate. To delete elements use delete_element.")]
+    public static async Task<string> ManageViewDisplay(
         RevitConnectionManager revit,
         [Description("Element IDs to operate on")] long[] elementIds,
         [Description("Action to perform")] string action,
@@ -136,7 +136,7 @@ public static class ElementTools
             ["action"] = action,
         };
         var p = new JObject { ["data"] = data };
-        var result = await revit.ExecuteAsync("operate_element", p, ct);
+        var result = await revit.ExecuteAsync("manage_view_display", p, ct);
         return result.ToString();
     }
 
@@ -166,15 +166,29 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "delete_selection"), Description("Delete a saved selection filter by name. Removes the SAVED LIST only — the elements it references are untouched (use delete_element for those). Previews by default; set dryRun=false to execute.")]
-    public static async Task<string> DeleteSelection(
+    [McpServerTool(Name = "manage_selection"), Description("CRUD on named saved selections (SelectionFilterElement). action=save|load|list|delete. name is required for save/load/delete (ignored for list). save: elementIds (absent = current UI selection) and overwrite (default false) apply only here. load: selectInView (default true) applies only here. delete: dryRun (default true) applies only here. Use capture_selection instead for a temporary session-scoped token — this tool always persists into the document.")]
+    public static async Task<string> ManageSelection(
         RevitConnectionManager revit,
-        [Description("Name of the saved selection to delete")] string name,
-        [Description("Preview without deleting. Default: true")] bool dryRun = true,
+        [Description("Action: save | load | list | delete")] string action,
+        [Description("Selection name (required for save/load/delete, ignored for list)")] string? name = null,
+        [Description("Element IDs to save (action=save only). Omit to save the current Revit selection. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
+        [Description("Replace an existing selection of the same name (action=save only). Default: false")] bool overwrite = false,
+        [Description("Select the elements in the active view (action=load only). Default: true")] bool selectInView = true,
+        [Description("Preview without deleting (action=delete only). Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["name"] = name, ["dryRun"] = dryRun };
-        var result = await revit.ExecuteAsync("delete_selection", p, ct);
+        var p = new JObject { ["action"] = action };
+        if (name != null) p["name"] = name;
+        if (elementIds != null)
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("manage_selection", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
+        }
+        p["overwrite"] = overwrite;
+        p["selectInView"] = selectInView;
+        p["dryRun"] = dryRun;
+        var result = await revit.ExecuteAsync("manage_selection", p, ct);
         return result.ToString();
     }
 
@@ -213,7 +227,7 @@ public static class ElementTools
         RevitConnectionManager revit,
         [Description("Source element ID")] long sourceElementId,
         [Description("Target element IDs")] long[] targetElementIds,
-        [Description("Parameter names to copy; if omitted, copies all writable parameters. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
+        [Description("Parameter names to copy; if omitted, copies all writable parameters. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
         [Description("Also copy type-level parameters. Default: false")] bool includeTypeParameters = false,
         CancellationToken ct = default)
     {
@@ -238,16 +252,26 @@ public static class ElementTools
         RevitConnectionManager revit,
         [Description("First element ID (optional; use point1 as alternative)")] long? elementId1 = null,
         [Description("Second element ID (optional; use point2 as alternative)")] long? elementId2 = null,
-        [Description("First point as JSON array [x,y,z] (optional)")] string? point1 = null,
-        [Description("Second point as JSON array [x,y,z] (optional)")] string? point2 = null,
+        [Description("First point as JSON array [x,y,z] (optional)")] System.Text.Json.JsonElement? point1 = null,
+        [Description("Second point as JSON array [x,y,z] (optional)")] System.Text.Json.JsonElement? point2 = null,
         [Description("Measurement mode: center_to_center | closest_points | bounding_box. closest_points needs two elementIds (uses their bounding-box closest points). Default: center_to_center")] string? measureType = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (elementId1 != null) p["elementId1"] = elementId1;
         if (elementId2 != null) p["elementId2"] = elementId2;
-        if (point1 != null) p["point1"] = JArray.Parse(point1);
-        if (point2 != null) p["point2"] = JArray.Parse(point2);
+        if (point1 != null)
+        {
+            if (!JsonArrayParam.TryParse(point1, out var point1Array))
+                return JsonArrayParam.InvalidArrayResult("measure_between_elements", "point1", point1);
+            p["point1"] = point1Array;
+        }
+        if (point2 != null)
+        {
+            if (!JsonArrayParam.TryParse(point2, out var point2Array))
+                return JsonArrayParam.InvalidArrayResult("measure_between_elements", "point2", point2);
+            p["point2"] = point2Array;
+        }
         if (measureType != null) p["measureType"] = measureType;
         var result = await revit.ExecuteAsync("measure_between_elements", p, ct);
         return result.ToString();
@@ -256,7 +280,7 @@ public static class ElementTools
     [McpServerTool(Name = "renumber_elements"), Description("Renumber rooms/doors/windows by location or name. Writes into the specified parameter; supports prefix/suffix and start/increment.")]
     public static async Task<string> RenumberElements(
         RevitConnectionManager revit,
-        [Description("Element IDs to renumber (optional; omit to use targetCategory). JSON array, e.g. [1,2]")] string? elementIds = null,
+        [Description("Element IDs to renumber (optional; omit to use targetCategory). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
         [Description("Category to renumber when elementIds is empty (e.g. Rooms, Doors, Windows)")] string? targetCategory = null,
         [Description("Parameter name to write into (e.g. Number, Mark)")] string? parameterName = null,
         [Description("Starting number. Default: 1")] int? startNumber = null,
@@ -286,45 +310,20 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "save_selection"), Description("Save element selection as named filter")]
-    public static async Task<string> SaveSelection(
-        RevitConnectionManager revit,
-        [Description("Name for the saved selection")] string name,
-        CancellationToken ct = default)
-    {
-        var p = new JObject { ["name"] = name };
-        var result = await revit.ExecuteAsync("save_selection", p, ct);
-        return result.ToString();
-    }
-
-    [McpServerTool(Name = "load_selection"), Description("Load a saved selection by name, or list the saved selections when name is omitted.")]
-    public static async Task<string> LoadSelection(
-        RevitConnectionManager revit,
-        [Description("Name of the selection to load. Omit to list the saved selections")] string? name = null,
-        [Description("Select the elements in the active view. Default: true")] bool selectInView = true,
-        CancellationToken ct = default)
-    {
-        var p = new JObject();
-        if (name != null) p["name"] = name;
-        p["selectInView"] = selectInView;
-        var result = await revit.ExecuteAsync("load_selection", p, ct);
-        return result.ToString();
-    }
-
-    [McpServerTool(Name = "section_box_from_selection"), Description("Create a 3D section box from selected elements")]
+    [McpServerTool(Name = "create_section_box_from_selection"), Description("Create a 3D section box from selected elements")]
     public static async Task<string> SectionBoxFromSelection(
         RevitConnectionManager revit,
-        [Description("Element IDs to create section box from. JSON array, e.g. [1,2]")] string? elementIds = null,
+        [Description("Element IDs to create section box from. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (elementIds != null)
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
-                return JsonArrayParam.InvalidArrayResult("section_box_from_selection", "elementIds", elementIds);
+                return JsonArrayParam.InvalidArrayResult("create_section_box_from_selection", "elementIds", elementIds);
             p["elementIds"] = elementIdsArray;
         }
-        var result = await revit.ExecuteAsync("section_box_from_selection", p, ct);
+        var result = await revit.ExecuteAsync("create_section_box_from_selection", p, ct);
         return result.ToString();
     }
 
@@ -354,8 +353,8 @@ public static class ElementTools
     public static async Task<string> GetElementsInSpatialVolume(
         RevitConnectionManager revit,
         [Description("Volume type: room | custom. Default: room")] string? volumeType = null,
-        [Description("Room element IDs (when volumeType=room). JSON array, e.g. [1,2]")] string? volumeIds = null,
-        [Description("Category filter list (e.g. OST_Doors, OST_Walls). JSON array, e.g. [\"A\",\"B\"]")] string? categoryFilter = null,
+        [Description("Room element IDs (when volumeType=room). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? volumeIds = null,
+        [Description("Category filter list (e.g. OST_Doors, OST_Walls). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categoryFilter = null,
         [Description("Max elements returned per volume. Default: 100")] int? maxElementsPerVolume = null,
         [Description("Custom box min X (when volumeType=custom)")] double? customMinX = null,
         [Description("Custom box min Y (when volumeType=custom)")] double? customMinY = null,
@@ -399,8 +398,8 @@ public static class ElementTools
     public static async Task<string> GetLinkedElements(
         RevitConnectionManager revit,
         [Description("Name of the linked file (optional; omit to search all links)")] string? linkName = null,
-        [Description("Categories to include (OST_* codes or display names). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
-        [Description("Parameter names to extract; additive — without this only basic fields are returned. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
+        [Description("Categories to include (OST_* codes or display names). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
+        [Description("Parameter names to extract; additive — without this only basic fields are returned. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
         [Description("Max elements returned. Default: 5000")] int? maxElements = null,
         CancellationToken ct = default)
     {
@@ -426,13 +425,13 @@ public static class ElementTools
     [McpServerTool(Name = "get_room_openings"), Description("Get doors/windows adjacent to rooms with dimensions. Filter by roomIds, roomNumbers, or levelName.")]
     public static async Task<string> GetRoomOpenings(
         RevitConnectionManager revit,
-        [Description("Room element IDs to query. JSON array, e.g. [1,2]")] string? roomIds = null,
-        [Description("Room numbers to query. JSON array, e.g. [\"A\",\"B\"]")] string? roomNumbers = null,
+        [Description("Room element IDs to query. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? roomIds = null,
+        [Description("Room numbers to query. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? roomNumbers = null,
         [Description("Level name filter")] string? levelName = null,
         [Description("Element type: doors | windows | both. Default: both")] string? elementType = null,
         [Description("Include room parameters in response. Default: false")] bool includeRoomParams = false,
         [Description("Include opening element parameters in response. Default: false")] bool includeElementParams = false,
-        [Description("Specific parameter names to extract. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
+        [Description("Specific parameter names to extract. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
         [Description("Max elements per room. Default: 100")] int? maxElementsPerRoom = null,
         [Description("Return a compact payload. Default: false")] bool compact = false,
         [Description("Return counts without nested opening arrays. Default: false")] bool summaryOnly = false,

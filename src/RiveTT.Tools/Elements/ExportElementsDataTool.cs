@@ -173,11 +173,7 @@ public class ExportElementsDataTool : ICortexTool
         var elements = new List<Element>();
         foreach (var rawId in elementIds.Distinct())
         {
-#if REVIT2024_OR_GREATER
             var element = doc.GetElement(new ElementId(rawId));
-#else
-            var element = doc.GetElement(new ElementId((int)rawId));
-#endif
             if (element == null)
             {
                 notFoundIds.Add(rawId);
@@ -630,20 +626,12 @@ public class ExportElementsDataTool : ICortexTool
 
     private static long GetElementIdLong(Element elem)
     {
-#if REVIT2024_OR_GREATER
         return elem.Id.Value;
-#else
-        return elem.Id.IntegerValue;
-#endif
     }
 
     private static string GetElementIdString(ElementId? eid)
     {
         if (eid == null || eid == ElementId.InvalidElementId) return "";
-#if REVIT2024_OR_GREATER
         return eid.Value.ToString();
-#else
-        return eid.IntegerValue.ToString();
-#endif
     }
 }

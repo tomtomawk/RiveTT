@@ -16,7 +16,7 @@ public class ToolResponseShaperTests
         ]
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_available_family_types", payload, compact: true, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_family_types", payload, compact: true, summaryOnly: false);
 
         Assert.Equal(1, shaped["count"]!.Value<int>());
         Assert.Null(shaped["items"]![0]!["uniqueId"]);
@@ -229,7 +229,7 @@ public class ToolResponseShaperTests
         }
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_shared_parameters", payload, compact: true, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_shared_parameters", payload, compact: true, summaryOnly: false);
 
         Assert.Equal(2, shaped["parameterCount"]!.Value<int>());
         var parameters = (JArray)shaped["parameters"]!;
@@ -270,7 +270,7 @@ public class ToolResponseShaperTests
         }
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_linked_file_instances", payload, compact: true, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_linked_file_instances", payload, compact: true, summaryOnly: false);
 
         Assert.Equal(1, shaped["typeCount"]!.Value<int>());
         Assert.Equal(2, shaped["totalInstances"]!.Value<int>());
@@ -374,7 +374,7 @@ public class ToolResponseShaperTests
         }
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_materials", payload, compact: true, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_materials", payload, compact: true, summaryOnly: false);
 
         Assert.Equal(2, shaped["materialCount"]!.Value<int>());
         var materials = (JArray)shaped["materials"]!;
@@ -575,7 +575,7 @@ public class ToolResponseShaperTests
     [Fact]
     public void Shape_NeverShapesAFailurePayload()
     {
-        // get_available_family_types returning an InvalidInput used to come back as
+        // list_family_types returning an InvalidInput used to come back as
         // {"count": 0} — an error rendered as a truthful-looking empty result, which
         // is how "categoryList never filters" was diagnosed instead of "the shaper
         // ate the error".
@@ -586,7 +586,7 @@ public class ToolResponseShaperTests
         }
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_available_family_types", payload, compact: true, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_family_types", payload, compact: true, summaryOnly: false);
 
         Assert.False(shaped["success"]!.Value<bool>());
         Assert.Equal("InvalidInput", shaped["error"]!["code"]!.Value<string>());
@@ -608,7 +608,7 @@ public class ToolResponseShaperTests
         }
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_available_family_types", payload, compact: true, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_family_types", payload, compact: true, summaryOnly: false);
 
         Assert.Equal(1, shaped["count"]!.Value<int>());
         Assert.Equal("CLO_Cloison10", shaped["items"]![0]!["typeName"]!.Value<string>());
@@ -631,7 +631,7 @@ public class ToolResponseShaperTests
         }
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_available_family_types", payload, compact: true, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_family_types", payload, compact: true, summaryOnly: false);
 
         // Invariant 2: never recompute a counter from the trimmed list.
         Assert.Equal(137, shaped["totalCount"]!.Value<int>());

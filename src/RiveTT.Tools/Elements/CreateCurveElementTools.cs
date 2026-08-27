@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -22,7 +23,6 @@ namespace RiveTT.Tools.Elements;
 /// </summary>
 internal static class CurveInput
 {
-    internal const double MmPerFoot = 304.8;
 
     /// <summary>
     /// Reads <c>[{x,y,z}, ...]</c> (mm) or <c>{p0:{...},p1:{...}}</c> (mm) into
@@ -104,11 +104,7 @@ internal static class CurveInput
     {
         if (viewId > 0)
         {
-#if REVIT2024_OR_GREATER
             return doc.GetElement(new ElementId(viewId)) as View;
-#else
-            return doc.GetElement(new ElementId((int)viewId)) as View;
-#endif
         }
 
         return doc.ActiveView;
@@ -243,9 +239,9 @@ public sealed class CreateModelLineTool : ICortexTool
         if (dryRun)
             return CortexResult<object>.Ok(new
             {
-                message = $"DryRun: {lines.Count} model line(s) would be created at z={elevationFt * CurveInput.MmPerFoot:F0} mm.",
+                message = $"DryRun: {lines.Count} model line(s) would be created at z={elevationFt * MmPerFoot:F0} mm.",
                 segmentCount = lines.Count,
-                elevationMm = elevationFt * CurveInput.MmPerFoot,
+                elevationMm = elevationFt * MmPerFoot,
                 lineStyleName
             });
 
@@ -272,10 +268,10 @@ public sealed class CreateModelLineTool : ICortexTool
 
             return CortexResult<object>.Ok(new
             {
-                message = $"Created {created.Count} model line(s) at z={elevationFt * CurveInput.MmPerFoot:F0} mm.",
+                message = $"Created {created.Count} model line(s) at z={elevationFt * MmPerFoot:F0} mm.",
                 createdElementIds = created,
                 createdCount = created.Count,
-                elevationMm = elevationFt * CurveInput.MmPerFoot,
+                elevationMm = elevationFt * MmPerFoot,
                 appliedLineStyle = style?.Name
             });
         }
@@ -331,7 +327,7 @@ public sealed class CreateRoomSeparationLineTool : ICortexTool
                 segmentCount = lines.Count,
                 viewId = ToolHelpers.GetElementIdValue(plan.Id),
                 viewName = plan.Name,
-                elevationMm = elevationFt * CurveInput.MmPerFoot
+                elevationMm = elevationFt * MmPerFoot
             });
 
         try
@@ -402,11 +398,7 @@ public sealed class PlaceTitleBlockTool : ICortexTool
         if (sheetId <= 0)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sheetId is required");
 
-#if REVIT2024_OR_GREATER
         var sheet = doc.GetElement(new ElementId(sheetId)) as ViewSheet;
-#else
-        var sheet = doc.GetElement(new ElementId((int)sheetId)) as ViewSheet;
-#endif
         if (sheet == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                 $"Element {sheetId} is not a sheet (ViewSheet)");
@@ -418,11 +410,7 @@ public sealed class PlaceTitleBlockTool : ICortexTool
                 suggestion: "Pick one of the ids listed in availableTitleBlocks.",
                 context: new Dictionary<string, object> { ["availableTitleBlocks"] = available });
 
-#if REVIT2024_OR_GREATER
         var symbol = doc.GetElement(new ElementId(titleBlockId)) as FamilySymbol;
-#else
-        var symbol = doc.GetElement(new ElementId((int)titleBlockId)) as FamilySymbol;
-#endif
         if (symbol == null || symbol.Category?.Id != new ElementId(BuiltInCategory.OST_TitleBlocks))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 $"titleBlockId {titleBlockId} is not an OST_TitleBlocks family type",

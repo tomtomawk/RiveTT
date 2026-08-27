@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Annotations;
 
@@ -21,7 +22,6 @@ public class CreateTextNoteTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates one or more text notes in the active or specified view.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -111,11 +111,7 @@ public class CreateTextNoteTool : ICortexTool
         View? view;
         if (viewId > 0)
         {
-#if REVIT2024_OR_GREATER
             view = doc.GetElement(new ElementId(viewId)) as View;
-#else
-            view = doc.GetElement(new ElementId((int)viewId)) as View;
-#endif
         }
         else
         {
@@ -133,11 +129,7 @@ public class CreateTextNoteTool : ICortexTool
         var noteTypeId = defaultTypeId;
         if (typeId > 0)
         {
-#if REVIT2024_OR_GREATER
             var typeElem = doc.GetElement(new ElementId(typeId));
-#else
-            var typeElem = doc.GetElement(new ElementId((int)typeId));
-#endif
             if (typeElem is TextNoteType)
                 noteTypeId = typeElem.Id;
             else

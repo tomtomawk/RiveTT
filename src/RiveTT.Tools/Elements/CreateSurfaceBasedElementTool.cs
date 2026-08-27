@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -24,7 +25,6 @@ public class CreateSurfaceBasedElementTool : ICortexTool
     public string Description => "Creates one or more surface-based elements: floors, ceilings, or roofs. " +
         "roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; " +
         "omit for a flat roof. Mirrors the fork's CreateSurfaceElementEventHandler logic.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -139,38 +139,22 @@ public class CreateSurfaceBasedElementTool : ICortexTool
 
         if (requestedTypeId > 0)
         {
-#if REVIT2024_OR_GREATER
             var typeElemId = new ElementId(requestedTypeId);
-#else
-            var typeElemId = new ElementId((int)requestedTypeId);
-#endif
             var typeElem = doc.GetElement(typeElemId);
             if (typeElem is FloorType ft)
             {
                 floorType = ft;
-#if REVIT2024_OR_GREATER
                 builtInCategory = (BuiltInCategory)floorType.Category.Id.Value;
-#else
-                builtInCategory = (BuiltInCategory)floorType.Category.Id.IntegerValue;
-#endif
             }
             else if (typeElem is RoofType rt)
             {
                 roofType = rt;
-#if REVIT2024_OR_GREATER
                 builtInCategory = (BuiltInCategory)roofType.Category.Id.Value;
-#else
-                builtInCategory = (BuiltInCategory)roofType.Category.Id.IntegerValue;
-#endif
             }
             else if (typeElem is CeilingType ct)
             {
                 ceilingType = ct;
-#if REVIT2024_OR_GREATER
                 builtInCategory = (BuiltInCategory)ceilingType.Category.Id.Value;
-#else
-                builtInCategory = (BuiltInCategory)ceilingType.Category.Id.IntegerValue;
-#endif
             }
         }
 

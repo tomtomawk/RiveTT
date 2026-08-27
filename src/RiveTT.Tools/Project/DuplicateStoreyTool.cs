@@ -7,13 +7,13 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Project;
 
 [ToolSafety(false, true)]
 public sealed class DuplicateStoreyTool : ICortexTool
 {
-    private const double MmPerFoot = 304.8;
     public string Name => "duplicate_storey";
     public string Category => "Project";
     public bool RequiresDocument => true;

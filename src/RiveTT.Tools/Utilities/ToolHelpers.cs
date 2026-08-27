@@ -44,11 +44,7 @@ public static class ToolHelpers
     public static long GetElementIdValue(Element? elem)
     {
         if (elem == null) return -1;
-#if REVIT2024_OR_GREATER
         return elem.Id.Value;
-#else
-        return elem.Id.IntegerValue;
-#endif
     }
 
     /// <summary>
@@ -57,11 +53,7 @@ public static class ToolHelpers
     public static long GetElementIdValue(ElementId? id)
     {
         if (id == null || id == ElementId.InvalidElementId) return -1;
-#if REVIT2024_OR_GREATER
         return id.Value;
-#else
-        return id.IntegerValue;
-#endif
     }
 
     /// <summary>
@@ -70,11 +62,7 @@ public static class ToolHelpers
     /// </summary>
     public static ElementId ToElementId(long rawId)
     {
-#if REVIT2024_OR_GREATER
         return new ElementId(rawId);
-#else
-        return new ElementId((int)rawId);
-#endif
     }
 
     /// <summary>

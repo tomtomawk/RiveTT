@@ -443,7 +443,7 @@ public class ManageProjectParametersTool : ICortexTool
             "Definition.Name is read-only and only global parameters support renaming. " +
             "Renaming is only possible through Revit's Project Parameters dialog UI.",
             suggestion: "Workaround: create a new project parameter with the desired name (same data type/categories), " +
-                        "copy values across elements with transfer_parameters or bulk_modify_parameter_values, " +
+                        "copy values across elements with transfer_parameters or batch_modify_parameter_values, " +
                         "then delete the old parameter with {\"action\":\"delete\"}.");
     }
 

@@ -5,6 +5,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.LinkedFiles;
 
@@ -20,8 +21,6 @@ public class AlignLinkToHostTool : ICortexTool
     public bool IsDynamic => true;
     public string Description => "Aligns a link instance to the host project's internal origin (resets transform to identity) or to shared coordinates.";
 
-    private const double MmPerFoot = 304.8;
-
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -36,11 +35,7 @@ public class AlignLinkToHostTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var element = doc.GetElement(new ElementId(instanceId));
-#else
-            var element = doc.GetElement(new ElementId((int)instanceId));
-#endif
             var linkInstance = element as RevitLinkInstance;
             if (linkInstance == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,

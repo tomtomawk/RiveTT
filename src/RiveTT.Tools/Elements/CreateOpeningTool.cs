@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -32,7 +33,6 @@ public class CreateOpeningTool : ICortexTool
         "host: hostElementId (a floor or roof)+curves (closed loop, mm, in the host's own plane) — cutIsVoid " +
         "defaults to true. " +
         "wall: hostElementId (a wall)+point1+point2 ({x,y,z} mm, two opposite corners on the wall face).";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

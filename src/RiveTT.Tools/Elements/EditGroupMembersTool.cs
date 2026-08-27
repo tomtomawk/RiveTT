@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -251,7 +252,7 @@ public sealed class EditGroupMembersTool : ICortexTool
                 ignoredNotInGroup = notInGroup,
                 placementMm = placement == null
                     ? null
-                    : new { x = placement.X * 304.8, y = placement.Y * 304.8, z = placement.Z * 304.8 },
+                    : new { x = placement.X * MmPerFoot, y = placement.Y * MmPerFoot, z = placement.Z * MmPerFoot },
                 members = Describe(doc, currentMembers.Take(30)),
                 warnings = BuildWarnings(instanceCount)
             });
@@ -331,10 +332,10 @@ public sealed class EditGroupMembersTool : ICortexTool
                 nameError,
                 placementBeforeMm = placement == null
                     ? null
-                    : new { x = placement.X * 304.8, y = placement.Y * 304.8, z = placement.Z * 304.8 },
+                    : new { x = placement.X * MmPerFoot, y = placement.Y * MmPerFoot, z = placement.Z * MmPerFoot },
                 placementAfterMm = newPlacement == null
                     ? null
-                    : new { x = newPlacement.X * 304.8, y = newPlacement.Y * 304.8, z = newPlacement.Z * 304.8 },
+                    : new { x = newPlacement.X * MmPerFoot, y = newPlacement.Y * MmPerFoot, z = newPlacement.Z * MmPerFoot },
                 otherInstancesNotUpdated = Math.Max(0, instanceCount - 1),
                 warnings = BuildWarnings(instanceCount)
             });

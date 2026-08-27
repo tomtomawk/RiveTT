@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.LinkedFiles;
 
@@ -19,8 +20,6 @@ public class GetLinkTransformTool : ICortexTool
     public bool IsDynamic => true;
     public string Description => "Returns the full transform of a linked file instance: origin (mm), basis vectors, and rotation angle (degrees).";
 
-    private const double MmPerFoot = 304.8;
-
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -35,11 +34,7 @@ public class GetLinkTransformTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var element = doc.GetElement(new ElementId(instanceId));
-#else
-            var element = doc.GetElement(new ElementId((int)instanceId));
-#endif
             var linkInstance = element as RevitLinkInstance;
             if (linkInstance == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,

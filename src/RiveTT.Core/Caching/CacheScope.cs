@@ -13,8 +13,8 @@ public enum CacheScope
 
     /// <summary>
     /// Invalidated by any DocumentChanged event.
-    /// Examples: get_phases, get_worksets, get_warnings, get_materials,
-    /// analyze_model_statistics, get_linked_file_instances.
+    /// Examples: list_phases, list_worksets, list_warnings, list_materials,
+    /// analyze_model_statistics, list_linked_file_instances.
     /// </summary>
     Document,
 

@@ -49,7 +49,7 @@ public class DuplicateFamilyTypeTool : ICortexTool
                 if (source == null)
                     return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                         $"Element {sourceTypeId} not found or is not a FamilySymbol",
-                        suggestion: "Provide a valid loadable family type ID. Use get_available_family_types to list them.");
+                        suggestion: "Provide a valid loadable family type ID. Use list_family_types to list them.");
             }
             else if (!string.IsNullOrWhiteSpace(sourceTypeName))
             {
@@ -61,7 +61,7 @@ public class DuplicateFamilyTypeTool : ICortexTool
                         : $"No type '{sourceTypeName}' found in family '{familyName}'.";
                     return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                         $"Family type '{sourceTypeName}' not found",
-                        suggestion: $"{hint} Use get_available_family_types to list available types.");
+                        suggestion: $"{hint} Use list_family_types to list available types.");
                 }
             }
             else

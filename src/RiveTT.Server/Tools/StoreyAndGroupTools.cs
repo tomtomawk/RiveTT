@@ -18,13 +18,13 @@ public static class StoreyAndGroupTools
         [Description("Target level name; default '<source> Copy'")] string? targetLevelName = null,
         [Description("Optional target top level ID for copied walls")] long? targetTopLevelId = null,
         [Description("Optional amount in mm to shift levels at/above the target elevation")] double? moveUpperLevelsByMm = null,
-        [Description("Categories to copy, OST_* or localized display names; omit for all model categories. JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
+        [Description("Categories to copy, OST_* or localized display names; omit for all model categories. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
         [Description("Copy each source model group as one group instance. Default: true")] bool copyGroups = true,
         [Description("Include element samples/IDs. Default: false")] bool includeDetails = false,
         [Description("Maximum detail rows. Default: 50")] int? sampleLimit = null,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         [Description("suppress_all (default) or allow_list; unapproved warnings roll back")] string? warningPolicy = null,
-        [Description("FailureDefinition GUIDs allowed when warningPolicy=allow_list. JSON array, e.g. [\"A\",\"B\"]")] string? allowedWarningIds = null,
+        [Description("FailureDefinition GUIDs allowed when warningPolicy=allow_list. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? allowedWarningIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["dryRun"] = dryRun };
@@ -60,7 +60,7 @@ public static class StoreyAndGroupTools
         [Description("level_top | attachment_top | attachment_base | all_attachments")] string mode = "level_top",
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         [Description("suppress_all (default) or allow_list; unapproved warnings roll back")] string? warningPolicy = null,
-        [Description("FailureDefinition GUIDs allowed when warningPolicy=allow_list. JSON array, e.g. [\"A\",\"B\"]")] string? allowedWarningIds = null,
+        [Description("FailureDefinition GUIDs allowed when warningPolicy=allow_list. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? allowedWarningIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -85,7 +85,7 @@ public static class StoreyAndGroupTools
         [Description("inventory | duplicate_type | ungroup")] string action = "inventory",
         [Description("Group type ID for duplicate_type")] long? groupTypeId = null,
         [Description("New group type name for duplicate_type")] string? newName = null,
-        [Description("Group instance IDs to swap or ungroup. JSON array, e.g. [1,2]")] string? groupIds = null,
+        [Description("Group instance IDs to swap or ungroup. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? groupIds = null,
         [Description("Include member samples for inventory. Default: false")] bool includeMembers = false,
         [Description("Member sample limit. Default: 20")] int? sampleLimit = null,
         [Description("Preview write actions. Default: true")] bool dryRun = true,

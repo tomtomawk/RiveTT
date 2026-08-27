@@ -39,11 +39,7 @@ public class OverrideGraphicsTool : ICortexTool
             View? view;
             if (viewIdLong > 0)
             {
-#if REVIT2024_OR_GREATER
                 view = doc.GetElement(new ElementId(viewIdLong)) as View;
-#else
-                view = doc.GetElement(new ElementId((int)viewIdLong)) as View;
-#endif
             }
             else view = doc.ActiveView;
 
@@ -69,11 +65,7 @@ public class OverrideGraphicsTool : ICortexTool
                 var emptyOverrides = new OverrideGraphicSettings();
                 foreach (var eid in elementIds)
                 {
-#if REVIT2024_OR_GREATER
                     view.SetElementOverrides(new ElementId(eid), emptyOverrides);
-#else
-                    view.SetElementOverrides(new ElementId((int)eid), emptyOverrides);
-#endif
                     modified++;
                 }
             }
@@ -111,11 +103,7 @@ public class OverrideGraphicsTool : ICortexTool
 
                 foreach (var eid in elementIds)
                 {
-#if REVIT2024_OR_GREATER
                     view.SetElementOverrides(new ElementId(eid), overrides);
-#else
-                    view.SetElementOverrides(new ElementId((int)eid), overrides);
-#endif
                     modified++;
                 }
             }

@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Sheets;
 
@@ -21,7 +22,6 @@ public class AlignViewportsTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Aligns viewports across sheets. alignMode 'placement' matches box centers; 'model' matches the box outline min-corner so equal-scale views of the same model region line up.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -40,11 +40,7 @@ public class AlignViewportsTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var sourceVp = doc.GetElement(new ElementId(sourceViewportId)) as Viewport;
-#else
-            var sourceVp = doc.GetElement(new ElementId((int)sourceViewportId)) as Viewport;
-#endif
             if (sourceVp == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Source viewport not found");
 
@@ -59,11 +55,7 @@ public class AlignViewportsTool : ICortexTool
 
             foreach (var tid in targetViewportIds)
             {
-#if REVIT2024_OR_GREATER
                 var targetVp = doc.GetElement(new ElementId(tid)) as Viewport;
-#else
-                var targetVp = doc.GetElement(new ElementId((int)tid)) as Viewport;
-#endif
                 if (targetVp == null)
                 {
                     results.Add(new { viewportId = tid, success = false, reason = "Viewport not found" });

@@ -7,24 +7,27 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Workflows;
 
 /// <summary>
 /// Detects clashes between two categories and optionally creates a section box view.
+/// Renamed from workflow_clash_review to show_clashes: "show_" already names this shape of
+/// operation elsewhere (show_cross_model_elements) — a lookup plus a view built around the
+/// result — and reads better than the double verb detect_show_clashes would have.
 /// </summary>
 [ToolSafety(false, false)]
 public class WorkflowClashReviewTool : ICortexTool
 {
-    public string Name => "workflow_clash_review";
+    public string Name => "show_clashes";
     public string Category => "Workflows";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description =>
         "Detects clashes between two categories and optionally creates a 3D section-boxed view for review. "
-        + "Uses the same true solid-geometry intersection as clash_detection (bounding-box pre-filter, then "
+        + "Uses the same true solid-geometry intersection as detect_clashes (bounding-box pre-filter, then "
         + "ElementIntersectsElementFilter); set useSolidGeometry=false for the faster box-only approximation.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -37,7 +40,7 @@ public class WorkflowClashReviewTool : ICortexTool
         var toleranceMm = input["tolerance"]?.Value<double>() ?? 0;
         var createSectionBox = input["createSectionBox"]?.Value<bool>() ?? true;
         var maxResults = input["maxResults"]?.Value<int>() ?? 100;
-        // Same default as clash_detection: the composed tool must not be laxer than the
+        // Same default as detect_clashes: the composed tool must not be laxer than the
         // plain one it wraps.
         var useSolidGeometry = input["useSolidGeometry"]?.Value<bool>() ?? true;
 
@@ -54,7 +57,7 @@ public class WorkflowClashReviewTool : ICortexTool
             var setA = new FilteredElementCollector(doc).OfCategoryId(catIdA).WhereElementIsNotElementType().ToList();
             var setB = new FilteredElementCollector(doc).OfCategoryId(catIdB).WhereElementIsNotElementType().ToList();
 
-            // Bounding boxes alone made this tool report more clashes than clash_detection
+            // Bounding boxes alone made this tool report more clashes than detect_clashes
             // on the same model, and open a review view on pairs whose solids never touch.
             // Both now run the same pass.
             var found = ClashFinder.Find(

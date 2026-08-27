@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.IFC;
 
@@ -12,7 +13,6 @@ namespace RiveTT.Tools.IFC;
 /// </summary>
 public static class IfcGeometryHelper
 {
-    private const double MmPerFoot = 304.8;
 
     /// <summary>
     /// Extract all non-degenerate Solids from an element's geometry.

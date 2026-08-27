@@ -51,11 +51,7 @@ public class DuplicateSystemTypeTool : ICortexTool
 
             if (sourceTypeId.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 sourceType = doc.GetElement(new ElementId(sourceTypeId.Value)) as ElementType;
-#else
-                sourceType = doc.GetElement(new ElementId((int)sourceTypeId.Value)) as ElementType;
-#endif
                 if (sourceType == null)
                     return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                         $"Type {sourceTypeId} not found or is not an ElementType");
@@ -66,7 +62,7 @@ public class DuplicateSystemTypeTool : ICortexTool
                 if (sourceType == null)
                     return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                         $"Type '{sourceTypeName}' not found" + (category != null ? $" in category {category}" : ""),
-                        // Pointing at get_available_family_types was actively
+                        // Pointing at list_family_types was actively
                         // misleading for system types: it used to enumerate only
                         // loadable families, so the suggested remedy returned nothing
                         // for exactly the categories this tool serves.
@@ -84,11 +80,7 @@ public class DuplicateSystemTypeTool : ICortexTool
             if (existing != null)
             {
                 long existingIdValue;
-#if REVIT2024_OR_GREATER
                 existingIdValue = existing.Id.Value;
-#else
-                existingIdValue = (long)existing.Id.IntegerValue;
-#endif
                 return CortexResult<object>.Ok(new
                 {
                     typeId = existingIdValue,
@@ -110,11 +102,7 @@ public class DuplicateSystemTypeTool : ICortexTool
                         suggestion: "Fix the reported model errors and retry.");
 
                 long newIdValue;
-#if REVIT2024_OR_GREATER
                 newIdValue = newType.Id.Value;
-#else
-                newIdValue = (long)newType.Id.IntegerValue;
-#endif
 
                 return CortexResult<object>.Ok(new
                 {

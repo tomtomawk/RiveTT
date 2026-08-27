@@ -135,11 +135,7 @@ public class FilterByParameterValueTool : ICortexTool
 
                 var elementData = new Dictionary<string, object>
                 {
-#if REVIT2024_OR_GREATER
                     { "elementId", elem.Id.Value },
-#else
-                    { "elementId", (long)elem.Id.IntegerValue },
-#endif
                     { "category", elem.Category?.Name ?? "Unknown" },
                     { "familyName", GetFamilyName(elem) },
                     { "typeName", GetTypeName(doc, elem, typeCache) },

@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -24,8 +25,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Returns elements contained within a spatial volume: a room, an area, or a custom axis-aligned bounding box (mm). For rooms, true solid containment (Room ClosedShell) is used by default to avoid the over-reporting of an L-shaped room's bounding box; set useRoomSolid=false for the faster bbox approximation. Set containment=\"boundary\" to get the elements that BOUND the room (walls, columns, separation lines) instead of those inside it: solid containment excludes them by design, and the bounding box pulls in unrelated neighbours. Each volume reports the containment mode actually used.";
-    // 1 foot = 304.8 mm — used for MM<->feet conversions
-    private const double MmPerFoot = 304.8;
+    // 1 foot = MmPerFoot mm — used for MM<->feet conversions
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -120,11 +120,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
                     spatialElements = new List<Element>();
                     foreach (var id in volumeIds)
                     {
-#if REVIT2024_OR_GREATER
                         var elem = doc.GetElement(new ElementId(id));
-#else
-                        var elem = doc.GetElement(new ElementId((int)id));
-#endif
                         if (elem != null)
                             spatialElements.Add(elem);
                     }
@@ -190,13 +186,8 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
                     }
 
                     // Exclude the spatial element itself from results
-#if REVIT2024_OR_GREATER
                     long spatialIdVal = spatial.Id.Value;
                     elements = elements.Where(e => e.Id.Value != spatialIdVal).ToList();
-#else
-                    int spatialIdVal = spatial.Id.IntegerValue;
-                    elements = elements.Where(e => e.Id.IntegerValue != spatialIdVal).ToList();
-#endif
 
                     // Build a human-readable volume name
                     string volumeName;
@@ -222,11 +213,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
                     volumeResults.Add(new
                     {
                         volumeType        = normalizedVolumeType,
-#if REVIT2024_OR_GREATER
                         volumeId          = spatial.Id.Value,
-#else
-                        volumeId          = (long)spatial.Id.IntegerValue,
-#endif
                         volumeName,
                         // State the geometry actually used: "solid" excludes bounding
                         // elements, "boundingBox" over-reports, and the difference
@@ -319,11 +306,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
     {
         return new
         {
-#if REVIT2024_OR_GREATER
             elementId  = e.Id.Value,
-#else
-            elementId  = (long)e.Id.IntegerValue,
-#endif
             name       = e.Name,
             category   = e.Category?.Name ?? "Unknown",
             familyName = (e as FamilyInstance)?.Symbol?.FamilyName ?? "",
@@ -409,7 +392,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
                 name = entry.element!.Name,
                 category = entry.element.Category?.Name,
                 categoryBic = CategoryResolver.DescribeBuiltInCategory(entry.element.Category),
-                boundaryLengthMm = Math.Round(entry.lengthFt * 304.8, 1)
+                boundaryLengthMm = Math.Round(entry.lengthFt * MmPerFoot, 1)
             })
             .ToList();
 

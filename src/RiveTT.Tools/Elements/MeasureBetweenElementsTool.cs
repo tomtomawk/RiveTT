@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -65,10 +66,10 @@ public class MeasureBetweenElementsTool : ICortexTool
             }
 
             double distanceFeet = p1.DistanceTo(p2);
-            double distanceMm   = distanceFeet * 304.8;
-            double dx = Math.Abs(p2.X - p1.X) * 304.8;
-            double dy = Math.Abs(p2.Y - p1.Y) * 304.8;
-            double dz = Math.Abs(p2.Z - p1.Z) * 304.8;
+            double distanceMm   = distanceFeet * MmPerFoot;
+            double dx = Math.Abs(p2.X - p1.X) * MmPerFoot;
+            double dy = Math.Abs(p2.Y - p1.Y) * MmPerFoot;
+            double dz = Math.Abs(p2.Z - p1.Z) * MmPerFoot;
 
             return CortexResult<object>.Ok(new
             {
@@ -98,7 +99,7 @@ public class MeasureBetweenElementsTool : ICortexTool
     {
         // Explicit point takes priority (mm → feet)
         if (point != null && point.Length >= 3)
-            return new XYZ(point[0] / 304.8, point[1] / 304.8, point[2] / 304.8);
+            return new XYZ(point[0] / MmPerFoot, point[1] / MmPerFoot, point[2] / MmPerFoot);
 
         if (elementId > 0)
         {
@@ -188,17 +189,13 @@ public class MeasureBetweenElementsTool : ICortexTool
 
     private static object FormatPoint(XYZ p) => new
     {
-        x = Math.Round(p.X * 304.8, 1),
-        y = Math.Round(p.Y * 304.8, 1),
-        z = Math.Round(p.Z * 304.8, 1)
+        x = Math.Round(p.X * MmPerFoot, 1),
+        y = Math.Round(p.Y * MmPerFoot, 1),
+        z = Math.Round(p.Z * MmPerFoot, 1)
     };
 
     private static ElementId ToElementId(long id)
     {
-#if REVIT2024_OR_GREATER
         return new ElementId(id);
-#else
-        return new ElementId((int)id);
-#endif
     }
 }

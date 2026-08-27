@@ -28,7 +28,7 @@ public static class ToolResponseShaper
             return payload;
         }
 
-        // A failure must never be shaped. get_available_family_types returning an
+        // A failure must never be shaped. list_family_types returning an
         // InvalidInput ("category X could not be resolved") came back through the
         // compact path as {"count": 0} — an error rendered as a truthful-looking
         // empty result, which is the worst possible outcome for a caller.
@@ -39,16 +39,16 @@ public static class ToolResponseShaper
 
         return toolName switch
         {
-            "get_available_family_types" => ShapeAvailableFamilyTypes(payload),
+            "list_family_types" => ShapeAvailableFamilyTypes(payload),
             "list_schedulable_fields" => ShapeSchedulableFields(payload, summaryOnly),
             "get_room_openings" => ShapeRoomOpenings(payload, summaryOnly),
             "get_element_parameters" => ShapeGetElementParameters(payload),
             "audit_families" => ShapeAuditFamilies(payload),
-            "get_shared_parameters" => ShapeSharedParameters(payload),
-            "get_linked_file_instances" => ShapeLinkedFileInstances(payload),
-            "get_coordination_models" => ShapeCoordinationModels(payload),
+            "list_shared_parameters" => ShapeSharedParameters(payload),
+            "list_linked_file_instances" => ShapeLinkedFileInstances(payload),
+            "list_coordination_models" => ShapeCoordinationModels(payload),
             "get_elements_in_spatial_volume" => ShapeElementsInSpatialVolume(payload),
-            "get_materials" => ShapeMaterials(payload),
+            "list_materials" => ShapeMaterials(payload),
             "export_room_data" => ShapeExportRoomData(payload),
             "ifc_list_export_configurations" => ShapeIfcExportConfigurations(payload),
             "ifc_analyze_rebuildability" => ShapeIfcAnalyzeRebuildability(payload),
@@ -314,14 +314,14 @@ public static class ToolResponseShaper
         return new JArray(items);
     }
 
-    /// <summary>get_shared_parameters → keeps name, guid, parameterType, parameterGroup, isShared, isInstance, categories.</summary>
+    /// <summary>list_shared_parameters → keeps name, guid, parameterType, parameterGroup, isShared, isInstance, categories.</summary>
     private static JToken ShapeSharedParameters(JToken payload)
     {
         return StripFromArrayProperty(payload, "parameters",
             keep: new[] { "name", "guid", "parameterType", "parameterGroup", "isShared", "isInstance", "categories" });
     }
 
-    /// <summary>get_linked_file_instances → drops origin/basisX/basisY transforms in nested instances; keeps file-level info.</summary>
+    /// <summary>list_linked_file_instances → drops origin/basisX/basisY transforms in nested instances; keeps file-level info.</summary>
     private static JToken ShapeLinkedFileInstances(JToken payload)
     {
         if (payload is not JObject obj) return payload;
@@ -354,7 +354,7 @@ public static class ToolResponseShaper
     }
 
     /// <summary>
-    /// get_coordination_models → keeps top-level counters (modelCount, totalInstances, matchedInstances, apiAvailable);
+    /// list_coordination_models → keeps top-level counters (modelCount, totalInstances, matchedInstances, apiAvailable);
     /// drops verbose per-model fields (pathType, path) and per-instance fields (name, origin); preserves typeId,
     /// instanceCount, instanceId so the caller can still drill down.
     /// </summary>
@@ -437,7 +437,7 @@ public static class ToolResponseShaper
         return result;
     }
 
-    /// <summary>get_materials → drops only transparency/shininess/smoothness numbers; keeps has*Asset flags so the caller can decide whether to query get_material_properties.</summary>
+    /// <summary>list_materials → drops only transparency/shininess/smoothness numbers; keeps has*Asset flags so the caller can decide whether to query get_material_properties.</summary>
     private static JToken ShapeMaterials(JToken payload)
     {
         return StripFromArrayProperty(payload, "materials",

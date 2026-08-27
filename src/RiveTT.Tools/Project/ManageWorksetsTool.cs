@@ -12,7 +12,7 @@ namespace RiveTT.Tools.Project;
 
 /// <summary>
 /// Creates, renames, deletes, opens, closes, or sets the active workset.
-/// Write counterpart of <c>get_worksets</c>; only available for workshared documents.
+/// Write counterpart of <c>list_worksets</c>; only available for workshared documents.
 /// </summary>
 [ToolSafety(false, true)]
 public class ManageWorksetsTool : ICortexTool
@@ -177,7 +177,7 @@ public class ManageWorksetsTool : ICortexTool
 
         if (workset == null)
             return (null, CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
-                "Workset not found", suggestion: "Provide a valid worksetId or name (list them with get_worksets)"));
+                "Workset not found", suggestion: "Provide a valid worksetId or name (list them with list_worksets)"));
 
         return (workset, null);
     }

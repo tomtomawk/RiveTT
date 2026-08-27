@@ -56,18 +56,10 @@ public class GetScheduleDataTool : ICortexTool
             .Where(s => !s.IsTitleblockRevisionSchedule)
             .Select(s => new
             {
-#if REVIT2024_OR_GREATER
                 id = s.Id.Value,
-#else
-                id = (long)s.Id.IntegerValue,
-#endif
                 name     = s.Name,
                 category = s.Definition.CategoryId != ElementId.InvalidElementId
-#if REVIT2024_OR_GREATER
                     ? ((BuiltInCategory)s.Definition.CategoryId.Value).ToString()
-#else
-                    ? ((BuiltInCategory)s.Definition.CategoryId.IntegerValue).ToString()
-#endif
                     : "None"
             })
             .ToList();
@@ -82,11 +74,7 @@ public class GetScheduleDataTool : ICortexTool
     private static CortexResult<object> GetScheduleRows(
         Document doc, long scheduleId, int maxRows, bool includeAvailableFields)
     {
-#if REVIT2024_OR_GREATER
         var elem = doc.GetElement(new ElementId(scheduleId));
-#else
-        var elem = doc.GetElement(new ElementId((int)scheduleId));
-#endif
         if (elem is not ViewSchedule schedule)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                 $"Schedule with ID {scheduleId} not found",
@@ -129,11 +117,7 @@ public class GetScheduleDataTool : ICortexTool
                 {
                     name      = f.GetName(doc),
                     fieldType = f.FieldType.ToString(),
-#if REVIT2024_OR_GREATER
                     parameterId = f.ParameterId.Value
-#else
-                    parameterId = (long)f.ParameterId.IntegerValue
-#endif
                 })
                 .Cast<object>()
                 .ToList()

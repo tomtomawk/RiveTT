@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Project;
 
@@ -43,11 +44,7 @@ public class SetCompoundStructureTool : ICortexTool
 
             if (typeId.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 hostType = doc.GetElement(new ElementId(typeId.Value)) as HostObjAttributes;
-#else
-                hostType = doc.GetElement(new ElementId((int)typeId.Value)) as HostObjAttributes;
-#endif
             }
             else if (!string.IsNullOrWhiteSpace(typeName))
             {
@@ -121,13 +118,13 @@ public class SetCompoundStructureTool : ICortexTool
                 action = "replace",
                 currentLayerCount = cs.GetLayers().Count,
                 newLayerCount = newLayers.Count,
-                totalWidthMm = Math.Round(newLayers.Sum(l => l.Width) * 304.8, 2),
+                totalWidthMm = Math.Round(newLayers.Sum(l => l.Width) * MmPerFoot, 2),
                 layers = FormatLayers(doc, newLayers)
             });
         }
 
         var desc = $"Replace all layers on '{hostType.Name}' with {newLayers.Count} new layers " +
-                   $"({Math.Round(newLayers.Sum(l => l.Width) * 304.8, 1)}mm total)";
+                   $"({Math.Round(newLayers.Sum(l => l.Width) * MmPerFoot, 1)}mm total)";
         if (!session.RequestConfirmation("replace compound structure", 1, desc))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
@@ -169,7 +166,7 @@ public class SetCompoundStructureTool : ICortexTool
             typeName = hostType.Name,
             action = "replace",
             layerCount = newLayers.Count,
-            totalWidthMm = Math.Round(newLayers.Sum(l => l.Width) * 304.8, 2),
+            totalWidthMm = Math.Round(newLayers.Sum(l => l.Width) * MmPerFoot, 2),
             message = $"Replaced all layers on '{hostType.Name}'"
         });
     }
@@ -207,7 +204,7 @@ public class SetCompoundStructureTool : ICortexTool
         }
 
         var addDesc = $"Add {newLayer.Function} layer at position {insertAt} on '{hostType.Name}' " +
-                      $"({Math.Round(newLayer.Width * 304.8, 1)}mm)";
+                      $"({Math.Round(newLayer.Width * MmPerFoot, 1)}mm)";
         if (!session.RequestConfirmation("add compound structure layer", 1, addDesc))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
@@ -325,7 +322,7 @@ public class SetCompoundStructureTool : ICortexTool
         var widthFt = input["widthFt"]?.Value<double?>();
         if (widthMm.HasValue)
         {
-            layer.Width = widthMm.Value / 304.8;
+            layer.Width = widthMm.Value / MmPerFoot;
             changes.Add("width");
         }
         else if (widthFt.HasValue)
@@ -338,11 +335,7 @@ public class SetCompoundStructureTool : ICortexTool
         var materialName = input["materialName"]?.Value<string>();
         if (materialId.HasValue)
         {
-#if REVIT2024_OR_GREATER
             layer.MaterialId = new ElementId(materialId.Value);
-#else
-            layer.MaterialId = new ElementId((int)materialId.Value);
-#endif
             changes.Add("material");
         }
         else if (!string.IsNullOrWhiteSpace(materialName))
@@ -373,7 +366,7 @@ public class SetCompoundStructureTool : ICortexTool
                 action = "modify",
                 layerIndex,
                 changes,
-                newWidthMm = Math.Round(layer.Width * 304.8, 2)
+                newWidthMm = Math.Round(layer.Width * MmPerFoot, 2)
             });
         }
 
@@ -507,7 +500,7 @@ public class SetCompoundStructureTool : ICortexTool
         {
             width = 0; // Revit requires Membrane layers to have exactly 0 width
         }
-        else if (widthMm.HasValue) width = widthMm.Value / 304.8;
+        else if (widthMm.HasValue) width = widthMm.Value / MmPerFoot;
         else if (widthFt.HasValue) width = widthFt.Value;
         else return (false, null, "widthMm (or widthFt) is required for a non-membrane layer");
 
@@ -517,15 +510,11 @@ public class SetCompoundStructureTool : ICortexTool
 
         if (matIdVal.HasValue)
         {
-#if REVIT2024_OR_GREATER
             materialId = new ElementId(matIdVal.Value);
-#else
-            materialId = new ElementId((int)matIdVal.Value);
-#endif
             if (doc.GetElement(materialId) is not Material)
                 return (false, null,
                     $"materialId {matIdVal.Value} is not a material in this document. " +
-                    "List the real ones with get_materials (nameFilter is supported).");
+                    "List the real ones with list_materials (nameFilter is supported).");
         }
         else if (!string.IsNullOrWhiteSpace(matName))
         {
@@ -544,7 +533,7 @@ public class SetCompoundStructureTool : ICortexTool
                 return (false, null,
                     $"materialName '{matName}' does not exist in this document" +
                     (suggestions.Count > 0 ? $" — did you mean: {string.Join(", ", suggestions)}?" : "") +
-                    " Use get_materials to list the project materials, or create_material first.");
+                    " Use list_materials to list the project materials, or create_material first.");
             }
 
             materialId = mat.Id;
@@ -597,7 +586,7 @@ public class SetCompoundStructureTool : ICortexTool
             {
                 index = i,
                 function_ = layer.Function.ToString(),
-                widthMm = Math.Round(layer.Width * 304.8, 2),
+                widthMm = Math.Round(layer.Width * MmPerFoot, 2),
                 materialName = matName ?? "(none)"
             });
         }
@@ -633,7 +622,7 @@ public class SetCompoundStructureTool : ICortexTool
             int idx = kvp.Key;
             var err = kvp.Value;
             var layerFunc = idx >= 0 && idx < layers.Count ? layers[idx].Function.ToString() : "?";
-            var layerMm = idx >= 0 && idx < layers.Count ? Math.Round(layers[idx].Width * 304.8, 2) : 0.0;
+            var layerMm = idx >= 0 && idx < layers.Count ? Math.Round(layers[idx].Width * MmPerFoot, 2) : 0.0;
             var (desc, fix) = DescribeError(err, layerFunc, layerMm);
 
             errorList.Add(new { layer = idx, function_ = layerFunc, widthMm = layerMm, error = err.ToString(), description = desc, fix });

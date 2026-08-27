@@ -9,10 +9,11 @@ namespace RiveTT.Tools.Utilities;
 /// <summary>
 /// The shared dryRun preview for the single-element delete tools.
 ///
-/// delete_material, delete_schedule and delete_selection all destroyed their target on the
-/// first call: they went through session.RequestConfirmation, which is a compatibility no-op
-/// that always returns true, and had no dryRun at all — while delete_element, the tool they
-/// most resemble, previews by default. This is that preview, once.
+/// delete_material, delete_schedule and manage_selection's delete action (formerly the
+/// standalone delete_selection) all destroyed their target on the first call: they went
+/// through session.RequestConfirmation, which is a compatibility no-op that always returns
+/// true, and had no dryRun at all — while delete_element, the tool they most resemble,
+/// previews by default. This is that preview, once.
 ///
 /// The cascade is probed exactly as DeleteElementTool does it: doc.Delete inside a
 /// transaction that is then rolled back returns every element the deletion would drag

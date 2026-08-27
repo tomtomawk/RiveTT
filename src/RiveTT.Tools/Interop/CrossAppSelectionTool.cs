@@ -131,11 +131,7 @@ namespace RiveTT.Tools.Interop
 
         private static long GetIdValue(ElementId id)
         {
-#if REVIT2024_OR_GREATER
             return id.Value;
-#else
-            return (long)id.IntegerValue;
-#endif
         }
     }
 
@@ -148,7 +144,7 @@ namespace RiveTT.Tools.Interop
     [ToolSafety(false, false)]
     public class CrossAppSelectionTool : ICortexTool
     {
-        public string Name => "cross_app_selection";
+        public string Name => "sync_navisworks_selection";
         public string Category => "Interop";
         public bool RequiresDocument => true;
         public bool IsDynamic => true;

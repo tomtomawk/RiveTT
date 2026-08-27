@@ -153,10 +153,6 @@ public static class ParameterValueFormatter
     private static long GetElementIdValue(ElementId? id)
     {
         if (id == null) return -1;
-#if REVIT2024_OR_GREATER
         return id.Value;
-#else
-        return id.IntegerValue;
-#endif
     }
 }

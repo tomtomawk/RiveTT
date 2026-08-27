@@ -72,11 +72,7 @@ public class ListSchedulableFieldsTool : ICortexTool
                     {
                         name      = f.GetName(doc),
                         fieldType = f.FieldType.ToString(),
-#if REVIT2024_OR_GREATER
                         parameterId = f.ParameterId.Value
-#else
-                        parameterId = (long)f.ParameterId.IntegerValue
-#endif
                     })
                     .OrderBy(f => f.name)
                     .Cast<object>()

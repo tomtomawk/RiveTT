@@ -97,7 +97,7 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
             lifecycleLimitations = new[]
             {
                 "RiveTT starts every Revit session in READ-ONLY mode. Write tools are refused with PermissionDenied until a human presses Écriture in the RiveTT ribbon panel (Add-Ins tab). No tool can lift it, dryRun included.",
-                "edit_family (opening the family document) is not exposed: Document.EditFamily deadlocked from this ExternalEvent dispatcher. To change a family, edit the .rfa outside Revit and reload it with load_family.",
+                "edit_family edits type parameter VALUES in the background (dimensions, materials, yes/no, text) on EXISTING types — not new types, not geometry. For geometry or new types, open_family opens the .rfa visually in Revit; close_document closes it afterward (closing the ACTIVE document requires another open document to switch to first — Document.Close(false) refuses the active document, a real Revit API constraint, not a bug).",
                 "Adding a member to a group cannot be done in place: edit_group_members ungroups and recreates the type, and the other instances keep the old definition. REMOVING a member is different — it is Revit's exclusion, applied to that instance only, with the type untouched.",
                 "There is no API to restore an excluded group member: do it from the Revit ribbon (Restore Excluded Members) after selecting the instance.",
                 "Stairs are created by component (straight runs + automatic landings) through create_stair. Sketched stairs, spiral runs and winders are not exposed."

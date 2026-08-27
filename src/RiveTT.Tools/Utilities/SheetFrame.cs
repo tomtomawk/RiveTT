@@ -1,5 +1,6 @@
 using System.Linq;
 using Autodesk.Revit.DB;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Utilities;
 
@@ -20,7 +21,6 @@ namespace RiveTT.Tools.Utilities;
 /// </summary>
 public static class SheetFrame
 {
-    public const double MmPerFoot = 304.8;
 
     /// <summary>The printable frame in sheet coordinates, in millimetres.</summary>
     public sealed class Frame
@@ -266,7 +266,7 @@ public static class SheetFrame
     /// <summary>
     /// Places <paramref name="viewId"/> at the centre of <paramref name="frame"/> and reports
     /// whether the viewport actually fits inside it. Shared by batch_create_sheets and
-    /// workflow_sheet_set so a sheet set built either way lands in the same place.
+    /// place_viewport so a sheet built by either tool lands the same way.
     /// Must be called inside an open transaction.
     /// </summary>
     public static Placement PlaceCentred(Document doc, ViewSheet sheet, ElementId viewId, Frame frame)

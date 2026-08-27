@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -29,7 +30,6 @@ namespace RiveTT.Tools.Elements;
 [ToolSafety(false, false)]
 public sealed class CreateStairTool : ICortexTool
 {
-    private const double MmPerFoot = 304.8;
 
     public string Name => "create_stair";
     public string Category => "Elements";
@@ -71,7 +71,7 @@ public sealed class CreateStairTool : ICortexTool
                 $"topLevel '{topLevel.Name}' ({topLevel.Elevation * MmPerFoot:F0} mm) must be ABOVE baseLevel " +
                 $"'{baseLevel.Name}' ({baseLevel.Elevation * MmPerFoot:F0} mm)");
 
-        if (!TryReadRuns(input["runs"], out var runLines, out var runError))
+        if (!TryReadRuns(input["runs"], baseLevel.Elevation, out var runLines, out var runError))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, runError);
 
         StairsType? stairsType = null;
@@ -296,7 +296,7 @@ public sealed class CreateStairTool : ICortexTool
         }
     }
 
-    private static bool TryReadRuns(JToken? token, out List<Line> runs, out string error)
+    private static bool TryReadRuns(JToken? token, double baseElevationFt, out List<Line> runs, out string error)
     {
         runs = new List<Line>();
         error = "";
@@ -315,14 +315,16 @@ public sealed class CreateStairTool : ICortexTool
                 return false;
             }
 
+            // The run's location line must sit at the base level's elevation, not
+            // at the project's absolute Z = 0 — see P0.1 in PLAN_CORRECTION.md.
             var startPoint = new XYZ(
                 (start["x"]?.Value<double>() ?? 0) / MmPerFoot,
                 (start["y"]?.Value<double>() ?? 0) / MmPerFoot,
-                0);
+                baseElevationFt);
             var endPoint = new XYZ(
                 (end["x"]?.Value<double>() ?? 0) / MmPerFoot,
                 (end["y"]?.Value<double>() ?? 0) / MmPerFoot,
-                0);
+                baseElevationFt);
 
             if (startPoint.DistanceTo(endPoint) < 1e-6)
             {

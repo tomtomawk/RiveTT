@@ -74,11 +74,7 @@ public class ManageViewTemplatesTool : ICortexTool
         tx.Start();
         foreach (var tid in templateIds)
         {
-#if REVIT2024_OR_GREATER
             var template = doc.GetElement(new ElementId(tid)) as View;
-#else
-            var template = doc.GetElement(new ElementId((int)tid)) as View;
-#endif
             if (template == null || !template.IsTemplate)
             {
                 results.Add(new { originalId = tid, success = false,
@@ -119,11 +115,7 @@ public class ManageViewTemplatesTool : ICortexTool
         int deleted = 0;
         foreach (var tid in templateIds)
         {
-#if REVIT2024_OR_GREATER
             var template = doc.GetElement(new ElementId(tid)) as View;
-#else
-            var template = doc.GetElement(new ElementId((int)tid)) as View;
-#endif
             if (template != null && template.IsTemplate) { doc.Delete(template.Id); deleted++; }
         }
         if (tx.Commit() != TransactionStatus.Committed)
@@ -140,11 +132,7 @@ public class ManageViewTemplatesTool : ICortexTool
         if (templateId <= 0 || string.IsNullOrEmpty(newName))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "templateId and newName required");
 
-#if REVIT2024_OR_GREATER
         var template = doc.GetElement(new ElementId(templateId)) as View;
-#else
-        var template = doc.GetElement(new ElementId((int)templateId)) as View;
-#endif
         if (template == null || !template.IsTemplate)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View template not found");
 

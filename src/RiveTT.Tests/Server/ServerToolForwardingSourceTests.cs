@@ -47,7 +47,7 @@ public class ServerToolForwardingSourceTests
     {
         var source = ReadServerTool("CreationTools.cs");
 
-        Assert.Contains("string? categories", source);
+        Assert.Contains("JsonElement? categories", source);
         Assert.Contains("string? filePath", source);
         Assert.Contains("int? maxElements", source);
         Assert.Contains("p[\"categories\"]", source);

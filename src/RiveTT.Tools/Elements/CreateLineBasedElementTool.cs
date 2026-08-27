@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -23,7 +24,6 @@ public class CreateLineBasedElementTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates one or more line-based elements (walls, beams, structural framing, etc.). Each locationLine has p0 and p1 (mm); add an optional pMid point to create a curved (arc) wall or beam.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -156,29 +156,17 @@ public class CreateLineBasedElementTool : ICortexTool
 
         if (requestedTypeId > 0)
         {
-#if REVIT2024_OR_GREATER
             var typeElemId = new ElementId(requestedTypeId);
-#else
-            var typeElemId = new ElementId((int)requestedTypeId);
-#endif
             var typeElem = doc.GetElement(typeElemId);
             if (typeElem is FamilySymbol fs)
             {
                 symbol = fs;
-#if REVIT2024_OR_GREATER
                 builtInCategory = (BuiltInCategory)symbol.Category.Id.Value;
-#else
-                builtInCategory = (BuiltInCategory)symbol.Category.Id.IntegerValue;
-#endif
             }
             else if (typeElem is WallType wt)
             {
                 wallType = wt;
-#if REVIT2024_OR_GREATER
                 builtInCategory = (BuiltInCategory)wallType.Category.Id.Value;
-#else
-                builtInCategory = (BuiltInCategory)wallType.Category.Id.IntegerValue;
-#endif
             }
         }
 

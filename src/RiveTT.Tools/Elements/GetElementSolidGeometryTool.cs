@@ -5,6 +5,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -28,7 +29,6 @@ public class GetElementSolidGeometryTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Get an element's REAL solid geometry (bounding box, centroid, volume m3, face/edge counts AND inferred cross-section shape) in mm and model coordinates. Unlike get_BoundingBox this reflects the actual solid AFTER joins and cuts, and tells you the section SHAPE: 'rectangular', 'non_rectangular_polygonal' (T/L/I/U/channel — bbox lies, the real outline is concave), 'circular', or 'circular_or_tapered'. Reports capVertexCount and fillRatio so you can tell a box (4 verts, fill≈1.0) from a T/L (more verts and/or low fill). A 613x613 bbox can be a Ø610 circular column, and a T-beam's bbox includes empty space above the web. Always use this, not the bounding box, when precise placement relative to the real solid matters.";
 
-    private const double MmPerFoot = 304.8;
     private const double Ft3ToM3 = 0.0283168;
     private const double MinVolumeFt3 = 1e-6;
 
@@ -314,10 +314,6 @@ public class GetElementSolidGeometryTool : ICortexTool
 
     private static ElementId ToElementId(long id)
     {
-#if REVIT2024_OR_GREATER
         return new ElementId(id);
-#else
-        return new ElementId((int)id);
-#endif
     }
 }

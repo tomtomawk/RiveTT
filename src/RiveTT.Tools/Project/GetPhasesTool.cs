@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 [ToolSafety(true, false)]
 public class GetPhasesTool : ICortexTool, ICacheableTool
 {
-    public string Name => "get_phases";
+    public string Name => "list_phases";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
@@ -38,11 +38,7 @@ public class GetPhasesTool : ICortexTool, ICacheableTool
             {
                 phases.Add(new
                 {
-#if REVIT2024_OR_GREATER
                     id = phase.Id.Value,
-#else
-                    id = (long)phase.Id.IntegerValue,
-#endif
                     name = phase.Name
                 });
             }
@@ -59,11 +55,7 @@ public class GetPhasesTool : ICortexTool, ICacheableTool
                     .Cast<PhaseFilter>()
                     .Select(pf => new
                     {
-#if REVIT2024_OR_GREATER
                         id = pf.Id.Value,
-#else
-                        id = (long)pf.Id.IntegerValue,
-#endif
                         name = pf.Name
                     })
                     .ToList();

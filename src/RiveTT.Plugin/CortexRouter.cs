@@ -36,8 +36,8 @@ public class CortexRouter
     private static readonly string[] ReadOnlyPrefixes = new[]
     {
         "get_", "list_", "find_", "analyze_", "check_",
-        "measure_", "audit_", "export_", "say_hello",
-        "clash_detection", "lines_per_view_count",
+        "measure_", "audit_", "export_", "ping_revit",
+        "detect_clashes", "count_lines_per_view",
         "ifc_get_", "ifc_list_", "ifc_export_", "ifc_validate_",
         "ifc_analyze_", "ifc_compare_"
     };
@@ -144,11 +144,18 @@ public class CortexRouter
             IsReadOnlyTool(tool.Name), destructive: false, declared: false);
     }
 
-    public CortexResult<object> Route(string toolName, JObject input)
+    public CortexResult<object> Route(string toolName, JObject input, string? publicToolName = null)
     {
+        // The name to show the caller: several agent-facing MCP tools route
+        // through one shared generic RiveTT tool (create_wall, create_door and
+        // create_window all reach here as create_line_based_element or
+        // create_point_based_element). Messages must name what was actually
+        // called, not the internal handler — see P1.6 in PLAN_CORRECTION.md.
+        var displayName = string.IsNullOrEmpty(publicToolName) ? toolName : publicToolName;
+
         if (!_tools.TryGetValue(toolName, out var tool))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                $"Tool '{toolName}' not found",
+                $"Tool '{displayName}' not found",
                 suggestion: $"Available tools: {string.Join(", ", GetAvailableToolNames())}");
 
         // The ribbon write lock, checked before everything else: a locked session
@@ -158,7 +165,7 @@ public class CortexRouter
         if (!_session.WriteAccess.WritesAllowed && !IsToolReadOnly(toolName))
         {
             var refusal = CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
-                $"'{toolName}' can modify the model and RiveTT is currently in read-only mode.",
+                $"'{displayName}' can modify the model and RiveTT is currently in read-only mode.",
                 suggestion: "In Revit: Add-Ins tab (Complements) > RiveTT panel > Write. " +
                             "No tool can unlock it; it is a human decision taken in Revit. " +
                             "Read tools keep working meanwhile.",

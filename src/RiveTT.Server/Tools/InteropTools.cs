@@ -8,7 +8,7 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class InteropTools
 {
-    [McpServerTool(Name = "cross_app_selection"),
+    [McpServerTool(Name = "sync_navisworks_selection"),
      Description("Symmetric Revit↔Navis selection bridge. mode=export → emit CortexElementRefs from current Revit selection (host + linked). mode=import → consume CortexElementRefs and select/isolate them via show_cross_model_elements composition. Resolution priority: revitUniqueId → ifcGuid → revitElementId.")]
     public static async Task<string> CrossAppSelection(
         RevitConnectionManager revit,
@@ -36,7 +36,7 @@ public static class InteropTools
         p["createLinkedMarkers"] = createLinkedMarkers;
         p["usePostCommandIsolate"] = usePostCommandIsolate;
 
-        var result = await revit.ExecuteAsync("cross_app_selection", p, ct);
+        var result = await revit.ExecuteAsync("sync_navisworks_selection", p, ct);
         return result.ToString();
     }
 }

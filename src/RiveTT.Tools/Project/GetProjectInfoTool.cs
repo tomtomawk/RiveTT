@@ -7,6 +7,7 @@ using RiveTT.Core.Caching;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Project;
 
@@ -60,11 +61,7 @@ public class GetProjectInfoTool : ICortexTool, ICacheableTool
                 {
                     phases.Add(new
                     {
-#if REVIT2024_OR_GREATER
                         id = phase.Id.Value,
-#else
-                        id = (long)phase.Id.IntegerValue,
-#endif
                         name = phase.Name
                     });
                 }
@@ -102,11 +99,7 @@ public class GetProjectInfoTool : ICortexTool, ICacheableTool
                     var linkType = doc.GetElement(link.GetTypeId()) as RevitLinkType;
                     links.Add(new
                     {
-#if REVIT2024_OR_GREATER
                         id = link.Id.Value,
-#else
-                        id = (long)link.Id.IntegerValue,
-#endif
                         name     = link.Name,
                         isLoaded = linkType != null && RevitLinkType.IsLoaded(doc, linkType.Id),
                         linkPath = GetLinkPath(linkType)
@@ -123,13 +116,9 @@ public class GetProjectInfoTool : ICortexTool, ICacheableTool
                     .OrderBy(l => l.Elevation)
                     .Select(l => new
                     {
-#if REVIT2024_OR_GREATER
                         id = l.Id.Value,
-#else
-                        id = (long)l.Id.IntegerValue,
-#endif
                         name      = l.Name,
-                        elevation = Math.Round(l.Elevation * 304.8, 2) // feet → mm
+                        elevation = Math.Round(l.Elevation * MmPerFoot, 2) // feet → mm
                     })
                     .ToList();
 

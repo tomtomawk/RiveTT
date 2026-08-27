@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -24,7 +25,6 @@ public class ExportRoomDataTool : ICortexTool
     public string Description => "Exports room data from the current project (name, number, level, area, volume, etc.).";
     private const double SqFtToSqM = 0.092903;
     private const double CuFtToCuM = 0.0283168;
-    private const double FtToMm = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -101,7 +101,7 @@ public class ExportRoomDataTool : ICortexTool
                     department = r.get_Parameter(BuiltInParameter.ROOM_DEPARTMENT)?.AsString() ?? "",
                     areaSqM = Math.Round(area * SqFtToSqM, 2),
                     volumeCuM = Math.Round(volume * CuFtToCuM, 2),
-                    perimeterMm = Math.Round(perimeter * FtToMm, 0)
+                    perimeterMm = Math.Round(perimeter * MmPerFoot, 0)
                 };
             }).ToList();
 

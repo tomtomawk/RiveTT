@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using Newtonsoft.Json;
 using RiveTT.Core.Hosting;
 using RiveTT.Core.Results;
@@ -15,6 +16,7 @@ public class AuditLogger
 {
     private readonly string _logPath;
     private readonly object _lock = new object();
+    private long _writeFailureCount;
 
     public AuditLogger(string? logPath = null)
     {
@@ -72,24 +74,64 @@ public class AuditLogger
 
     private void WriteEntry(object entry, string toolName)
     {
-        var json = JsonConvert.SerializeObject(entry, Formatting.None);
+        var line = JsonConvert.SerializeObject(entry, Formatting.None) + Environment.NewLine;
 
+        // Two RiveTT.Server/Revit sessions can share one audit.jsonl (P0.3 in
+        // PLAN_CORRECTION.md notes two server processes running at once): a
+        // concurrent File.AppendAllText can throw a sharing violation. Retry
+        // briefly before treating it as a real failure.
+        const int maxAttempts = 3;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                lock (_lock)
+                {
+                    var dir = Path.GetDirectoryName(_logPath);
+                    if (dir != null && !Directory.Exists(dir))
+                        Directory.CreateDirectory(dir);
+
+                    File.AppendAllText(_logPath, line);
+                }
+                return;
+            }
+            catch (IOException) when (attempt < maxAttempts)
+            {
+                Thread.Sleep(25 * attempt);
+            }
+            catch (Exception exception)
+            {
+                RecordFailure(toolName, exception);
+                return;
+            }
+        }
+
+        RecordFailure(toolName, new IOException($"Gave up writing the audit entry after {maxAttempts} attempts"));
+    }
+
+    /// <summary>
+    /// Total audit writes lost to an exception since this instance was created —
+    /// exposed so a caller can tell "the audit log is empty" from "audit writes
+    /// are failing" instead of trusting a promise nothing checks.
+    /// </summary>
+    public long WriteFailureCount => Interlocked.Read(ref _writeFailureCount);
+
+    private void RecordFailure(string toolName, Exception exception)
+    {
+        Interlocked.Increment(ref _writeFailureCount);
+
+        // Trace.WriteLine goes to OutputDebugString, which is invisible inside
+        // Revit.exe without a debugger attached — this silence is exactly what
+        // let audit.jsonl stop growing unnoticed during the 2026-08-26 campaign
+        // (P0.2). A plain sibling file is readable without one.
         try
         {
-            lock (_lock)
-            {
-                var dir = Path.GetDirectoryName(_logPath);
-                if (dir != null && !Directory.Exists(dir))
-                    Directory.CreateDirectory(dir);
-
-                File.AppendAllText(_logPath, json + Environment.NewLine);
-            }
+            File.AppendAllText(_logPath + ".errors.log",
+                $"{DateTime.UtcNow:o} tool={toolName} error={exception}{Environment.NewLine}");
         }
         catch
         {
-            // Audit logging must never crash the application.
-            System.Diagnostics.Trace.WriteLine(
-                $"[RiveTT] Failed to write audit log entry for tool '{toolName}'");
+            // Nothing left to fall back to.
         }
     }
 

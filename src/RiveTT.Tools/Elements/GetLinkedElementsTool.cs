@@ -115,11 +115,7 @@ public class GetLinkedElementsTool : ICortexTool
                 linksData.Add(new
                 {
                     linkName      = linkInstance.Name,
-#if REVIT2024_OR_GREATER
                     linkId        = linkInstance.Id.Value,
-#else
-                    linkId        = (long)linkInstance.Id.IntegerValue,
-#endif
                     documentTitle = linkDoc.Title,
                     elementCount  = elementsData.Count,
                     elements      = elementsData
@@ -146,11 +142,7 @@ public class GetLinkedElementsTool : ICortexTool
     {
         var data = new Dictionary<string, object?>
         {
-#if REVIT2024_OR_GREATER
             ["elementId"] = e.Id.Value,
-#else
-            ["elementId"] = (long)e.Id.IntegerValue,
-#endif
             ["category"]  = e.Category?.Name ?? "",
             ["name"]      = e.Name
         };

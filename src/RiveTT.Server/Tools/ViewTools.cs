@@ -81,18 +81,22 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_current_view_elements"), Description("List elements visible in the currently active view. categoryFilter is a single-category shortcut (OST code, English name or localized label); modelCategoryList/annotationCategoryList take several.")]
+    [McpServerTool(Name = "get_current_view_elements"), Description("List elements visible in the currently active view. categoryFilter is a single-category shortcut (OST code, English name or localized label); modelCategoryList/annotationCategoryList take several. Pages via pageSize/cursor: nextCursor in the response, passed back as cursor, reaches elements beyond the first page.")]
     public static async Task<string> GetCurrentViewElements(
         RevitConnectionManager revit,
-        [Description("Maximum number of elements to return")] int? limit = 50,
-        [Description("Model category filters (e.g. OST_Walls, OST_Doors). JSON array, e.g. [\"A\",\"B\"]")] string? modelCategoryList = null,
-        [Description("Annotation category filters (e.g. OST_Dimensions, OST_TextNotes). JSON array, e.g. [\"A\",\"B\"]")] string? annotationCategoryList = null,
+        [Description("Maximum number of elements to return per page. Default: 200")] int? pageSize = null,
+        [Description("Legacy alias for pageSize")] int? limit = null,
+        [Description("Opaque cursor from a previous call's nextCursor, to fetch the next page")] string? cursor = null,
+        [Description("Model category filters (e.g. OST_Walls, OST_Doors). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? modelCategoryList = null,
+        [Description("Annotation category filters (e.g. OST_Dimensions, OST_TextNotes). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? annotationCategoryList = null,
         [Description("Legacy single-category filter; mapped into modelCategoryList for backward compatibility")] string? categoryFilter = null,
-        [Description("Specific fields to include in the response. JSON array, e.g. [\"A\",\"B\"]")] string? fields = null,
+        [Description("Specific fields to include in the response. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? fields = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (limit != null) p["limit"] = limit;
+        if (pageSize != null) p["pageSize"] = pageSize;
+        else if (limit != null) p["pageSize"] = limit;
+        if (cursor != null) p["cursor"] = cursor;
         if (modelCategoryList != null)
         {
             if (!JsonArrayParam.TryParse(modelCategoryList, out var modelCategoryListArray))
@@ -122,11 +126,11 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Action: create | apply | list. Default: create")] string? action = null,
         [Description("Filter name (for create)")] string? filterName = null,
-        [Description("Category names for create (e.g. [\"Walls\", \"Floors\"]). JSON array, e.g. [\"A\",\"B\"]")] string? categoryNames = null,
+        [Description("Category names for create (e.g. [\"Walls\", \"Floors\"]). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categoryNames = null,
         [Description("Parameter name to filter on (single-rule create)")] string? parameterName = null,
         [Description("Filter rule (single-rule create): equals | not_equals | contains | begins_with | ends_with | greater_than | less_than")] string? filterRule = null,
         [Description("Value to compare against (single-rule create)")] string? filterValue = null,
-        [Description("Multi-rule create: JSON array of {parameterName, rule, value}")] string? rules = null,
+        [Description("Multi-rule create: JSON array of {parameterName, rule, value}")] System.Text.Json.JsonElement? rules = null,
         [Description("Combine multiple rules with: and | or. Default: and")] string? logic = null,
         [Description("Filter id (for apply)")] long? filterId = null,
         [Description("View id (for apply)")] long? viewId = null,
@@ -147,7 +151,12 @@ public static class ViewTools
         if (parameterName != null) p["parameterName"] = parameterName;
         if (filterRule != null) p["filterRule"] = filterRule;
         if (filterValue != null) p["filterValue"] = filterValue;
-        if (rules != null) p["rules"] = JArray.Parse(rules);
+        if (rules != null)
+        {
+            if (!JsonArrayParam.TryParse(rules, out var rulesArray))
+                return JsonArrayParam.InvalidArrayResult("create_view_filter", "rules", rules);
+            p["rules"] = rulesArray;
+        }
         if (logic != null) p["logic"] = logic;
         if (filterId != null) p["filterId"] = filterId;
         if (viewId != null) p["viewId"] = viewId;
@@ -190,7 +199,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_sheet"), Description("Create a sheet, with a title block. Pass titleBlockId (an OST_TitleBlocks family type id, from list_system_types or get_available_family_types) or a family/type name. Without any of them Revit creates a bare 210x297 mm sheet with no frame. The response reports the title block actually placed; an unusable titleBlockId is an error, not a silent fallback.")]
+    [McpServerTool(Name = "create_sheet"), Description("Create a sheet, with a title block. Pass titleBlockId (an OST_TitleBlocks family type id, from list_system_types or list_family_types) or a family/type name. Without any of them Revit creates a bare 210x297 mm sheet with no frame. The response reports the title block actually placed; an unusable titleBlockId is an error, not a silent fallback.")]
     public static async Task<string> CreateSheet(
         RevitConnectionManager revit,
         [Description("Sheet number (e.g. A101)")] string sheetNumber,
@@ -243,7 +252,7 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Schedule name")] string name,
         [Description("Category to schedule (e.g. Walls, Doors, Rooms)")] string category,
-        [Description("Parameter fields to include in the schedule. JSON array, e.g. [\"A\",\"B\"]")] string? fields = null,
+        [Description("Parameter fields to include in the schedule. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? fields = null,
         [Description("Schedule type: regular | material_takeoff | key_schedule | sheet_list | view_list. Default: regular")] string? scheduleType = null,
         CancellationToken ct = default)
     {
@@ -355,7 +364,7 @@ public static class ViewTools
     public static async Task<string> ApplyViewTemplate(
         RevitConnectionManager revit,
         [Description("Action: list | apply | remove. Default: apply")] string? action = null,
-        [Description("View IDs to apply/remove template on. JSON array, e.g. [1,2]")] string? viewIds = null,
+        [Description("View IDs to apply/remove template on. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? viewIds = null,
         [Description("Template element ID (for apply)")] long? templateId = null,
         [Description("Template name (alternative to templateId)")] string? templateName = null,
         CancellationToken ct = default)
@@ -420,7 +429,7 @@ public static class ViewTools
         [Description("New name (rename)")] string? newName = null,
         [Description("Move translation as JSON {x,y,z} in mm (move)")] string? translation = null,
         [Description("Scope box element ID to assign, or 0 to clear (assign_to_views)")] long? scopeBoxId = null,
-        [Description("View element IDs to apply the scope box to, as a JSON array of numbers (assign_to_views)")] string? viewIds = null,
+        [Description("View element IDs to apply the scope box to, as a JSON array of numbers (assign_to_views)")] System.Text.Json.JsonElement? viewIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["action"] = action };
@@ -428,7 +437,12 @@ public static class ViewTools
         if (newName != null) p["newName"] = newName;
         if (translation != null) p["translation"] = JObject.Parse(translation);
         if (scopeBoxId != null) p["scopeBoxId"] = scopeBoxId;
-        if (viewIds != null) p["viewIds"] = JArray.Parse(viewIds);
+        if (viewIds != null)
+        {
+            if (!JsonArrayParam.TryParse(viewIds, out var viewIdsArray))
+                return JsonArrayParam.InvalidArrayResult("manage_scope_boxes", "viewIds", viewIds);
+            p["viewIds"] = viewIdsArray;
+        }
         var result = await revit.ExecuteAsync("manage_scope_boxes", p, ct);
         return result.ToString();
     }
@@ -449,7 +463,7 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Action: list | duplicate | delete | rename. Default: list")] string? action = null,
         [Description("Filter templates by view type (for list)")] string? filterViewType = null,
-        [Description("Template IDs (for duplicate/delete). JSON array, e.g. [1,2]")] string? templateIds = null,
+        [Description("Template IDs (for duplicate/delete). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? templateIds = null,
         [Description("Template ID (for rename)")] long? templateId = null,
         [Description("New name (for rename or duplicate)")] string? newName = null,
         CancellationToken ct = default)
@@ -489,14 +503,19 @@ public static class ViewTools
     public static async Task<string> CreatePlaceholderSheets(
         RevitConnectionManager revit,
         [Description("Action: create | list | convert | delete. Default: create")] string? action = null,
-        [Description("JSON array of sheet specs for create: [{number, name}]")] string? sheets = null,
-        [Description("Sheet IDs (for convert/delete). JSON array, e.g. [1,2]")] string? sheetIds = null,
+        [Description("JSON array of sheet specs for create: [{number, name}]")] System.Text.Json.JsonElement? sheets = null,
+        [Description("Sheet IDs (for convert/delete). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? sheetIds = null,
         [Description("Title block type element ID (for convert)")] long? titleBlockId = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (action != null) p["action"] = action;
-        if (sheets != null) p["sheets"] = JArray.Parse(sheets);
+        if (sheets != null)
+        {
+            if (!JsonArrayParam.TryParse(sheets, out var sheetsArray))
+                return JsonArrayParam.InvalidArrayResult("create_placeholder_sheets", "sheets", sheets);
+            p["sheets"] = sheetsArray;
+        }
         if (sheetIds != null)
         {
             if (!JsonArrayParam.TryParse(sheetIds, out var sheetIdsArray))

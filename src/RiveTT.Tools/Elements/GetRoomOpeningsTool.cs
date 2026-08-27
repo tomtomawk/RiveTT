@@ -49,11 +49,7 @@ public class GetRoomOpeningsTool : ICortexTool
                 targetRooms = new List<Room>();
                 foreach (var id in roomIds)
                 {
-#if REVIT2024_OR_GREATER
                     var elem = doc.GetElement(new ElementId(id)) as Room;
-#else
-                    var elem = doc.GetElement(new ElementId((int)id)) as Room;
-#endif
                     if (elem != null && elem.Area > 0) targetRooms.Add(elem);
                 }
             }
@@ -250,10 +246,6 @@ public class GetRoomOpeningsTool : ICortexTool
 
     private static long GetElementIdValue(ElementId id)
     {
-#if REVIT2024_OR_GREATER
         return id.Value;
-#else
-        return (long)id.IntegerValue;
-#endif
     }
 }

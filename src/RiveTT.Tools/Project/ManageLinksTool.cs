@@ -90,11 +90,7 @@ public class ManageLinksTool : ICortexTool
         if (linkId <= 0)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "linkId required for reload");
 
-#if REVIT2024_OR_GREATER
         var linkInstance = doc.GetElement(new ElementId(linkId)) as RevitLinkInstance;
-#else
-        var linkInstance = doc.GetElement(new ElementId((int)linkId)) as RevitLinkInstance;
-#endif
         if (linkInstance == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link not found");
 
@@ -122,11 +118,7 @@ public class ManageLinksTool : ICortexTool
         if (linkId <= 0)
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "linkId required for unload");
 
-#if REVIT2024_OR_GREATER
         var linkInstance = doc.GetElement(new ElementId(linkId)) as RevitLinkInstance;
-#else
-        var linkInstance = doc.GetElement(new ElementId((int)linkId)) as RevitLinkInstance;
-#endif
         if (linkInstance == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link not found");
 
@@ -158,6 +150,15 @@ public class ManageLinksTool : ICortexTool
         if (string.IsNullOrWhiteSpace(newPath))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "newPath required for reload_from", suggestion: "Provide the absolute path to reload the link from");
+
+        // Absorbed from the retired reload_linked_file_from, which had this guard and this
+        // tool did not: UNC allowed because linking models from network shares is a standard
+        // BIM workflow and the confirmation dialog shows the path.
+        if (!PathSafety.TryResolveSafe(newPath, out var safePath, out var pathError, allowUnc: true))
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                pathError,
+                suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, temp, or a network share");
+        newPath = safePath;
 
         var linkInstance = doc.GetElement(ToolHelpers.ToElementId(linkId)) as RevitLinkInstance;
         if (linkInstance == null)

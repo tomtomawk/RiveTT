@@ -217,7 +217,7 @@ RiveTT n'a pas de mode lecture seule, `writesAllowed` vaut toujours `true`.
 `cached: true` signale une réponse servie par le cache. Tout cache est vidé
 après `save_document`/`save_as_document`.
 
-`ai_element_filter` utilise `responseMode: summary | idsOnly | details` et
+`filter_elements` utilise `responseMode: summary | idsOnly | details` et
 retourne `totalCount`, `returnedCount`, `appliedLimit` et `nextCursor`. Un
 curseur devient invalide dès que le document Revit change, afin d'éviter de
 mélanger deux états du modèle.
@@ -231,15 +231,30 @@ avertissement non autorisé provoque un rollback silencieux.
 
 L'interdiction d'activer un document vise les **gestionnaires d'événements API**
 (`Idling`, `DocumentChanged`), pas un `ExternalEvent` — le contexte dans lequel
-tourne chaque outil de ce connecteur. `open_document` et `create_document` sont
-donc disponibles, conformément à la recommandation Autodesk (External Event =
-« supported and safe » pour ouvrir/activer).
+tourne chaque outil de ce connecteur. `open_document`, `create_document`,
+`open_family` et `open_template` sont donc disponibles, conformément à la
+recommandation Autodesk (External Event = « supported and safe » pour
+ouvrir/activer).
+
+`open_family` (.rfa) et `open_template` (.rte) activent le fichier dans
+l'interface Revit — le document actif change, donc tout appel suivant cible ce
+fichier jusqu'au retour sur le projet. `close_document` referme un document
+ouvert (projet, famille ou gabarit) ; fermer le document **actif** exige qu'un
+autre document soit ouvert pour y basculer d'abord — `Document.Close(false)`
+refuse le document actif (mesuré le 27/08/2026,
+`docs/developpement/CHANGELOG_0.3.0.md` P1.4), c'est une contrainte réelle de
+l'API, pas un défaut à contourner par un thread d'arrière-plan.
+
+`edit_family` modifie les valeurs de paramètres de type d'une famille **en
+arrière-plan** (aucune fenêtre ne s'ouvre) : `Document.EditFamily` → modifier →
+`LoadFamily` dans le projet → fermeture, sur le patron déjà en production dans
+`export_families` et `list_family_sizes`. Limité aux types existants et à
+leurs valeurs de paramètre (cotes, matériaux, oui/non, texte) — ni nouveaux
+types, ni géométrie. Pour la géométrie ou de nouveaux types : `open_family`
+puis édition visuelle dans Revit.
 
 Restent indisponibles, et `get_server_capabilities` le déclare :
 
-- **ouverture du document de famille** (`Document.EditFamily`) : a provoqué un
-  interblocage depuis ce dispatcher. Pour modifier une famille : éditer le
-  `.rfa` hors Revit puis `load_family` ;
 - **escaliers esquissés**, volées hélicoïdales et balancements :
   `create_stair` couvre l'escalier par composant (volées droites + paliers) ;
 - **édition de groupe en place** : l'API ne le permet pas,

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Newtonsoft.Json.Linq;
@@ -9,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -20,13 +20,12 @@ namespace RiveTT.Tools.Elements;
 [ToolSafety(true, false)]
 public class AIElementFilterTool : ICortexTool
 {
-    public string Name => "ai_element_filter";
+    public string Name => "filter_elements";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Smart element query tool — supports category, element-class, family-symbol, view-visibility and bounding-box filters, all combinable via logical AND. Mirrors the fork's AIElementFilterEventHandler filtering logic.";
-    // ── Revit internal-unit conversion factor: 1 foot = 304.8 mm ──────────
-    private const double MmPerFoot = 304.8;
+    // ── Revit internal-unit conversion factor: 1 foot = MmPerFoot mm ──────────
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -259,11 +258,7 @@ public class AIElementFilterTool : ICortexTool
         // 3. Family-symbol filter (instances only)
         if (!isElementType && filterFamilySymId > 0)
         {
-#if REVIT2024_OR_GREATER
             var symId = new ElementId((long)filterFamilySymId);
-#else
-            var symId = new ElementId(filterFamilySymId);
-#endif
             var symElem = doc.GetElement(symId);
             if (symElem is FamilySymbol symbol)
             {
@@ -373,34 +368,11 @@ public class AIElementFilterTool : ICortexTool
     }
 
     private static string EncodeCursor(long documentVersion, int offset)
-        => Convert.ToBase64String(Encoding.UTF8.GetBytes($"{documentVersion}:{offset}"));
+        => PageCursor.Encode(documentVersion, offset);
 
     private static bool TryDecodeCursor(string? cursor, long documentVersion,
         out int offset, out string? error)
-    {
-        offset = 0;
-        error = null;
-        if (string.IsNullOrWhiteSpace(cursor)) return true;
-        try
-        {
-            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
-            var parts = decoded.Split(':');
-            if (parts.Length != 2 || !long.TryParse(parts[0], out var version) ||
-                !int.TryParse(parts[1], out offset) || offset < 0)
-                throw new FormatException();
-            if (version != documentVersion)
-            {
-                error = "The search cursor expired because the Revit document changed";
-                return false;
-            }
-            return true;
-        }
-        catch
-        {
-            error = "The search cursor is invalid";
-            return false;
-        }
-    }
+        => PageCursor.TryDecode(cursor, documentVersion, out offset, out error);
 
     // ── Element info builders ──────────────────────────────────────────────
 
@@ -703,21 +675,13 @@ public class AIElementFilterTool : ICortexTool
     private static long GetElementIdLong(Element? elem)
     {
         if (elem == null) return -1;
-#if REVIT2024_OR_GREATER
         return elem.Id.Value;
-#else
-        return elem.Id.IntegerValue;
-#endif
     }
 
     private static string? GetBuiltInCategoryName(Element elem)
     {
         if (elem.Category == null) return null;
-#if REVIT2024_OR_GREATER
         return Enum.GetName(typeof(BuiltInCategory), (BuiltInCategory)(int)elem.Category.Id.Value);
-#else
-        return Enum.GetName(typeof(BuiltInCategory), (BuiltInCategory)elem.Category.Id.IntegerValue);
-#endif
     }
 
     private static object? GetLevelInfo(Document doc, Element elem)
@@ -787,7 +751,7 @@ public class AIElementFilterTool : ICortexTool
         {
             if (p.StorageType != StorageType.Double || !p.HasValue) continue;
             // H30: a flat *MmPerFoot multiplier is only correct for LENGTH parameters.
-            // Area params are stored in ft^2 (×304.8^2) and volume in ft^3 (×304.8^3),
+            // Area params are stored in ft^2 (×MmPerFoot^2) and volume in ft^3 (×MmPerFoot^3),
             // so the old `valueMm` was 304x too small for area and ~92903x for volume.
             // AsValueString() applies the parameter's own unit/format, which is correct
             // for every dimension type; we also expose the raw internal value (feet-based)

@@ -48,12 +48,11 @@ Séparée par usage. Vous n'avez besoin que d'une colonne à la fois.
 | Document | Quand |
 |---|---|
 | [AGENTS.md](AGENTS.md) | **À lire en premier.** Architecture, contrat à deux faces, verrou d'écriture. Les agents de code le chargent automatiquement comme instructions projet |
-| [docs/developpement/AUDIT_OUTILS.md](docs/developpement/AUDIT_OUTILS.md) | État de la surface d'outils : ce qui a cassé, ce qui reste, dans quel ordre |
-| [docs/developpement/PROTOCOLE_TEST.md](docs/developpement/PROTOCOLE_TEST.md) | Vérifier une version sur maquette — ce que `dotnet test` ne couvre pas |
+| [docs/developpement/CHANGELOG_0.3.0.md](docs/developpement/CHANGELOG_0.3.0.md) | Défauts corrigés, renommage et consolidation de la surface, ce qui reste à vérifier sur maquette |
 
 **Référence commune**
 
-[docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md) — les 196 outils, effet par
+[docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md) — les outils, effet par
 effet, avec les défauts connus et les capacités API non outillées. Généré par
 `tools/audit-tool-surface.py`, jamais édité à la main.
 

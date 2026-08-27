@@ -106,21 +106,9 @@ namespace RiveTT.Tools.Interop
             {
                 try
                 {
-#if REVIT2024_OR_GREATER
                     var elementId = new ElementId(idValue);
                     var byId = doc.GetElement(elementId);
                     if (byId != null) return byId;
-#else
-                    // R23/R24 ElementId is 32-bit. Skip out-of-range values rather than
-                    // silently truncating — a truncated ID is indistinguishable from a
-                    // legitimate miss and produces ghost notFound diagnostics.
-                    if (idValue >= int.MinValue && idValue <= int.MaxValue)
-                    {
-                        var elementId = new ElementId((int)idValue);
-                        var byId = doc.GetElement(elementId);
-                        if (byId != null) return byId;
-                    }
-#endif
                 }
                 catch (Exception ex) when (!IsFatal(ex)) { /* fall through */ }
             }

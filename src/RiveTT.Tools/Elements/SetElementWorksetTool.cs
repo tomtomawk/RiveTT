@@ -77,11 +77,7 @@ public class SetElementWorksetTool : ICortexTool
                     continue;
                 }
 
-#if REVIT2024_OR_GREATER
                 var elementId = new ElementId(req.ElementId);
-#else
-                var elementId = new ElementId((int)req.ElementId);
-#endif
                 var element = doc.GetElement(elementId);
                 if (element == null)
                 {

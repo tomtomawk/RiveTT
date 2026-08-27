@@ -1,6 +1,7 @@
 using Newtonsoft.Json.Linq;
 using RiveTT.Core.Discovery;
 using RiveTT.Core.Results;
+using RiveTT.Core.Security;
 using RiveTT.Core.Session;
 using RiveTT.Plugin;
 using RiveTT.Core.Tools;
@@ -15,7 +16,12 @@ public class CortexRouterTests
         var store = new SessionStore();
         session = new CortexSession(store);
         var an = analyzer ?? new FakeAnalyzer();
-        return new CortexRouter(session, an);
+        // An explicit temp-file logger, not the default %LOCALAPPDATA%\RiveTT\audit.jsonl:
+        // this suite runs on every `dotnet test` and was otherwise writing real audit
+        // entries on the dev machine, masking whether the real execution path logs at all.
+        var auditPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+            "rc-audit-" + System.Guid.NewGuid().ToString("N") + ".jsonl");
+        return new CortexRouter(session, an, new AuditLogger(auditPath));
     }
 
     [Fact]
@@ -47,32 +53,35 @@ public class CortexRouterTests
     public void Route_DynamicTool_NotEnabled_Fails()
     {
         var router = CreateRouter(out _);
-        var tool = new FakeTool { Name = "get_worksets", IsDynamic = true };
+        var tool = new FakeTool { Name = "list_worksets", IsDynamic = true };
         var field = typeof(CortexRouter).GetField("_tools",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
         var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.ICortexTool>)field.GetValue(router)!;
         tools[tool.Name] = tool;
 
-        var result = router.Route("get_worksets", new JObject());
+        var result = router.Route("list_worksets", new JObject());
         Assert.False(result.Success);
         Assert.Contains("not available", result.Error!.Message);
     }
 
-    [Fact]
+    // A successful Route() reaches EnrichResult, whose GetActiveRevitVersion() casts to
+    // Autodesk.Revit.DB.Document — the JIT resolves that type eagerly even on a null cast,
+    // so RevitAPI must be loadable for the method to run at all.
+    [RequiresRevitDbApiFact]
     public void Route_ValidTool_ExecutesSuccessfully()
     {
         var router = CreateRouter(out _);
-        var tool = new FakeTool { Name = "say_hello" };
+        var tool = new FakeTool { Name = "ping_revit" };
         var field = typeof(CortexRouter).GetField("_tools",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
         var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.ICortexTool>)field.GetValue(router)!;
         tools[tool.Name] = tool;
 
-        var result = router.Route("say_hello", new JObject());
+        var result = router.Route("ping_revit", new JObject());
         Assert.True(result.Success);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_EnrichesEverySuccessWithExecutionContract()
     {
         var router = CreateRouter(out _);
@@ -116,7 +125,7 @@ public class CortexRouterTests
         router.OnDocumentChanged(new object());
 
         Assert.True(session.Capabilities.HasWorksets);
-        Assert.True(session.Capabilities.IsToolEnabled("get_worksets"));
+        Assert.True(session.Capabilities.IsToolEnabled("list_worksets"));
     }
 
     [Fact]

@@ -39,7 +39,7 @@ public class DuplicateMaterialTool : ICortexTool
         if (sourceMaterialId == null && string.IsNullOrWhiteSpace(sourceMaterialName))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 "Provide sourceMaterialId or sourceMaterialName",
-                suggestion: "Use get_materials to find the source material");
+                suggestion: "Use list_materials to find the source material");
 
         try
         {
@@ -47,11 +47,7 @@ public class DuplicateMaterialTool : ICortexTool
 
             if (sourceMaterialId.HasValue)
             {
-#if REVIT2024_OR_GREATER
                 source = doc.GetElement(new ElementId(sourceMaterialId.Value)) as Material;
-#else
-                source = doc.GetElement(new ElementId((int)sourceMaterialId.Value)) as Material;
-#endif
             }
 
             if (source == null && !string.IsNullOrWhiteSpace(sourceMaterialName))
@@ -65,7 +61,7 @@ public class DuplicateMaterialTool : ICortexTool
             if (source == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                     $"Source material not found (id={sourceMaterialId}, name={sourceMaterialName})",
-                    suggestion: "Use get_materials to list available materials");
+                    suggestion: "Use list_materials to list available materials");
 
             ElementId newMatId;
 
@@ -143,11 +139,7 @@ public class DuplicateMaterialTool : ICortexTool
             }
 
             long newIdValue;
-#if REVIT2024_OR_GREATER
             newIdValue = newMatId.Value;
-#else
-            newIdValue = (long)newMatId.IntegerValue;
-#endif
 
             return CortexResult<object>.Ok(new
             {

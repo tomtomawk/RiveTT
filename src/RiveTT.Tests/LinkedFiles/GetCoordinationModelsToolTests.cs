@@ -3,6 +3,7 @@ using System.Reflection;
 using Newtonsoft.Json.Linq;
 using RiveTT.Core.Caching;
 using RiveTT.Core.Results;
+using RiveTT.Core.Security;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Plugin;
@@ -20,7 +21,7 @@ public class GetCoordinationModelsToolTests
     {
         var tool = new GetCoordinationModelsTool();
 
-        Assert.Equal("get_coordination_models", tool.Name);
+        Assert.Equal("list_coordination_models", tool.Name);
         Assert.Equal("LinkedFiles", tool.Category);
         Assert.True(tool.RequiresDocument);
         Assert.False(tool.IsDynamic);
@@ -35,29 +36,32 @@ public class GetCoordinationModelsToolTests
         Assert.Equal(CacheScope.Document, cacheable.CacheScope);
     }
 
-    [Fact]
+    // A successful Route() reaches EnrichResult, whose GetActiveRevitVersion() casts to
+    // Autodesk.Revit.DB.Document — the JIT resolves that type eagerly even on a null cast,
+    // so RevitAPI must be loadable for the method to run at all.
+    [RequiresRevitDbApiFact]
     public void CacheKey_VariesWithNameFilterIncludeInstancesAndMaxInstances()
     {
         var router = CreateRouter();
         var tool = new CachingCountingTool
         {
-            Name = "get_coordination_models",
+            Name = "list_coordination_models",
             CacheScope = CacheScope.Document,
         };
         Register(router, tool);
 
         // Each input shape should miss the cache the first time.
-        router.Route("get_coordination_models",
+        router.Route("list_coordination_models",
             new JObject { ["nameFilter"] = "campus", ["includeInstances"] = true, ["maxInstances"] = 100 });
-        router.Route("get_coordination_models",
+        router.Route("list_coordination_models",
             new JObject { ["nameFilter"] = "north", ["includeInstances"] = true, ["maxInstances"] = 100 });
-        router.Route("get_coordination_models",
+        router.Route("list_coordination_models",
             new JObject { ["nameFilter"] = "campus", ["includeInstances"] = false, ["maxInstances"] = 100 });
-        router.Route("get_coordination_models",
+        router.Route("list_coordination_models",
             new JObject { ["nameFilter"] = "campus", ["includeInstances"] = true, ["maxInstances"] = 25 });
 
         // Re-issuing the very first input should hit the cache (no extra Execute).
-        router.Route("get_coordination_models",
+        router.Route("list_coordination_models",
             new JObject { ["nameFilter"] = "campus", ["includeInstances"] = true, ["maxInstances"] = 100 });
 
         Assert.Equal(4, tool.ExecuteCallCount);
@@ -67,7 +71,11 @@ public class GetCoordinationModelsToolTests
     {
         var store = new SessionStore();
         var session = new CortexSession(store);
-        return new CortexRouter(session, new FakeAnalyzer());
+        // Explicit temp-file logger: without it this suite writes real entries
+        // to %LOCALAPPDATA%\RiveTT\audit.jsonl on every dotnet test run.
+        var auditPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+            "rc-audit-" + System.Guid.NewGuid().ToString("N") + ".jsonl");
+        return new CortexRouter(session, new FakeAnalyzer(), new AuditLogger(auditPath));
     }
 
     private static void Register(CortexRouter router, ICortexTool tool)
@@ -80,7 +88,7 @@ public class GetCoordinationModelsToolTests
 
     private class CachingCountingTool : ICortexTool, ICacheableTool
     {
-        public string Name { get; set; } = "get_coordination_models";
+        public string Name { get; set; } = "list_coordination_models";
         public string Category => "Test";
         public bool RequiresDocument => false;
         public bool IsDynamic => false;
@@ -165,7 +173,7 @@ public class GetCoordinationModelsToolTests
         }
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_coordination_models", payload, compact: true, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_coordination_models", payload, compact: true, summaryOnly: false);
 
         // Top-level counters preserved (safety contract).
         Assert.True(shaped["apiAvailable"]!.Value<bool>());
@@ -215,7 +223,7 @@ public class GetCoordinationModelsToolTests
         }
         """);
 
-        var shaped = ToolResponseShaper.Shape("get_coordination_models", payload, compact: false, summaryOnly: false);
+        var shaped = ToolResponseShaper.Shape("list_coordination_models", payload, compact: false, summaryOnly: false);
 
         // No shaping applied: verbose fields retained.
         Assert.Equal("Cloud", shaped["models"]![0]!["pathType"]!.Value<string>());

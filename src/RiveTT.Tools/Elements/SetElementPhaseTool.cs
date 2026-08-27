@@ -51,11 +51,7 @@ public class SetElementPhaseTool : ICortexTool
         {
             foreach (var req in requests)
             {
-#if REVIT2024_OR_GREATER
                 var elementId = new ElementId(req.ElementId);
-#else
-                var elementId = new ElementId((int)req.ElementId);
-#endif
                 var element = doc.GetElement(elementId);
                 if (element == null)
                 {
@@ -71,11 +67,7 @@ public class SetElementPhaseTool : ICortexTool
                 // Set created phase
                 if (req.CreatedPhaseId.HasValue)
                 {
-#if REVIT2024_OR_GREATER
                     var createdPhaseElemId = new ElementId(req.CreatedPhaseId.Value);
-#else
-                    var createdPhaseElemId = new ElementId((int)req.CreatedPhaseId.Value);
-#endif
                     if (!(doc.GetElement(createdPhaseElemId) is Phase))
                     {
                         results.Add(new { elementId = req.ElementId, success = false,
@@ -106,11 +98,7 @@ public class SetElementPhaseTool : ICortexTool
                 // Set demolished phase
                 if (req.DemolishedPhaseId.HasValue)
                 {
-#if REVIT2024_OR_GREATER
                     var demolishedPhaseElemId = new ElementId(req.DemolishedPhaseId.Value);
-#else
-                    var demolishedPhaseElemId = new ElementId((int)req.DemolishedPhaseId.Value);
-#endif
                     if (!(doc.GetElement(demolishedPhaseElemId) is Phase))
                     {
                         results.Add(new { elementId = req.ElementId, success = false,

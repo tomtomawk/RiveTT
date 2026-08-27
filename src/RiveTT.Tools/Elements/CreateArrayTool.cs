@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -21,7 +22,6 @@ public class CreateArrayTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates a linear or radial array of elements. By default builds a real associative Revit ArrayElement (a group with an editable count); set associative=false for loose independent copies.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -44,11 +44,7 @@ public class CreateArrayTool : ICortexTool
         {
             var sourceIds = elementIds.Select(id =>
             {
-#if REVIT2024_OR_GREATER
                 return new ElementId(id);
-#else
-                return new ElementId((int)id);
-#endif
             }).ToList();
 
             // Validate elements exist

@@ -15,10 +15,10 @@ public static class MetaTools
         return (await revit.ExecuteAsync("get_server_capabilities", new JObject(), ct)).ToString();
     }
 
-    [McpServerTool(Name = "say_hello"), Description("Test MCP connection to RiveTT. Displays a greeting in Revit.")]
+    [McpServerTool(Name = "ping_revit"), Description("Test MCP connection to RiveTT. Displays a greeting in Revit.")]
     public static async Task<string> SayHello(RevitConnectionManager revit, CancellationToken ct)
     {
-        var result = await revit.ExecuteAsync("say_hello", new JObject(), ct);
+        var result = await revit.ExecuteAsync("ping_revit", new JObject(), ct);
         return result.ToString();
     }
 

@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Annotations;
 
@@ -21,7 +22,6 @@ public class CreateDimensionsTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates linear dimension annotations between elementIds (2+) or startPoint/endPoint. (Radial/diameter/angular dimensions are not available: the Revit API exposes them only via the Family editor's FamilyItemFactory, not in a project document.)";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -82,11 +82,7 @@ public class CreateDimensionsTool : ICortexTool
         View? view;
         if (viewId > 0)
         {
-#if REVIT2024_OR_GREATER
             view = doc.GetElement(new ElementId(viewId)) as View;
-#else
-            view = doc.GetElement(new ElementId((int)viewId)) as View;
-#endif
         }
         else
         {
@@ -129,7 +125,7 @@ public class CreateDimensionsTool : ICortexTool
         // The single-pass version took `the first face with a Reference` on each element.
         // Between two walls 7000 mm apart that measured two arbitrary, often
         // perpendicular faces, and Revit answered with a degenerate segment — a constant
-        // -304.8 mm (-1 ft) per segment, identical whatever the real gap.
+        // -MmPerFoot mm (-1 ft) per segment, identical whatever the real gap.
         var resolved = new List<(long Id, Element Element, XYZ Centre)>();
         foreach (var idToken in elementIds)
         {
@@ -163,9 +159,23 @@ public class CreateDimensionsTool : ICortexTool
         var dir = span.Normalize();
 
         var refs = new ReferenceArray();
-        foreach (var (eid, elem, _) in resolved)
+        for (var i = 0; i < resolved.Count; i++)
         {
-            var reference = GetBestReference(elem, view, dir);
+            var (eid, elem, centre) = resolved[i];
+
+            // Direction toward the OTHER elements, computed per element — not the
+            // single shared `dir`. GetBestReference used to score by |dot|, which
+            // cannot tell "facing the other element" from "facing away from it":
+            // for two parallel walls this consistently kept picking the same
+            // relative side of each (e.g. both walls' "+X face"), which measures
+            // centre-to-centre instead of face-to-face. See P2.5 in
+            // PLAN_CORRECTION.md.
+            var othersCentre = resolved.Where((_, j) => j != i)
+                .Aggregate(XYZ.Zero, (acc, r) => acc + r.Centre) / (resolved.Count - 1);
+            var toOthers = othersCentre - centre;
+            var faceDirection = toOthers.GetLength() > 1e-9 ? toOthers.Normalize() : dir;
+
+            var reference = GetBestReference(elem, view, faceDirection);
             if (reference == null)
             {
                 warnings.Add($"Cannot find dimensionable reference for element {eid}");
@@ -190,7 +200,7 @@ public class CreateDimensionsTool : ICortexTool
         else
         {
             // Offset the dimension line clear of the elements. 2000 mm, converted once:
-            // the previous expression was 3.0 / 304.8 * 1000 with a comment claiming
+            // the previous expression was 3.0 / MmPerFoot * 1000 with a comment claiming
             // "3 feet offset", and actually produced 9.84 feet.
             var mid = (firstCenter + lastCenter) / 2.0;
             linePoint = mid + view.UpDirection * (2000.0 / MmPerFoot);
@@ -220,11 +230,7 @@ public class CreateDimensionsTool : ICortexTool
             var dimensionStyleId = spec["dimensionStyleId"]?.Value<long>() ?? -1;
             if (dimensionStyleId > 0)
             {
-#if REVIT2024_OR_GREATER
                 var styleElem = doc.GetElement(new ElementId(dimensionStyleId));
-#else
-                var styleElem = doc.GetElement(new ElementId((int)dimensionStyleId));
-#endif
                 if (styleElem is DimensionType dt)
                     dim.DimensionType = dt;
             }
@@ -277,7 +283,7 @@ public class CreateDimensionsTool : ICortexTool
             var linePointToken = spec["linePoint"];
             XYZ linePoint = linePointToken != null
                 ? ParseXYZ(linePointToken)
-                // 2000 mm, converted once. The old expression read 2.0 / 304.8 * 1000,
+                // 2000 mm, converted once. The old expression read 2.0 / MmPerFoot * 1000,
                 // which is 6.56 feet, not the 2 it looked like.
                 : (p0 + p1) / 2.0 + view.UpDirection * (2000.0 / MmPerFoot);
 
@@ -292,11 +298,7 @@ public class CreateDimensionsTool : ICortexTool
                 var dimensionStyleId = spec["dimensionStyleId"]?.Value<long>() ?? -1;
                 if (dimensionStyleId > 0)
                 {
-#if REVIT2024_OR_GREATER
                     var styleElem = doc.GetElement(new ElementId(dimensionStyleId));
-#else
-                    var styleElem = doc.GetElement(new ElementId((int)dimensionStyleId));
-#endif
                     if (styleElem is DimensionType dt)
                         dim.DimensionType = dt;
                 }
@@ -319,16 +321,21 @@ public class CreateDimensionsTool : ICortexTool
     }
 
     /// <summary>
-    /// The reference to dimension this element by, chosen for the direction being
-    /// measured: the planar face whose normal is most parallel to <paramref name="direction"/>.
+    /// The reference to dimension this element by: the planar face whose OUTWARD
+    /// normal points most toward <paramref name="direction"/> (the other
+    /// element(s) being dimensioned to).
     ///
-    /// A linear dimension only means something between faces that face each other. Taking
-    /// the first face the geometry iterator happens to yield gave two arbitrary,
-    /// frequently perpendicular faces, and Revit produced a degenerate segment — a
-    /// constant -1 ft whatever the real distance.
+    /// A linear dimension only means something between faces that face each
+    /// other. Taking the first face the geometry iterator happens to yield gave
+    /// two arbitrary, frequently perpendicular faces, and Revit produced a
+    /// degenerate segment — a constant -1 ft whatever the real distance.
     ///
-    /// A face perpendicular to the direction (|dot| near 0) is the worst possible pick and
-    /// is what the old code kept landing on; the best is |dot| near 1.
+    /// The score is the SIGNED dot product, not its absolute value: for a face
+    /// whose normal points AWAY from the other element (dot near -1), abs() rated
+    /// it as good as the correct near-side face (dot near +1), and ties broke on
+    /// geometry-iterator order — which, for two similarly-oriented walls, landed
+    /// on the SAME relative side of both, measuring centre-to-centre instead of
+    /// face-to-face. See P2.5 in PLAN_CORRECTION.md.
     /// </summary>
     private static Reference? GetBestReference(Element elem, View view, XYZ direction)
     {
@@ -351,7 +358,7 @@ public class CreateDimensionsTool : ICortexTool
                 // be dimensioned to reliably.
                 if (face is not PlanarFace planar) continue;
 
-                var score = Math.Abs(planar.FaceNormal.DotProduct(direction));
+                var score = planar.FaceNormal.DotProduct(direction);
                 if (score > bestScore)
                 {
                     bestScore = score;

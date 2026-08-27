@@ -47,7 +47,7 @@ public class ChangeElementTypeTool : ICortexTool
             if (targetTypeElemId == null || targetTypeElemId == ElementId.InvalidElementId)
                 return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                     $"Target type not found. targetTypeId={targetTypeId}, targetTypeName='{targetTypeName}', targetFamilyName='{targetFamilyName}'",
-                    suggestion: "Verify the type exists in the document using ai_element_filter with includeTypes=true");
+                    suggestion: "Verify the type exists in the document using filter_elements with includeTypes=true");
 
             var results = new List<object>();
             int successCount = 0;
@@ -63,11 +63,7 @@ public class ChangeElementTypeTool : ICortexTool
             {
                 foreach (var id in elementIds)
                 {
-#if REVIT2024_OR_GREATER
                     var elemId = new ElementId(id);
-#else
-                    var elemId = new ElementId((int)id);
-#endif
                     var element = doc.GetElement(elemId);
                     if (element == null)
                     {
@@ -133,11 +129,7 @@ public class ChangeElementTypeTool : ICortexTool
         // Priority 1: by explicit ElementId
         if (targetTypeId > 0)
         {
-#if REVIT2024_OR_GREATER
             var typeId = new ElementId(targetTypeId);
-#else
-            var typeId = new ElementId((int)targetTypeId);
-#endif
             if (doc.GetElement(typeId) != null)
                 return typeId;
         }

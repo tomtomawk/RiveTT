@@ -11,7 +11,7 @@
 | Caso | Tool | Note |
 |---|---|---|
 | 1 elemento, 1-3 parametri | `set_element_parameters` | |
-| N elementi, stesso parametro+valore | `bulk_modify_parameter_values` | dryRun obbligatorio |
+| N elementi, stesso parametro+valore | `batch_modify_parameter_values` | dryRun obbligatorio |
 | N elementi, parametri diversi per ognuno | `sync_csv_parameters` | righe con `elementId`; usare `parameterMap` per BuiltInParameter |
 | Copia parametri tra elementi | `match_element_properties` | sempre con `parameterNames` esplicito |
 
@@ -41,7 +41,7 @@ Per una sequenza preview → verifica → scrittura, preferire nell'ordine:
 ## Required checks
 
 - [ ] Nomi parametri verificati prima del bulk update.
-- [ ] `bulk_modify_parameter_values` con `dryRun: true` come prima call.
+- [ ] `batch_modify_parameter_values` con `dryRun: true` come prima call.
 - [ ] Dal dryRun lette solo `modifiedCount` e `skippedCount`.
 - [ ] Il conteggio `processed` corrisponde alla portée attesa.
 - [ ] Ogni preview contiene `mutated: false`.
@@ -49,7 +49,7 @@ Per una sequenza preview → verifica → scrittura, preferire nell'ordine:
 
 ## Avoid
 
-- Non chiamare `set_element_parameters` in loop per N elementi: usare `bulk` o `sync_csv`.
+- Non chiamare `set_element_parameters` in loop per N elementi: usare `batch_modify_parameter_values` o `sync_csv_parameters`.
 - Non assumere nomi parametri custom.
-- Non eseguire `bulk_modify_parameter_values` senza dryRun.
+- Non eseguire `batch_modify_parameter_values` senza dryRun.
 - Non leggere l'intera lista elementi dal dryRun.

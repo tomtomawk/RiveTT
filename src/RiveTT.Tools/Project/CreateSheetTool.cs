@@ -47,11 +47,7 @@ public class CreateSheetTool : ICortexTool
 
             if (titleBlockTypeId > 0)
             {
-#if REVIT2024_OR_GREATER
                 var elem = doc.GetElement(new ElementId(titleBlockTypeId));
-#else
-                var elem = doc.GetElement(new ElementId((int)titleBlockTypeId));
-#endif
                 if (elem is FamilySymbol symbolCandidate &&
                     symbolCandidate.Category?.Id == new ElementId(BuiltInCategory.OST_TitleBlocks))
                 {
@@ -103,14 +99,12 @@ public class CreateSheetTool : ICortexTool
                 if (byTypeName != null) tbId = byTypeName.Id;
             }
 
-            if (tbId == ElementId.InvalidElementId)
-            {
-                var first = new FilteredElementCollector(doc)
-                    .OfCategory(BuiltInCategory.OST_TitleBlocks)
-                    .OfClass(typeof(FamilySymbol))
-                    .FirstOrDefault();
-                if (first != null) tbId = first.Id;
-            }
+            // No titleBlockId/family/type name given: leave tbId unresolved and let
+            // ViewSheet.Create(doc, InvalidElementId) produce the bare 210x297 mm
+            // sheet the description promises. Silently picking "the first title
+            // block found" here is exactly the surprise fallback this tool's own
+            // description says it never does for an unusable id — see P1.3 in
+            // PLAN_CORRECTION.md.
 
             var resolvedTitleBlock = tbId == ElementId.InvalidElementId
                 ? null
@@ -118,11 +112,15 @@ public class CreateSheetTool : ICortexTool
 
             if (dryRun)
             {
+                var availableTitleBlocks = ListTitleBlocks(doc);
                 return CortexResult<object>.Ok(new
                 {
-                    message = resolvedTitleBlock == null
-                        ? "DryRun: sheet would be created WITHOUT a title block (none available in this document)."
-                        : $"DryRun: sheet would be created with title block '{resolvedTitleBlock.FamilyName} / {resolvedTitleBlock.Name}'.",
+                    message = resolvedTitleBlock != null
+                        ? $"DryRun: sheet would be created with title block '{resolvedTitleBlock.FamilyName} / {resolvedTitleBlock.Name}'."
+                        : availableTitleBlocks.Count == 0
+                            ? "DryRun: sheet would be created WITHOUT a title block (none available in this document)."
+                            : "DryRun: sheet would be created WITHOUT a title block (none was requested). Pass " +
+                              "titleBlockId, titleBlockFamilyName, or titleBlockTypeName to use one.",
                     sheetNumber,
                     sheetName,
                     titleBlockId = tbId == ElementId.InvalidElementId
@@ -131,7 +129,7 @@ public class CreateSheetTool : ICortexTool
                     titleBlockFamily = resolvedTitleBlock?.FamilyName,
                     titleBlockType = resolvedTitleBlock?.Name,
                     hasTitleBlock = resolvedTitleBlock != null,
-                    availableTitleBlocks = ListTitleBlocks(doc)
+                    availableTitleBlocks
                 });
             }
 
@@ -198,11 +196,7 @@ public class CreateSheetTool : ICortexTool
 
     private static string DescribeElement(Document doc, long rawId)
     {
-#if REVIT2024_OR_GREATER
         var element = doc.GetElement(new ElementId(rawId));
-#else
-        var element = doc.GetElement(new ElementId((int)rawId));
-#endif
         if (element == null) return "no element with this id";
         return $"{element.GetType().Name} '{element.Name}' (category {element.Category?.Name ?? "none"})";
     }

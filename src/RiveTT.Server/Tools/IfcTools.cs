@@ -259,7 +259,7 @@ public static class IfcTools
     public static async Task<string> IfcRebuildOpenings(
         RevitConnectionManager revit,
         [Description("Element IDs of opening DirectShapes")] long[] elementIds,
-        [Description("Element IDs of host walls/floors where openings should be cut. JSON array, e.g. [1,2]")] string? hostElementIds = null,
+        [Description("Element IDs of host walls/floors where openings should be cut. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? hostElementIds = null,
         [Description("Preview without cutting. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {

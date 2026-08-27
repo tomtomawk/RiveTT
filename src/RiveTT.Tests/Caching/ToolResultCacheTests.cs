@@ -16,7 +16,7 @@ public class ToolResultCacheTests
     {
         var cache = new ToolResultCache();
 
-        var hit = cache.TryGet("get_phases", "abc", CacheScope.Document, 1, out var result);
+        var hit = cache.TryGet("list_phases", "abc", CacheScope.Document, 1, out var result);
 
         Assert.False(hit);
         Assert.Null(result);
@@ -28,8 +28,8 @@ public class ToolResultCacheTests
         var cache = new ToolResultCache();
         var stored = Ok("phase-list-v1");
 
-        cache.Set("get_phases", "abc", CacheScope.Document, 5, stored);
-        var hit = cache.TryGet("get_phases", "abc", CacheScope.Document, 5, out var result);
+        cache.Set("list_phases", "abc", CacheScope.Document, 5, stored);
+        var hit = cache.TryGet("list_phases", "abc", CacheScope.Document, 5, out var result);
 
         Assert.True(hit);
         Assert.Same(stored, result);
@@ -39,9 +39,9 @@ public class ToolResultCacheTests
     public void TryGet_DocumentScope_StaleVersion_ReturnsFalse()
     {
         var cache = new ToolResultCache();
-        cache.Set("get_phases", "abc", CacheScope.Document, 5, Ok("v1"));
+        cache.Set("list_phases", "abc", CacheScope.Document, 5, Ok("v1"));
 
-        var hit = cache.TryGet("get_phases", "abc", CacheScope.Document, 6, out _);
+        var hit = cache.TryGet("list_phases", "abc", CacheScope.Document, 6, out _);
 
         Assert.False(hit);
     }
@@ -62,9 +62,9 @@ public class ToolResultCacheTests
     public void TryGet_DifferentParamHash_ReturnsFalse()
     {
         var cache = new ToolResultCache();
-        cache.Set("get_phases", "abc", CacheScope.Document, 1, Ok("v1"));
+        cache.Set("list_phases", "abc", CacheScope.Document, 1, Ok("v1"));
 
-        var hit = cache.TryGet("get_phases", "xyz", CacheScope.Document, 1, out _);
+        var hit = cache.TryGet("list_phases", "xyz", CacheScope.Document, 1, out _);
 
         Assert.False(hit);
     }
@@ -73,10 +73,10 @@ public class ToolResultCacheTests
     public void TryGet_DifferentScopeFromStored_ReturnsFalse()
     {
         var cache = new ToolResultCache();
-        cache.Set("get_phases", "abc", CacheScope.Document, 1, Ok("v1"));
+        cache.Set("list_phases", "abc", CacheScope.Document, 1, Ok("v1"));
 
         // Caller asks for Session, stored as Document → must miss
-        var hit = cache.TryGet("get_phases", "abc", CacheScope.Session, 1, out _);
+        var hit = cache.TryGet("list_phases", "abc", CacheScope.Session, 1, out _);
 
         Assert.False(hit);
     }
@@ -85,15 +85,15 @@ public class ToolResultCacheTests
     public void InvalidateScope_Document_RemovesDocumentEntries_KeepsSession()
     {
         var cache = new ToolResultCache();
-        cache.Set("get_phases", "k", CacheScope.Document, 1, Ok("doc"));
+        cache.Set("list_phases", "k", CacheScope.Document, 1, Ok("doc"));
         cache.Set("get_project_info", "k", CacheScope.Session, 1, Ok("session"));
-        cache.Set("get_warnings", "k", CacheScope.Transaction, 1, Ok("tx"));
+        cache.Set("list_warnings", "k", CacheScope.Transaction, 1, Ok("tx"));
 
         cache.InvalidateScope(CacheScope.Document);
 
-        Assert.False(cache.TryGet("get_phases", "k", CacheScope.Document, 1, out _));
+        Assert.False(cache.TryGet("list_phases", "k", CacheScope.Document, 1, out _));
         Assert.True(cache.TryGet("get_project_info", "k", CacheScope.Session, 1, out _));
-        Assert.True(cache.TryGet("get_warnings", "k", CacheScope.Transaction, 1, out _));
+        Assert.True(cache.TryGet("list_warnings", "k", CacheScope.Transaction, 1, out _));
     }
 
     [Fact]
@@ -130,25 +130,25 @@ public class ToolResultCacheTests
     public void GetStats_ReportsHitsMissesAndPerToolCounts()
     {
         var cache = new ToolResultCache();
-        cache.Set("get_phases", "k", CacheScope.Document, 1, Ok("v"));
+        cache.Set("list_phases", "k", CacheScope.Document, 1, Ok("v"));
 
         // 2 hits
-        cache.TryGet("get_phases", "k", CacheScope.Document, 1, out _);
-        cache.TryGet("get_phases", "k", CacheScope.Document, 1, out _);
+        cache.TryGet("list_phases", "k", CacheScope.Document, 1, out _);
+        cache.TryGet("list_phases", "k", CacheScope.Document, 1, out _);
         // 1 miss
-        cache.TryGet("get_phases", "missing", CacheScope.Document, 1, out _);
+        cache.TryGet("list_phases", "missing", CacheScope.Document, 1, out _);
         // 1 miss on different tool
-        cache.TryGet("get_warnings", "k", CacheScope.Document, 1, out _);
+        cache.TryGet("list_warnings", "k", CacheScope.Document, 1, out _);
 
         var stats = cache.GetStats();
 
         Assert.Equal(1, stats.EntryCount);
         Assert.Equal(2, stats.TotalHits);
         Assert.Equal(2, stats.TotalMisses);
-        Assert.True(stats.PerTool.ContainsKey("get_phases"));
-        Assert.Equal(2, stats.PerTool["get_phases"].Hits);
-        Assert.Equal(1, stats.PerTool["get_phases"].Misses);
-        Assert.Equal(1, stats.PerTool["get_phases"].Entries);
+        Assert.True(stats.PerTool.ContainsKey("list_phases"));
+        Assert.Equal(2, stats.PerTool["list_phases"].Hits);
+        Assert.Equal(1, stats.PerTool["list_phases"].Misses);
+        Assert.Equal(1, stats.PerTool["list_phases"].Entries);
     }
 
     [Fact]

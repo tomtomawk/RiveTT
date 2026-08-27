@@ -31,11 +31,7 @@ public class GetCurrentViewInfoTool : ICortexTool
 
             return CortexResult<object>.Ok(new
             {
-#if REVIT2024_OR_GREATER
                 id = activeView.Id.Value,
-#else
-                id = (long)activeView.Id.IntegerValue,
-#endif
                 uniqueId    = activeView.UniqueId,
                 name        = activeView.Name,
                 viewType    = activeView.ViewType.ToString(),

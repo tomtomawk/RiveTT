@@ -12,23 +12,26 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.Elements;
 
 /// <summary>
-/// Performs UI operations on elements: select, selectionbox, setcolor, settransparency,
-/// hide, temphide, isolate, unhide, resetisolate, delete.
+/// Performs view-display operations on elements: select, selectionbox, setcolor,
+/// settransparency, hide, temphide, isolate, unhide, resetisolate. Renamed from
+/// operate_element and stripped of its "delete" action, which duplicated delete_element —
+/// every other action here is view/graphic state, not a model edit, so removing the one
+/// destructive action removed the only reason this tool needed [ToolSafety] destructive=true.
 /// Input uses a "data" wrapper to match the fork's OperateElementEventHandler schema.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, false)]
 public class OperateElementTool : ICortexTool
 {
-    public string Name => "operate_element";
+    public string Name => "manage_view_display";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Performs UI operations on elements: select, selectionbox, setcolor, settransparency, hide, temphide, isolate, unhide, resetisolate, delete. Input uses a \"data\" wrapper to match the fork's OperateElementEventHandler schema.";
+    public string Description => "Performs view-display operations on elements: select, selectionbox, setcolor, settransparency, hide, temphide, isolate, unhide, resetisolate. To delete elements use delete_element. Input uses a \"data\" wrapper to match the fork's OperateElementEventHandler schema.";
     // Supported action names (lowercase canonical form)
     private static readonly HashSet<string> KnownActions = new(StringComparer.OrdinalIgnoreCase)
     {
         "select", "selectionbox", "setcolor", "settransparency",
-        "hide", "temphide", "isolate", "unhide", "resetisolate", "delete"
+        "hide", "temphide", "isolate", "unhide", "resetisolate"
     };
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
@@ -68,25 +71,29 @@ public class OperateElementTool : ICortexTool
                 "elementIds is required for this action (use an array of element ID numbers)");
 
         // Build ElementId collection
-#if REVIT2024_OR_GREATER
         ICollection<ElementId> elementIds = rawIds.Select(id => new ElementId(id)).ToList();
-#else
-        ICollection<ElementId> elementIds = rawIds.Select(id => new ElementId((int)id)).ToList();
-#endif
 
-        // H31: 'delete' is destructive — validate IDs and confirm before dispatching.
-        if (string.Equals(action, "delete", StringComparison.OrdinalIgnoreCase))
+        // A single stale/invalid id must not abort a batch covering many valid
+        // ones: View.HideElements/UnhideElements/IsolateElementsTemporary and
+        // Selection.SetElementIds all throw on the FIRST unresolvable id,
+        // taking the whole action down with it. Drop what doesn't resolve and
+        // report it, the same contract delete_element already has — see P2.1
+        // in PLAN_CORRECTION.md.
+        var requestedCount = elementIds.Count;
+        var skippedIds = new List<long>();
+        if (!isResetIsolate)
         {
-            // Drop IDs that no longer resolve to an element, so doc.Delete never
-            // throws on a stale/invalid ID and the caller sees an accurate count.
-            elementIds = elementIds.Where(id => doc.GetElement(id) != null).ToList();
+            var valid = new List<ElementId>();
+            foreach (var id in elementIds)
+            {
+                if (doc.GetElement(id) != null) valid.Add(id);
+                else skippedIds.Add(ToolHelpers.GetElementIdValue(id));
+            }
+            elementIds = valid;
+
             if (elementIds.Count == 0)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                     "None of the supplied elementIds exist in the active document");
-
-            if (!session.RequestConfirmation("delete", elementIds.Count))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled,
-                    "Operation cancelled by user");
         }
 
         // UIDocument for UI operations
@@ -99,7 +106,9 @@ public class OperateElementTool : ICortexTool
             {
                 message     = resultMessage,
                 action,
-                elementCount = elementIds.Count
+                elementCount = elementIds.Count,
+                requestedCount,
+                skippedIds
             });
         }
         catch (TransactionRolledBackException trbe)
@@ -226,29 +235,6 @@ public class OperateElementTool : ICortexTool
                         throw new TransactionRolledBackException(TransactionFailureHandling.Describe(txFailures));
                 }
                 return "Isolation reset on active view";
-
-            case "delete":
-                using (var tx = new Transaction(doc, "RiveTT: Delete Elements"))
-                {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
-                    tx.Start();
-                    try
-                    {
-                        var deleted = doc.Delete(elementIds);
-                        if (tx.Commit() != TransactionStatus.Committed)
-                            throw new TransactionRolledBackException(TransactionFailureHandling.Describe(txFailures));
-                        var dependent = deleted.Count - elementIds.Count;
-                        return dependent > 0
-                            ? $"Deleted {deleted.Count} element(s) ({elementIds.Count} requested + {dependent} dependent)"
-                            : $"Deleted {deleted.Count} element(s)";
-                    }
-                    catch
-                    {
-                        if (tx.GetStatus() == TransactionStatus.Started)
-                            tx.RollBack();
-                        throw;
-                    }
-                }
 
             default:
                 throw new InvalidOperationException($"Unhandled action: {action}");

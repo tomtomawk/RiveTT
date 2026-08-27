@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.LinkedFiles;
 
@@ -23,8 +24,6 @@ public class HighlightLinkedElementTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => true;
     public string Description => "Highlights an element inside a linked model: selects the link instance, creates a section box around the target element, and zooms to it.";
-
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -44,11 +43,7 @@ public class HighlightLinkedElementTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var element = doc.GetElement(new ElementId(instanceId));
-#else
-            var element = doc.GetElement(new ElementId((int)instanceId));
-#endif
             var linkInstance = element as RevitLinkInstance;
             if (linkInstance == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
@@ -60,11 +55,7 @@ public class HighlightLinkedElementTool : ICortexTool
                     "Linked document is not loaded");
 
             // Find the element in the linked document
-#if REVIT2024_OR_GREATER
             var linkedElement = linkDoc.GetElement(new ElementId(linkedElementId));
-#else
-            var linkedElement = linkDoc.GetElement(new ElementId((int)linkedElementId));
-#endif
             if (linkedElement == null)
                 return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
                     $"Element {linkedElementId} not found in linked document");

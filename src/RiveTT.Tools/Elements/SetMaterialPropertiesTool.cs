@@ -52,11 +52,7 @@ public class SetMaterialPropertiesTool : ICortexTool
                 foreach (var req in requests)
                 {
                     var materialId = req["materialId"]?.Value<long>() ?? 0;
-#if REVIT2024_OR_GREATER
                     var mat = doc.GetElement(new ElementId(materialId)) as Material;
-#else
-                    var mat = doc.GetElement(new ElementId((int)materialId)) as Material;
-#endif
                     if (mat == null)
                     {
                         results.Add(new { materialId, success = false, reason = "Material not found" });
@@ -132,11 +128,7 @@ public class SetMaterialPropertiesTool : ICortexTool
                 foreach (var req in requests)
                 {
                     var materialId = req["materialId"]?.Value<long>() ?? 0;
-#if REVIT2024_OR_GREATER
                     var mat = doc.GetElement(new ElementId(materialId)) as Material;
-#else
-                    var mat = doc.GetElement(new ElementId((int)materialId)) as Material;
-#endif
                     results.Add(mat != null
                         ? new { materialId, name = mat.Name, success = true, changedProperties = (object?)null }
                         : (object)new { materialId, success = false, reason = "Material not found", changedProperties = (object?)null });
@@ -169,11 +161,7 @@ public class SetMaterialPropertiesTool : ICortexTool
                 changes.Add($"{key}=cleared");
                 return;
             }
-#if REVIT2024_OR_GREATER
             var assetId = new ElementId(idVal.Value);
-#else
-            var assetId = new ElementId((int)idVal.Value);
-#endif
             var el = doc.GetElement(assetId);
             if (el == null || !expectedType.IsInstanceOfType(el))
             {

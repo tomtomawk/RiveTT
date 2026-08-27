@@ -6,13 +6,16 @@ using Autodesk.Revit.DB;
 namespace RiveTT.Tools.Utilities;
 
 /// <summary>
-/// The one clash-detection pass, shared by clash_detection and workflow_clash_review.
+/// The one clash-detection pass, shared by detect_clashes and show_clashes (renamed from
+/// clash_detection / workflow_clash_review — R1/§6: kept as two tools because one is
+/// read-only and the other writes a review view, a distinction the ribbon write-lock cannot
+/// express on a single tool).
 ///
-/// The two used to disagree: clash_detection confirmed every bounding-box candidate with
-/// ElementIntersectsElementFilter, while workflow_clash_review stopped at the boxes. The
-/// composed tool therefore reported MORE clashes than the plain one on the same model —
-/// an L-shaped beam whose box overlaps a duct but whose solid does not counted as a hit,
-/// and the reviewer opened a 3D view on nothing. Same pass, same answer, one place.
+/// The two used to disagree: detect_clashes confirmed every bounding-box candidate with
+/// ElementIntersectsElementFilter, while show_clashes stopped at the boxes. The review tool
+/// therefore reported MORE clashes than the plain one on the same model — an L-shaped beam
+/// whose box overlaps a duct but whose solid does not counted as a hit, and the reviewer
+/// opened a 3D view on nothing. Same pass, same answer, one place.
 ///
 /// The bounding-box test stays as a pre-filter: it is cheap and narrows the candidate set
 /// before the expensive solid test. Only its role as the FINAL answer was wrong.

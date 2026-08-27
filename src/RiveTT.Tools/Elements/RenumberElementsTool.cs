@@ -99,11 +99,7 @@ public class RenumberElementsTool : ICortexTool
 
                     renumberResults.Add(new
                     {
-#if REVIT2024_OR_GREATER
                         id = elem.Id.Value,
-#else
-                        id = elem.Id.IntegerValue,
-#endif
                         oldValue,
                         newValue,
                         success,
@@ -240,10 +236,6 @@ public class RenumberElementsTool : ICortexTool
 
     private static ElementId ToElementId(long id)
     {
-#if REVIT2024_OR_GREATER
         return new ElementId(id);
-#else
-        return new ElementId((int)id);
-#endif
     }
 }

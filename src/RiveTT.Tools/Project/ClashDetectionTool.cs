@@ -7,21 +7,26 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Project;
 
 /// <summary>
-/// Detects geometric intersections (clashes) between two sets of elements.
+/// Detects geometric intersections (clashes) between two sets of elements. Renamed from
+/// clash_detection (R1: verb first). Kept separate from show_clashes, its
+/// section-boxed-review counterpart, on purpose: that tool creates a view (a model write)
+/// and is classified accordingly, while this one stays read-only — merging the two would
+/// give one tool two different [ToolSafety] answers depending on a parameter, which the
+/// ribbon write-lock cannot express (it gates per tool, not per call).
 /// </summary>
 [ToolSafety(true, false)]
 public class ClashDetectionTool : ICortexTool
 {
-    public string Name => "clash_detection";
+    public string Name => "detect_clashes";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Detects geometric intersections (clashes) between two sets of elements. Uses true solid-geometry intersection by default (bounding-box pre-filter + ElementIntersectsElementFilter); set useSolidGeometry=false for a faster bbox-only approximation.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -46,11 +51,7 @@ public class ClashDetectionTool : ICortexTool
             {
                 setA = elementIdsA.Select(id =>
                 {
-#if REVIT2024_OR_GREATER
                     return doc.GetElement(new ElementId(id));
-#else
-                    return doc.GetElement(new ElementId((int)id));
-#endif
                 }).Where(e => e != null).ToList()!;
             }
             else if (!string.IsNullOrEmpty(categoryA))
@@ -69,11 +70,7 @@ public class ClashDetectionTool : ICortexTool
             {
                 setB = elementIdsB.Select(id =>
                 {
-#if REVIT2024_OR_GREATER
                     return doc.GetElement(new ElementId(id));
-#else
-                    return doc.GetElement(new ElementId((int)id));
-#endif
                 }).Where(e => e != null).ToList()!;
             }
             else if (!string.IsNullOrEmpty(categoryB))
@@ -86,7 +83,7 @@ public class ClashDetectionTool : ICortexTool
                 return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "categoryB or elementIdsB required");
             }
 
-            // The detection pass itself lives in ClashFinder so workflow_clash_review runs
+            // The detection pass itself lives in ClashFinder so show_clashes runs
             // exactly this one and cannot drift back to a bbox-only answer.
             var found = ClashFinder.Find(
                 doc, setA, setB, toleranceMm / MmPerFoot, maxResults, useSolidGeometry);

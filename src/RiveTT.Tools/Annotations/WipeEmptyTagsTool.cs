@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Annotations;
 [ToolSafety(false, true)]
 public class WipeEmptyTagsTool : ICortexTool
 {
-    public string Name => "wipe_empty_tags";
+    public string Name => "delete_empty_tags";
     public string Category => "Annotations";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
@@ -47,11 +47,7 @@ public class WipeEmptyTagsTool : ICortexTool
             FilteredElementCollector collector;
             if (viewId.HasValue && viewId.Value > 0)
             {
-#if REVIT2024_OR_GREATER
                 collector = new FilteredElementCollector(doc, new ElementId(viewId.Value));
-#else
-                collector = new FilteredElementCollector(doc, new ElementId((int)viewId.Value));
-#endif
             }
             else
             {
@@ -83,7 +79,6 @@ public class WipeEmptyTagsTool : ICortexTool
                 try
                 {
                     // Check if tag references a valid element
-#if REVIT2024_OR_GREATER
                     var taggedIds = tag.GetTaggedElementIds();
                     if (!taggedIds.Any())
                     {
@@ -103,14 +98,6 @@ public class WipeEmptyTagsTool : ICortexTool
                             }
                         }
                     }
-#else
-                    var taggedElems = tag.GetTaggedLocalElements();
-                    if (taggedElems == null || taggedElems.Count == 0)
-                    {
-                        isEmpty = true;
-                        reason = "Tagged element not found";
-                    }
-#endif
 
                     // Check if tag text is empty
                     if (!isEmpty)
@@ -149,11 +136,7 @@ public class WipeEmptyTagsTool : ICortexTool
                 {
                     try
                     {
-#if REVIT2024_OR_GREATER
                         doc.Delete(new ElementId((long)t.id));
-#else
-                        doc.Delete(new ElementId((int)t.id));
-#endif
                         deleted++;
                     }
                     catch (Exception ex) { failures.Add(new { id = t.id, reason = ex.Message }); }

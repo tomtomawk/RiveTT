@@ -213,11 +213,7 @@ public class ManagePhaseFiltersTool : ICortexTool
         var collector = new FilteredElementCollector(doc).OfClass(typeof(PhaseFilter)).Cast<PhaseFilter>();
         if (id != null && id != 0)
         {
-#if REVIT2024_OR_GREATER
             var target = new ElementId((long)id);
-#else
-            var target = new ElementId((int)id);
-#endif
             var byId = collector.FirstOrDefault(f => f.Id.Equals(target));
             if (byId != null) return byId;
         }
@@ -247,10 +243,6 @@ public class ManagePhaseFiltersTool : ICortexTool
 
     private static long GetElementIdLong(ElementId id)
     {
-#if REVIT2024_OR_GREATER
         return id.Value;
-#else
-        return id.IntegerValue;
-#endif
     }
 }

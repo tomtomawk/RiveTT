@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -24,7 +25,6 @@ public class CreatePointBasedElementTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates one or more point-based family instances (furniture, doors, windows, columns, etc.). Mirrors the fork's CreatePointElementEventHandler logic, including wall-hosted placement, door/window facing auto-detection, and rotation support.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -134,20 +134,12 @@ public class CreatePointBasedElementTool : ICortexTool
         FamilySymbol? symbol = null;
         if (requestedTypeId > 0)
         {
-#if REVIT2024_OR_GREATER
             var typeElemId = new ElementId(requestedTypeId);
-#else
-            var typeElemId = new ElementId((int)requestedTypeId);
-#endif
             var typeElem = doc.GetElement(typeElemId);
             if (typeElem is FamilySymbol fs)
             {
                 symbol = fs;
-#if REVIT2024_OR_GREATER
                 builtInCategory = (BuiltInCategory)symbol.Category.Id.Value;
-#else
-                builtInCategory = (BuiltInCategory)symbol.Category.Id.IntegerValue;
-#endif
             }
         }
 

@@ -88,11 +88,7 @@ public class ImportFromExcelTool : ICortexTool
                     var idStr = ws.Cell(row, idColIndex + 1).GetString();
                     if (!long.TryParse(idStr, out var elemId)) { skipped++; continue; }
 
-#if REVIT2024_OR_GREATER
                     var elem = doc.GetElement(new ElementId(elemId));
-#else
-                    var elem = doc.GetElement(new ElementId((int)elemId));
-#endif
                     if (elem == null) { skipped++; continue; }
 
                     int setCount = 0;
@@ -139,11 +135,7 @@ public class ImportFromExcelTool : ICortexTool
                     var idStr = ws.Cell(row, idColIndex + 1).GetString();
                     if (!long.TryParse(idStr, out var elemId)) { skipped++; continue; }
 
-#if REVIT2024_OR_GREATER
                     var elem = doc.GetElement(new ElementId(elemId));
-#else
-                    var elem = doc.GetElement(new ElementId((int)elemId));
-#endif
                     if (elem == null) { skipped++; continue; }
 
                     var matchCount = paramColumns.Count(pc => elem.LookupParameter(pc.Name) != null);

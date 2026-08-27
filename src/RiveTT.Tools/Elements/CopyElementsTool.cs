@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -59,7 +60,7 @@ public class CopyElementsTool : ICortexTool
                 "No active document in session");
 
         // MM → internal units (feet)
-        var translation = new XYZ(offsetX / 304.8, offsetY / 304.8, offsetZ / 304.8);
+        var translation = new XYZ(offsetX / MmPerFoot, offsetY / MmPerFoot, offsetZ / MmPerFoot);
         var transform = Transform.CreateTranslation(translation);
 
         var ids = rawIds.Select(ToElementId).ToList();
@@ -192,11 +193,7 @@ public class CopyElementsTool : ICortexTool
                 var elem = doc.GetElement(id);
                 return (object)new
                 {
-#if REVIT2024_OR_GREATER
                     id = id.Value,
-#else
-                    id = id.IntegerValue,
-#endif
                     name = elem?.Name ?? "",
                     category = elem?.Category?.Name ?? ""
                 };
@@ -218,10 +215,6 @@ public class CopyElementsTool : ICortexTool
 
     private static ElementId ToElementId(long id)
     {
-#if REVIT2024_OR_GREATER
         return new ElementId(id);
-#else
-        return new ElementId((int)id);
-#endif
     }
 }

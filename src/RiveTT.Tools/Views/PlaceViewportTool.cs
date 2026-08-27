@@ -6,6 +6,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Views;
 
@@ -21,7 +22,6 @@ public class PlaceViewportTool : ICortexTool
     public bool IsDynamic => false;
     public string Description =>
         "Places a view on a sheet. positionX/positionY are the viewport CENTRE in mm, measured in sheet coordinates; omit both to centre it on the sheet. The response reports the sheet size, the viewport's real outline and fitsOnSheet: an UNCROPPED view produces a viewport far larger than the sheet, and its content then lands outside the frame. Crop the view first — at 1:100 a 16 x 13.5 m crop is 160 x 135 mm on paper.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -44,17 +44,10 @@ public class PlaceViewportTool : ICortexTool
 
         try
         {
-#if REVIT2024_OR_GREATER
             var sheet = doc.GetElement(new ElementId(sheetId)) as ViewSheet;
             var view = doc.GetElement(new ElementId(viewId)) as View;
             var viewEid = new ElementId(viewId);
             var sheetEid = new ElementId(sheetId);
-#else
-            var sheet = doc.GetElement(new ElementId((int)sheetId)) as ViewSheet;
-            var view = doc.GetElement(new ElementId((int)viewId)) as View;
-            var viewEid = new ElementId((int)viewId);
-            var sheetEid = new ElementId((int)sheetId);
-#endif
             if (sheet == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Sheet not found");
             if (view == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View not found");
 

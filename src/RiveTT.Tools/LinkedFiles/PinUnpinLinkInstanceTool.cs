@@ -49,11 +49,7 @@ public class PinUnpinLinkInstanceTool : ICortexTool
 
             foreach (var id in instanceIds)
             {
-#if REVIT2024_OR_GREATER
                 var element = doc.GetElement(new ElementId(id));
-#else
-                var element = doc.GetElement(new ElementId((int)id));
-#endif
                 var linkInstance = element as RevitLinkInstance;
                 if (linkInstance == null)
                 {

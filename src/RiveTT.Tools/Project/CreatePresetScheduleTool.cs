@@ -66,12 +66,17 @@ public class CreatePresetScheduleTool : ICortexTool
                     break;
                 }
                 case "sheet_list":
-                    schedule = ViewSchedule.CreateSchedule(doc, new ElementId(BuiltInCategory.OST_Sheets));
+                    // OST_Sheets is not a valid category for the regular
+                    // CreateSchedule factory — Revit exposes it as a dedicated
+                    // schedule type. See P1.1 in PLAN_CORRECTION.md.
+                    schedule = ViewSchedule.CreateSheetList(doc);
                     schedule.Name = name ?? "Sheet List";
                     AddFieldsIfExist(schedule, "Sheet Number", "Sheet Name", "Drawn By", "Checked By", "Current Revision");
                     break;
                 case "view_list":
-                    schedule = ViewSchedule.CreateSchedule(doc, new ElementId(BuiltInCategory.OST_Views));
+                    // Same as sheet_list: OST_Views is not schedulable through
+                    // CreateSchedule either. See P1.1 in PLAN_CORRECTION.md.
+                    schedule = ViewSchedule.CreateViewList(doc);
                     schedule.Name = name ?? "View List";
                     AddFieldsIfExist(schedule, "View Name", "View Type", "View Scale", "Sheet Number", "Sheet Name");
                     break;
@@ -80,6 +85,20 @@ public class CreatePresetScheduleTool : ICortexTool
                     return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                         $"Unknown preset: {preset}",
                         suggestion: "Use: door_by_room, window_by_room, room_finish, material_takeoff, sheet_list, view_list");
+            }
+
+            // A schedule with zero fields is worse than a refusal: the caller
+            // believes it has a usable schedule id. See P1.1 in
+            // PLAN_CORRECTION.md ("material_takeoff produit une nomenclature
+            // vide, ce qui est pire qu'un refus").
+            if (schedule.Definition.GetFieldCount() == 0)
+            {
+                tx.RollBack();
+                return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                    $"Preset '{preset}' resolved to a schedule with zero fields — none of its expected fields " +
+                    "were schedulable in this document. Nothing was created.",
+                    suggestion: "Use create_schedule directly and pick fields from " +
+                                "list_schedulable_fields for this category.");
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
@@ -109,6 +128,10 @@ public class CreatePresetScheduleTool : ICortexTool
 
     private static void AddFieldsIfExist(ViewSchedule schedule, params string[] fieldNames)
     {
+        // A freshly created schedule (material takeoff especially) can report
+        // no schedulable fields until the document regenerates — see P1.1 in
+        // PLAN_CORRECTION.md (material_takeoff created with fieldCount: 0).
+        schedule.Document.Regenerate();
         var schedulableFields = schedule.Definition.GetSchedulableFields();
         foreach (var fieldName in fieldNames)
         {

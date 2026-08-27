@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using RiveTT.Server.Connection;
 using RiveTT.Server.Tools;
@@ -37,7 +38,9 @@ namespace RiveTT.Tests.Server
             Assert.Collection(
                 parameters.Select(p => p.Name),
                 name => Assert.Equal("revit", name),
+                name => Assert.Equal("pageSize", name),
                 name => Assert.Equal("limit", name),
+                name => Assert.Equal("cursor", name),
                 name => Assert.Equal("modelCategoryList", name),
                 name => Assert.Equal("annotationCategoryList", name),
                 name => Assert.Equal("categoryFilter", name),
@@ -45,11 +48,13 @@ namespace RiveTT.Tests.Server
                 name => Assert.Equal("ct", name));
 
             Assert.Equal(typeof(RevitConnectionManager), GetParameter(method, "revit").ParameterType);
+            Assert.Equal(typeof(int?), GetParameter(method, "pageSize").ParameterType);
             Assert.Equal(typeof(int?), GetParameter(method, "limit").ParameterType);
-            Assert.Equal(typeof(string), GetParameter(method, "modelCategoryList").ParameterType);
-            Assert.Equal(typeof(string), GetParameter(method, "annotationCategoryList").ParameterType);
+            Assert.Equal(typeof(string), GetParameter(method, "cursor").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "modelCategoryList").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "annotationCategoryList").ParameterType);
             Assert.Equal(typeof(string), GetParameter(method, "categoryFilter").ParameterType);
-            Assert.Equal(typeof(string), GetParameter(method, "fields").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "fields").ParameterType);
             Assert.Equal(typeof(CancellationToken), GetParameter(method, "ct").ParameterType);
 
             Assert.True(GetParameter(method, "modelCategoryList").HasDefaultValue);
@@ -62,7 +67,8 @@ namespace RiveTT.Tests.Server
             AssertDescription(method,
                 "List elements visible in the currently active view. categoryFilter is a single-category " +
                 "shortcut (OST code, English name or localized label); modelCategoryList/" +
-                "annotationCategoryList take several.");
+                "annotationCategoryList take several. Pages via pageSize/cursor: nextCursor in the response, " +
+                "passed back as cursor, reaches elements beyond the first page.");
         }
 
         [Fact]
@@ -210,8 +216,8 @@ namespace RiveTT.Tests.Server
                 name => Assert.Equal("offset", name),
                 name => Assert.Equal("ct", name));
 
-            Assert.Equal(typeof(string), GetParameter(method, "hostElementIds").ParameterType);
-            Assert.Equal(typeof(string), GetParameter(method, "linkedElements").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "hostElementIds").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "linkedElements").ParameterType);
             Assert.Equal(typeof(bool), GetParameter(method, "select").ParameterType);
             Assert.Equal(typeof(bool), GetParameter(method, "isolate").ParameterType);
             Assert.Equal(typeof(bool), GetParameter(method, "createSectionBox").ParameterType);
@@ -247,7 +253,7 @@ namespace RiveTT.Tests.Server
                 name => Assert.Equal("compact", name),
                 name => Assert.Equal("ct", name));
 
-            Assert.Equal(typeof(string), GetParameter(method, "categoryList").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "categoryList").ParameterType);
             Assert.Equal(typeof(string), GetParameter(method, "familyNameFilter").ParameterType);
             Assert.Equal(typeof(int?), GetParameter(method, "limit").ParameterType);
 
@@ -275,6 +281,81 @@ namespace RiveTT.Tests.Server
 
             AssertDescription(method,
                 "Modify schedule fields, sorting, filters, or rename the schedule. Supported actions: add_field, remove_field, set_sorting, clear_sorting, set_filter, clear_filter, rename.");
+        }
+
+        // P4.1 in PLAN_CORRECTION.md: open_family/open_template/close_document/edit_family.
+
+        [Fact]
+        public void OpenFamily_TakesAFilePathAndDryRun()
+        {
+            var method = GetMethod(typeof(DocumentTools), nameof(DocumentTools.OpenFamily));
+
+            Assert.Collection(
+                method.GetParameters().Select(p => p.Name),
+                name => Assert.Equal("revit", name),
+                name => Assert.Equal("filePath", name),
+                name => Assert.Equal("dryRun", name),
+                name => Assert.Equal("ct", name));
+
+            Assert.Equal(typeof(string), GetParameter(method, "filePath").ParameterType);
+            Assert.False(GetParameter(method, "filePath").HasDefaultValue);
+            Assert.Equal(typeof(bool), GetParameter(method, "dryRun").ParameterType);
+            Assert.Equal(true, GetParameter(method, "dryRun").DefaultValue);
+        }
+
+        [Fact]
+        public void OpenTemplate_TakesAFilePathAndDryRun()
+        {
+            var method = GetMethod(typeof(DocumentTools), nameof(DocumentTools.OpenTemplate));
+
+            Assert.Collection(
+                method.GetParameters().Select(p => p.Name),
+                name => Assert.Equal("revit", name),
+                name => Assert.Equal("filePath", name),
+                name => Assert.Equal("dryRun", name),
+                name => Assert.Equal("ct", name));
+
+            Assert.Equal(typeof(string), GetParameter(method, "filePath").ParameterType);
+            Assert.False(GetParameter(method, "filePath").HasDefaultValue);
+        }
+
+        [Fact]
+        public void CloseDocument_FilePathIsOptional_DefaultsToTheActiveDocument()
+        {
+            var method = GetMethod(typeof(DocumentTools), nameof(DocumentTools.CloseDocument));
+
+            Assert.Collection(
+                method.GetParameters().Select(p => p.Name),
+                name => Assert.Equal("revit", name),
+                name => Assert.Equal("filePath", name),
+                name => Assert.Equal("saveModified", name),
+                name => Assert.Equal("dryRun", name),
+                name => Assert.Equal("ct", name));
+
+            Assert.True(GetParameter(method, "filePath").HasDefaultValue);
+            Assert.Null(GetParameter(method, "filePath").DefaultValue);
+            Assert.Equal(false, GetParameter(method, "saveModified").DefaultValue);
+            Assert.Equal(true, GetParameter(method, "dryRun").DefaultValue);
+        }
+
+        [Fact]
+        public void EditFamily_TakesFamilyIdOrNameAndAChangesArray()
+        {
+            var method = GetMethod(typeof(ProjectTools), nameof(ProjectTools.EditFamily));
+
+            Assert.Collection(
+                method.GetParameters().Select(p => p.Name),
+                name => Assert.Equal("revit", name),
+                name => Assert.Equal("familyId", name),
+                name => Assert.Equal("familyName", name),
+                name => Assert.Equal("changes", name),
+                name => Assert.Equal("dryRun", name),
+                name => Assert.Equal("ct", name));
+
+            Assert.Equal(typeof(long?), GetParameter(method, "familyId").ParameterType);
+            Assert.Equal(typeof(string), GetParameter(method, "familyName").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "changes").ParameterType);
+            Assert.True(GetParameter(method, "changes").HasDefaultValue);
         }
     }
 }

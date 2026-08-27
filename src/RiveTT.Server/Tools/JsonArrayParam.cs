@@ -18,7 +18,20 @@ namespace RiveTT.Server.Tools;
 ///
 /// A required array binds fine, so only optional ones are converted. The JSON
 /// string form is what this codebase already used for the parameters that worked
-/// (create_stair.runs, create_detail_line.path, ai_element_filter.levelFilter).
+/// (create_stair.runs, create_detail_line.path, filter_elements.levelFilter).
+///
+/// That fix is necessary but not sufficient: every tool description for these
+/// parameters reads "JSON array, e.g. [\"A\",\"B\"]" — which correctly describes
+/// what the value IS, and invites a caller (human or model) to pass exactly that,
+/// a native JSON array, not a string containing one. Measured live again on
+/// 27/08: get_element_parameters(parameterNames:["Number"]) — a genuine JSON array
+/// — fails with the same opaque error the string fix was meant to prevent, because
+/// the parameter is declared <c>string?</c> and the host's parameter binder cannot
+/// coerce a JSON array into a C# string. The <see cref="JsonElement"/> overload
+/// below accepts whatever shape actually arrives (array, JSON-encoded string, or a
+/// bare scalar) instead of demanding the caller already know the answer to a
+/// question the tool's own schema and description do not raise. See the P1.4
+/// addendum in PLAN_CORRECTION.md.
 /// </summary>
 internal static class JsonArrayParam
 {
@@ -60,6 +73,33 @@ internal static class JsonArrayParam
     }
 
     /// <summary>
+    /// Accepts whatever JSON shape actually arrived for an optional array
+    /// parameter: a native JSON array (what every description literally shows),
+    /// a JSON-encoded string, or a bare scalar. <see cref="System.Text.Json.JsonElement"/>
+    /// is what makes the parameter bind at all when the caller sends an array —
+    /// System.Text.Json.JsonElement.
+    /// </summary>
+    internal static bool TryParse(System.Text.Json.JsonElement? value, out JArray parsed)
+    {
+        parsed = new JArray();
+        if (value is not { } element) return false;
+
+        switch (element.ValueKind)
+        {
+            case System.Text.Json.JsonValueKind.Array:
+                parsed = JArray.Parse(element.GetRawText());
+                return parsed.Count > 0;
+            case System.Text.Json.JsonValueKind.String:
+                return TryParse(element.GetString(), out parsed);
+            case System.Text.Json.JsonValueKind.Number:
+                parsed = new JArray { JToken.Parse(element.GetRawText()) };
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
     /// Structured refusal in the same shape as a runtime failure, so a malformed
     /// value is never rendered as a broken tool.
     /// </summary>
@@ -80,4 +120,8 @@ internal static class JsonArrayParam
             }
         }.ToString();
     }
+
+    /// <summary>Same refusal, for the JsonElement-accepting overload.</summary>
+    internal static string InvalidArrayResult(string tool, string parameterName, System.Text.Json.JsonElement? value)
+        => InvalidArrayResult(tool, parameterName, value?.ToString());
 }

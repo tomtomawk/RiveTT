@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
@@ -52,6 +53,17 @@ public class LoadFamilyTool : ICortexTool
         if (string.IsNullOrEmpty(familyPath))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "familyPath is required for load");
 
+        // The overload without IFamilyLoadOptions returns false (does nothing) the
+        // moment a same-named family already exists in the project — the normal
+        // case for reloading a family edited outside Revit, and get_server_capabilities'
+        // documented way to do it. Default to overwriting: see P1.7 in
+        // PLAN_CORRECTION.md.
+        var overwriteExisting = input["overwriteExisting"]?.Value<bool>() ?? true;
+
+        if (!File.Exists(familyPath))
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                $"familyPath does not exist: {familyPath}");
+
         if (!session.RequestConfirmation("load family", 1))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
@@ -59,7 +71,7 @@ public class LoadFamilyTool : ICortexTool
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
-        if (doc.LoadFamily(familyPath, out var family))
+        if (doc.LoadFamily(familyPath, new Utilities.OverwritingFamilyLoadOptions(overwriteExisting), out var family))
         {
             if (tx.Commit() != TransactionStatus.Committed)
                 return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
@@ -82,8 +94,16 @@ public class LoadFamilyTool : ICortexTool
         }
 
         tx.RollBack();
-        return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-            "Failed to load family (may already be loaded or path invalid)");
+        // The path exists and was readable — a false return here means Revit
+        // itself refused it (corrupt file, category not loadable in this
+        // document, family already identical), not a bad path.
+        return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            "Revit refused to load the family from a valid path: the file may be corrupt, its category may " +
+            "not be loadable into this document, or (with overwriteExisting=false) a family of the same name " +
+            "already exists.",
+            suggestion: overwriteExisting
+                ? "Check the .rfa opens cleanly in Revit and its category matches the target document."
+                : "Retry with overwriteExisting=true to update the family already in the project.");
     }
 
     private static CortexResult<object> ListFamilies(Document doc, JObject input)
@@ -118,11 +138,7 @@ public class LoadFamilyTool : ICortexTool
         if (sourceTypeId <= 0 || string.IsNullOrEmpty(newTypeName))
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sourceTypeId and newTypeName required");
 
-#if REVIT2024_OR_GREATER
         var sourceType = doc.GetElement(new ElementId(sourceTypeId)) as FamilySymbol;
-#else
-        var sourceType = doc.GetElement(new ElementId((int)sourceTypeId)) as FamilySymbol;
-#endif
         if (sourceType == null)
             return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Source family type not found");
 

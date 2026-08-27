@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.LinkedFiles;
 
@@ -18,7 +19,7 @@ namespace RiveTT.Tools.LinkedFiles;
 [ToolSafety(true, false)]
 public class GetLinkedFileInstancesTool : ICortexTool, ICacheableTool
 {
-    public string Name => "get_linked_file_instances";
+    public string Name => "list_linked_file_instances";
     public string Category => "LinkedFiles";
     public bool RequiresDocument => true;
     public bool IsDynamic => true;
@@ -118,5 +119,4 @@ public class GetLinkedFileInstancesTool : ICortexTool, ICacheableTool
         }
     }
 
-    private const double MmPerFoot = 304.8;
 }

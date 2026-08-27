@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Views;
 
@@ -21,7 +22,6 @@ public class CreateViewTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates a new view (floor plan, ceiling plan, section, elevation, 3D).";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -150,11 +150,7 @@ public class CreateViewTool : ICortexTool
         Level? level = null;
         if (levelIdLong > 0)
         {
-#if REVIT2024_OR_GREATER
             level = doc.GetElement(new ElementId(levelIdLong)) as Level;
-#else
-            level = doc.GetElement(new ElementId((int)levelIdLong)) as Level;
-#endif
         }
         level ??= !string.IsNullOrEmpty(levelName)
             ? allLevels.FirstOrDefault(l => string.Equals(l.Name, levelName, StringComparison.OrdinalIgnoreCase))

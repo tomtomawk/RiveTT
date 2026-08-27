@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Views;
 
@@ -31,7 +32,6 @@ public class ManageScopeBoxesTool : ICortexTool
         "from scratch (confirmed unsupported): draw one by hand once, then use this tool to manage it. " +
         "rename needs elementId+newName. move needs elementId+translation{x,y,z} (mm). " +
         "assign_to_views needs scopeBoxId (0 clears it) and viewIds (array).";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
