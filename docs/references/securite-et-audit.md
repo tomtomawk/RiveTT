@@ -1,4 +1,4 @@
-# Safety metadata, audit log, and sandbox
+# Sécurité et audit
 
 ## Tool safety metadata
 

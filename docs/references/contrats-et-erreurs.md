@@ -1,8 +1,8 @@
-# 21 — CortexResult & Error Codes
+# Contrats et erreurs
 
-**Scope:** Envelope unificato per tutti i tool RiveTT.
-**Sources:** src/RiveTT.Core/Results/CortexResult.cs
-**Last verified:** 2026-05-25
+**Portée :** enveloppe de réponse unifiée de tous les outils RiveTT.
+**Sources :** `src/RiveTT.Core/Results/CortexResult.cs`.
+**Vérifié le :** 2026-05-25
 
 ## Regola fondamentale
 

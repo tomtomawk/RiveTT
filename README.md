@@ -33,28 +33,38 @@ transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
 
 ## Documentation
 
-Séparée par usage. Vous n'avez besoin que d'une colonne à la fois.
+Séparée non par public mais par destination : ce qui est **livré avec le produit**
+et ce qui **sert à le développer**.
 
-**Se servir du connecteur**
+**Livrée avec le connecteur** — [src/resources/documentation/](src/resources/documentation/),
+installée sous `%LOCALAPPDATA%\RiveTT\documentation`
 
 | Document | Quand |
 |---|---|
-| [docs/utilisation/USER_GUIDE.md](docs/utilisation/USER_GUIDE.md) | Installation, verrou d'écriture, gestes courants |
-| [docs/utilisation/IFC.md](docs/utilisation/IFC.md) | Export, liaison, reconstruction d'IFC en éléments natifs |
-| [docs/utilisation/SECURITY.md](docs/utilisation/SECURITY.md) | Ce que le connecteur s'autorise, et ce qui l'en empêche |
+| [README.md](src/resources/documentation/README.md) | Point d'entrée du dossier |
+| [USER_GUIDE.md](src/resources/documentation/USER_GUIDE.md) | Installation, verrou d'écriture, gestes courants |
+| [IFC.md](src/resources/documentation/IFC.md) | Export, liaison, reconstruction d'IFC en éléments natifs |
+| [SECURITY.md](src/resources/documentation/SECURITY.md) | Ce que le connecteur s'autorise, et ce qui l'en empêche |
+| [SKILL.md](src/resources/documentation/SKILL.md) | Routeur pour l'agent : quelles références charger, et les règles permanentes |
+| [references/](src/resources/documentation/references/) | Le détail, opération par opération |
 
-**Développer dessus**
+Un seul jeu de fichiers, lu par l'humain **et** par l'agent. Il n'y a pas une
+documentation utilisateur d'un côté et une documentation IA de l'autre : c'est ce
+qui les empêche de décrire la même opération de deux façons.
+
+**Pour développer dessus** — jamais installée
 
 | Document | Quand |
 |---|---|
 | [AGENTS.md](AGENTS.md) | **À lire en premier.** Architecture, contrat à deux faces, verrou d'écriture. Les agents de code le chargent automatiquement comme instructions projet |
-| [docs/developpement/CHANGELOG_0.3.0.md](docs/developpement/CHANGELOG_0.3.0.md) | Défauts corrigés, renommage et consolidation de la surface, ce qui reste à vérifier sur maquette |
+| [docs/references/](docs/references/) | Créer un outil C#, contrats et erreurs, sécurité interne, checklist de release |
+| [docs/CHANGELOG_0.3.0.md](docs/CHANGELOG_0.3.0.md) | Défauts corrigés, renommage et consolidation de la surface, ce qui reste à vérifier sur maquette |
 
 **Référence commune**
 
-[docs/INVENTAIRE_OUTILS.md](docs/INVENTAIRE_OUTILS.md) — les outils, effet par
-effet, avec les défauts connus et les capacités API non outillées. Généré par
-`tools/audit-tool-surface.py`, jamais édité à la main.
+[references/inventaire-des-outils.md](src/resources/documentation/references/inventaire-des-outils.md)
+— les outils, effet par effet, avec les défauts connus et les capacités API non
+outillées. Généré par `tools/audit-tool-surface.py`, jamais édité à la main.
 
 La liste des outils n'est pas recopiée ici. Elle l'a été, sous forme de section
 « Fonctions ajoutées » tenue à la main, et elle a cessé d'être tenue : il y manquait
@@ -88,17 +98,25 @@ produire l'installateur (`winget install JRSoftware.InnoSetup --scope user`).
 
 ```powershell
 cd RiveTT
-.\build.ps1                              # les deux cibles Revit + l'installateur
-.\build.ps1 -RevitVersion 2027           # une seule cible
-.\build.ps1 -SkipInstaller               # binaires seuls, sans Inno Setup
+.\builder\build.ps1                      # les deux cibles Revit + l'installateur
+.\builder\build.ps1 -RevitVersion 2027   # une seule cible
+.\builder\build.ps1 -SkipInstaller       # charge utile seule, sans Inno Setup
 ```
 
-Tout ce qui est généré atterrit dans `dist\` (ignoré par git) :
+Deux dossiers générés, tous deux ignorés par git, et la séparation est la règle à
+retenir :
 
-    dist\2026\plugin\   add-in compilé contre Revit 2026.5
-    dist\2027\plugin\   add-in compilé contre Revit 2027
-    dist\server\        RiveTT.Server.exe, autonome, partagé par les deux
+    builder\staging\2026\plugin\    add-in compilé contre Revit 2026.5
+    builder\staging\2027\plugin\    add-in compilé contre Revit 2027
+    builder\staging\server\         RiveTT.Server.exe, autonome, partagé par les deux
+    builder\staging\RiveTT.addin    manifeste, identique pour les deux cibles
+    builder\staging\documentation\  copie de src\resources\documentation
+
     dist\RiveTT-Setup-<version>.exe
+
+Inno Setup lit `builder\staging\` et écrit `dist\`. **Tout ce qui se trouve dans
+`dist\` est publiable tel quel** — rien d'autre n'y va, et `-SkipInstaller` ne le
+crée même pas.
 
 Le serveur ne référence pas l'API Revit : il est compilé une fois et partagé. Il est
 **autonome** (~38 Mo) et n'exige aucun runtime .NET installé — c'était la seule pièce
@@ -106,7 +124,13 @@ qui aurait imposé des droits administrateur.
 
 L'installation est par utilisateur dans
 `%APPDATA%\Autodesk\Revit\Addins\<2026|2027>\RiveTT`, le serveur dans
-`%LOCALAPPDATA%\RiveTT\server`.
+`%LOCALAPPDATA%\RiveTT\server`, la documentation dans
+`%LOCALAPPDATA%\RiveTT\documentation`.
+
+L'installateur propose en outre, **case décochée par défaut**, de copier le skill
+dans le dossier personnel des skills Codex. C'est décoché parce que cela modifie la
+configuration d'un autre produit : la documentation, elle, est installée dans tous
+les cas.
 
 Pour enregistrer le serveur dans Codex :
 
@@ -129,11 +153,13 @@ dotnet test .\src\RiveTT.Tests\RiveTT.Tests.csproj -c Release
 dotnet build .\RiveTT.sln -c Release
 ```
 
-13 échecs sont attendus hors poste Revit : ces tests chargent `RevitAPI.dll` à
-l'exécution, et le paquet NuGet ne fournit qu'un assembly de référence.
+Les tests qui touchent réellement l'API Revit cherchent un Revit installé et se
+signalent en *Skip* propre quand il n'y en a pas : hors poste Revit la suite est
+verte, elle n'est simplement pas complète. Le paquet NuGet ne fournit qu'un
+assembly de référence, jamais la vraie `RevitAPI.dll`.
 
-`.uild.ps1` compile les deux cibles, publie le serveur et produit l'installateur
-dans `dist\`.
+`.\builder\build.ps1` compile les deux cibles, publie le serveur, rassemble la
+charge utile dans `builder\staging\` et produit l'installateur dans `dist\`.
 
 ## Contribuer
 

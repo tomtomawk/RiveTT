@@ -1,8 +1,8 @@
-# 23 — Dynamic Tools & DocumentCapabilities
+# Outils dynamiques et capacités du document
 
-**Scope:** Tool che si abilitano solo quando il modello soddisfa prerequisiti.
-**Sources:** src/RiveTT.Core/Discovery/, src/RiveTT.Plugin/CortexRouter.cs
-**Last verified:** 2026-05-25
+**Portée :** outils qui ne s'activent que si le modèle remplit leurs prérequis.
+**Sources :** `src/RiveTT.Core/Discovery/`, `src/RiveTT.Plugin/CortexRouter.cs`.
+**Vérifié le :** 2026-05-25
 
 ## Pattern
 

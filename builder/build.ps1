@@ -4,39 +4,49 @@
     Builds RiveTT for every supported Revit target and packages the per-user installer.
 
 .DESCRIPTION
-    Output layout, all of it generated and all of it gitignored:
+    Two output trees, and the split between them is the point of this layout:
 
-        dist\
+        builder\staging\      intermediate payload, rebuilt from scratch every run
           2026\plugin\        add-in + tools built against Revit 2026.5
           2027\plugin\        add-in + tools built against Revit 2027
           server\             RiveTT.Server.exe, self-contained, shared by both
           RiveTT.addin        manifest, identical for both targets
+          documentation\      copy of src\resources\documentation, ships with the product
+
+        dist\                 deliverables only
           RiveTT-Setup-<version>.exe
+
+    Both are generated and both are gitignored. The rule the split buys: everything in
+    dist\ is publishable as it stands. The binaries used to land there too, which made
+    "is this folder shippable?" a judgement call instead of a fact. ISCC reads
+    builder\staging\ and writes dist\, never the other way round.
 
     The server carries no Revit API reference, so it is built ONCE and shared. It used
     to be published into each version folder; self-contained that would be 38 MB
     duplicated for nothing.
 
     The installer is compiled by Inno Setup (ISCC.exe). When Inno is not installed the
-    binaries are still produced and the packaging step is skipped with a warning -- a
-    developer building locally does not need it to run the tests.
+    payload is still produced in builder\staging\ and the packaging step is skipped with
+    a warning -- a developer building locally does not need it to run the tests.
 
     ENCODING: this file is UTF-8 WITH BOM, and must stay that way. Windows PowerShell
     5.1 reads a BOM-less script as Windows-1252, so every multi-byte character becomes
     three garbage ones -- and some of those are curly quotes, which PowerShell honours
     as string delimiters. A box-drawing dash in a comment silently swallowed the rest
     of its line and stripped $LASTEXITCODE out of a guard. Comments and code here stay
-    ASCII; only the user-facing French strings use accents.
+    ASCII; only the user-facing French strings use accents. BuildScriptEncodingTests
+    fails the suite if the BOM ever goes missing.
 
 .PARAMETER RevitVersion
     Build a single target instead of all of them. Accepts 2026 or 2027.
 
 .PARAMETER SkipTests
-    Skip the xUnit run. The 13 tests that load RevitAPI.dll at runtime need Revit
-    installed; everything else runs anywhere.
+    Skip the xUnit run. Tests that need the real RevitAPI.dll locate a local Revit
+    install themselves and report a clean Skip when there is none.
 
 .PARAMETER SkipInstaller
-    Build the binaries but do not invoke Inno Setup.
+    Build the payload into builder\staging\ but do not invoke Inno Setup. dist\ is then
+    not created at all: with no installer there is nothing publishable to put in it.
 #>
 [CmdletBinding()]
 param(
@@ -50,11 +60,19 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# This script lives in builder\, one level BELOW the repository root, so the root is
+# its grandparent and not its own folder. Every relative path below (.\src\...) is
+# resolved against $root through the Push-Location at the bottom; getting this wrong
+# would silently build nothing and copy nothing.
+$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $configuration = 'Release'
+$stagingRoot = Join-Path $root 'builder\staging'
 $distRoot = Join-Path $root 'dist'
-$serverOut = Join-Path $distRoot 'server'
-$issPath = Join-Path $root 'installer\RiveTT.iss'
+$serverOut = Join-Path $stagingRoot 'server'
+$docsSource = Join-Path $root 'src\resources\documentation'
+$docsOut = Join-Path $stagingRoot 'documentation'
+$issPath = Join-Path $root 'builder\installer\RiveTT.iss'
 
 # Single source of truth for the version, the same file the assemblies read.
 $propsPath = Join-Path $root 'Directory.Build.props'
@@ -66,8 +84,7 @@ function Invoke-Dotnet {
         Windows PowerShell 5.1 wraps a native command's stderr in an ErrorRecord, and
         with $ErrorActionPreference = 'Stop' that TERMINATES the script even when the
         command itself succeeded. `dotnet test` prints its failure list to stderr, so
-        the 13 environmental failures (RevitAPI.dll absent off a Revit workstation)
-        killed the whole build instead of warning and moving on.
+        a warning-only test run has to judge the outcome on the exit code alone.
 
         The exit code is the only trustworthy signal, so the preference is relaxed
         around the call and the result judged on $LASTEXITCODE alone.
@@ -91,9 +108,13 @@ Push-Location $root
 try {
     Write-Host "RiveTT $version - cibles : $($RevitVersion -join ', ')" -ForegroundColor Cyan
 
-    # A stale dist\ is worse than none: a removed file would survive into the installer.
-    if (Test-Path $distRoot) { Remove-Item $distRoot -Recurse -Force }
-    New-Item -ItemType Directory -Path $distRoot, $serverOut -Force | Out-Null
+    # A stale staging tree is worse than none: a file removed from the sources would
+    # survive into the installer. dist\ goes too, so a previous version's setup can
+    # never be mistaken for this run's output.
+    foreach ($stale in @($stagingRoot, $distRoot)) {
+        if (Test-Path $stale) { Remove-Item $stale -Recurse -Force }
+    }
+    New-Item -ItemType Directory -Path $stagingRoot, $serverOut -Force | Out-Null
 
     # --- The server: no Revit reference, built once, shared by every target ---
     Write-Host 'Serveur MCP (autonome, sans dependance runtime)...' -ForegroundColor Cyan
@@ -108,7 +129,7 @@ try {
     foreach ($target in $RevitVersion) {
         Write-Host "Plugin Revit $target..." -ForegroundColor Cyan
         $versionArg = "-p:RevitVersion=$target"
-        $pluginOut = Join-Path $distRoot "$target\plugin"
+        $pluginOut = Join-Path $stagingRoot "$target\plugin"
         New-Item -ItemType Directory -Path $pluginOut -Force | Out-Null
 
         Invoke-Dotnet -Arguments @(
@@ -122,13 +143,15 @@ try {
         ) -FailureMessage "Echec du build Plugin pour Revit $target."
 
         if (-not $SkipTests) {
-            # WarnOnly: 13 tests load RevitAPI.dll at runtime and cannot pass without
-            # Revit installed. A packaging run on a build agent must not stop there.
+            # WarnOnly: a packaging run on a machine without Revit must not stop on an
+            # environmental gap. Since the suite now reports a clean Skip for the
+            # Revit-typed tests instead of failing, a non-zero code here is a real
+            # failure -- read the output before shipping what this run produced.
             Invoke-Dotnet -Arguments @(
                 'test', '.\src\RiveTT.Tests\RiveTT.Tests.csproj',
                 '-c', $configuration, $versionArg, '--nologo'
-            ) -FailureMessage ("Tests en echec pour Revit $target. 13 echecs sont attendus " +
-                               "hors poste Revit (chargement de RevitAPI.dll).") -WarnOnly
+            ) -FailureMessage ("Tests en echec pour Revit $target : relisez la sortie " +
+                               "avant de diffuser l'installateur produit par ce build.") -WarnOnly
         }
 
         $pluginBuild = Join-Path $root 'src\RiveTT.Plugin\bin\Release\net10.0-windows'
@@ -149,16 +172,26 @@ try {
     }
 
     # The manifest is identical for both targets -- its Assembly path is relative -- so
-    # it sits once at the root of dist\ rather than being copied per version.
-    Copy-Item .\src\RiveTT.Plugin\RiveTT.addin (Join-Path $distRoot 'RiveTT.addin') -Force
+    # it sits once at the root of the staging tree rather than being copied per version.
+    Copy-Item .\src\RiveTT.Plugin\RiveTT.addin (Join-Path $stagingRoot 'RiveTT.addin') -Force
 
-    $sizeMb = [math]::Round((Get-ChildItem $distRoot -Recurse -File |
+    # --- Documentation, shipped with the product ---
+    # Copied through staging rather than read straight out of src\ by Inno, so the rule
+    # "ISCC only ever reads builder\staging\" stays true and the whole payload can be
+    # inspected in one place before packaging.
+    if (-not (Test-Path $docsSource)) {
+        throw "Documentation introuvable : $docsSource."
+    }
+    New-Item -ItemType Directory -Path $docsOut -Force | Out-Null
+    Copy-Item (Join-Path $docsSource '*') $docsOut -Recurse -Force
+
+    $sizeMb = [math]::Round((Get-ChildItem $stagingRoot -Recurse -File |
         Measure-Object -Property Length -Sum).Sum / 1MB, 1)
-    Write-Host "Binaires prets dans dist\ ($sizeMb Mo)." -ForegroundColor Green
+    Write-Host "Charge utile prete dans builder\staging\ ($sizeMb Mo)." -ForegroundColor Green
 
     # --- Installer ---
     if ($SkipInstaller) {
-        Write-Host 'Installateur ignore (-SkipInstaller).' -ForegroundColor Yellow
+        Write-Host "Installateur ignore (-SkipInstaller) : dist\ n'est pas cree." -ForegroundColor Yellow
         return
     }
 
@@ -179,10 +212,10 @@ try {
     }
 
     if (-not $iscc) {
-        Write-Warning ("Inno Setup 6 introuvable : les binaires sont prets dans dist\ mais " +
-                       "l'installateur n'a pas ete produit. Installez-le " +
-                       "(winget install JRSoftware.InnoSetup) puis relancez, ou passez " +
-                       "-SkipInstaller pour taire cet avertissement.")
+        Write-Warning ("Inno Setup 6 introuvable : la charge utile est prete dans " +
+                       "builder\staging\ mais l'installateur n'a pas ete produit. " +
+                       "Installez-le (winget install JRSoftware.InnoSetup) puis " +
+                       "relancez, ou passez -SkipInstaller pour taire cet avertissement.")
         return
     }
 

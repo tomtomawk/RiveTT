@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Inventorie la surface d'outils du connecteur et regenere docs/INVENTAIRE_OUTILS.md.
+"""Inventorie la surface d'outils du connecteur et regenere l'inventaire livre.
 
     python tools/audit-tool-surface.py
 
@@ -28,7 +28,8 @@ d'architecture — logement, equipement, tertiaire, sante — pas une propriete 
 code. Il vit dans les listes TIER5/TIER4/TIER2 ci-dessous et se corrige en les
 editant.
 
-Le script ecrit une seule sortie, docs/INVENTAIRE_OUTILS.md, versionnee. Une page
+Le script ecrit une seule sortie, versionnee et LIVREE AVEC LE PRODUIT :
+src/resources/documentation/references/inventaire-des-outils.md. Une page
 HTML autonome a existe en parallele : meme matiere, second format, regeneree et
 versionnee en meme temps, pour un diff illisible en revue. Le Markdown est la forme
 canonique parce qu'il se relit dans une pull request.
@@ -45,7 +46,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SERVER = os.path.join(ROOT, "src", "RiveTT.Server", "Tools")
 RUNTIME = os.path.join(ROOT, "src", "RiveTT.Tools")
-OUT = os.path.join(ROOT, "docs", "INVENTAIRE_OUTILS.md")
+OUT = os.path.join(ROOT, "src", "resources", "documentation", "references",
+                   "inventaire-des-outils.md")
 
 # Prefixes que le routeur considere comme lecture seule quand [ToolSafety] manque.
 # Doit rester aligne sur CortexRouter.ReadOnlyPrefixes.

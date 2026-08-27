@@ -1,4 +1,4 @@
-# Destructive operations and dry-run
+# Opérations destructives et dryRun
 
 RiveTT is permanently automatic and never opens an authorization dialog.
 Safety therefore comes from explicit preview, narrow inputs, Revit

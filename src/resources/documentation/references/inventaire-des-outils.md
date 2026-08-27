@@ -3,7 +3,7 @@
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-08-27 — connecteur 0.2.0 — **198 outils publiés**, 195 classes runtime.
+Relevé du 2026-08-28 — connecteur 0.4.0 — **198 outils publiés**, 195 classes runtime.
 
 ## Comment lire ce document
 

@@ -1,8 +1,8 @@
-# 05 — Model Health, Warnings, Clash
+# Santé du modèle, avertissements, conflits
 
-**Scope:** Controlli rapidi sul modello e clash detection.
-**Sources:** RiveTT health, warning, and clash tools
-**Last verified:** 2026-05-25
+**Portée :** contrôles rapides sur le modèle et détection de conflits.
+**Sources :** outils de santé, d'avertissements et de conflits RiveTT.
+**Vérifié le :** 2026-05-25
 
 ## Decision rules
 

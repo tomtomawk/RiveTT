@@ -1,8 +1,9 @@
-# 07 — IFC Workflows
+# Workflows IFC
 
-**Scope:** Link, rebuild, export IFC. Pattern dryRun obbligatorio per rebuild.
-**Sources:** docs/utilisation/IFC.md
-**Last verified:** 2026-05-25
+**Portée :** liaison, reconstruction et export IFC. `dryRun` obligatoire avant
+toute reconstruction.
+**Sources :** `../IFC.md`.
+**Vérifié le :** 2026-05-25
 
 ## Decision rules
 

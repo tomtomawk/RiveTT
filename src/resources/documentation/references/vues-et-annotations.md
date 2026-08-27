@@ -1,8 +1,8 @@
-# 06 — View & Annotation Workflows
+# Vues et annotations
 
-**Scope:** Tag, color, dimensions, view templates, viewports.
-**Sources:** RiveTT view and annotation tools
-**Last verified:** 2026-05-25
+**Portée :** étiquettes, couleurs, cotes, gabarits de vue, fenêtres de plan.
+**Sources :** outils de vues et d'annotations RiveTT.
+**Vérifié le :** 2026-05-25
 
 ## Decision rules
 

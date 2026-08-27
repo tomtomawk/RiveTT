@@ -5,7 +5,8 @@ Ce document remplace `AUDIT_OUTILS.md`, `CONSOLIDATION_SURFACE.md`, `CONVENTION_
 24/08, campagne de test du 26-27/08, renommage et consolidation de la surface du 27/08) et sont
 maintenant exécutés. Ce qui suit condense les décisions et l'état livré ; le détail de mesure
 (appels exacts, réponses JSON, tableaux ligne à ligne) reste dans l'historique git de ces
-fichiers si besoin de le retrouver. `docs/INVENTAIRE_OUTILS.md`, généré par
+fichiers si besoin de le retrouver.
+`src/resources/documentation/references/inventaire-des-outils.md`, généré par
 `tools/audit-tool-surface.py`, reste la source de vérité vivante sur la surface actuelle.
 
 ---

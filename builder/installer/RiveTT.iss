@@ -1,4 +1,10 @@
-; RiveTT — per-user installer, no administrator elevation at any point.
+﻿; RiveTT — per-user installer, no administrator elevation at any point.
+;
+; ENCODING: this file is UTF-8 WITH BOM, and must stay that way. Inno Setup 6 reads
+; a .iss without a BOM in the system ANSI code page, so on a French Windows every
+; accent in the wizard messages below came out as mojibake (é read as Ã©). The BOM
+; is the only signal that makes ISCC decode the file as UTF-8.
+; IssEncodingTests fails the suite if it goes missing.
 ;
 ; Everything RiveTT needs lives under the user's profile, which is not a workaround:
 ; %APPDATA%\Autodesk\Revit\Addins\<year> is the location Autodesk documents for
@@ -7,13 +13,19 @@
 ;   plugin    {userappdata}\Autodesk\Revit\Addins\<year>\RiveTT
 ;   manifest  {userappdata}\Autodesk\Revit\Addins\<year>\RiveTT.addin
 ;   server    {localappdata}\RiveTT\server\RiveTT.Server.exe
+;   doc       {localappdata}\RiveTT\documentation
 ;
 ; The server is self-contained on purpose: framework-dependent it would need the .NET 10
 ; runtime under Program Files, and installing THAT is the one thing that would have
 ; demanded admin.
 ;
-; Build:  .\build.ps1            (compiles both Revit targets, then calls ISCC)
-;         ISCC.exe /DAppVersion=0.4.0 installer\RiveTT.iss
+; Build:  .\builder\build.ps1    (compiles both Revit targets, then calls ISCC)
+;         ISCC.exe /DAppVersion=0.4.0 builder\installer\RiveTT.iss
+;
+; Every relative Source below points into builder\staging\, which build.ps1 wipes
+; and refills on every run. This script never reads src\ or dist\: staging is the
+; single input, dist\ the single output, and that is what makes dist\ publishable
+; as it stands.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -74,30 +86,55 @@ WizardStyle=modern
 ShowLanguageDialog=no
 UninstallDisplayName={#AppName} {#AppVersion}
 UninstallDisplayIcon={app}\server\RiveTT.Server.exe
-LicenseFile=..\LICENSE
+LicenseFile=..\..\LICENSE
 
 [Languages]
 Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
 
 [Files]
 ; The server: version-independent, installed once whatever Revit is present.
-Source: "..\dist\server\*"; DestDir: "{app}\server"; Flags: ignoreversion recursesubdirs
+Source: "..\staging\server\*"; DestDir: "{app}\server"; Flags: ignoreversion recursesubdirs
 
 ; One plugin payload per Revit target, installed only where that Revit really is.
-; skipifsourcedoesntexist keeps a single-target build (build.ps1 -RevitVersion 2027)
+; skipifsourcedoesntexist keeps a single-target build
+; (builder\build.ps1 -RevitVersion 2027)
 ; compilable instead of failing on the missing folder.
-Source: "..\dist\2026\plugin\*"; DestDir: "{userappdata}\Autodesk\Revit\Addins\2026\RiveTT"; \
+Source: "..\staging\2026\plugin\*"; DestDir: "{userappdata}\Autodesk\Revit\Addins\2026\RiveTT"; \
     Flags: ignoreversion recursesubdirs skipifsourcedoesntexist; Check: WantsRevit('2026')
-Source: "..\dist\RiveTT.addin"; DestDir: "{userappdata}\Autodesk\Revit\Addins\2026"; \
+Source: "..\staging\RiveTT.addin"; DestDir: "{userappdata}\Autodesk\Revit\Addins\2026"; \
     Flags: ignoreversion skipifsourcedoesntexist; Check: WantsRevit('2026')
 
-Source: "..\dist\2027\plugin\*"; DestDir: "{userappdata}\Autodesk\Revit\Addins\2027\RiveTT"; \
+Source: "..\staging\2027\plugin\*"; DestDir: "{userappdata}\Autodesk\Revit\Addins\2027\RiveTT"; \
     Flags: ignoreversion recursesubdirs skipifsourcedoesntexist; Check: WantsRevit('2027')
-Source: "..\dist\RiveTT.addin"; DestDir: "{userappdata}\Autodesk\Revit\Addins\2027"; \
+Source: "..\staging\RiveTT.addin"; DestDir: "{userappdata}\Autodesk\Revit\Addins\2027"; \
     Flags: ignoreversion skipifsourcedoesntexist; Check: WantsRevit('2027')
 
+; Documentation, version-independent like the server. SKILL.md travels with it, so
+; the agent-facing guidance and the human-facing guide can never drift apart on a
+; workstation. Installing it here makes it AVAILABLE, not active: activating the
+; skill in Codex means writing into another product's own skills folder, which is
+; the separate, unchecked task below.
+Source: "..\staging\documentation\*"; DestDir: "{app}\documentation"; \
+    Flags: ignoreversion recursesubdirs
+
+; Same payload, optional destination: the Codex CLI skills folder.
+Source: "..\staging\documentation\*"; DestDir: "{code:CodexSkillDir}"; \
+    Flags: ignoreversion recursesubdirs; Tasks: codexskill
+
+[Tasks]
+; Unchecked on purpose. Copying the skill into the Codex home directory changes the
+; configuration of a product this installer does not own; the user has to ask for
+; it. The documentation under {app}\documentation is installed either way.
+Name: "codexskill"; \
+    Description: "Activer le skill RiveTT dans Codex CLI (dossier personnel des skills)"; \
+    Flags: unchecked
+
 [UninstallDelete]
-; Copies parked by the locked-file rename below, and the local runtime state.
+; Copies parked by the locked-file rename below, the documentation, and the local
+; runtime state. The Codex skill folder is ours by name (rivett) and goes with it,
+; whether or not the optional task installed it -- Inno ignores a missing path.
+Type: filesandordirs; Name: "{app}\documentation"
+Type: filesandordirs; Name: "{code:CodexSkillDir}"
 Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2026\RiveTT"
 Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2027\RiveTT"
 Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2026\RiveTT.addin.old-*"
@@ -106,6 +143,26 @@ Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2027\RiveTT.addin.old-*"
 [Code]
 const
   REVIT_ROOT = 'SOFTWARE\Autodesk\Revit\';
+
+{ Codex reads its skills from $CODEX_HOME\skills, and $CODEX_HOME defaults to
+  %USERPROFILE%\.codex. Resolved here in code rather than with an Inno
+  environment-variable constant, whose fallback is a literal string and so cannot
+  itself expand %USERPROFILE%.
+
+  Keep every brace character out of a brace comment, quoted or not. These comments
+  do not nest and quoting does not shield anything: the first closing brace ends
+  the comment and the rest of the sentence is compiled as code. Two earlier drafts
+  of this very comment did exactly that, and ISCC reported it as a missing '=' in
+  the const block above. }
+function CodexSkillDir(Param: String): String;
+var
+  Home: String;
+begin
+  Home := GetEnv('CODEX_HOME');
+  if Home = '' then
+    Home := AddBackslash(GetEnv('USERPROFILE')) + '.codex';
+  Result := AddBackslash(Home) + 'skills\rivett';
+end;
 
 var
   Detected2026, Detected2027: Boolean;
@@ -337,7 +394,9 @@ begin
     + ' port TCP. Chaque session s''ouvre en LECTURE SEULE — pressez Écriture dans le'
     + ' panneau RiveTT (onglet Compléments) pour autoriser les modifications.' + #13#10#13#10
     + 'Déclarez ensuite le serveur MCP dans votre client, avec le chemin :' + #13#10
-    + ExpandConstant('{app}\server\RiveTT.Server.exe');
+    + ExpandConstant('{app}\server\RiveTT.Server.exe') + #13#10#13#10
+    + 'Documentation (guide, sécurité, IFC, références) :' + #13#10
+    + ExpandConstant('{app}\documentation');
 end;
 
 { Asking the OS for the process list rather than guessing a window class name: Revit's

@@ -1,8 +1,8 @@
-# 02 — Tool Selection Hierarchy
+# Choix des outils
 
-**Scope:** Scegliere il tool con minor costo token che risolve il task.
-**Sources:** RiveTT tool catalog and model-operation guidance
-**Last verified:** 2026-05-25
+**Portée :** retenir l'outil le moins coûteux en jetons qui résout la demande.
+**Sources :** `inventaire-des-outils.md`, conduite des opérations sur modèle.
+**Vérifié le :** 2026-05-25
 
 ## Decision rules
 

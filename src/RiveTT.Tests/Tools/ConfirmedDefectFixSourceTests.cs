@@ -7,11 +7,12 @@ namespace RiveTT.Tests.Tools;
 
 /// <summary>
 /// Source-text guards for the eight defects the 2026-08-24 tool-surface audit confirmed by
-/// reading the code (docs/INVENTAIRE_OUTILS.md, "Défauts confirmés").
+/// reading the code (src/resources/documentation/references/inventaire-des-outils.md,
+/// "Défauts confirmés").
 ///
 /// Source-level on purpose, like the rest of the suite: every one of these behaviours needs
-/// a live Revit document to exercise, and the 13 tests that do try to reach the Revit API
-/// already cannot run without an installed Revit. What CAN be pinned here is that the fix is
+/// a live Revit document to exercise, and the tests that do reach the Revit API only run
+/// where Revit is installed. What CAN be pinned here is that the fix is
 /// still in the file — which is exactly how each defect appeared in the first place: a
 /// hardcoded point, a parameter nobody read, a preview nobody wrote.
 /// </summary>

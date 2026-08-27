@@ -1,11 +1,13 @@
-# New tool checklist
+# Nouvel outil
 
 ## Files
 
 - `src/RiveTT.Tools/<Category>/<ToolName>Tool.cs`: `ICortexTool` implementation.
 - `src/RiveTT.Server/Tools/<Category>Tools.cs`: typed MCP wrapper.
 - `src/RiveTT.Tests`: unit, contract, or source tests.
-- `docs/utilisation/USER_GUIDE.md` and the relevant operator reference when behavior is user-facing.
+- `src/resources/documentation/USER_GUIDE.md` and the relevant reference under
+  `src/resources/documentation/references/` when the behavior is user-facing.
+  Both ship with the product, so a stale sentence there reaches a workstation.
 
 ## Requirements
 
@@ -23,4 +25,4 @@
     dotnet test src/RiveTT.Tests/RiveTT.Tests.csproj -c Release
     dotnet build RiveTT.sln -c Release
 
-The only supported target is Revit 2027 / .NET 10 / x64.
+Supported targets are Revit 2026.5+ and 2027, both .NET 10 / x64.

@@ -1,8 +1,8 @@
-# 01 — Session Start & Locale Detection
+# Session et locale
 
-**Scope:** Prima chiamata MCP di una sessione su modello aperto.
-**Sources:** RiveTT model-operation guidance
-**Last verified:** 2026-05-25
+**Portée :** premier appel MCP d'une session sur un modèle ouvert.
+**Sources :** conduite des opérations sur modèle RiveTT.
+**Vérifié le :** 2026-05-25
 
 ## Decision rules
 

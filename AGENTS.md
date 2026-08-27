@@ -6,7 +6,7 @@ R23–R25 configurations or `net48`/`net8` compatibility branches.
 
 The two targets share one codebase, selected at build time by the
 `RevitVersion` MSBuild property (`dotnet build -p:RevitVersion=2026`, default
-`2027`; see `build.ps1 -RevitVersion`). It drives both the
+`2027`; see `builder\build.ps1 -RevitVersion`). It drives both the
 `Nice3point.Revit.Api.RevitAPI` package version and the `REVITxxxx_OR_GREATER`
 `DefineConstants`. `REVIT2026_OR_GREATER` is unconditional (2026 is the floor);
 `REVIT2027_OR_GREATER` is only defined when building the 2027 target. Guard any
@@ -26,10 +26,27 @@ time: it is not multi-targeted, it is rebuilt per target.
       -> CortexRouter
       -> ICortexTool implementations
 
-The C# server is the only server implementation. Everything generated lives under
-`dist/` and is never committed: `dist/<year>/plugin` per Revit target, plus
-`dist/server` — built ONCE and shared, because the server carries no Revit API
-reference. The installer SOURCE is `installer/RiveTT.iss` and is versioned.
+The C# server is the only server implementation. Nothing generated is ever
+committed, and it lands in one of two trees:
+
+    builder/staging/   intermediate payload: <year>/plugin per Revit target,
+                       server/ (built ONCE and shared, no Revit API reference),
+                       RiveTT.addin, documentation/
+    dist/              deliverables only: RiveTT-Setup-<version>.exe
+
+ISCC reads `builder/staging/` and writes `dist/`, never the reverse. The rule that
+buys: everything in `dist/` is publishable as it stands. Do not put binaries there
+again — that is what made "is this folder shippable?" a judgement call.
+
+The versioned build SOURCES are `builder/build.ps1` and
+`builder/installer/RiveTT.iss`.
+
+`src/resources/documentation/` is part of the PRODUCT, not of the repository's own
+notes: build.ps1 copies it through staging and the installer lays it down in
+`%LOCALAPPDATA%\RiveTT\documentation`. `SKILL.md` and the operator references live
+there and are read by humans and agents alike, so a stale sentence in them reaches
+a workstation. Developer references — writing a tool, response contracts, release
+checklist — stay in `docs/references/` and are never installed.
 
 The server is published self-contained. Framework-dependent it would need the
 .NET 10 runtime under Program Files, and installing that requires local admin —
@@ -119,22 +136,25 @@ Consequences for anything you add here:
 
     dotnet test .\src\RiveTT.Tests\RiveTT.Tests.csproj -c Release
     dotnet build .\RiveTT.sln -c Release
-    .\build.ps1
+    .\builder\build.ps1
 
-The last command builds every Revit target and compiles the per-user installer
-into `dist/`. Installation is through `dist/RiveTT-Setup-<version>.exe`, which
-requests `asInvoker` and never prompts for elevation.
+The last command builds every Revit target, gathers the payload into
+`builder/staging/` and compiles the per-user installer into `dist/`. Installation
+is through `dist/RiveTT-Setup-<version>.exe`, which requests `asInvoker` and never
+prompts for elevation. After touching the tool surface, re-run
+`python tools/audit-tool-surface.py`: its output is installed on the workstation.
 
-`build.ps1` is UTF-8 WITH BOM and must stay so: Windows PowerShell 5.1 reads a
-BOM-less script as Windows-1252, and the multi-byte characters then decode into
-curly quotes that it honours as string delimiters.
+`builder/build.ps1` is UTF-8 WITH BOM and must stay so: Windows PowerShell 5.1
+reads a BOM-less script as Windows-1252, and the multi-byte characters then decode
+into curly quotes that it honours as string delimiters. `BuildScriptEncodingTests`
+fails the suite if the BOM goes missing — do not "fix" that test by relaxing it.
 
 Behavior that only a live Revit session can prove (geometry, transactions,
 Revit error messages) must still be re-tested manually against a real model —
 in both target versions when the change touches anything gated by
 `REVIT2027_OR_GREATER` — and the outcome recorded in the commit or pull request that
-makes the change. `docs/developpement/CHANGELOG_0.3.0.md` §6 lists the points still
-open for live verification; add new ones there as they come up.
+makes the change. `docs/CHANGELOG_0.3.0.md` §6 lists the points still open for live
+verification; add new ones there as they come up.
 
 `Nice3point.Revit.Api.*` is a compile-only stub — no real `RevitAPI.dll` ships
 in the package, so `dotnet test` alone cannot exercise anything that touches

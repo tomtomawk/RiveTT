@@ -1,8 +1,9 @@
-# 04 — Parameter Workflows
+# Paramètres
 
-**Scope:** Read/Write parametri Revit (single, bulk, CSV-based, copy).
-**Sources:** RiveTT parameter tools
-**Last verified:** 2026-05-25
+**Portée :** lecture et écriture de paramètres Revit — unitaire, en masse,
+par CSV, par recopie.
+**Sources :** outils de paramètres RiveTT.
+**Vérifié le :** 2026-05-25
 
 ## Decision rules
 
