@@ -13,6 +13,37 @@ using RiveTT.Core.Tools;
 namespace RiveTT.Tools.Project;
 
 /// <summary>
+/// The filePath checks shared by open_family and open_template — required, absolute,
+/// correct extension, must exist. Pulled out of both Execute() bodies so this logic can be
+/// unit-tested on its own: OpenFamilyTool.Execute/OpenTemplateTool.Execute also reference
+/// Autodesk.Revit.UI/DB types further down, and the JIT resolves a method's referenced
+/// types eagerly on first call regardless of which branch runs — calling Execute() to
+/// reach only these early checks forced a RevitAPIUI load that a standalone `dotnet test`
+/// run cannot satisfy (Nice3point.Revit.Api.* ships no real DLL; see AGENTS.md). Calling
+/// this method directly needs neither.
+/// </summary>
+public static class DocumentFilePathValidation
+{
+    public static CortexResult<object>? Validate(string? filePath, string requiredExtension)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                "filePath is required and was not provided",
+                suggestion: $"Pass filePath as an absolute {requiredExtension} path.");
+
+        if (!Path.IsPathFullyQualified(filePath) ||
+            !filePath.EndsWith(requiredExtension, StringComparison.OrdinalIgnoreCase))
+            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                $"filePath must be an absolute path ending in {requiredExtension} (received: {filePath})");
+
+        if (!File.Exists(filePath))
+            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"File not found: {filePath}");
+
+        return null;
+    }
+}
+
+/// <summary>
 /// Opens a .rfa family file and activates it in Revit, for direct visual editing
 /// (as opposed to load_family, which loads a family INTO the active project).
 ///
@@ -44,18 +75,9 @@ public sealed class OpenFamilyTool : ICortexTool
                        ?? input["path"]?.Value<string>();
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
-        if (string.IsNullOrWhiteSpace(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                "filePath is required and was not provided",
-                suggestion: "Pass filePath as an absolute .rfa path.");
-
-        if (!Path.IsPathFullyQualified(filePath) ||
-            !filePath!.EndsWith(".rfa", StringComparison.OrdinalIgnoreCase))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                $"filePath must be an absolute path ending in .rfa (received: {filePath})");
-
-        if (!File.Exists(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"File not found: {filePath}");
+        var validationError = DocumentFilePathValidation.Validate(filePath, ".rfa");
+        if (validationError != null)
+            return validationError;
 
         var currentDocument = session.Store.Get<object>("activeDocument") as Document;
 
@@ -66,7 +88,7 @@ public sealed class OpenFamilyTool : ICortexTool
                 message = $"DryRun: would open and activate '{Path.GetFileName(filePath)}' as a family " +
                           "document. This changes the active document.",
                 filePath,
-                fileSizeBytes = new FileInfo(filePath).Length,
+                fileSizeBytes = new FileInfo(filePath!).Length,
                 currentDocument = currentDocument?.PathName,
                 currentDocumentHasUnsavedChanges = currentDocument?.IsModified ?? false,
                 warnings = currentDocument?.IsModified == true
@@ -139,18 +161,9 @@ public sealed class OpenTemplateTool : ICortexTool
                        ?? input["path"]?.Value<string>();
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
-        if (string.IsNullOrWhiteSpace(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                "filePath is required and was not provided",
-                suggestion: "Pass filePath as an absolute .rte path.");
-
-        if (!Path.IsPathFullyQualified(filePath) ||
-            !filePath!.EndsWith(".rte", StringComparison.OrdinalIgnoreCase))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                $"filePath must be an absolute path ending in .rte (received: {filePath})");
-
-        if (!File.Exists(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"File not found: {filePath}");
+        var validationError = DocumentFilePathValidation.Validate(filePath, ".rte");
+        if (validationError != null)
+            return validationError;
 
         var currentDocument = session.Store.Get<object>("activeDocument") as Document;
 
@@ -161,7 +174,7 @@ public sealed class OpenTemplateTool : ICortexTool
                 message = $"DryRun: would open and activate '{Path.GetFileName(filePath)}' as an editable " +
                           "template document. This changes the active document.",
                 filePath,
-                fileSizeBytes = new FileInfo(filePath).Length,
+                fileSizeBytes = new FileInfo(filePath!).Length,
                 currentDocument = currentDocument?.PathName,
                 currentDocumentHasUnsavedChanges = currentDocument?.IsModified ?? false,
                 warnings = currentDocument?.IsModified == true

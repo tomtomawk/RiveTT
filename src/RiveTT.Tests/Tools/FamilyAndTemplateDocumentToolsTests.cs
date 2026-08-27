@@ -24,38 +24,40 @@ public class FamilyAndTemplateDocumentToolsTests
         Assert.False(tool.RequiresDocument);
     }
 
-    // OpenFamilyTool.Execute references Autodesk.Revit.UI types later in its body (it
-    // activates the family in the Revit interface) — the JIT resolves the whole method,
-    // RevitAPIUI included, before any branch runs, even the early filePath check below.
-    [RequiresRevitApiFact]
+    // These three call DocumentFilePathValidation directly, not tool.Execute(): Execute()
+    // also references Autodesk.Revit.UI types further down (it activates the family in the
+    // Revit interface), and the JIT resolves a method's referenced types eagerly on first
+    // call regardless of which branch actually runs. Going through Execute() for a pure
+    // filePath check forced a RevitAPIUI load that a standalone dotnet test run cannot
+    // satisfy (see AGENTS.md). The validator itself references no Revit type, so these run
+    // everywhere, no Revit install needed.
+    [Fact]
     public void OpenFamily_MissingFilePath_IsRefused()
     {
-        var tool = new OpenFamilyTool();
-        var result = tool.Execute(new JObject(), NewSession());
+        var result = DocumentFilePathValidation.Validate(null, ".rfa");
 
-        Assert.False(result.Success);
+        Assert.NotNull(result);
+        Assert.False(result!.Success);
         Assert.Equal(CortexErrorCode.InvalidInput, result.Error!.Code);
     }
 
-    [RequiresRevitApiFact]
+    [Fact]
     public void OpenFamily_RejectsANonRfaPath()
     {
-        var tool = new OpenFamilyTool();
-        var input = new JObject { ["filePath"] = @"C:\families\door.rvt" };
-        var result = tool.Execute(input, NewSession());
+        var result = DocumentFilePathValidation.Validate(@"C:\families\door.rvt", ".rfa");
 
-        Assert.False(result.Success);
+        Assert.NotNull(result);
+        Assert.False(result!.Success);
         Assert.Contains(".rfa", result.Error!.Message);
     }
 
-    [RequiresRevitApiFact]
+    [Fact]
     public void OpenFamily_RejectsARelativePath()
     {
-        var tool = new OpenFamilyTool();
-        var input = new JObject { ["filePath"] = "door.rfa" };
-        var result = tool.Execute(input, NewSession());
+        var result = DocumentFilePathValidation.Validate("door.rfa", ".rfa");
 
-        Assert.False(result.Success);
+        Assert.NotNull(result);
+        Assert.False(result!.Success);
     }
 
     [Fact]
@@ -66,14 +68,13 @@ public class FamilyAndTemplateDocumentToolsTests
         Assert.False(tool.RequiresDocument);
     }
 
-    [RequiresRevitApiFact]
+    [Fact]
     public void OpenTemplate_RejectsANonRteExtension()
     {
-        var tool = new OpenTemplateTool();
-        var input = new JObject { ["filePath"] = @"C:\templates\arch.rvt" };
-        var result = tool.Execute(input, NewSession());
+        var result = DocumentFilePathValidation.Validate(@"C:\templates\arch.rvt", ".rte");
 
-        Assert.False(result.Success);
+        Assert.NotNull(result);
+        Assert.False(result!.Success);
         Assert.Contains(".rte", result.Error!.Message);
     }
 
@@ -85,6 +86,10 @@ public class FamilyAndTemplateDocumentToolsTests
         Assert.False(tool.RequiresDocument);
     }
 
+    // Not extracted like the three above: the check itself is DocumentLifecycleSupport.
+    // ResolveApplication's `is UIApplication`/`as Document` type pattern matching, which IS
+    // the Revit-type dependency, not just adjacent to it — there is no Revit-free way to
+    // express "would this resolve to null" for that logic. Left RevitAPIUI-gated.
     [RequiresRevitApiFact]
     public void CloseDocument_NoApplicationInSession_IsRefused()
     {
