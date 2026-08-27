@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using RiveTT.Server.Connection;
 using RiveTT.Server.Tools;
@@ -50,10 +51,10 @@ namespace RiveTT.Tests.Server
             Assert.Equal(typeof(int?), GetParameter(method, "pageSize").ParameterType);
             Assert.Equal(typeof(int?), GetParameter(method, "limit").ParameterType);
             Assert.Equal(typeof(string), GetParameter(method, "cursor").ParameterType);
-            Assert.Equal(typeof(string), GetParameter(method, "modelCategoryList").ParameterType);
-            Assert.Equal(typeof(string), GetParameter(method, "annotationCategoryList").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "modelCategoryList").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "annotationCategoryList").ParameterType);
             Assert.Equal(typeof(string), GetParameter(method, "categoryFilter").ParameterType);
-            Assert.Equal(typeof(string), GetParameter(method, "fields").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "fields").ParameterType);
             Assert.Equal(typeof(CancellationToken), GetParameter(method, "ct").ParameterType);
 
             Assert.True(GetParameter(method, "modelCategoryList").HasDefaultValue);
@@ -215,8 +216,8 @@ namespace RiveTT.Tests.Server
                 name => Assert.Equal("offset", name),
                 name => Assert.Equal("ct", name));
 
-            Assert.Equal(typeof(string), GetParameter(method, "hostElementIds").ParameterType);
-            Assert.Equal(typeof(string), GetParameter(method, "linkedElements").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "hostElementIds").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "linkedElements").ParameterType);
             Assert.Equal(typeof(bool), GetParameter(method, "select").ParameterType);
             Assert.Equal(typeof(bool), GetParameter(method, "isolate").ParameterType);
             Assert.Equal(typeof(bool), GetParameter(method, "createSectionBox").ParameterType);
@@ -252,7 +253,7 @@ namespace RiveTT.Tests.Server
                 name => Assert.Equal("compact", name),
                 name => Assert.Equal("ct", name));
 
-            Assert.Equal(typeof(string), GetParameter(method, "categoryList").ParameterType);
+            Assert.Equal(typeof(JsonElement?), GetParameter(method, "categoryList").ParameterType);
             Assert.Equal(typeof(string), GetParameter(method, "familyNameFilter").ParameterType);
             Assert.Equal(typeof(int?), GetParameter(method, "limit").ParameterType);
 

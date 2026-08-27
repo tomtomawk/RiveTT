@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
 using RiveTT.Server.Connection;
@@ -6,7 +6,7 @@ using RiveTT.Server.Connection;
 namespace RiveTT.Server.Tools;
 
 /// <summary>
-/// Document lifecycle, stairs and group members — the operations previously
+/// Document lifecycle, stairs and group members â€” the operations previously
 /// declared impossible. Two of those declarations were wrong: an ExternalEvent
 /// handler MAY switch the active document (it is the API event handlers that may
 /// not), and a component stair is built through the non-modal StairsEditScope.
@@ -38,7 +38,7 @@ public static class LifecycleAndStairTools
 
     [McpServerTool(Name = "open_document"), Description(
         "Open a .rvt file and make it the ACTIVE document in Revit. Every later tool call targets that " +
-        "document and all caches are flushed. Save the current document first if it has unsaved changes — " +
+        "document and all caches are flushed. Save the current document first if it has unsaved changes â€” " +
         "switching does not save it. Use detachFromCentral=true for a workshared central model.")]
     public static async Task<string> OpenDocument(
         RevitConnectionManager revit,
@@ -54,7 +54,7 @@ public static class LifecycleAndStairTools
 
     [McpServerTool(Name = "create_stair"), Description(
         "Create a native component stair between two levels. runs is a JSON array [{p0:{x,y}, p1:{x,y}}, ...] " +
-        "in mm plan coordinates — the levels drive the elevation, not z. Consecutive runs get an automatic " +
+        "in mm plan coordinates â€” the levels drive the elevation, not z. Consecutive runs get an automatic " +
         "landing. The response reports actualRiserCount against desiredRiserCount and reachesTopLevel: a run " +
         "too short produces a stair that stops below the top level. Get stairsTypeId and railingTypeId from " +
         "list_system_types (OST_Stairs, OST_StairsRailing).")]
@@ -84,9 +84,9 @@ public static class LifecycleAndStairTools
 
     [McpServerTool(Name = "create_ramp"), Description(
         "Create a native component ramp between two levels (accessibility/PMR). runs is a JSON array " +
-        "[{p0:{x,y}, p1:{x,y}}, ...] in mm plan coordinates — the levels drive the elevation. Revit has no " +
+        "[{p0:{x,y}, p1:{x,y}}, ...] in mm plan coordinates â€” the levels drive the elevation. Revit has no " +
         "separate ramp API: this uses the same StairsEditScope mechanism as create_stair with an OST_Ramps " +
-        "type applied — rampTypeId is REQUIRED and must come from list_system_types(category: \"OST_Ramps\"); " +
+        "type applied â€” rampTypeId is REQUIRED and must come from list_system_types(category: \"OST_Ramps\"); " +
         "a stair type there produces a stair, not a ramp. The response reports the run slope against the " +
         "common 1:12 (8.3%) PMR/code limit.")]
     public static async Task<string> CreateRamp(
@@ -94,7 +94,7 @@ public static class LifecycleAndStairTools
         [Description("Base level element ID")] long baseLevelId,
         [Description("Top level element ID (must be above the base level)")] long topLevelId,
         [Description("Runs JSON: [{p0:{x,y}, p1:{x,y}}, ...] in mm")] string runs,
-        [Description("OST_Ramps type element ID (required) — from list_system_types(category: \"OST_Ramps\")")] long rampTypeId,
+        [Description("OST_Ramps type element ID (required) â€” from list_system_types(category: \"OST_Ramps\")")] long rampTypeId,
         [Description("Run width in mm. Omit for the type default")] double? widthMm = null,
         [Description("Railing type ID to place on the treads (creates one railing per side)")] long? railingTypeId = null,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
@@ -124,21 +124,26 @@ public static class LifecycleAndStairTools
         [Description("Action: get_grid_info | add_grid_line | add_mullions. Default: get_grid_info")] string action = "get_grid_info",
         [Description("Grid line direction: u | v (add_grid_line)")] string? direction = null,
         [Description("Offset in mm along the host's own axis for the new grid line (add_grid_line)")] double? offsetMm = null,
-        [Description("MullionType element ID (add_mullions) — from list_system_types(category: \"OST_CurtainWallMullions\")")] long? mullionTypeId = null,
-        [Description("Grid line element IDs to restrict add_mullions to, as a JSON array of numbers. Omit to cover every ungridded segment")] string? gridLineIds = null,
+        [Description("MullionType element ID (add_mullions) â€” from list_system_types(category: \"OST_CurtainWallMullions\")")] long? mullionTypeId = null,
+        [Description("Grid line element IDs to restrict add_mullions to, as a JSON array of numbers. Omit to cover every ungridded segment")] System.Text.Json.JsonElement? gridLineIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["hostElementId"] = hostElementId, ["action"] = action };
         if (direction != null) p["direction"] = direction;
         if (offsetMm != null) p["offsetMm"] = offsetMm;
         if (mullionTypeId != null) p["mullionTypeId"] = mullionTypeId;
-        if (gridLineIds != null) p["gridLineIds"] = JArray.Parse(gridLineIds);
+        if (gridLineIds != null)
+        {
+            if (!JsonArrayParam.TryParse(gridLineIds, out var gridLineIdsArray))
+                return JsonArrayParam.InvalidArrayResult("manage_curtain_grid", "gridLineIds", gridLineIds);
+            p["gridLineIds"] = gridLineIdsArray;
+        }
         return (await revit.ExecuteAsync("manage_curtain_grid", p, ct)).ToString();
     }
 
     [McpServerTool(Name = "create_toposolid"), Description(
         "Creates a Toposolid (site/ground surface) from a closed boundary loop (Toposolid.Create). " +
-        "toposolidTypeId and levelId are required — list types with list_system_types(category: \"OST_Toposolid\").")]
+        "toposolidTypeId and levelId are required â€” list types with list_system_types(category: \"OST_Toposolid\").")]
     public static async Task<string> CreateToposolid(
         RevitConnectionManager revit,
         [Description("Curve specs forming a closed loop, JSON array: [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] string curves,
@@ -163,8 +168,8 @@ public static class LifecycleAndStairTools
     public static async Task<string> EditGroupMembers(
         RevitConnectionManager revit,
         [Description("Group INSTANCE element ID")] long groupId,
-        [Description("Element IDs to add to the group. JSON array, e.g. [1,2]")] string? addElementIds = null,
-        [Description("Element IDs to remove from the group. JSON array, e.g. [1,2]")] string? removeElementIds = null,
+        [Description("Element IDs to add to the group. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? addElementIds = null,
+        [Description("Element IDs to remove from the group. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? removeElementIds = null,
         [Description("Name for the resulting group type. Defaults to the original name")] string? newTypeName = null,
         [Description("Accept that other instances of the type keep the old definition. Default false")] bool allowMultiInstance = false,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,

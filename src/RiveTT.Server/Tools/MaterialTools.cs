@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -58,19 +58,29 @@ public static class MaterialTools
         RevitConnectionManager revit,
         [Description("Type element ID")] long typeId,
         [Description("Action: replace | add | remove | modify | set_wrapping. Default: replace")] string? action = null,
-        [Description("Layer definitions as JSON array for replace: [{function, materialName, widthMm}]")] string? layers = null,
+        [Description("Layer definitions as JSON array for replace: [{function, materialName, widthMm}]")] System.Text.Json.JsonElement? layers = null,
         [Description("Opening (insert) wrapping for set_wrapping: none | exterior | interior | both")] string? openingWrapping = null,
         [Description("End cap condition for set_wrapping: none | exterior | interior")] string? endCap = null,
-        [Description("Per-layer wrapping for set_wrapping: JSON [{layerIndex, wraps:bool}]")] string? layerWrapping = null,
+        [Description("Per-layer wrapping for set_wrapping: JSON [{layerIndex, wraps:bool}]")] System.Text.Json.JsonElement? layerWrapping = null,
         [Description("Preview changes without applying")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["typeId"] = typeId, ["dryRun"] = dryRun };
         if (action != null) p["action"] = action;
-        if (layers != null) p["layers"] = JArray.Parse(layers);
+        if (layers != null)
+        {
+            if (!JsonArrayParam.TryParse(layers, out var layersArray))
+                return JsonArrayParam.InvalidArrayResult("set_compound_structure", "layers", layers);
+            p["layers"] = layersArray;
+        }
         if (openingWrapping != null) p["openingWrapping"] = openingWrapping;
         if (endCap != null) p["endCap"] = endCap;
-        if (layerWrapping != null) p["layerWrapping"] = JArray.Parse(layerWrapping);
+        if (layerWrapping != null)
+        {
+            if (!JsonArrayParam.TryParse(layerWrapping, out var layerWrappingArray))
+                return JsonArrayParam.InvalidArrayResult("set_compound_structure", "layerWrapping", layerWrapping);
+            p["layerWrapping"] = layerWrappingArray;
+        }
         var result = await revit.ExecuteAsync("set_compound_structure", p, ct);
         return result.ToString();
     }
@@ -92,10 +102,10 @@ public static class MaterialTools
     [McpServerTool(Name = "get_material_quantities"), Description("Calculate material area and volume across elements, optionally filtered by category or restricted to the current selection.")]
     public static async Task<string> GetMaterialQuantities(
         RevitConnectionManager revit,
-        [Description("Category filters (e.g. Walls, Floors). JSON array, e.g. [\"A\",\"B\"]")] string? categoryFilters = null,
+        [Description("Category filters (e.g. Walls, Floors). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categoryFilters = null,
         [Description("Restrict to the current Revit selection. Default: false")] bool selectedElementsOnly = false,
         [Description("Max rows returned. Default: 50")] int? maxResults = null,
-        [Description("Cap on elements processed (default 20000). Above the cap the tool fails with a structured error instead of freezing Revit — narrow with categoryFilters/selectedElementsOnly or raise this deliberately.")] int? maxElements = null,
+        [Description("Cap on elements processed (default 20000). Above the cap the tool fails with a structured error instead of freezing Revit â€” narrow with categoryFilters/selectedElementsOnly or raise this deliberately.")] int? maxElements = null,
         CancellationToken ct = default)
     {
         var p = new JObject();

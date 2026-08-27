@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -9,7 +9,7 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class CreationTools
 {
-    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs — a roof is a real FootPrintRoof, Document.Create.NewFootPrintRoof). Pass [{category, boundary:{outerLoop:[{p0,p1}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; omit for a flat roof.")]
+    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs â€” a roof is a real FootPrintRoof, Document.Create.NewFootPrintRoof). Pass [{category, boundary:{outerLoop:[{p0,p1}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; omit for a flat roof.")]
     public static async Task<string> CreateSurfaceBasedElement(
         RevitConnectionManager revit,
         [Description("JSON array of creation specs: [{category, boundary:{outerLoop:[{p0:{x,y,z},p1:{x,y,z}}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees applies to OST_Roofs only.")] string specs,
@@ -20,7 +20,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "manage_area_plans"), Description("Builds regulatory area surfaces (SHAB/SU/SDP): area schemes, area plan views, area boundary lines, and Area elements. action=list_schemes|duplicate_scheme|create_plan|create_boundary|create_area. AreaScheme creation from scratch is confirmed unsupported by the public Revit API — duplicate_scheme copies an existing one instead (every template ships 'Gross Building').")]
+    [McpServerTool(Name = "manage_area_plans"), Description("Builds regulatory area surfaces (SHAB/SU/SDP): area schemes, area plan views, area boundary lines, and Area elements. action=list_schemes|duplicate_scheme|create_plan|create_boundary|create_area. AreaScheme creation from scratch is confirmed unsupported by the public Revit API â€” duplicate_scheme copies an existing one instead (every template ships 'Gross Building').")]
     public static async Task<string> ManageAreaPlans(
         RevitConnectionManager revit,
         [Description("Action: list_schemes | duplicate_scheme | create_plan | create_boundary | create_area. Default: list_schemes")] string action = "list_schemes",
@@ -29,7 +29,7 @@ public static class CreationTools
         [Description("AreaScheme element ID (create_plan)")] long? areaSchemeId = null,
         [Description("Level element ID (create_plan)")] long? levelId = null,
         [Description("Area plan view element ID (create_boundary, create_area)")] long? viewId = null,
-        [Description("JSON array of curve specs forming a closed loop (create_boundary): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] string? curves = null,
+        [Description("JSON array of curve specs forming a closed loop (create_boundary): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] System.Text.Json.JsonElement? curves = null,
         [Description("Point inside a closed area boundary, JSON {x,y} in mm (create_area)")] string? point = null,
         CancellationToken ct = default)
     {
@@ -39,20 +39,25 @@ public static class CreationTools
         if (areaSchemeId != null) p["areaSchemeId"] = areaSchemeId;
         if (levelId != null) p["levelId"] = levelId;
         if (viewId != null) p["viewId"] = viewId;
-        if (curves != null) p["curves"] = JArray.Parse(curves);
+        if (curves != null)
+        {
+            if (!JsonArrayParam.TryParse(curves, out var curvesArray))
+                return JsonArrayParam.InvalidArrayResult("manage_area_plans", "curves", curves);
+            p["curves"] = curvesArray;
+        }
         if (point != null) p["point"] = JObject.Parse(point);
         var result = await revit.ExecuteAsync("manage_area_plans", p, ct);
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_opening"), Description("Cuts an opening or a vertical shaft. openingType=shaft|host|wall. shaft: baseLevelId+topLevelId+curves (closed loop, mm) — a vertical shaft through every floor/roof between the two levels. host: hostElementId (a floor or roof)+curves (closed loop, mm) — cutIsVoid defaults to true. wall: hostElementId (a wall)+point1+point2 ({x,y,z} mm).")]
+    [McpServerTool(Name = "create_opening"), Description("Cuts an opening or a vertical shaft. openingType=shaft|host|wall. shaft: baseLevelId+topLevelId+curves (closed loop, mm) â€” a vertical shaft through every floor/roof between the two levels. host: hostElementId (a floor or roof)+curves (closed loop, mm) â€” cutIsVoid defaults to true. wall: hostElementId (a wall)+point1+point2 ({x,y,z} mm).")]
     public static async Task<string> CreateOpening(
         RevitConnectionManager revit,
         [Description("shaft | host | wall")] string openingType,
         [Description("Base level element ID (shaft)")] long? baseLevelId = null,
         [Description("Top level element ID (shaft)")] long? topLevelId = null,
         [Description("Host floor/roof/wall element ID (host, wall)")] long? hostElementId = null,
-        [Description("JSON array of curve specs forming a closed loop (shaft, host): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] string? curves = null,
+        [Description("JSON array of curve specs forming a closed loop (shaft, host): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] System.Text.Json.JsonElement? curves = null,
         [Description("Whether the cut is a void vs. solid addition (host). Default: true")] bool cutIsVoid = true,
         [Description("First corner point, JSON {x,y,z} in mm (wall)")] string? point1 = null,
         [Description("Second (opposite) corner point, JSON {x,y,z} in mm (wall)")] string? point2 = null,
@@ -62,7 +67,12 @@ public static class CreationTools
         if (baseLevelId != null) p["baseLevelId"] = baseLevelId;
         if (topLevelId != null) p["topLevelId"] = topLevelId;
         if (hostElementId != null) p["hostElementId"] = hostElementId;
-        if (curves != null) p["curves"] = JArray.Parse(curves);
+        if (curves != null)
+        {
+            if (!JsonArrayParam.TryParse(curves, out var curvesArray))
+                return JsonArrayParam.InvalidArrayResult("create_opening", "curves", curves);
+            p["curves"] = curvesArray;
+        }
         if (point1 != null) p["point1"] = JObject.Parse(point1);
         if (point2 != null) p["point2"] = JObject.Parse(point2);
         var result = await revit.ExecuteAsync("create_opening", p, ct);
@@ -93,23 +103,33 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_floor"), Description("Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId. Previews by default: the dry run reports the floor type and level it resolved to — both come from fallbacks the caller usually does not state — plus the boundary area. Set dryRun=false to create.")]
+    [McpServerTool(Name = "create_floor"), Description("Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId. Previews by default: the dry run reports the floor type and level it resolved to â€” both come from fallbacks the caller usually does not state â€” plus the boundary area. Set dryRun=false to create.")]
     public static async Task<string> CreateFloor(
         RevitConnectionManager revit,
-        [Description("JSON array of boundary points [{x, y}] in mm (outer loop). Omit if using roomId")] string? boundaryPoints = null,
+        [Description("JSON array of boundary points [{x, y}] in mm (outer loop). Omit if using roomId")] System.Text.Json.JsonElement? boundaryPoints = null,
         [Description("Room element id to take the boundary from (alternative to boundaryPoints)")] long? roomId = null,
         [Description("Floor type name. Defaults to first architectural floor type")] string? floorTypeName = null,
         [Description("Target level elevation in mm (picks the nearest level). Ignored when roomId is given")] double? levelElevation = null,
-        [Description("JSON array of holes, each a [{x,y}] inner loop, e.g. [[{x,y},{x,y},{x,y}]]")] string? holes = null,
+        [Description("JSON array of holes, each a [{x,y}] inner loop, e.g. [[{x,y},{x,y},{x,y}]]")] System.Text.Json.JsonElement? holes = null,
         [Description("Preview without creating the floor. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["dryRun"] = dryRun };
-        if (boundaryPoints != null) p["boundaryPoints"] = JArray.Parse(boundaryPoints);
+        if (boundaryPoints != null)
+        {
+            if (!JsonArrayParam.TryParse(boundaryPoints, out var boundaryPointsArray))
+                return JsonArrayParam.InvalidArrayResult("create_floor", "boundaryPoints", boundaryPoints);
+            p["boundaryPoints"] = boundaryPointsArray;
+        }
         if (roomId != null) p["roomId"] = roomId;
         if (floorTypeName != null) p["floorTypeName"] = floorTypeName;
         if (levelElevation != null) p["levelElevation"] = levelElevation;
-        if (holes != null) p["holes"] = JArray.Parse(holes);
+        if (holes != null)
+        {
+            if (!JsonArrayParam.TryParse(holes, out var holesArray))
+                return JsonArrayParam.InvalidArrayResult("create_floor", "holes", holes);
+            p["holes"] = holesArray;
+        }
         var result = await revit.ExecuteAsync("create_floor", p, ct);
         return result.ToString();
     }
@@ -165,9 +185,9 @@ public static class CreationTools
     // The element-mode key is elementIds. This advertised referenceIds, which the runtime
     // never reads, so every documented call fell through to "Provide either elementIds
     // (2+) or startPoint/endPoint". Nested keys like this escape
-    // ServerRuntimeParameterContractTests, which only sees top-level parameters —
+    // ServerRuntimeParameterContractTests, which only sees top-level parameters â€”
     // NestedKeyContractTests now covers them.
-    [McpServerTool(Name = "create_dimensions"), Description("Create dimension annotations in a view. Pass a JSON array of dimension specs. Element mode: [{viewId, elementIds:[...], linePoint:{x,y,z}, dimensionStyleId?}] — elementIds needs at least 2 elements, and the dimension is measured between the faces facing each other. Point-to-point mode: [{viewId, startPoint:{x,y,z}, endPoint:{x,y,z}, linePoint?, dimensionStyleId?}] — both points must lie in the view's plane. dimensionStyleId is honored in both modes.")]
+    [McpServerTool(Name = "create_dimensions"), Description("Create dimension annotations in a view. Pass a JSON array of dimension specs. Element mode: [{viewId, elementIds:[...], linePoint:{x,y,z}, dimensionStyleId?}] â€” elementIds needs at least 2 elements, and the dimension is measured between the faces facing each other. Point-to-point mode: [{viewId, startPoint:{x,y,z}, endPoint:{x,y,z}, linePoint?, dimensionStyleId?}] â€” both points must lie in the view's plane. dimensionStyleId is honored in both modes.")]
     public static async Task<string> CreateDimensions(
         RevitConnectionManager revit,
         [Description("JSON array of dimension specs. Element mode uses elementIds; point-to-point uses startPoint+endPoint. Both accept dimensionStyleId")] string dimensions,
@@ -208,8 +228,8 @@ public static class CreationTools
         [Description("Category name or OST_* code (e.g. OST_Walls, Doors)")] string categoryName,
         [Description("Parameter to group/color by (required for color), e.g. \"Type Name\", \"Level\"")] string? parameterName = null,
         [Description("Action: color | reset. Default: color")] string? action = null,
-        [Description("Use a blue→red gradient across groups. Default: false (random colors)")] bool useGradient = false,
-        [Description("Optional explicit colors as JSON array [{r,g,b}, ...], cycled across groups")] string? customColors = null,
+        [Description("Use a blueâ†’red gradient across groups. Default: false (random colors)")] bool useGradient = false,
+        [Description("Optional explicit colors as JSON array [{r,g,b}, ...], cycled across groups")] System.Text.Json.JsonElement? customColors = null,
         [Description("View to apply the overrides in. Omit to use the currently active view.")] long? viewId = null,
         CancellationToken ct = default)
     {
@@ -218,7 +238,12 @@ public static class CreationTools
         if (parameterName != null) p["parameterName"] = parameterName;
         if (action != null) p["action"] = action;
         p["useGradient"] = useGradient;
-        if (customColors != null) p["customColors"] = JArray.Parse(customColors);
+        if (customColors != null)
+        {
+            if (!JsonArrayParam.TryParse(customColors, out var customColorsArray))
+                return JsonArrayParam.InvalidArrayResult("color_elements", "customColors", customColors);
+            p["customColors"] = customColorsArray;
+        }
         var result = await revit.ExecuteAsync("color_elements", p, ct);
         return result.ToString();
     }
@@ -226,9 +251,9 @@ public static class CreationTools
     [McpServerTool(Name = "export_to_excel"), Description("Export element data from a Revit category to an Excel file.")]
     public static async Task<string> ExportToExcel(
         RevitConnectionManager revit,
-        [Description("Categories to export (OST_* codes or display names). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
+        [Description("Categories to export (OST_* codes or display names). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
         [Description("Legacy single category alias; used only when categories is omitted")] string? category = null,
-        [Description("Specific parameter names to export. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
+        [Description("Specific parameter names to export. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
         [Description("Include type parameters. Default: false")] bool includeTypeParameters = false,
         [Description("Include element id column. Default: true")] bool includeElementId = true,
         [Description("Output file path for the Excel file")] string? filePath = null,
@@ -320,9 +345,9 @@ public static class CreationTools
     public static async Task<string> CreateColorLegend(
         RevitConnectionManager revit,
         [Description("Parameter name to color by")] string parameterName,
-        [Description("Categories to include (e.g. Rooms, Walls). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
+        [Description("Categories to include (e.g. Rooms, Walls). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
         [Description("Color scheme: auto | rainbow | sequential | custom. Default: auto")] string? colorScheme = null,
-        [Description("Custom colors as JSON array of hex strings (when colorScheme=custom)")] string? customColors = null,
+        [Description("Custom colors as JSON array of hex strings (when colorScheme=custom)")] System.Text.Json.JsonElement? customColors = null,
         [Description("Create a legend view for the scheme. Default: true")] bool createLegendView = true,
         [Description("Legend title. Default: 'Color Legend'")] string? legendTitle = null,
         [Description("Target view ID (optional; uses active view when omitted)")] long? targetViewId = null,
@@ -336,7 +361,12 @@ public static class CreationTools
             p["categories"] = categoriesArray;
         }
         if (colorScheme != null) p["colorScheme"] = colorScheme;
-        if (customColors != null) p["customColors"] = JArray.Parse(customColors);
+        if (customColors != null)
+        {
+            if (!JsonArrayParam.TryParse(customColors, out var customColorsArray))
+                return JsonArrayParam.InvalidArrayResult("create_color_legend", "customColors", customColors);
+            p["customColors"] = customColorsArray;
+        }
         p["createLegendView"] = createLegendView;
         if (legendTitle != null) p["legendTitle"] = legendTitle;
         if (targetViewId != null) p["targetViewId"] = targetViewId;
@@ -350,13 +380,18 @@ public static class CreationTools
         [Description("Boundary points as JSON array [{x,y}, ...] (outer closed loop)")] string boundaryPoints,
         [Description("View ID to host the region (optional; uses active view when omitted)")] long? viewId = null,
         [Description("Filled region type name")] string? filledRegionTypeName = null,
-        [Description("JSON array of holes, each a [{x,y}] inner loop, e.g. [[{x,y},{x,y},{x,y}]]")] string? holes = null,
+        [Description("JSON array of holes, each a [{x,y}] inner loop, e.g. [[{x,y},{x,y},{x,y}]]")] System.Text.Json.JsonElement? holes = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["boundaryPoints"] = JArray.Parse(boundaryPoints) };
         if (viewId != null) p["viewId"] = viewId;
         if (filledRegionTypeName != null) p["filledRegionTypeName"] = filledRegionTypeName;
-        if (holes != null) p["holes"] = JArray.Parse(holes);
+        if (holes != null)
+        {
+            if (!JsonArrayParam.TryParse(holes, out var holesArray))
+                return JsonArrayParam.InvalidArrayResult("create_filled_region", "holes", holes);
+            p["holes"] = holesArray;
+        }
         var result = await revit.ExecuteAsync("create_filled_region", p, ct);
         return result.ToString();
     }
@@ -399,7 +434,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_revision"), Description("List, create, update, or assign revisions to sheets, and draw revision clouds. action=list|create|set|add_to_sheets|create_cloud. 'set' updates an existing revision (needs revisionId). 'create_cloud' draws the cloud that localizes a revision on a view (needs revisionId, viewId, curves) — Revit refuses this once the revision is marked Issued.")]
+    [McpServerTool(Name = "create_revision"), Description("List, create, update, or assign revisions to sheets, and draw revision clouds. action=list|create|set|add_to_sheets|create_cloud. 'set' updates an existing revision (needs revisionId). 'create_cloud' draws the cloud that localizes a revision on a view (needs revisionId, viewId, curves) â€” Revit refuses this once the revision is marked Issued.")]
     public static async Task<string> CreateRevision(
         RevitConnectionManager revit,
         [Description("Action: list | create | set | add_to_sheets | create_cloud. Default: list")] string? action = null,
@@ -409,10 +444,10 @@ public static class CreationTools
         [Description("Issued to (for create/set)")] string? issuedTo = null,
         [Description("Mark the revision issued (true) or not (false), for create/set Pass \"true\" or \"false\"; omit to leave unchanged.")] string? issued = null,
         [Description("Revision visibility: cloud_and_tag | tag_visible | none, for create/set")] string? visibility = null,
-        [Description("Sheet element IDs (for add_to_sheets). JSON array, e.g. [1,2]")] string? sheetIds = null,
+        [Description("Sheet element IDs (for add_to_sheets). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? sheetIds = null,
         [Description("Revision element ID (required for set, add_to_sheets, and create_cloud)")] long? revisionId = null,
         [Description("View element ID the cloud is drawn in (required for create_cloud)")] long? viewId = null,
-        [Description("JSON array of curve specs forming a closed loop (required for create_cloud): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] string? curves = null,
+        [Description("JSON array of curve specs forming a closed loop (required for create_cloud): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] System.Text.Json.JsonElement? curves = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -464,8 +499,8 @@ public static class CreationTools
     [McpServerTool(Name = "export_elements_data"), Description("Export element data as JSON or CSV, by category and/or by explicit elementIds. Parameter names may be given in English or in the document language (Mark/Repere, Level/Niveau, Width/Largeur); names that resolve to nothing are listed in unresolvedParameterNames instead of producing a silently empty column. Filters on a Level-type parameter match the level NAME. Use countOnly=true first to size a large export.")]
     public static async Task<string> ExportElementsData(
         RevitConnectionManager revit,
-        [Description("Categories to include (e.g. Walls, Doors). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
-        [Description("Parameter names to extract (all writable when omitted). JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
+        [Description("Categories to include (e.g. Walls, Doors). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
+        [Description("Parameter names to extract (all writable when omitted). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
         [Description("Include type-level parameters. Default: false")] bool includeTypeParameters = false,
         [Description("Include element IDs in output. Default: true")] bool includeElementId = true,
         [Description("Output format: json | csv. Default: json")] string? outputFormat = null,
@@ -473,7 +508,7 @@ public static class CreationTools
         [Description("Include only elements where this parameter matches filterValue")] string? filterParameterName = null,
         [Description("Value to match for filterParameterName")] string? filterValue = null,
         [Description("Filter operator: equals | not_equals | contains | startsWith | endsWith | is_empty | is_not_empty | greater_than | less_than. Default: equals")] string? filterOperator = null,
-        [Description("Restrict the export to these element IDs. Applied before pagination. JSON array, e.g. [1,2]")] string? elementIds = null,
+        [Description("Restrict the export to these element IDs. Applied before pagination. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
         [Description("Return counts and estimated column count only, no rows. Use it to size an export first. Default: false")] bool countOnly = false,
         CancellationToken ct = default)
     {
@@ -512,7 +547,7 @@ public static class CreationTools
     public static async Task<string> ExportFamilies(
         RevitConnectionManager revit,
         [Description("Output directory for the .rfa files")] string outputDirectory,
-        [Description("Categories to restrict the export. JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
+        [Description("Categories to restrict the export. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
         [Description("Create one subfolder per category. Default: true")] bool groupByCategory = true,
         [Description("Overwrite existing files. Default: false")] bool overwrite = false,
         CancellationToken ct = default)
@@ -554,8 +589,8 @@ public static class CreationTools
         RevitConnectionManager revit,
         [Description("Output directory")] string outputDirectory,
         [Description("Export format: DWG | DXF | DGN | PDF | IMAGE. Default: DWG")] string? format = null,
-        [Description("Sheet IDs to export. JSON array, e.g. [1,2]")] string? sheetIds = null,
-        [Description("View IDs to export. JSON array, e.g. [1,2]")] string? viewIds = null,
+        [Description("Sheet IDs to export. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? sheetIds = null,
+        [Description("View IDs to export. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? viewIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["outputDirectory"] = outputDirectory };

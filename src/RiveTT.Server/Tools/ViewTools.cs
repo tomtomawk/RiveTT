@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -13,7 +13,7 @@ public static class ViewTools
     public static async Task<string> CreateView(
         RevitConnectionManager revit,
         [Description("Type of view to create: FloorPlan, CeilingPlan, Section, Elevation, Drafting, Callout, ThreeD")] string viewType,
-        [Description("Level name (e.g. 'L1 - Block 43') — preferred for floor/ceiling plans")] string? levelName = null,
+        [Description("Level name (e.g. 'L1 - Block 43') â€” preferred for floor/ceiling plans")] string? levelName = null,
         [Description("Level element ID (alternative to levelName)")] long? levelId = null,
         [Description("Name for the new view")] string? name = null,
         [Description("View scale denominator, e.g. 100 for 1:100. Default: 100")] int? scale = null,
@@ -87,10 +87,10 @@ public static class ViewTools
         [Description("Maximum number of elements to return per page. Default: 200")] int? pageSize = null,
         [Description("Legacy alias for pageSize")] int? limit = null,
         [Description("Opaque cursor from a previous call's nextCursor, to fetch the next page")] string? cursor = null,
-        [Description("Model category filters (e.g. OST_Walls, OST_Doors). JSON array, e.g. [\"A\",\"B\"]")] string? modelCategoryList = null,
-        [Description("Annotation category filters (e.g. OST_Dimensions, OST_TextNotes). JSON array, e.g. [\"A\",\"B\"]")] string? annotationCategoryList = null,
+        [Description("Model category filters (e.g. OST_Walls, OST_Doors). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? modelCategoryList = null,
+        [Description("Annotation category filters (e.g. OST_Dimensions, OST_TextNotes). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? annotationCategoryList = null,
         [Description("Legacy single-category filter; mapped into modelCategoryList for backward compatibility")] string? categoryFilter = null,
-        [Description("Specific fields to include in the response. JSON array, e.g. [\"A\",\"B\"]")] string? fields = null,
+        [Description("Specific fields to include in the response. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? fields = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -126,11 +126,11 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Action: create | apply | list. Default: create")] string? action = null,
         [Description("Filter name (for create)")] string? filterName = null,
-        [Description("Category names for create (e.g. [\"Walls\", \"Floors\"]). JSON array, e.g. [\"A\",\"B\"]")] string? categoryNames = null,
+        [Description("Category names for create (e.g. [\"Walls\", \"Floors\"]). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categoryNames = null,
         [Description("Parameter name to filter on (single-rule create)")] string? parameterName = null,
         [Description("Filter rule (single-rule create): equals | not_equals | contains | begins_with | ends_with | greater_than | less_than")] string? filterRule = null,
         [Description("Value to compare against (single-rule create)")] string? filterValue = null,
-        [Description("Multi-rule create: JSON array of {parameterName, rule, value}")] string? rules = null,
+        [Description("Multi-rule create: JSON array of {parameterName, rule, value}")] System.Text.Json.JsonElement? rules = null,
         [Description("Combine multiple rules with: and | or. Default: and")] string? logic = null,
         [Description("Filter id (for apply)")] long? filterId = null,
         [Description("View id (for apply)")] long? viewId = null,
@@ -151,7 +151,12 @@ public static class ViewTools
         if (parameterName != null) p["parameterName"] = parameterName;
         if (filterRule != null) p["filterRule"] = filterRule;
         if (filterValue != null) p["filterValue"] = filterValue;
-        if (rules != null) p["rules"] = JArray.Parse(rules);
+        if (rules != null)
+        {
+            if (!JsonArrayParam.TryParse(rules, out var rulesArray))
+                return JsonArrayParam.InvalidArrayResult("create_view_filter", "rules", rules);
+            p["rules"] = rulesArray;
+        }
         if (logic != null) p["logic"] = logic;
         if (filterId != null) p["filterId"] = filterId;
         if (viewId != null) p["viewId"] = viewId;
@@ -218,7 +223,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "place_viewport"), Description("Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. The response reports sheetSizeMm, viewportOutlineMm and fitsOnSheet — an UNCROPPED view yields a viewport far bigger than the sheet and its content lands outside the frame, so crop the view first (at 1:100 a 16 x 13.5 m crop is 160 x 135 mm on paper).")]
+    [McpServerTool(Name = "place_viewport"), Description("Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. The response reports sheetSizeMm, viewportOutlineMm and fitsOnSheet â€” an UNCROPPED view yields a viewport far bigger than the sheet and its content lands outside the frame, so crop the view first (at 1:100 a 16 x 13.5 m crop is 160 x 135 mm on paper).")]
     public static async Task<string> PlaceViewport(
         RevitConnectionManager revit,
         [Description("Sheet element ID")] long sheetId,
@@ -247,7 +252,7 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Schedule name")] string name,
         [Description("Category to schedule (e.g. Walls, Doors, Rooms)")] string category,
-        [Description("Parameter fields to include in the schedule. JSON array, e.g. [\"A\",\"B\"]")] string? fields = null,
+        [Description("Parameter fields to include in the schedule. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? fields = null,
         [Description("Schedule type: regular | material_takeoff | key_schedule | sheet_list | view_list. Default: regular")] string? scheduleType = null,
         CancellationToken ct = default)
     {
@@ -267,7 +272,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_key_schedule"), Description("Creates a key schedule (ViewSchedule.CreateKeySchedule) — a reusable finish/typology key table (room finish keys, dwelling-unit typologies), different from create_schedule/create_preset_schedule which only build element-instance schedules.")]
+    [McpServerTool(Name = "create_key_schedule"), Description("Creates a key schedule (ViewSchedule.CreateKeySchedule) â€” a reusable finish/typology key table (room finish keys, dwelling-unit typologies), different from create_schedule/create_preset_schedule which only build element-instance schedules.")]
     public static async Task<string> CreateKeySchedule(
         RevitConnectionManager revit,
         [Description("Category the keys apply to (e.g. Rooms, OST_Rooms)")] string categoryName,
@@ -298,8 +303,8 @@ public static class ViewTools
     [McpServerTool(Name = "create_preset_schedule"), Description("Create a schedule from a predefined template. preset = door_by_room | window_by_room | room_finish | material_takeoff | sheet_list | view_list. material_takeoff also requires categoryName (e.g. OST_Walls).")]
     public static async Task<string> CreatePresetSchedule(
         RevitConnectionManager revit,
-        // The four names this described before — RoomFinish, DoorHardware, WallQuantities,
-        // WindowSchedule — did not exist. Every one was rejected with "Unknown preset", so
+        // The four names this described before â€” RoomFinish, DoorHardware, WallQuantities,
+        // WindowSchedule â€” did not exist. Every one was rejected with "Unknown preset", so
         // following the documentation had a 100 % failure rate. These are read from the
         // switch in CreatePresetScheduleTool.
         [Description("Preset: door_by_room | window_by_room | room_finish | material_takeoff | sheet_list | view_list")] string preset,
@@ -335,7 +340,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    // ── Viewport & View Template tools ──────────────────────────────────
+    // â”€â”€ Viewport & View Template tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [McpServerTool(Name = "align_viewports"), Description("Align viewports across sheets. 'placement' matches box centers; 'model' matches the box outline min-corner so equal-scale views of the same region line up.")]
     public static async Task<string> AlignViewports(
@@ -359,7 +364,7 @@ public static class ViewTools
     public static async Task<string> ApplyViewTemplate(
         RevitConnectionManager revit,
         [Description("Action: list | apply | remove. Default: apply")] string? action = null,
-        [Description("View IDs to apply/remove template on. JSON array, e.g. [1,2]")] string? viewIds = null,
+        [Description("View IDs to apply/remove template on. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? viewIds = null,
         [Description("Template element ID (for apply)")] long? templateId = null,
         [Description("Template name (alternative to templateId)")] string? templateName = null,
         CancellationToken ct = default)
@@ -416,7 +421,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "manage_scope_boxes"), Description("Inventory, rename, move, or assign-to-views existing scope boxes (OST_VolumeOfInterest). The Revit API has no method to create one from scratch — draw it by hand once, then manage it here. action=list|rename|move|assign_to_views|create (create returns a structured unsupported result).")]
+    [McpServerTool(Name = "manage_scope_boxes"), Description("Inventory, rename, move, or assign-to-views existing scope boxes (OST_VolumeOfInterest). The Revit API has no method to create one from scratch â€” draw it by hand once, then manage it here. action=list|rename|move|assign_to_views|create (create returns a structured unsupported result).")]
     public static async Task<string> ManageScopeBoxes(
         RevitConnectionManager revit,
         [Description("Action: list | rename | move | assign_to_views | create. Default: list")] string action = "list",
@@ -424,7 +429,7 @@ public static class ViewTools
         [Description("New name (rename)")] string? newName = null,
         [Description("Move translation as JSON {x,y,z} in mm (move)")] string? translation = null,
         [Description("Scope box element ID to assign, or 0 to clear (assign_to_views)")] long? scopeBoxId = null,
-        [Description("View element IDs to apply the scope box to, as a JSON array of numbers (assign_to_views)")] string? viewIds = null,
+        [Description("View element IDs to apply the scope box to, as a JSON array of numbers (assign_to_views)")] System.Text.Json.JsonElement? viewIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["action"] = action };
@@ -432,7 +437,12 @@ public static class ViewTools
         if (newName != null) p["newName"] = newName;
         if (translation != null) p["translation"] = JObject.Parse(translation);
         if (scopeBoxId != null) p["scopeBoxId"] = scopeBoxId;
-        if (viewIds != null) p["viewIds"] = JArray.Parse(viewIds);
+        if (viewIds != null)
+        {
+            if (!JsonArrayParam.TryParse(viewIds, out var viewIdsArray))
+                return JsonArrayParam.InvalidArrayResult("manage_scope_boxes", "viewIds", viewIds);
+            p["viewIds"] = viewIdsArray;
+        }
         var result = await revit.ExecuteAsync("manage_scope_boxes", p, ct);
         return result.ToString();
     }
@@ -453,7 +463,7 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Action: list | duplicate | delete | rename. Default: list")] string? action = null,
         [Description("Filter templates by view type (for list)")] string? filterViewType = null,
-        [Description("Template IDs (for duplicate/delete). JSON array, e.g. [1,2]")] string? templateIds = null,
+        [Description("Template IDs (for duplicate/delete). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? templateIds = null,
         [Description("Template ID (for rename)")] long? templateId = null,
         [Description("New name (for rename or duplicate)")] string? newName = null,
         CancellationToken ct = default)
@@ -473,9 +483,9 @@ public static class ViewTools
         return result.ToString();
     }
 
-    // ── Sheet tools ─────────────────────────────────────────────────────
+    // â”€â”€ Sheet tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    [McpServerTool(Name = "batch_create_sheets"), Description("Create multiple sheets with title blocks and optional view placement. sheets is a JSON array: [{number, name, titleBlockName?, viewIds?}]. Each sheet's viewIds are centred in the title block's real frame (the sheet origin is NOT the frame corner) and tiled one per cell when there are several. Previews by default — the dry run reports duplicate sheet numbers and views already placed elsewhere; set dryRun=false to create.")]
+    [McpServerTool(Name = "batch_create_sheets"), Description("Create multiple sheets with title blocks and optional view placement. sheets is a JSON array: [{number, name, titleBlockName?, viewIds?}]. Each sheet's viewIds are centred in the title block's real frame (the sheet origin is NOT the frame corner) and tiled one per cell when there are several. Previews by default â€” the dry run reports duplicate sheet numbers and views already placed elsewhere; set dryRun=false to create.")]
     public static async Task<string> BatchCreateSheets(
         RevitConnectionManager revit,
         [Description("JSON array of sheet specs: [{number, name, titleBlockName?, viewIds?}]")] string sheets,
@@ -493,14 +503,19 @@ public static class ViewTools
     public static async Task<string> CreatePlaceholderSheets(
         RevitConnectionManager revit,
         [Description("Action: create | list | convert | delete. Default: create")] string? action = null,
-        [Description("JSON array of sheet specs for create: [{number, name}]")] string? sheets = null,
-        [Description("Sheet IDs (for convert/delete). JSON array, e.g. [1,2]")] string? sheetIds = null,
+        [Description("JSON array of sheet specs for create: [{number, name}]")] System.Text.Json.JsonElement? sheets = null,
+        [Description("Sheet IDs (for convert/delete). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? sheetIds = null,
         [Description("Title block type element ID (for convert)")] long? titleBlockId = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         if (action != null) p["action"] = action;
-        if (sheets != null) p["sheets"] = JArray.Parse(sheets);
+        if (sheets != null)
+        {
+            if (!JsonArrayParam.TryParse(sheets, out var sheetsArray))
+                return JsonArrayParam.InvalidArrayResult("create_placeholder_sheets", "sheets", sheets);
+            p["sheets"] = sheetsArray;
+        }
         if (sheetIds != null)
         {
             if (!JsonArrayParam.TryParse(sheetIds, out var sheetIdsArray))
@@ -564,7 +579,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    // ── Schedule tools ──────────────────────────────────────────────────
+    // â”€â”€ Schedule tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [McpServerTool(Name = "delete_schedule"), Description("Delete a schedule by ID or name. Previews by default: the dry run names the schedule and reports the cascade, including the viewports that placed it on sheets. Set dryRun=false to execute.")]
     public static async Task<string> DeleteSchedule(

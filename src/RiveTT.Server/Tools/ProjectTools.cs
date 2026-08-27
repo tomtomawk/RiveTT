@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -74,7 +74,7 @@ public static class ProjectTools
     [McpServerTool(Name = "get_available_family_types"), Description("List available family types in the Revit project.")]
     public static async Task<string> GetAvailableFamilyTypes(
         RevitConnectionManager revit,
-        [Description("Filter by category names (OST codes, English, or localized labels). JSON array, e.g. [\"A\",\"B\"]")] string? categoryList = null,
+        [Description("Filter by category names (OST codes, English, or localized labels). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categoryList = null,
         [Description("Case-insensitive substring filter on family or type name")] string? familyNameFilter = null,
         [Description("Max types to return. Default: 100")] int? limit = null,
         [Description("Return a compact payload without uniqueId-heavy rows. Default: false")] bool compact = false,
@@ -181,13 +181,18 @@ public static class ProjectTools
         RevitConnectionManager revit,
         [Description("Action: list | create | delete. Default: list")] string action = "list",
         [Description("Sheet set name (create), or exact name to match (delete, alternative to elementId)")] string? name = null,
-        [Description("View or sheet element IDs to include, as a JSON array of numbers (create)")] string? viewIds = null,
+        [Description("View or sheet element IDs to include, as a JSON array of numbers (create)")] System.Text.Json.JsonElement? viewIds = null,
         [Description("Sheet set element ID (delete, alternative to name)")] long? elementId = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["action"] = action };
         if (name != null) p["name"] = name;
-        if (viewIds != null) p["viewIds"] = JArray.Parse(viewIds);
+        if (viewIds != null)
+        {
+            if (!JsonArrayParam.TryParse(viewIds, out var viewIdsArray))
+                return JsonArrayParam.InvalidArrayResult("manage_sheet_sets", "viewIds", viewIds);
+            p["viewIds"] = viewIdsArray;
+        }
         if (elementId != null) p["elementId"] = elementId;
         var result = await revit.ExecuteAsync("manage_sheet_sets", p, ct);
         return result.ToString();
@@ -292,7 +297,7 @@ public static class ProjectTools
         "Delete elements. The dryRun preview reports the real cascade (dependent tags, sketches, railings...) " +
         "and any group membership. Deleting a group MEMBER performs Revit's EXCLUSION: the element leaves " +
         "that instance only, the group type and the other instances keep their own copies, and Revit renames " +
-        "the instance \"(membre exclu)\". Instances of one type are allowed to differ — that is a Revit " +
+        "the instance \"(membre exclu)\". Instances of one type are allowed to differ â€” that is a Revit " +
         "feature, reversible with Restore Excluded Members in the ribbon. The response reports every " +
         "exclusion it caused.")]
     public static async Task<string> DeleteElement(
@@ -333,7 +338,7 @@ public static class ProjectTools
     [McpServerTool(Name = "batch_rename"), Description("Batch rename elements or system types in the Revit project. Supports both loadable-family elements and system types (wall/floor/ceiling/roof types).")]
     public static async Task<string> BatchRename(
         RevitConnectionManager revit,
-        [Description("Array of element IDs to rename. Use this when you already have specific IDs. JSON array, e.g. [1,2]")] string? elementIds = null,
+        [Description("Array of element IDs to rename. Use this when you already have specific IDs. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
         [Description("Target category to rename. Valid values: views | sheets | levels | grids | rooms | walltypes | floortypes | ceilingtypes | rooftypes. Use 'floortypes' to rename system floor types.")] string? targetCategory = null,
         [Description("Text to find")] string? findText = null,
         [Description("Replacement text")] string? replaceText = null,
@@ -366,7 +371,7 @@ public static class ProjectTools
         [Description("Suffix string (for suffix operation)")] string? suffix = null,
         [Description("Text to find (for findReplace operation)")] string? findText = null,
         [Description("Replacement text (for findReplace operation)")] string? replaceText = null,
-        [Description("Categories to restrict the rename (e.g. Doors, Windows). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
+        [Description("Categories to restrict the rename (e.g. Doors, Windows). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
         [Description("Also rename the family types. Default: false")] bool renameTypes = false,
         [Description("Preview without writing. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
@@ -393,7 +398,7 @@ public static class ProjectTools
     public static async Task<string> TagRooms(
         RevitConnectionManager revit,
         [Description("Use leader on tags. Default: false")] bool useLeader = false,
-        [Description("Room IDs to tag (optional; tags all rooms in view when omitted). JSON array, e.g. [1,2]")] string? roomIds = null,
+        [Description("Room IDs to tag (optional; tags all rooms in view when omitted). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? roomIds = null,
         [Description("View to tag in. Omit to use the currently active view.")] long? viewId = null,
         CancellationToken ct = default)
     {
@@ -416,14 +421,19 @@ public static class ProjectTools
         [Description("Use leader on tags. Default: false")] bool useLeader = false,
         [Description("Tag orientation: horizontal | vertical. Default: horizontal")] string? orientation = null,
         [Description("Tag type (FamilySymbol) element ID. Default: first available wall tag type")] long? tagTypeId = null,
-        [Description("JSON array of wall element IDs to tag. Omit to tag all walls in the view")] string? wallIds = null,
+        [Description("JSON array of wall element IDs to tag. Omit to tag all walls in the view")] System.Text.Json.JsonElement? wallIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
         p["useLeader"] = useLeader;
         if (orientation != null) p["orientation"] = orientation;
         if (tagTypeId != null) p["tagTypeId"] = tagTypeId;
-        if (wallIds != null) p["wallIds"] = JArray.Parse(wallIds);
+        if (wallIds != null)
+        {
+            if (!JsonArrayParam.TryParse(wallIds, out var wallIdsArray))
+                return JsonArrayParam.InvalidArrayResult("tag_walls", "wallIds", wallIds);
+            p["wallIds"] = wallIdsArray;
+        }
         var result = await revit.ExecuteAsync("tag_walls", p, ct);
         return result.ToString();
     }
@@ -433,12 +443,17 @@ public static class ProjectTools
         RevitConnectionManager revit,
         [Description("Preview changes without applying. Default: true")] bool dryRun = true,
         [Description("View element ID to search in")] long? viewId = null,
-        [Description("JSON array of category names to filter")] string? categories = null,
+        [Description("JSON array of category names to filter")] System.Text.Json.JsonElement? categories = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["dryRun"] = dryRun };
         if (viewId != null) p["viewId"] = viewId;
-        if (categories != null) p["categories"] = JArray.Parse(categories);
+        if (categories != null)
+        {
+            if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
+                return JsonArrayParam.InvalidArrayResult("wipe_empty_tags", "categories", categories);
+            p["categories"] = categoriesArray;
+        }
         var result = await revit.ExecuteAsync("wipe_empty_tags", p, ct);
         return result.ToString();
     }
@@ -462,8 +477,8 @@ public static class ProjectTools
         [Description("Action: add_field | remove_field | set_sorting | clear_sorting | set_filter | clear_filter | rename. Default: add_field")] string? action = null,
         [Description("Schedule element ID (alternative to scheduleName)")] long? scheduleId = null,
         [Description("Schedule name (alternative to scheduleId)")] string? scheduleName = null,
-        [Description("Field names for add_field/remove_field actions. JSON array, e.g. [\"A\",\"B\"]")] string? fieldNames = null,
-        [Description("Sort field specs as JSON array: [{fieldName, sortOrder: \"ascending\"|\"descending\"}] (boolean alias 'ascending' also accepted)")] string? sortFields = null,
+        [Description("Field names for add_field/remove_field actions. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? fieldNames = null,
+        [Description("Sort field specs as JSON array: [{fieldName, sortOrder: \"ascending\"|\"descending\"}] (boolean alias 'ascending' also accepted)")] System.Text.Json.JsonElement? sortFields = null,
         [Description("Field to filter on (for set_filter). Must already be a field in the schedule")] string? filterField = null,
         [Description("Filter operator for set_filter: equal | not_equal | greater | less | contains | begins_with | ends_with | has_value | is_empty. Default: equal")] string? filterType = null,
         [Description("Filter value for set_filter (string or number). Omit for has_value/is_empty")] string? filterValue = null,
@@ -480,7 +495,12 @@ public static class ProjectTools
                 return JsonArrayParam.InvalidArrayResult("modify_schedule", "fieldNames", fieldNames);
             p["fieldNames"] = fieldNamesArray;
         }
-        if (sortFields != null) p["sortFields"] = JArray.Parse(sortFields);
+        if (sortFields != null)
+        {
+            if (!JsonArrayParam.TryParse(sortFields, out var sortFieldsArray))
+                return JsonArrayParam.InvalidArrayResult("modify_schedule", "sortFields", sortFields);
+            p["sortFields"] = sortFieldsArray;
+        }
         if (filterField != null) p["filterField"] = filterField;
         if (filterType != null) p["filterType"] = filterType;
         if (filterValue != null) p["filterValue"] = filterValue;
@@ -489,13 +509,13 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / bulk_modify_parameter_values; queries & filtering -> ai_element_filter / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views and schedules -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) — never for modal family editing (Document.EditFamily deadlocks from the tool's external-event context) — and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed and frequently fail on add-in DLL conflicts. There is NO in-Revit confirmation dialog: nothing stops a script once dryRun=false, so the dry run (the default) is the only review step — it runs the sandbox check and reports what would execute without executing it.")]
+    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY â€” execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / bulk_modify_parameter_values; queries & filtering -> ai_element_filter / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views and schedules -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) â€” never for modal family editing (Document.EditFamily deadlocks from the tool's external-event context) â€” and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed and frequently fail on add-in DLL conflicts. There is NO in-Revit confirmation dialog: nothing stops a script once dryRun=false, so the dry run (the default) is the only review step â€” it runs the sandbox check and reports what would execute without executing it.")]
     public static async Task<string> SendCodeToRevit(
         RevitConnectionManager revit,
         [Description("C# code to execute. Globals available: document (Document), uiDocument (UIDocument), app (Application).")] string code,
         [Description("Preview only: run the sandbox check and report what would execute, without running it or saving the script. Default: true")] bool dryRun = true,
         [Description("Transaction mode: auto | manual | readonly. Default: auto")] string? transactionMode = "auto",
-        [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously — see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool reusable = false,
+        [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously â€” see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool reusable = false,
         [Description("Short human-readable name for the script file (no spaces, max 40 chars). Example: 'floor-thickness-audit'")] string? scriptName = null,
         CancellationToken ct = default)
     {
@@ -535,8 +555,8 @@ public static class ProjectTools
     public static async Task<string> WorkflowDataRoundtrip(
         RevitConnectionManager revit,
         [Description("Path to the .xlsx file (created on export, read on import)")] string filePath,
-        [Description("Categories to include (e.g. Walls, Doors). JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
-        [Description("Parameter names to include. JSON array, e.g. [\"A\",\"B\"]")] string? parameterNames = null,
+        [Description("Categories to include (e.g. Walls, Doors). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
+        [Description("Parameter names to include. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
         [Description("Include type-level parameters. Default: false")] bool includeTypeParameters = false,
         CancellationToken ct = default)
     {
@@ -625,7 +645,7 @@ public static class ProjectTools
         RevitConnectionManager revit,
         [Description("Max families returned. Default: 50")] int? limit = null,
         [Description("Sort by: instanceCount | typeCount | name | sizeKB. Default: instanceCount. Note: sizeKB sort requires includeSize=true and forces size measurement on every family (slow on large models).")] string? sortBy = null,
-        [Description("Categories to restrict the list. JSON array, e.g. [\"A\",\"B\"]")] string? categories = null,
+        [Description("Categories to restrict the list. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
         [Description("If true, measure each returned family's file size in KB. Default false. Cost: ~50-200ms per family (one EditFamily + temp save round-trip).")] bool includeSize = false,
         CancellationToken ct = default)
     {

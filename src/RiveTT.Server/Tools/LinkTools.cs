@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -107,11 +107,11 @@ public static class LinkTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "show_cross_model_elements"), Description("Select host elements plus elements in linked Revit models. Two strategies for visibility: (a) default — create red DirectShape markers in the host doc around each linked element's bounding box (synchronous, transactional, robust); (b) usePostCommandIsolate=true — use Revit's native IsolateElements via PostCommand after SetReferences (canonical Revit API pattern, but asynchronous: tool returns before isolate completes, and cannot be combined with section box / overrides in the same call).")]
+    [McpServerTool(Name = "show_cross_model_elements"), Description("Select host elements plus elements in linked Revit models. Two strategies for visibility: (a) default â€” create red DirectShape markers in the host doc around each linked element's bounding box (synchronous, transactional, robust); (b) usePostCommandIsolate=true â€” use Revit's native IsolateElements via PostCommand after SetReferences (canonical Revit API pattern, but asynchronous: tool returns before isolate completes, and cannot be combined with section box / overrides in the same call).")]
     public static async Task<string> ShowCrossModelElements(
         RevitConnectionManager revit,
-        [Description("Host document element IDs to include. JSON array, e.g. [1,2]")] string? hostElementIds = null,
-        [Description("JSON array of linked targets: [{\"instanceId\":2409055,\"linkedElementId\":1413682}]")] string? linkedElements = null,
+        [Description("Host document element IDs to include. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? hostElementIds = null,
+        [Description("JSON array of linked targets: [{\"instanceId\":2409055,\"linkedElementId\":1413682}]")] System.Text.Json.JsonElement? linkedElements = null,
         [Description("Select host elements and linked-element references. Default: true")] bool select = true,
         [Description("Temporarily isolate host elements and link instances. Default: true")] bool isolate = true,
         [Description("Create a 3D section box around all targets. Default: true. Ignored when usePostCommandIsolate=true.")] bool createSectionBox = true,
@@ -127,7 +127,12 @@ public static class LinkTools
                 return JsonArrayParam.InvalidArrayResult("show_cross_model_elements", "hostElementIds", hostElementIds);
             p["hostElementIds"] = hostElementIdsArray;
         }
-        if (linkedElements != null) p["linkedElements"] = JArray.Parse(linkedElements);
+        if (linkedElements != null)
+        {
+            if (!JsonArrayParam.TryParse(linkedElements, out var linkedElementsArray))
+                return JsonArrayParam.InvalidArrayResult("show_cross_model_elements", "linkedElements", linkedElements);
+            p["linkedElements"] = linkedElementsArray;
+        }
         p["select"] = select;
         p["isolate"] = isolate;
         p["createSectionBox"] = createSectionBox;
@@ -208,7 +213,7 @@ public static class LinkTools
         [Description("Action: list | delete. Default: list")] string? action = null,
         [Description("Delete imported CAD instances. Default: false")] bool deleteImports = false,
         [Description("Delete linked CAD instances. Default: false")] bool deleteLinks = false,
-        [Description("Specific element IDs to target (optional). JSON array, e.g. [1,2]")] string? elementIds = null,
+        [Description("Specific element IDs to target (optional). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
         CancellationToken ct = default)
     {
         var p = new JObject();
