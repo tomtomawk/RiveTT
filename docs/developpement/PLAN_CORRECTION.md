@@ -23,10 +23,15 @@ Non corrigés, avec raison :
 
 - **P0.3, P1.2** — le code actuel contredit le défaut décrit (voir les notes ajoutées
   dans chaque section). À revérifier en session Revit avant de rouvrir ou de refermer.
-- **P1.4** — hypothèse ; instruction du plan lui-même de ne pas corriger à l'aveugle.
+- **P1.4** — mesuré le 27/08 en session Revit réelle, **non reproduit** (voir la
+  section : protocole exact, réserve sur sa couverture, et une trouvaille distincte —
+  `get_element_parameters(parameterNames:[...])` casse sur un tableau JSON natif,
+  candidat pour une partie des erreurs opaques de P0.3).
 - **P3.1, P3.2** — hygiène, le plan demande une passe dédiée séparée.
 - **P4.1** — reste à construire : `open_template`, `open_family`, `close_document`,
   `edit_family` en arrière-plan. Plus bloqué (P1.7 fait), taille d'un lot séparé.
+  Constat en passant (P1.4) : `Document.Close(false)` refuse le document actif, donc
+  `close_document` devra d'abord activer un autre document — pas un détail mineur.
 
 ---
 
@@ -259,24 +264,53 @@ ouvert ; l'écart, lui, ne l'est pas.
 
 ### P1.4 Invalidation du cache aux transitions de document
 
-**Statut : hypothèse.** Signalé par l'audit de relecture, **non reproduit** dans cette
-campagne — aucune transition fermeture/réouverture n'a été exercée.
+**Statut : mesuré le 27/08/2026, non reproduit.** Session Revit réelle, build installé
+`0.2.0.0` (pas les correctifs de code de `dev/0.3.0` — non pertinent ici, aucun d'eux ne
+touche ce chemin), projet `RiveTT_TEST_0.2.0.rvt`.
 
-L'audit rapporte des lectures incohérentes après fermeture sans enregistrement (`A108`
-puis `108`), avec `cached: false` dans les réponses — ce qui écarte le simple cache de
-résultat. Le code contient déjà `OnDocumentClosing → CortexSession.Reinitialize →
-Cache.InvalidateAll()`.
+**Protocole joué**, sur la pièce « Bureau 1 » (id `10568284`) :
 
-L'action n'est pas de corriger à l'aveugle mais **d'établir le fait** : scénario
-fermeture → réouverture → relecture ciblée, joué en session, avec relevé de
-`execution.cached` et de l'identité du document à chaque appel. La campagne du 26/08 a
-montré qu'un défaut voisin existe bel et bien côté cycle de vie (P0.3) et que deux
-serveurs coexistent — les deux pistes que l'audit cite comme causes probables.
+1. Lecture témoin : `Numéro = "101"`.
+2. `set_element_parameters(dryRun:false)` → `Numéro = "999TEST"` ; relecture immédiate
+   confirme l'écriture (`cached: false`).
+3. **Constat en cours de route, utile pour P4.1** : `Document.Close(false)` sur le
+   document ACTIF est refusé par l'API — `The active document may not be closed from
+   the API` (`InvalidOperationException`). Contournement obligatoire : activer un
+   autre document (`open_document` sur un second `.rvt`), ce qui rend
+   `RiveTT_TEST_0.2.0` inactif ; alors seulement `Document.Close(false)` réussit
+   dessus, retrouvé via `app.Documents`.
+4. `open_document(RiveTT_TEST_0.2.0.rvt)` : rouvre et réactive. `get_project_info`
+   confirme le bon `filePath`, `cached: false`.
+5. Relecture ciblée du même élément : `Numéro = "101"` — **la valeur sur disque, pas
+   `"999TEST"`**. Aucune valeur périmée, `cached: false`.
 
-Si le fait est établi, les correctifs proposés par l'audit sont les bons : état
-transitoire explicite, `activeDocument` remis à null dès la fermeture, entrées de cache
-rattachées à l'identité du document, réinitialisation sur `DocumentOpened` et
-`ViewActivated`, test d'intégration dédié.
+**Conclusion.** Avec ce protocole précis (bascule via un document intermédiaire —
+imposée par la contrainte API du point 3, pas un choix), le cache s'invalide
+correctement et l'identité de document reste cohérente. Le défaut décrit par l'audit de
+relecture (`A108` puis `108`) **ne s'est pas reproduit**. Réserve : le protocole exact
+ayant produit ce défaut à l'origine n'est pas connu (fermeture depuis l'UI Revit,
+séquence différente ?) — cette mesure ne le couvre donc pas à 100%, mais fournit un
+premier fait négatif là où il n'y en avait aucun. Pas de correctif à appliquer sans un
+scénario qui reproduit.
+
+**Trouvaille distincte en cours de route, à noter séparément** : `get_element_parameters`
+avec `parameterNames` **non vide** échoue systématiquement avec l'erreur opaque
+`An error occurred invoking 'get_element_parameters'` (aucun code, aucun message, aucune
+entrée d'audit) — reproduit sur plusieurs noms de paramètre différents, y compris un
+tableau à un seul élément. `src/RiveTT.Server/Tools/JsonArrayParam.cs` documente déjà
+avoir corrigé cette classe de défaut pour 55 paramètres sur 41 outils (tableau optionnel
+qui ne bind pas côté hôte MCP, avant même d'atteindre le code RiveTT) en typant ces
+paramètres `string?` porteur de JSON encodé plutôt que `string[]?`. Mais l'appel a été
+fait ici en passant `parameterNames` comme un **tableau JSON natif** — exactement ce que
+la description de l'outil invite à faire (« JSON array, e.g. [\"A\",\"B\"] ») — et casse
+quand même : le contrat réel exige une **chaîne contenant du JSON**, pas un tableau, ce
+que ni la description ni le schéma exposé (`"parameterNames": {}`, sans type) ne
+signalent à l'appelant. Le correctif `JsonArrayParam` résout « le tableau ne bind pas »
+seulement si l'appelant obéit déjà au bon format ; il ne résout pas l'ambiguïté qui fait
+qu'un appelant raisonnable — humain ou modèle — envoie un tableau natif. Candidat
+plausible pour une partie des erreurs opaques génériques que P0.3 documente par
+ailleurs, à vérifier sur les 40 autres outils concernés avant de le traiter comme
+résolu.
 
 ### P1.5 `create_view_filter` résout les paramètres sur un seul élément témoin
 
