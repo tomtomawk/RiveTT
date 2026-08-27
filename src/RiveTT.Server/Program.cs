@@ -14,7 +14,7 @@ builder.Services
         options.ServerInfo = new()
         {
             Name = "RiveTT",
-            Version = "0.3.0"
+            Version = "0.4.0"
         };
         options.ServerInstructions =
             "RiveTT connects automatically to the active Revit session (2026.5+ or 2027) through a local Windows named pipe. " +

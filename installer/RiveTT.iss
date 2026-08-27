@@ -13,7 +13,7 @@
 ; demanded admin.
 ;
 ; Build:  .\build.ps1            (compiles both Revit targets, then calls ISCC)
-;         ISCC.exe /DAppVersion=0.3.0 installer\RiveTT.iss
+;         ISCC.exe /DAppVersion=0.4.0 installer\RiveTT.iss
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
