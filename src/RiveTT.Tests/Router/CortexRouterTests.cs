@@ -64,7 +64,10 @@ public class CortexRouterTests
         Assert.Contains("not available", result.Error!.Message);
     }
 
-    [Fact]
+    // A successful Route() reaches EnrichResult, whose GetActiveRevitVersion() casts to
+    // Autodesk.Revit.DB.Document — the JIT resolves that type eagerly even on a null cast,
+    // so RevitAPI must be loadable for the method to run at all.
+    [RequiresRevitDbApiFact]
     public void Route_ValidTool_ExecutesSuccessfully()
     {
         var router = CreateRouter(out _);
@@ -78,7 +81,7 @@ public class CortexRouterTests
         Assert.True(result.Success);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_EnrichesEverySuccessWithExecutionContract()
     {
         var router = CreateRouter(out _);

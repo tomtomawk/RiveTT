@@ -24,7 +24,10 @@ public class FamilyAndTemplateDocumentToolsTests
         Assert.False(tool.RequiresDocument);
     }
 
-    [Fact]
+    // OpenFamilyTool.Execute references Autodesk.Revit.UI types later in its body (it
+    // activates the family in the Revit interface) — the JIT resolves the whole method,
+    // RevitAPIUI included, before any branch runs, even the early filePath check below.
+    [RequiresRevitApiFact]
     public void OpenFamily_MissingFilePath_IsRefused()
     {
         var tool = new OpenFamilyTool();
@@ -34,7 +37,7 @@ public class FamilyAndTemplateDocumentToolsTests
         Assert.Equal(CortexErrorCode.InvalidInput, result.Error!.Code);
     }
 
-    [Fact]
+    [RequiresRevitApiFact]
     public void OpenFamily_RejectsANonRfaPath()
     {
         var tool = new OpenFamilyTool();
@@ -45,7 +48,7 @@ public class FamilyAndTemplateDocumentToolsTests
         Assert.Contains(".rfa", result.Error!.Message);
     }
 
-    [Fact]
+    [RequiresRevitApiFact]
     public void OpenFamily_RejectsARelativePath()
     {
         var tool = new OpenFamilyTool();
@@ -63,7 +66,7 @@ public class FamilyAndTemplateDocumentToolsTests
         Assert.False(tool.RequiresDocument);
     }
 
-    [Fact]
+    [RequiresRevitApiFact]
     public void OpenTemplate_RejectsANonRteExtension()
     {
         var tool = new OpenTemplateTool();
@@ -82,7 +85,7 @@ public class FamilyAndTemplateDocumentToolsTests
         Assert.False(tool.RequiresDocument);
     }
 
-    [Fact]
+    [RequiresRevitApiFact]
     public void CloseDocument_NoApplicationInSession_IsRefused()
     {
         // No RevitApplication in the session store — the exact state before any
@@ -102,7 +105,9 @@ public class FamilyAndTemplateDocumentToolsTests
         Assert.True(tool.RequiresDocument);
     }
 
-    [Fact]
+    // EditFamilyTool.Execute only touches Autodesk.Revit.DB types (background edit, no
+    // UI) — RevitAPI loads standalone via RevitApiBootstrap, unlike RevitAPIUI above.
+    [RequiresRevitDbApiFact]
     public void EditFamily_NoActiveDocument_IsRefused()
     {
         var tool = new EditFamilyTool();
@@ -117,7 +122,7 @@ public class FamilyAndTemplateDocumentToolsTests
         Assert.Equal(CortexErrorCode.InvalidInput, result.Error!.Code);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void EditFamily_NeitherFamilyIdNorFamilyName_IsRefused()
     {
         // No active document either, so RequiresDocument's own check fires first

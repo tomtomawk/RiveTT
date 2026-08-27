@@ -57,7 +57,12 @@ public class CortexRouterCacheTests
         tools[tool.Name] = tool;
     }
 
-    [Fact]
+    // A successful Route() reaches EnrichResult, whose GetActiveRevitVersion() casts to
+    // Autodesk.Revit.DB.Document — the JIT resolves that type eagerly even though the cast
+    // target is null here, so RevitAPI must be loadable for the method to run at all.
+    // Route_FailedResult_IsNotCached below stays a plain [Fact]: EnrichResult only runs on
+    // success, so a failing tool never touches Document.
+    [RequiresRevitDbApiFact]
     public void Route_ToolWithoutCacheableInterface_AlwaysCallsExecute()
     {
         var router = CreateRouter(out _);
@@ -71,7 +76,7 @@ public class CortexRouterCacheTests
         Assert.Equal(3, tool.ExecuteCallCount);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_SessionCacheableTool_ExecutesOnceForSameInput()
     {
         var router = CreateRouter(out _);
@@ -90,7 +95,7 @@ public class CortexRouterCacheTests
         Assert.Equal(1, tool.ExecuteCallCount);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_DocumentCacheableTool_ReExecutesAfterDocumentVersionBump()
     {
         var router = CreateRouter(out var session);
@@ -114,7 +119,7 @@ public class CortexRouterCacheTests
         Assert.Equal(2, tool.ExecuteCallCount);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_DifferentInputs_DoNotShareCacheEntry()
     {
         var router = CreateRouter(out _);
@@ -152,7 +157,7 @@ public class CortexRouterCacheTests
         Assert.Equal(3, tool.ExecuteCallCount);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_DocumentCacheable_SameInputTwice_OnlyExecutesOnce()
     {
         var router = CreateRouter(out _);
@@ -170,7 +175,7 @@ public class CortexRouterCacheTests
         Assert.Equal(1, tool.ExecuteCallCount);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void Route_HashIgnoresKeyOrder()
     {
         var router = CreateRouter(out _);

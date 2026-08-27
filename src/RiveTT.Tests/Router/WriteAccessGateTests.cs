@@ -76,7 +76,11 @@ public class WriteAccessGateTests
         Assert.Equal(CortexErrorCode.PermissionDenied, result.Error!.Code);
     }
 
-    [Fact]
+    // Route() succeeds here (get_thing is read-only) and reaches EnrichResult, whose
+    // GetActiveRevitVersion() casts to Autodesk.Revit.DB.Document — the JIT resolves that
+    // type eagerly even though the cast target is null in this test, so the assembly must
+    // be loadable for the method to run at all.
+    [RequiresRevitDbApiFact]
     public void ReadOnly_ReadToolStillAnswers()
     {
         var router = CreateRouter(out _, writesAllowed: false);
@@ -86,7 +90,7 @@ public class WriteAccessGateTests
         Assert.True(result.Success);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void ReadOnly_IsReportedInTheExecutionBlock()
     {
         var router = CreateRouter(out _, writesAllowed: false);
@@ -98,7 +102,7 @@ public class WriteAccessGateTests
         Assert.True(execution["toolReadOnly"]!.Value<bool>());
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void WritesAllowed_WriteToolRuns()
     {
         var router = CreateRouter(out _, writesAllowed: true);
@@ -155,7 +159,8 @@ public class WriteAccessGateTests
         Assert.Empty(offenders);
     }
 
-    [Fact]
+    // GetServerCapabilitiesTool.GetActiveRevitVersion() casts to Document too.
+    [RequiresRevitDbApiFact]
     public void CapabilityContract_AnnouncesTheLockAndItsState()
     {
         var session = new CortexSession(new SessionStore());

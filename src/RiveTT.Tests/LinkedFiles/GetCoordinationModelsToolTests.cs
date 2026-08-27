@@ -36,7 +36,10 @@ public class GetCoordinationModelsToolTests
         Assert.Equal(CacheScope.Document, cacheable.CacheScope);
     }
 
-    [Fact]
+    // A successful Route() reaches EnrichResult, whose GetActiveRevitVersion() casts to
+    // Autodesk.Revit.DB.Document — the JIT resolves that type eagerly even on a null cast,
+    // so RevitAPI must be loadable for the method to run at all.
+    [RequiresRevitDbApiFact]
     public void CacheKey_VariesWithNameFilterIncludeInstancesAndMaxInstances()
     {
         var router = CreateRouter();

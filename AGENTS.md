@@ -135,3 +135,19 @@ in both target versions when the change touches anything gated by
 `REVIT2027_OR_GREATER` — and the outcome recorded in the commit or pull request that
 makes the change. `docs/developpement/CHANGELOG_0.3.0.md` §6 lists the points still
 open for live verification; add new ones there as they come up.
+
+`Nice3point.Revit.Api.*` is a compile-only stub — no real `RevitAPI.dll` ships
+in the package, so `dotnet test` alone cannot exercise anything that touches
+`Autodesk.Revit.DB`/`.UI` types. `RevitApiBootstrap.cs` (in `RiveTT.Tests`)
+finds a local Revit install (`C:\Program Files\Autodesk\Revit 2026|2027` by
+default, override with the `REVIT_INSTALL_DIR` env var — set it to a directory
+without `RevitAPI.dll` to force this off) and redirects assembly resolution to
+the real DLLs there. This makes the `Document`/`Application`-typed tests run
+for real instead of skipping, on any machine (this one included) that has
+Revit installed; `RevitAPIUI.dll` still fails its own native init even then, so
+UI-touching tests (`UIApplication`/`UIDocument`, activating a document) stay
+skipped everywhere. On a machine without Revit — another dev's machine, GitHub
+Actions — detection finds nothing and every one of these tests reports a clean
+Skip via `[RequiresRevitDbApiFact]`/`[RequiresRevitApiFact]`, never a Fail. Mark
+new Revit-typed tests with one of the two attributes instead of `[Fact]` so
+this holds.
