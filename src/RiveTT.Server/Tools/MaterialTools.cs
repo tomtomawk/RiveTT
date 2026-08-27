@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -105,7 +105,7 @@ public static class MaterialTools
         [Description("Category filters (e.g. Walls, Floors). JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categoryFilters = null,
         [Description("Restrict to the current Revit selection. Default: false")] bool selectedElementsOnly = false,
         [Description("Max rows returned. Default: 50")] int? maxResults = null,
-        [Description("Cap on elements processed (default 20000). Above the cap the tool fails with a structured error instead of freezing Revit â€” narrow with categoryFilters/selectedElementsOnly or raise this deliberately.")] int? maxElements = null,
+        [Description("Cap on elements processed (default 20000). Above the cap the tool fails with a structured error instead of freezing Revit — narrow with categoryFilters/selectedElementsOnly or raise this deliberately.")] int? maxElements = null,
         CancellationToken ct = default)
     {
         var p = new JObject();

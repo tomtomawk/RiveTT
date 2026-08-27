@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -9,10 +9,10 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class ParameterTools
 {
-    [McpServerTool(Name = "set_element_parameters"), Description("Set parameter values on one or more elements. Pass requests as a JSON-encoded array string. Supports parameterName by display name and builtInParameter by Revit API enum name, e.g. ALL_MODEL_MARK. UNITS: a numeric value on a length/area/etc. parameter is written in Revit internal units (feet) â€” to set a display value, pass a STRING WITH A UNIT (e.g. \"3000 mm\", \"3 m\") and Revit parses it unit- and locale-aware. A null value clears the parameter. Note: type-level parameters can be set through an instance when the type is resolvable.")]
+    [McpServerTool(Name = "set_element_parameters"), Description("Set parameter values on one or more elements. Pass requests as a JSON-encoded array string. Supports parameterName by display name and builtInParameter by Revit API enum name, e.g. ALL_MODEL_MARK. UNITS: a numeric value on a length/area/etc. parameter is written in Revit internal units (feet) — to set a display value, pass a STRING WITH A UNIT (e.g. \"3000 mm\", \"3 m\") and Revit parses it unit- and locale-aware. A null value clears the parameter. Note: type-level parameters can be set through an instance when the type is resolvable.")]
     public static async Task<string> SetElementParameters(
         RevitConnectionManager revit,
-        [Description("JSON-encoded array of set requests â€” pass as a string. Each item must have elementId, value, and either parameterName or builtInParameter. Use null to clear. For lengths/areas pass a unit string like \"3000 mm\" to avoid writing feet. Example: \"[{\\\"elementId\\\": 123, \\\"builtInParameter\\\": \\\"ALL_MODEL_MARK\\\", \\\"value\\\": \\\"P1\\\"}]\"")] string requests,
+        [Description("JSON-encoded array of set requests — pass as a string. Each item must have elementId, value, and either parameterName or builtInParameter. Use null to clear. For lengths/areas pass a unit string like \"3000 mm\" to avoid writing feet. Example: \"[{\\\"elementId\\\": 123, \\\"builtInParameter\\\": \\\"ALL_MODEL_MARK\\\", \\\"value\\\": \\\"P1\\\"}]\"")] string requests,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         [Description("Include per-request results. Default: false")] bool includeDetails = false,
         [Description("Maximum result rows when includeDetails=true. Default: 20")] int? sampleLimit = null,
@@ -45,7 +45,7 @@ public static class ParameterTools
         [Description("Text to find (for find_replace operation)")] string? findText = null,
         [Description("Replacement text (for find_replace operation)")] string? replaceText = null,
         [Description("Preview changes without applying. Default: true")] bool dryRun = true,
-        [Description("If true, include up to `sampleLimit` modified elements in the response. Default false to keep dryRun payloads small â€” most callers only need the counts.")] bool includeSample = false,
+        [Description("If true, include up to `sampleLimit` modified elements in the response. Default false to keep dryRun payloads small — most callers only need the counts.")] bool includeSample = false,
         [Description("How many modified elements to include when includeSample=true. Default 100.")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
@@ -119,7 +119,7 @@ public static class ParameterTools
         RevitConnectionManager revit,
         [Description("JSON rows: [{elementId, paramName1:value}] or [{elementId, parameters:{...}}]")] string data,
         [Description("Preview changes without applying. Default: true")] bool dryRun = true,
-        [Description("Map CSV headers to display names or BuiltInParameter values, e.g. {\"NumÃ©ro\":\"ROOM_NUMBER\"}")] string? parameterMap = null,
+        [Description("Map CSV headers to display names or BuiltInParameter values, e.g. {\"Numéro\":\"ROOM_NUMBER\"}")] string? parameterMap = null,
         [Description("Include per-element diagnostics. Default: false")] bool includeDetails = false,
         [Description("Maximum detail rows when includeDetails=true. Default: 20")] int? sampleLimit = null,
         CancellationToken ct = default)
@@ -248,11 +248,11 @@ public static class ParameterTools
         [Description("Parameter name (required for create/delete/modify/set_group/set_binding_type/rename). For set_group you can also pass parameterNames[].")] string? parameterName = null,
         [Description("Data type for create: Text | Integer | Number | Length | Area | Volume | Angle | YesNo | URL")] string? dataType = null,
         [Description("Instance (true) or type (false) binding. Used on 'create' and on 'set_binding_type' (the target binding type). Pass \"true\" or \"false\"; omit to leave unchanged.")] string? isInstance = null,
-        [Description("Categories list (OST_* codes or display names) â€” for create/modify. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
+        [Description("Categories list (OST_* codes or display names) — for create/modify. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? categories = null,
         [Description("How modify applies 'categories': add (default, union), remove (unbind listed), replace (set to exactly the listed). Ignored for other actions.")] string? categoriesMode = null,
-        [Description("Parameter names array â€” for set_group bulk operation, e.g. [\"BCA_RES_Stato-Conservazione\",\"BCA_CME_Codice-Tariffa\"]. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
+        [Description("Parameter names array — for set_group bulk operation, e.g. [\"BCA_RES_Stato-Conservazione\",\"BCA_CME_Codice-Tariffa\"]. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
         [Description("Target group for set_group action. Short names: IdentityData, Data, Constraints, Geometry, Graphics, Materials, Text, General, Phasing, Visibility, Construction, Electrical, ElectricalEngineering, ElectricalLighting, ElectricalLoads, Mechanical, MechanicalAirflow, Plumbing, FireProtection, Ifc, AnalysisResults, Structural, StructuralAnalysis. A full ForgeTypeId is also accepted.")] string? targetGroup = null,
-        [Description("New name â€” only used by 'rename' (which returns API-limitation guidance for project parameters; use global parameters if you need rename).")] string? newName = null,
+        [Description("New name — only used by 'rename' (which returns API-limitation guidance for project parameters; use global parameters if you need rename).")] string? newName = null,
         [Description("Preview only (set_group). Default: true (preview); set false to apply the changes.")] bool dryRun = true,
         CancellationToken ct = default)
     {
@@ -331,8 +331,8 @@ public static class ParameterTools
         [Description("Parameter name (required for get/create/set/delete/rename/set_formula/move_up/move_down)")] string? name = null,
         [Description("Data type for create: text, integer, number, length, area, volume, angle, yesno")] string? dataType = null,
         [Description("Value to set (for create or set actions)")] string? value = null,
-        [Description("New name â€” required for 'rename'")] string? newName = null,
-        [Description("Formula expression â€” required for 'set_formula'. Pass an empty string to clear the formula.")] string? formula = null,
+        [Description("New name — required for 'rename'")] string? newName = null,
+        [Description("Formula expression — required for 'set_formula'. Pass an empty string to clear the formula.")] string? formula = null,
         [Description("Sort order for 'sort': ascending (default) | descending")] string? order = null,
         CancellationToken ct = default)
     {

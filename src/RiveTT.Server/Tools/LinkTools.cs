@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -107,7 +107,7 @@ public static class LinkTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "show_cross_model_elements"), Description("Select host elements plus elements in linked Revit models. Two strategies for visibility: (a) default â€” create red DirectShape markers in the host doc around each linked element's bounding box (synchronous, transactional, robust); (b) usePostCommandIsolate=true â€” use Revit's native IsolateElements via PostCommand after SetReferences (canonical Revit API pattern, but asynchronous: tool returns before isolate completes, and cannot be combined with section box / overrides in the same call).")]
+    [McpServerTool(Name = "show_cross_model_elements"), Description("Select host elements plus elements in linked Revit models. Two strategies for visibility: (a) default — create red DirectShape markers in the host doc around each linked element's bounding box (synchronous, transactional, robust); (b) usePostCommandIsolate=true — use Revit's native IsolateElements via PostCommand after SetReferences (canonical Revit API pattern, but asynchronous: tool returns before isolate completes, and cannot be combined with section box / overrides in the same call).")]
     public static async Task<string> ShowCrossModelElements(
         RevitConnectionManager revit,
         [Description("Host document element IDs to include. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? hostElementIds = null,

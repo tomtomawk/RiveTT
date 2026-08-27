@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -13,7 +13,7 @@ public static class ViewTools
     public static async Task<string> CreateView(
         RevitConnectionManager revit,
         [Description("Type of view to create: FloorPlan, CeilingPlan, Section, Elevation, Drafting, Callout, ThreeD")] string viewType,
-        [Description("Level name (e.g. 'L1 - Block 43') â€” preferred for floor/ceiling plans")] string? levelName = null,
+        [Description("Level name (e.g. 'L1 - Block 43') — preferred for floor/ceiling plans")] string? levelName = null,
         [Description("Level element ID (alternative to levelName)")] long? levelId = null,
         [Description("Name for the new view")] string? name = null,
         [Description("View scale denominator, e.g. 100 for 1:100. Default: 100")] int? scale = null,
@@ -223,7 +223,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "place_viewport"), Description("Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. The response reports sheetSizeMm, viewportOutlineMm and fitsOnSheet â€” an UNCROPPED view yields a viewport far bigger than the sheet and its content lands outside the frame, so crop the view first (at 1:100 a 16 x 13.5 m crop is 160 x 135 mm on paper).")]
+    [McpServerTool(Name = "place_viewport"), Description("Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. The response reports sheetSizeMm, viewportOutlineMm and fitsOnSheet — an UNCROPPED view yields a viewport far bigger than the sheet and its content lands outside the frame, so crop the view first (at 1:100 a 16 x 13.5 m crop is 160 x 135 mm on paper).")]
     public static async Task<string> PlaceViewport(
         RevitConnectionManager revit,
         [Description("Sheet element ID")] long sheetId,
@@ -272,7 +272,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_key_schedule"), Description("Creates a key schedule (ViewSchedule.CreateKeySchedule) â€” a reusable finish/typology key table (room finish keys, dwelling-unit typologies), different from create_schedule/create_preset_schedule which only build element-instance schedules.")]
+    [McpServerTool(Name = "create_key_schedule"), Description("Creates a key schedule (ViewSchedule.CreateKeySchedule) — a reusable finish/typology key table (room finish keys, dwelling-unit typologies), different from create_schedule/create_preset_schedule which only build element-instance schedules.")]
     public static async Task<string> CreateKeySchedule(
         RevitConnectionManager revit,
         [Description("Category the keys apply to (e.g. Rooms, OST_Rooms)")] string categoryName,
@@ -303,8 +303,8 @@ public static class ViewTools
     [McpServerTool(Name = "create_preset_schedule"), Description("Create a schedule from a predefined template. preset = door_by_room | window_by_room | room_finish | material_takeoff | sheet_list | view_list. material_takeoff also requires categoryName (e.g. OST_Walls).")]
     public static async Task<string> CreatePresetSchedule(
         RevitConnectionManager revit,
-        // The four names this described before â€” RoomFinish, DoorHardware, WallQuantities,
-        // WindowSchedule â€” did not exist. Every one was rejected with "Unknown preset", so
+        // The four names this described before — RoomFinish, DoorHardware, WallQuantities,
+        // WindowSchedule — did not exist. Every one was rejected with "Unknown preset", so
         // following the documentation had a 100 % failure rate. These are read from the
         // switch in CreatePresetScheduleTool.
         [Description("Preset: door_by_room | window_by_room | room_finish | material_takeoff | sheet_list | view_list")] string preset,
@@ -340,7 +340,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    // â”€â”€ Viewport & View Template tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Viewport & View Template tools ──────────────────────────────────
 
     [McpServerTool(Name = "align_viewports"), Description("Align viewports across sheets. 'placement' matches box centers; 'model' matches the box outline min-corner so equal-scale views of the same region line up.")]
     public static async Task<string> AlignViewports(
@@ -421,7 +421,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "manage_scope_boxes"), Description("Inventory, rename, move, or assign-to-views existing scope boxes (OST_VolumeOfInterest). The Revit API has no method to create one from scratch â€” draw it by hand once, then manage it here. action=list|rename|move|assign_to_views|create (create returns a structured unsupported result).")]
+    [McpServerTool(Name = "manage_scope_boxes"), Description("Inventory, rename, move, or assign-to-views existing scope boxes (OST_VolumeOfInterest). The Revit API has no method to create one from scratch — draw it by hand once, then manage it here. action=list|rename|move|assign_to_views|create (create returns a structured unsupported result).")]
     public static async Task<string> ManageScopeBoxes(
         RevitConnectionManager revit,
         [Description("Action: list | rename | move | assign_to_views | create. Default: list")] string action = "list",
@@ -483,9 +483,9 @@ public static class ViewTools
         return result.ToString();
     }
 
-    // â”€â”€ Sheet tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Sheet tools ─────────────────────────────────────────────────────
 
-    [McpServerTool(Name = "batch_create_sheets"), Description("Create multiple sheets with title blocks and optional view placement. sheets is a JSON array: [{number, name, titleBlockName?, viewIds?}]. Each sheet's viewIds are centred in the title block's real frame (the sheet origin is NOT the frame corner) and tiled one per cell when there are several. Previews by default â€” the dry run reports duplicate sheet numbers and views already placed elsewhere; set dryRun=false to create.")]
+    [McpServerTool(Name = "batch_create_sheets"), Description("Create multiple sheets with title blocks and optional view placement. sheets is a JSON array: [{number, name, titleBlockName?, viewIds?}]. Each sheet's viewIds are centred in the title block's real frame (the sheet origin is NOT the frame corner) and tiled one per cell when there are several. Previews by default — the dry run reports duplicate sheet numbers and views already placed elsewhere; set dryRun=false to create.")]
     public static async Task<string> BatchCreateSheets(
         RevitConnectionManager revit,
         [Description("JSON array of sheet specs: [{number, name, titleBlockName?, viewIds?}]")] string sheets,
@@ -579,7 +579,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    // â”€â”€ Schedule tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Schedule tools ──────────────────────────────────────────────────
 
     [McpServerTool(Name = "delete_schedule"), Description("Delete a schedule by ID or name. Previews by default: the dry run names the schedule and reports the cascade, including the viewports that placed it on sheets. Set dryRun=false to execute.")]
     public static async Task<string> DeleteSchedule(

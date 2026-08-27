@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -9,7 +9,7 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class CreationTools
 {
-    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs â€” a roof is a real FootPrintRoof, Document.Create.NewFootPrintRoof). Pass [{category, boundary:{outerLoop:[{p0,p1}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; omit for a flat roof.")]
+    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs — a roof is a real FootPrintRoof, Document.Create.NewFootPrintRoof). Pass [{category, boundary:{outerLoop:[{p0,p1}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; omit for a flat roof.")]
     public static async Task<string> CreateSurfaceBasedElement(
         RevitConnectionManager revit,
         [Description("JSON array of creation specs: [{category, boundary:{outerLoop:[{p0:{x,y,z},p1:{x,y,z}}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees applies to OST_Roofs only.")] string specs,
@@ -20,7 +20,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "manage_area_plans"), Description("Builds regulatory area surfaces (SHAB/SU/SDP): area schemes, area plan views, area boundary lines, and Area elements. action=list_schemes|duplicate_scheme|create_plan|create_boundary|create_area. AreaScheme creation from scratch is confirmed unsupported by the public Revit API â€” duplicate_scheme copies an existing one instead (every template ships 'Gross Building').")]
+    [McpServerTool(Name = "manage_area_plans"), Description("Builds regulatory area surfaces (SHAB/SU/SDP): area schemes, area plan views, area boundary lines, and Area elements. action=list_schemes|duplicate_scheme|create_plan|create_boundary|create_area. AreaScheme creation from scratch is confirmed unsupported by the public Revit API — duplicate_scheme copies an existing one instead (every template ships 'Gross Building').")]
     public static async Task<string> ManageAreaPlans(
         RevitConnectionManager revit,
         [Description("Action: list_schemes | duplicate_scheme | create_plan | create_boundary | create_area. Default: list_schemes")] string action = "list_schemes",
@@ -50,7 +50,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_opening"), Description("Cuts an opening or a vertical shaft. openingType=shaft|host|wall. shaft: baseLevelId+topLevelId+curves (closed loop, mm) â€” a vertical shaft through every floor/roof between the two levels. host: hostElementId (a floor or roof)+curves (closed loop, mm) â€” cutIsVoid defaults to true. wall: hostElementId (a wall)+point1+point2 ({x,y,z} mm).")]
+    [McpServerTool(Name = "create_opening"), Description("Cuts an opening or a vertical shaft. openingType=shaft|host|wall. shaft: baseLevelId+topLevelId+curves (closed loop, mm) — a vertical shaft through every floor/roof between the two levels. host: hostElementId (a floor or roof)+curves (closed loop, mm) — cutIsVoid defaults to true. wall: hostElementId (a wall)+point1+point2 ({x,y,z} mm).")]
     public static async Task<string> CreateOpening(
         RevitConnectionManager revit,
         [Description("shaft | host | wall")] string openingType,
@@ -103,7 +103,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_floor"), Description("Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId. Previews by default: the dry run reports the floor type and level it resolved to â€” both come from fallbacks the caller usually does not state â€” plus the boundary area. Set dryRun=false to create.")]
+    [McpServerTool(Name = "create_floor"), Description("Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId. Previews by default: the dry run reports the floor type and level it resolved to — both come from fallbacks the caller usually does not state — plus the boundary area. Set dryRun=false to create.")]
     public static async Task<string> CreateFloor(
         RevitConnectionManager revit,
         [Description("JSON array of boundary points [{x, y}] in mm (outer loop). Omit if using roomId")] System.Text.Json.JsonElement? boundaryPoints = null,
@@ -185,9 +185,9 @@ public static class CreationTools
     // The element-mode key is elementIds. This advertised referenceIds, which the runtime
     // never reads, so every documented call fell through to "Provide either elementIds
     // (2+) or startPoint/endPoint". Nested keys like this escape
-    // ServerRuntimeParameterContractTests, which only sees top-level parameters â€”
+    // ServerRuntimeParameterContractTests, which only sees top-level parameters —
     // NestedKeyContractTests now covers them.
-    [McpServerTool(Name = "create_dimensions"), Description("Create dimension annotations in a view. Pass a JSON array of dimension specs. Element mode: [{viewId, elementIds:[...], linePoint:{x,y,z}, dimensionStyleId?}] â€” elementIds needs at least 2 elements, and the dimension is measured between the faces facing each other. Point-to-point mode: [{viewId, startPoint:{x,y,z}, endPoint:{x,y,z}, linePoint?, dimensionStyleId?}] â€” both points must lie in the view's plane. dimensionStyleId is honored in both modes.")]
+    [McpServerTool(Name = "create_dimensions"), Description("Create dimension annotations in a view. Pass a JSON array of dimension specs. Element mode: [{viewId, elementIds:[...], linePoint:{x,y,z}, dimensionStyleId?}] — elementIds needs at least 2 elements, and the dimension is measured between the faces facing each other. Point-to-point mode: [{viewId, startPoint:{x,y,z}, endPoint:{x,y,z}, linePoint?, dimensionStyleId?}] — both points must lie in the view's plane. dimensionStyleId is honored in both modes.")]
     public static async Task<string> CreateDimensions(
         RevitConnectionManager revit,
         [Description("JSON array of dimension specs. Element mode uses elementIds; point-to-point uses startPoint+endPoint. Both accept dimensionStyleId")] string dimensions,
@@ -228,7 +228,7 @@ public static class CreationTools
         [Description("Category name or OST_* code (e.g. OST_Walls, Doors)")] string categoryName,
         [Description("Parameter to group/color by (required for color), e.g. \"Type Name\", \"Level\"")] string? parameterName = null,
         [Description("Action: color | reset. Default: color")] string? action = null,
-        [Description("Use a blueâ†’red gradient across groups. Default: false (random colors)")] bool useGradient = false,
+        [Description("Use a blue→red gradient across groups. Default: false (random colors)")] bool useGradient = false,
         [Description("Optional explicit colors as JSON array [{r,g,b}, ...], cycled across groups")] System.Text.Json.JsonElement? customColors = null,
         [Description("View to apply the overrides in. Omit to use the currently active view.")] long? viewId = null,
         CancellationToken ct = default)
@@ -434,7 +434,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_revision"), Description("List, create, update, or assign revisions to sheets, and draw revision clouds. action=list|create|set|add_to_sheets|create_cloud. 'set' updates an existing revision (needs revisionId). 'create_cloud' draws the cloud that localizes a revision on a view (needs revisionId, viewId, curves) â€” Revit refuses this once the revision is marked Issued.")]
+    [McpServerTool(Name = "create_revision"), Description("List, create, update, or assign revisions to sheets, and draw revision clouds. action=list|create|set|add_to_sheets|create_cloud. 'set' updates an existing revision (needs revisionId). 'create_cloud' draws the cloud that localizes a revision on a view (needs revisionId, viewId, curves) — Revit refuses this once the revision is marked Issued.")]
     public static async Task<string> CreateRevision(
         RevitConnectionManager revit,
         [Description("Action: list | create | set | add_to_sheets | create_cloud. Default: list")] string? action = null,
