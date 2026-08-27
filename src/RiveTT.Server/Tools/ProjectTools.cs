@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Linq;
 using ModelContextProtocol.Server;
 using Newtonsoft.Json.Linq;
@@ -68,6 +68,28 @@ public static class ProjectTools
         if (familyPath != null) p["familyPath"] = familyPath;
         if (categoryFilter != null) p["categoryFilter"] = categoryFilter;
         var result = await revit.ExecuteAsync("load_family", p, ct);
+        return result.ToString();
+    }
+
+    [McpServerTool(Name = "edit_family"), Description("Edits a loaded family's type parameters in the background - no window opens. Pass familyId or familyName, and changes as JSON: [{typeName, parameters: {paramName: value}}]. Only existing types and parameter values (dimensions, materials, yes/no, text): not new types, not geometry. Numeric values are internal units (feet); pass a string with a unit (e.g. \"900 mm\") to write a display value. The project's copy is updated in place - nothing opens on screen. Use open_family instead for visual/geometry edits.")]
+    public static async Task<string> EditFamily(
+        RevitConnectionManager revit,
+        [Description("Family element ID (alternative to familyName)")] long? familyId = null,
+        [Description("Family name (alternative to familyId)")] string? familyName = null,
+        [Description("JSON array: [{typeName, parameters: {paramName: value}}]")] System.Text.Json.JsonElement? changes = null,
+        [Description("Preview without editing. Default: true")] bool dryRun = true,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["dryRun"] = dryRun };
+        if (familyId != null) p["familyId"] = familyId;
+        if (familyName != null) p["familyName"] = familyName;
+        if (changes != null)
+        {
+            if (!JsonArrayParam.TryParse(changes, out var changesArray))
+                return JsonArrayParam.InvalidArrayResult("edit_family", "changes", changes);
+            p["changes"] = changesArray;
+        }
+        var result = await revit.ExecuteAsync("edit_family", p, ct);
         return result.ToString();
     }
 
@@ -297,7 +319,7 @@ public static class ProjectTools
         "Delete elements. The dryRun preview reports the real cascade (dependent tags, sketches, railings...) " +
         "and any group membership. Deleting a group MEMBER performs Revit's EXCLUSION: the element leaves " +
         "that instance only, the group type and the other instances keep their own copies, and Revit renames " +
-        "the instance \"(membre exclu)\". Instances of one type are allowed to differ â€” that is a Revit " +
+        "the instance \"(membre exclu)\". Instances of one type are allowed to differ — that is a Revit " +
         "feature, reversible with Restore Excluded Members in the ribbon. The response reports every " +
         "exclusion it caused.")]
     public static async Task<string> DeleteElement(
@@ -509,13 +531,13 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY â€” execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / bulk_modify_parameter_values; queries & filtering -> ai_element_filter / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views and schedules -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) â€” never for modal family editing (Document.EditFamily deadlocks from the tool's external-event context) â€” and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed and frequently fail on add-in DLL conflicts. There is NO in-Revit confirmation dialog: nothing stops a script once dryRun=false, so the dry run (the default) is the only review step â€” it runs the sandbox check and reports what would execute without executing it.")]
+    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / bulk_modify_parameter_values; queries & filtering -> ai_element_filter / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views and schedules -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) — never for family editing, which open_family (visual) and edit_family (background type-parameter values) already cover — and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed and frequently fail on add-in DLL conflicts. There is NO in-Revit confirmation dialog: nothing stops a script once dryRun=false, so the dry run (the default) is the only review step — it runs the sandbox check and reports what would execute without executing it.")]
     public static async Task<string> SendCodeToRevit(
         RevitConnectionManager revit,
         [Description("C# code to execute. Globals available: document (Document), uiDocument (UIDocument), app (Application).")] string code,
         [Description("Preview only: run the sandbox check and report what would execute, without running it or saving the script. Default: true")] bool dryRun = true,
         [Description("Transaction mode: auto | manual | readonly. Default: auto")] string? transactionMode = "auto",
-        [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously â€” see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool reusable = false,
+        [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously — see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool reusable = false,
         [Description("Short human-readable name for the script file (no spaces, max 40 chars). Example: 'floor-thickness-audit'")] string? scriptName = null,
         CancellationToken ct = default)
     {

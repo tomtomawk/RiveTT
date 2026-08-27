@@ -71,7 +71,7 @@ public class LoadFamilyTool : ICortexTool
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
-        if (doc.LoadFamily(familyPath, new OverwritingFamilyLoadOptions(overwriteExisting), out var family))
+        if (doc.LoadFamily(familyPath, new Utilities.OverwritingFamilyLoadOptions(overwriteExisting), out var family))
         {
             if (tx.Commit() != TransactionStatus.Committed)
                 return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
@@ -104,32 +104,6 @@ public class LoadFamilyTool : ICortexTool
             suggestion: overwriteExisting
                 ? "Check the .rfa opens cleanly in Revit and its category matches the target document."
                 : "Retry with overwriteExisting=true to update the family already in the project.");
-    }
-
-    /// <summary>
-    /// Always overwrites parameter values when the family already exists — the
-    /// overload this replaces (Document.LoadFamily(string, out Family)) silently
-    /// refuses to do that at all, which made reload-after-edit unreachable. See
-    /// P1.7 in PLAN_CORRECTION.md.
-    /// </summary>
-    private sealed class OverwritingFamilyLoadOptions : IFamilyLoadOptions
-    {
-        private readonly bool _overwrite;
-        public OverwritingFamilyLoadOptions(bool overwrite) => _overwrite = overwrite;
-
-        public bool OnFamilyFound(bool familyInUse, out bool overwriteParameterValues)
-        {
-            overwriteParameterValues = _overwrite;
-            return _overwrite;
-        }
-
-        public bool OnSharedFamilyFound(Family sharedFamily, bool familyInUse, out FamilySource source,
-            out bool overwriteParameterValues)
-        {
-            source = FamilySource.Family;
-            overwriteParameterValues = _overwrite;
-            return _overwrite;
-        }
     }
 
     private static CortexResult<object> ListFamilies(Document doc, JObject input)

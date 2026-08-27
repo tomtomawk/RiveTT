@@ -62,8 +62,9 @@ public class SendCodeDescriptionTests
     [Fact]
     public void ServerDescription_DoesNotSteerToModalFamilyEditing()
     {
-        // Document.EditFamily deadlocks from the tool's external-event context, so the
-        // description must not advertise family-internal editing as a valid escalation.
+        // edit_family/open_family are the dedicated tools for family editing (P4.1
+        // in PLAN_CORRECTION.md); send_code_to_revit's description must not
+        // advertise family-internal editing as a valid escalation for itself.
         Assert.DoesNotContain("editing a family's internal definition", ServerToolDescription());
     }
 

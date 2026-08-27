@@ -231,19 +231,30 @@ avertissement non autorisé provoque un rollback silencieux.
 
 L'interdiction d'activer un document vise les **gestionnaires d'événements API**
 (`Idling`, `DocumentChanged`), pas un `ExternalEvent` — le contexte dans lequel
-tourne chaque outil de ce connecteur. `open_document` et `create_document` sont
-donc disponibles, conformément à la recommandation Autodesk (External Event =
-« supported and safe » pour ouvrir/activer).
+tourne chaque outil de ce connecteur. `open_document`, `create_document`,
+`open_family` et `open_template` sont donc disponibles, conformément à la
+recommandation Autodesk (External Event = « supported and safe » pour
+ouvrir/activer).
+
+`open_family` (.rfa) et `open_template` (.rte) activent le fichier dans
+l'interface Revit — le document actif change, donc tout appel suivant cible ce
+fichier jusqu'au retour sur le projet. `close_document` referme un document
+ouvert (projet, famille ou gabarit) ; fermer le document **actif** exige qu'un
+autre document soit ouvert pour y basculer d'abord — `Document.Close(false)`
+refuse le document actif (mesuré le 27/08/2026,
+`docs/developpement/PLAN_CORRECTION.md` P1.4), c'est une contrainte réelle de
+l'API, pas un défaut à contourner par un thread d'arrière-plan.
+
+`edit_family` modifie les valeurs de paramètres de type d'une famille **en
+arrière-plan** (aucune fenêtre ne s'ouvre) : `Document.EditFamily` → modifier →
+`LoadFamily` dans le projet → fermeture, sur le patron déjà en production dans
+`export_families` et `list_family_sizes`. Limité aux types existants et à
+leurs valeurs de paramètre (cotes, matériaux, oui/non, texte) — ni nouveaux
+types, ni géométrie. Pour la géométrie ou de nouveaux types : `open_family`
+puis édition visuelle dans Revit.
 
 Restent indisponibles, et `get_server_capabilities` le déclare :
 
-- **ouverture du document de famille** (`Document.EditFamily`) : pas encore
-  exposée en tant qu'outil (`edit_family`), mais ne provoque **pas**
-  d'interblocage depuis ce dispatcher — l'affirmation contraire était fausse
-  (corrigée dans `docs/developpement/PLAN_CORRECTION.md`, P4.1) ;
-  `EditFamily` tourne déjà en production dans `export_families` et
-  `list_family_sizes`. En attendant `edit_family` : éditer le `.rfa` hors
-  Revit puis `load_family(overwriteExisting: true)` ;
 - **escaliers esquissés**, volées hélicoïdales et balancements :
   `create_stair` couvre l'escalier par composant (volées droites + paliers) ;
 - **édition de groupe en place** : l'API ne le permet pas,

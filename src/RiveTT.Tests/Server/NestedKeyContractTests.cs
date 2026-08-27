@@ -89,6 +89,8 @@ public class NestedKeyContractTests
             "parameterOverrides is a free-form {name: value} map; paramName is the placeholder",
         ["sync_csv_parameters.paramName1"] =
             "parameterMap is a free-form {csvHeader: revitParameter} map; paramName1 is the placeholder",
+        ["edit_family.paramName"] =
+            "parameters is a free-form {name: value} map (any family parameter name); paramName is the placeholder",
     };
 
     /// <summary>

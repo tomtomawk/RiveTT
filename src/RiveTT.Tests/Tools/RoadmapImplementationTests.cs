@@ -75,21 +75,21 @@ public sealed class RoadmapImplementationTests
     }
 
     [Fact]
-    public void UnsafeDocumentLifecycleOperationsRemainExplicitlyUnexposed()
+    public void DocumentLifecycleOperationsAreExposedWithoutTheFalseDeadlockClaim()
     {
         var caps = ReadSource("RiveTT.Tools", "Meta", "GetServerCapabilitiesTool.cs");
 
-        // open_document IS exposed now: the restriction on switching documents
+        // open_document IS exposed: the restriction on switching documents
         // applies to API *event* handlers (Idling, DocumentChanged), not to the
         // ExternalEvent handler every tool runs in. Autodesk's guidance is that an
         // External Event is the supported and safe way to open-and-activate.
-        // edit_family (opening the family document) is not exposed as a TOOL yet,
-        // but — per P4.1 in PLAN_CORRECTION.md — Document.EditFamily itself does
-        // NOT deadlock from this dispatcher; the earlier claim that it did was
-        // false and is what made the capability get abandoned in the first place.
-        Assert.Contains("edit_family (opening the family document) is not exposed", caps);
-        Assert.Contains("does NOT deadlock", caps);
+        // edit_family shipped as part of P4.1 in PLAN_CORRECTION.md, once the
+        // earlier false claim that Document.EditFamily deadlocks from this
+        // dispatcher — the reason the capability was abandoned in the first
+        // place — was corrected.
+        Assert.Contains("edit_family", caps);
         Assert.DoesNotContain("Document.EditFamily deadlocked", caps);
+        Assert.DoesNotContain("edit_family (opening the family document) is not exposed", caps);
         Assert.DoesNotContain("open_document is not exposed", caps);
     }
 
