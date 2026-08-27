@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -24,7 +25,6 @@ public class CreateSurfaceBasedElementTool : ICortexTool
     public string Description => "Creates one or more surface-based elements: floors, ceilings, or roofs. " +
         "roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; " +
         "omit for a flat roof. Mirrors the fork's CreateSurfaceElementEventHandler logic.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

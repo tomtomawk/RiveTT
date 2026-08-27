@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Workflows;
 
@@ -24,7 +25,6 @@ public class WorkflowClashReviewTool : ICortexTool
         "Detects clashes between two categories and optionally creates a 3D section-boxed view for review. "
         + "Uses the same true solid-geometry intersection as clash_detection (bounding-box pre-filter, then "
         + "ElementIntersectsElementFilter); set useSolidGeometry=false for the faster box-only approximation.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

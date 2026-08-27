@@ -6,6 +6,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Annotations;
 
@@ -26,7 +27,6 @@ public class CreateSpotDimensionTool : ICortexTool
         "Provide elementId, point (mm, must lie on or very near the element's geometry), and the owning viewId " +
         "(defaults to the active view). Optional bend/end (mm) place the elbow and leader end; " +
         "when omitted they are derived from the view's up/right directions. hasLeader defaults to true.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

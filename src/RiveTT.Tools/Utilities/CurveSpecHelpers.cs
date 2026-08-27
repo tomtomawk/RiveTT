@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Utilities;
 
@@ -14,7 +15,6 @@ namespace RiveTT.Tools.Utilities;
 /// </summary>
 public static class CurveSpecHelpers
 {
-    public const double MmPerFoot = 304.8;
 
     public static double ToMm(double feet) => feet * MmPerFoot;
     public static double FromMm(double mm) => mm / MmPerFoot;

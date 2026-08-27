@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Annotations;
 
@@ -21,7 +22,6 @@ public class CreateTextNoteTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates one or more text notes in the active or specified view.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

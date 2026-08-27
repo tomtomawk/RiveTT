@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Annotations;
 
@@ -21,7 +22,6 @@ public class CreateDimensionsTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates linear dimension annotations between elementIds (2+) or startPoint/endPoint. (Radial/diameter/angular dimensions are not available: the Revit API exposes them only via the Family editor's FamilyItemFactory, not in a project document.)";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -125,7 +125,7 @@ public class CreateDimensionsTool : ICortexTool
         // The single-pass version took `the first face with a Reference` on each element.
         // Between two walls 7000 mm apart that measured two arbitrary, often
         // perpendicular faces, and Revit answered with a degenerate segment — a constant
-        // -304.8 mm (-1 ft) per segment, identical whatever the real gap.
+        // -MmPerFoot mm (-1 ft) per segment, identical whatever the real gap.
         var resolved = new List<(long Id, Element Element, XYZ Centre)>();
         foreach (var idToken in elementIds)
         {
@@ -200,7 +200,7 @@ public class CreateDimensionsTool : ICortexTool
         else
         {
             // Offset the dimension line clear of the elements. 2000 mm, converted once:
-            // the previous expression was 3.0 / 304.8 * 1000 with a comment claiming
+            // the previous expression was 3.0 / MmPerFoot * 1000 with a comment claiming
             // "3 feet offset", and actually produced 9.84 feet.
             var mid = (firstCenter + lastCenter) / 2.0;
             linePoint = mid + view.UpDirection * (2000.0 / MmPerFoot);
@@ -283,7 +283,7 @@ public class CreateDimensionsTool : ICortexTool
             var linePointToken = spec["linePoint"];
             XYZ linePoint = linePointToken != null
                 ? ParseXYZ(linePointToken)
-                // 2000 mm, converted once. The old expression read 2.0 / 304.8 * 1000,
+                // 2000 mm, converted once. The old expression read 2.0 / MmPerFoot * 1000,
                 // which is 6.56 feet, not the 2 it looked like.
                 : (p0 + p1) / 2.0 + view.UpDirection * (2000.0 / MmPerFoot);
 

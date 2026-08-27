@@ -7,6 +7,7 @@ using RiveTT.Core.Caching;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Project;
 
@@ -117,7 +118,7 @@ public class GetProjectInfoTool : ICortexTool, ICacheableTool
                     {
                         id = l.Id.Value,
                         name      = l.Name,
-                        elevation = Math.Round(l.Elevation * 304.8, 2) // feet → mm
+                        elevation = Math.Round(l.Elevation * MmPerFoot, 2) // feet → mm
                     })
                     .ToList();
 

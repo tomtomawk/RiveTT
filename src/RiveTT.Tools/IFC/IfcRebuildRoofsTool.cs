@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.IFC;
 
@@ -22,8 +23,6 @@ public class IfcRebuildRoofsTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Rebuild native Revit roofs from IFC-imported DirectShape elements";
-
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

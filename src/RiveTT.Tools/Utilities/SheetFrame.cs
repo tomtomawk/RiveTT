@@ -1,5 +1,6 @@
 using System.Linq;
 using Autodesk.Revit.DB;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Utilities;
 
@@ -20,7 +21,6 @@ namespace RiveTT.Tools.Utilities;
 /// </summary>
 public static class SheetFrame
 {
-    public const double MmPerFoot = 304.8;
 
     /// <summary>The printable frame in sheet coordinates, in millimetres.</summary>
     public sealed class Frame

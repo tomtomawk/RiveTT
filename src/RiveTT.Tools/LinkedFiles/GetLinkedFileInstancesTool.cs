@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.LinkedFiles;
 
@@ -118,5 +119,4 @@ public class GetLinkedFileInstancesTool : ICortexTool, ICacheableTool
         }
     }
 
-    private const double MmPerFoot = 304.8;
 }

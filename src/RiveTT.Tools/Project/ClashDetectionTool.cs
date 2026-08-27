@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Project;
 
@@ -21,7 +22,6 @@ public class ClashDetectionTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Detects geometric intersections (clashes) between two sets of elements. Uses true solid-geometry intersection by default (bounding-box pre-filter + ElementIntersectsElementFilter); set useSolidGeometry=false for a faster bbox-only approximation.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

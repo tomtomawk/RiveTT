@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Sheets;
 
@@ -21,7 +22,6 @@ public class AlignViewportsTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Aligns viewports across sheets. alignMode 'placement' matches box centers; 'model' matches the box outline min-corner so equal-scale views of the same model region line up.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

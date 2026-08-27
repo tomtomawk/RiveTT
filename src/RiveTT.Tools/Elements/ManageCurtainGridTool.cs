@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -30,7 +31,6 @@ public class ManageCurtainGridTool : ICortexTool
         "add_grid_line needs direction (u|v) and offsetMm (distance along the host's base curve/height from " +
         "its start, in mm). add_mullions needs mullionTypeId and applies to every ungridded segment unless " +
         "gridLineIds narrows it.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

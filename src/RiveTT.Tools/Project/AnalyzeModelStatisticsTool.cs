@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Project;
 
@@ -63,7 +64,7 @@ public class AnalyzeModelStatisticsTool : ICortexTool
             var byLevel = levels.Select(level => new
             {
                 level = level.Name,
-                elevation = level.Elevation * 304.8,
+                elevation = level.Elevation * MmPerFoot,
                 count = countByLevelId.TryGetValue(level.Id, out var c) ? c : 0
             }).ToList();
 

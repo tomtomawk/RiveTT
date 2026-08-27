@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -18,8 +19,7 @@ public class ModifyElementTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Move, rotate, mirror, or copy elements. Rotate is about the Z axis by default, or any axis via rotationAxis {x,y,z}.";
-    // 1 foot = 304.8 mm
-    private const double MmPerFoot = 304.8;
+    // 1 foot = MmPerFoot mm
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

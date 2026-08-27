@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -24,8 +25,7 @@ public class AIElementFilterTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Smart element query tool — supports category, element-class, family-symbol, view-visibility and bounding-box filters, all combinable via logical AND. Mirrors the fork's AIElementFilterEventHandler filtering logic.";
-    // ── Revit internal-unit conversion factor: 1 foot = 304.8 mm ──────────
-    private const double MmPerFoot = 304.8;
+    // ── Revit internal-unit conversion factor: 1 foot = MmPerFoot mm ──────────
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -751,7 +751,7 @@ public class AIElementFilterTool : ICortexTool
         {
             if (p.StorageType != StorageType.Double || !p.HasValue) continue;
             // H30: a flat *MmPerFoot multiplier is only correct for LENGTH parameters.
-            // Area params are stored in ft^2 (×304.8^2) and volume in ft^3 (×304.8^3),
+            // Area params are stored in ft^2 (×MmPerFoot^2) and volume in ft^3 (×MmPerFoot^3),
             // so the old `valueMm` was 304x too small for area and ~92903x for volume.
             // AsValueString() applies the parameter's own unit/format, which is correct
             // for every dimension type; we also expose the raw internal value (feet-based)

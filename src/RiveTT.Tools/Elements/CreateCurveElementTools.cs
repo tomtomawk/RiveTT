@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -22,7 +23,6 @@ namespace RiveTT.Tools.Elements;
 /// </summary>
 internal static class CurveInput
 {
-    internal const double MmPerFoot = 304.8;
 
     /// <summary>
     /// Reads <c>[{x,y,z}, ...]</c> (mm) or <c>{p0:{...},p1:{...}}</c> (mm) into
@@ -239,9 +239,9 @@ public sealed class CreateModelLineTool : ICortexTool
         if (dryRun)
             return CortexResult<object>.Ok(new
             {
-                message = $"DryRun: {lines.Count} model line(s) would be created at z={elevationFt * CurveInput.MmPerFoot:F0} mm.",
+                message = $"DryRun: {lines.Count} model line(s) would be created at z={elevationFt * MmPerFoot:F0} mm.",
                 segmentCount = lines.Count,
-                elevationMm = elevationFt * CurveInput.MmPerFoot,
+                elevationMm = elevationFt * MmPerFoot,
                 lineStyleName
             });
 
@@ -268,10 +268,10 @@ public sealed class CreateModelLineTool : ICortexTool
 
             return CortexResult<object>.Ok(new
             {
-                message = $"Created {created.Count} model line(s) at z={elevationFt * CurveInput.MmPerFoot:F0} mm.",
+                message = $"Created {created.Count} model line(s) at z={elevationFt * MmPerFoot:F0} mm.",
                 createdElementIds = created,
                 createdCount = created.Count,
-                elevationMm = elevationFt * CurveInput.MmPerFoot,
+                elevationMm = elevationFt * MmPerFoot,
                 appliedLineStyle = style?.Name
             });
         }
@@ -327,7 +327,7 @@ public sealed class CreateRoomSeparationLineTool : ICortexTool
                 segmentCount = lines.Count,
                 viewId = ToolHelpers.GetElementIdValue(plan.Id),
                 viewName = plan.Name,
-                elevationMm = elevationFt * CurveInput.MmPerFoot
+                elevationMm = elevationFt * MmPerFoot
             });
 
         try

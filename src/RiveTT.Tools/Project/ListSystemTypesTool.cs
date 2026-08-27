@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Project;
 
@@ -153,7 +154,7 @@ public sealed class ListSystemTypesTool : ICortexTool
         var parameter = type.get_Parameter(BuiltInParameter.WALL_ATTR_WIDTH_PARAM)
                         ?? type.get_Parameter(BuiltInParameter.FLOOR_ATTR_THICKNESS_PARAM);
         if (parameter == null || !parameter.HasValue) return null;
-        return Math.Round(parameter.AsDouble() * 304.8, 1);
+        return Math.Round(parameter.AsDouble() * MmPerFoot, 1);
     }
 
     /// <summary>

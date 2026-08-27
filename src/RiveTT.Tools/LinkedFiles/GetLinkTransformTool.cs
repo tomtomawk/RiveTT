@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.LinkedFiles;
 
@@ -18,8 +19,6 @@ public class GetLinkTransformTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => true;
     public string Description => "Returns the full transform of a linked file instance: origin (mm), basis vectors, and rotation angle (degrees).";
-
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

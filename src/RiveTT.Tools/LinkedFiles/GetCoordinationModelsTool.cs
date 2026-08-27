@@ -11,6 +11,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.LinkedFiles;
 
@@ -22,7 +23,6 @@ public class GetCoordinationModelsTool : ICortexTool, ICacheableTool
 {
     private const int DefaultMaxInstances = 100;
     private const int MaxInstancesCap = 250;
-    private const double MmPerFoot = 304.8;
 
     public string Name => "get_coordination_models";
     public string Category => "LinkedFiles";

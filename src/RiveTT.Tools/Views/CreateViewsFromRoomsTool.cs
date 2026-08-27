@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Views;
 
@@ -23,7 +24,6 @@ public class CreateViewsFromRoomsTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates callout, section, or elevation views from room bounding boxes. Combines create_callout_from_rooms, create_elevations_from_rooms, and create_views_from_rooms.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

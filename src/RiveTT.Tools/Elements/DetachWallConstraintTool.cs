@@ -7,13 +7,13 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
 [ToolSafety(false, true)]
 public sealed class DetachWallConstraintTool : ICortexTool
 {
-    private const double MmPerFoot = 304.8;
     public string Name => "detach_wall_constraint";
     public string Category => "Elements";
     public bool RequiresDocument => true;

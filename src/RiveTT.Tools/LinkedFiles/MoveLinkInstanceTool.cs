@@ -5,6 +5,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.LinkedFiles;
 
@@ -19,8 +20,6 @@ public class MoveLinkInstanceTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => true;
     public string Description => "Moves a linked file instance by a delta offset (mm) or to an absolute position (mm). Specify mode: 'delta' or 'absolute'.";
-
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.LinkedFiles;
 
@@ -27,7 +28,6 @@ public class ShowCrossModelElementsTool : ICortexTool
     public bool IsDynamic => true;
     public string Description => "Select host elements plus elements in linked Revit models. Two strategies for visibility: (a) default — create red DirectShape markers in the host doc around each linked element's bounding box (synchronous, transactional, robust); (b) usePostCommandIsolate=true — use Revit's native IsolateElements via PostCommand after SetReferences (canonical Revit API pattern, but asynchronous: tool returns before isolate completes, and cannot be combined with section box / overrides in the same call).";
 
-    private const double MmPerFoot = 304.8;
     private const string MarkerCommentTag = "RiveTT:CrossModelMarker";
     private const double MarkerOffsetMm = 50.0;
 

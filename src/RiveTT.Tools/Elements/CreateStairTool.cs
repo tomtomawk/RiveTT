@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -29,7 +30,6 @@ namespace RiveTT.Tools.Elements;
 [ToolSafety(false, false)]
 public sealed class CreateStairTool : ICortexTool
 {
-    private const double MmPerFoot = 304.8;
 
     public string Name => "create_stair";
     public string Category => "Elements";

@@ -8,6 +8,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -22,7 +23,6 @@ public class CreateFloorTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates an architectural floor (category: Floors) from boundary points or a room boundary, optionally with holes (inner loops). For structural foundation slabs use create_surface_based_element with category OST_StructuralFoundation. If a floorTypeName is not provided, defaults to the first architectural floor type (OST_Floors) in the project.";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -22,7 +23,6 @@ public class GetCurrentViewElementsTool : ICortexTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Returns elements visible in the current active view, with optional category and field filtering. Pages via pageSize/cursor: nextCursor in the response, passed back as cursor, reaches elements beyond the first page. totalElementsInView counts the whole view regardless of category filter; filteredElementCount is what the requested categories matched.";
-    private const double MmPerFoot = 304.8;
 
     // Default model categories when none specified
     private static readonly IReadOnlyList<string> DefaultModelCategories = new[]

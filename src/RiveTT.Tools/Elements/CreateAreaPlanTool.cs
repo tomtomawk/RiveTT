@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
@@ -36,7 +37,6 @@ public class CreateAreaPlanTool : ICortexTool
         "copies an existing one (every template ships 'Gross Building') instead. create_plan needs " +
         "areaSchemeId+levelId. create_boundary needs viewId+curves (closed loop, mm). create_area needs " +
         "viewId+point ({x,y} mm, inside a closed boundary).";
-    private const double MmPerFoot = 304.8;
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {

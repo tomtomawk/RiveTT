@@ -7,6 +7,7 @@ using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
 using RiveTT.Tools.Utilities;
+using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Project;
 
@@ -120,7 +121,7 @@ public class GetCompoundStructureTool : ICortexTool
                 {
                     index = i,
                     function_ = layer.Function.ToString(),
-                    widthMm = Math.Round(layer.Width * 304.8, 2),
+                    widthMm = Math.Round(layer.Width * MmPerFoot, 2),
                     widthFt = Math.Round(layer.Width, 6),
                     materialId = matIdValue,
                     materialName = matName ?? "(none)",
@@ -140,7 +141,7 @@ public class GetCompoundStructureTool : ICortexTool
                 typeCategory = hostType.Category?.Name ?? "",
                 resolvedFrom,
                 hasCompoundStructure = true,
-                totalWidthMm = Math.Round(cs.GetWidth() * 304.8, 2),
+                totalWidthMm = Math.Round(cs.GetWidth() * MmPerFoot, 2),
                 totalWidthFt = Math.Round(cs.GetWidth(), 6),
                 layerCount = csLayers.Count,
                 structuralLayerIndex = cs.StructuralMaterialIndex,
