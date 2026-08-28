@@ -57,10 +57,11 @@ public class ConnectorVersionsTests
         Assert.NotNull(mismatch);
         Assert.Equal(Server, mismatch!["mcpServerVersion"]);
         Assert.Equal("0.2.0.0", mismatch["pluginVersion"]);
-        // Restarting Revit is the intuitive move and the useless one: the server is a
-        // separate process. The suggestion has to say so, or the next reader loses the
-        // same hour.
-        Assert.Contains("RESTART THE MCP CLIENT", mismatch["suggestion"]!.ToString());
+        // Restarting Revit is the intuitive move and the useless one: the half left
+        // behind is not inside Revit. The suggestion has to say so, or the next reader
+        // loses the same hour.
+        Assert.Contains("Restarting Revit does not help", mismatch["suggestion"]!.ToString());
+        Assert.Contains("fully QUIT their AI application", mismatch["suggestion"]!.ToString());
     }
 
     [Fact]

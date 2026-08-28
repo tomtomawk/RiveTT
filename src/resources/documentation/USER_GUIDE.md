@@ -22,41 +22,52 @@ celles-là. Si seul un Revit 2026.0 à 2026.4 est trouvé, il s'arrête en l'ind
 ces versions tournent sur .NET 8 et ne peuvent pas charger le plugin. Appliquez la
 mise à jour 2026.5 depuis Autodesk Access.
 
-L'installateur remplace l'installation précédente : **aucune désinstallation
-préalable n'est nécessaire**, et il n'est **pas nécessaire de fermer Revit ni le
-client MCP**. Windows interdit d'écraser un fichier chargé par un processus mais
-autorise à le *renommer* : l'installateur renomme le fichier verrouillé en
-`<nom>.old-<horodatage>` — le processus en cours continue de l'utiliser — et
-écrit le neuf à sa place. Les copies garées sont supprimées à l'installation
-suivante.
+**Avant de lancer l'installateur, fermez complètement votre application d'IA** —
+Claude, ChatGPT ou celle que vous utilisez avec Revit. Quittez l'application, ne
+fermez pas seulement sa fenêtre. Elle garde ouvert un fichier que l'installateur
+doit remplacer ; sinon la mise à jour ne s'applique qu'à moitié et RiveTT répond
+ensuite que certaines commandes n'existent pas. L'installateur vous prévient s'il
+détecte le cas.
+
+**Revit peut rester ouvert.** Windows interdit d'écraser un fichier chargé par un
+processus mais autorise à le *renommer* : l'installateur renomme le fichier
+verrouillé en `<nom>.old-<horodatage>` — Revit continue d'utiliser l'ancien
+jusqu'à son redémarrage — et écrit le neuf à sa place. Les copies garées sont
+supprimées à l'installation suivante.
+
+**Aucune désinstallation préalable n'est nécessaire** : l'installateur remplace
+l'installation précédente.
 
 Pour désinstaller, passez par *Applications installées* dans les paramètres
 Windows. Fermez Revit avant : contrairement à une mise à jour, il n'y a pas de
 nouveau fichier pour prendre la place de l'ancien.
 
-En revanche le code déjà chargé reste en mémoire. Pour utiliser la nouvelle
-version :
+Le code déjà chargé reste en mémoire. Après l'installation, dans l'ordre :
 
-- **redémarrer Revit** si le plugin a été remplacé pendant qu'il tournait ;
-- **reconnecter le serveur MCP** dans le client si `RiveTT.Server` tournait.
+1. **redémarrer Revit**, puis ouvrir un projet et attendre quelques secondes ;
+2. **rouvrir votre application d'IA** — celle que vous avez fermée avant
+   d'installer. C'est à son démarrage qu'elle découvre les commandes de la
+   nouvelle version.
 
-Puis ouvrir un projet et attendre quelques secondes que sa session soit publiée.
+### Si RiveTT dit qu'une commande n'existe pas
 
-**Vérifier que la mise à jour est complète.** RiveTT est en deux morceaux installés
-à deux endroits : le plugin dans Revit, le serveur MCP dans
-`%LOCALAPPDATA%\RiveTT\server`. Une installation faite pendant que le client MCP
-tourne peut poser le plugin sans remplacer le serveur, verrouillé par le processus
-en cours. N'importe quel appel le dit :
+C'est le symptôme d'une mise à jour à moitié appliquée : certaines commandes
+répondent normalement, d'autres sont introuvables. La cause est presque toujours
+une application d'IA restée ouverte pendant l'installation.
 
-    execution.pluginVersion      version du plugin, côté Revit
-    execution.mcpServerVersion   version du serveur MCP
+Fermez-la complètement, relancez l'installateur, rouvrez-la. Redémarrer Revit ne
+suffit pas : le morceau resté en arrière n'est pas dans Revit.
+
+Pour le vérifier : n'importe quelle réponse de RiveTT porte les deux versions
+installées, et un troisième champ qui n'apparaît que si elles diffèrent.
+
+    execution.pluginVersion      la moitié installée dans Revit
+    execution.mcpServerVersion   la moitié installée à côté, que l'IA lance
     execution.versionMismatch    présent uniquement si les deux diffèrent
 
-Si `versionMismatch` apparaît, la session est bancale : les noms d'outils et les
-paramètres publiés sont ceux du **serveur**, pas ceux du plugin — un outil renommé
-entre les deux répond « not found », un paramètre ajouté entre les deux est ignoré
-en silence. Relancer l'installateur, puis **redémarrer le client MCP** : redémarrer
-Revit ne change rien, le serveur est un autre processus.
+Quand `versionMismatch` est là, la liste des commandes visibles est celle de la
+seconde moitié : une commande renommée entre les deux répond « not found », et un
+réglage ajouté entre les deux est ignoré sans le dire.
 
 ## Le verrou d'écriture
 

@@ -87,12 +87,16 @@ public static class ConnectorVersions
                 "names, parameters and response shape published by the server are those of its own " +
                 "version, not the plugin's. A tool renamed between the two answers 'not found', " +
                 "and a parameter added between the two is silently dropped.",
+            // Written to be relayed, not quoted at a developer. The person reading it
+            // does not know there are two halves and does not need to: the one action
+            // that is theirs is to fully quit the AI application.
             ["suggestion"] =
-                "Re-run RiveTT-Setup-<version>.exe, then RESTART THE MCP CLIENT — the running " +
-                "server keeps its binary in memory and the client only learns the new tool list at " +
-                "the next launch. Restarting Revit alone changes nothing: the server is a separate " +
-                "process. Close the MCP client before installing if the installer reports that it " +
-                "could not replace the server."
+                "Tell the user that RiveTT was only half updated, and what to do, in this order: " +
+                "(1) fully QUIT their AI application — Claude, ChatGPT, whichever they use with " +
+                "Revit — quitting the app, not just closing its window; (2) re-run " +
+                "RiveTT-Setup-<version>.exe; (3) reopen the AI application, which is when it picks " +
+                "up the new command list. Restarting Revit does not help: the half left behind is " +
+                "not inside Revit. Do not explain the plugin/server split unless they ask."
         };
     }
 }

@@ -297,15 +297,16 @@ begin
   if not ProcessIsRunning('RiveTT.Server.exe') then
     Exit;
 
-  Result := MsgBox('Le serveur MCP RiveTT est en cours d''exécution : votre client MCP'
-                 + ' (Claude Desktop, Codex...) l''a lancé et le garde ouvert.'
+  Result := MsgBox('RiveTT est actuellement utilisé par une application d''IA.'
                  + #13#10#13#10
-                 + 'Tant qu''il tourne, son fichier peut résister au remplacement. Une'
-                 + ' installation qui échoue à cet endroit laisse le plugin à jour et le'
-                 + ' serveur à l''ancienne version : les deux moitiés ne se comprennent'
-                 + ' plus, et les outils renommés entre les deux répondent « not found ».'
+                 + 'Fermez complètement Claude, ChatGPT ou l''assistant que vous'
+                 + ' utilisez avec Revit : quittez l''application, ne fermez pas'
+                 + ' seulement sa fenêtre.'
                  + #13#10#13#10
-                 + 'Fermez votre client MCP, puis relancez cet installateur.'
+                 + 'Sinon la mise à jour risque de ne s''appliquer qu''à moitié, et'
+                 + ' RiveTT répondra ensuite que certaines commandes n''existent pas.'
+                 + #13#10#13#10
+                 + 'Revit, lui, peut rester ouvert.'
                  + #13#10#13#10
                  + 'Continuer quand même ?',
                  mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
@@ -457,15 +458,16 @@ begin
     if ServerFound = '' then
       ServerFound := 'aucun fichier lisible';
     WizardForm.FinishedLabel.Caption :=
-        'ATTENTION : le serveur MCP n''a PAS été mis à jour.' + #13#10#13#10
-      + 'Attendu : {#AppVersion}   —   présent : ' + ServerFound + #13#10#13#10
-      + 'Le plugin Revit est bien en {#AppVersion}, mais pas le serveur. Les deux'
-      + ' moitiés ne se comprennent plus : le serveur publie la surface d''outils de SA'
-      + ' version, donc un outil renommé entre les deux répond « not found » et un'
-      + ' paramètre ajouté entre les deux est ignoré en silence.' + #13#10#13#10
-      + 'La cause habituelle est un client MCP resté ouvert, qui verrouille'
-      + ' RiveTT.Server.exe. Fermez-le, puis relancez cet installateur.' + #13#10#13#10
-      + 'Journal détaillé : ' + ExpandConstant('{log}');
+        'ATTENTION : la mise à jour est incomplète.' + #13#10#13#10
+      + 'RiveTT n''a été mis à jour qu''en partie. Utilisé tel quel, il répondra que'
+      + ' certaines commandes n''existent pas.' + #13#10#13#10
+      + 'Que faire :' + #13#10
+      + '  1. Fermez complètement Claude, ChatGPT ou l''assistant que vous utilisez'
+      + ' avec Revit — quittez l''application, pas seulement sa fenêtre.' + #13#10
+      + '  2. Relancez cet installateur.' + #13#10#13#10
+      + 'Revit peut rester ouvert.' + #13#10#13#10
+      + 'Détail technique : serveur attendu en {#AppVersion}, trouvé en '
+      + ServerFound + '. Journal : ' + ExpandConstant('{log}');
     Exit;
   end;
 

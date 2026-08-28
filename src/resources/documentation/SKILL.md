@@ -28,12 +28,12 @@ separate AI copy to drift out of step.
    `writesAllowed: false`, stop and ask for the unlock — no tool, and no
    `dryRun`, gets past it. `execution.cached: true` means the answer came from
    the cache.
-7. `execution.versionMismatch` in any response means the MCP server and the Revit
-    plugin are different versions. Stop and report it: the tool names and
-    parameters you can see are the SERVER's, so a renamed tool answers "not found"
-    and a newer parameter is silently dropped. The fix is to re-run the installer
-    and restart the MCP client — restarting Revit does nothing, the server is a
-    separate process.
+7. `execution.versionMismatch` in any response means RiveTT is only half updated:
+    the command list you can see is the older half's, so a renamed tool answers
+    "not found" and a newer parameter is silently dropped. Stop and tell the user,
+    in their terms: fully quit the AI application they are using with Revit (quit
+    the app, not just the window), re-run the installer, reopen it. Restarting Revit
+    does not help. Skip the plugin-versus-server explanation unless they ask.
 8. Parameter names resolve in English or in the document language. A name that
    resolves to nothing comes back in `unresolvedParameterNames` (or
    `skippedFields[].reason`), never as an empty value — treat an empty column
