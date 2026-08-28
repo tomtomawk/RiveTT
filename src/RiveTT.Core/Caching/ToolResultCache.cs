@@ -32,7 +32,7 @@ public class ToolResultCache : IToolResultCache
         string paramHash,
         CacheScope scope,
         long currentDocVersion,
-        out CortexResult<object> result)
+        out RiveTTResult<object> result)
     {
         return TryGet(toolName, paramHash, scope, currentDocVersion, out result, out _);
     }
@@ -42,7 +42,7 @@ public class ToolResultCache : IToolResultCache
         string paramHash,
         CacheScope scope,
         long currentDocVersion,
-        out CortexResult<object> result,
+        out RiveTTResult<object> result,
         out long estimatedBytes)
     {
         var key = MakeKey(toolName, paramHash);
@@ -69,7 +69,7 @@ public class ToolResultCache : IToolResultCache
         string paramHash,
         CacheScope scope,
         long currentDocVersion,
-        CortexResult<object> result,
+        RiveTTResult<object> result,
         long? knownBytes = null)
     {
         var bytes = knownBytes ?? EstimateBytes(result);
@@ -184,7 +184,7 @@ public class ToolResultCache : IToolResultCache
         return ts;
     }
 
-    private static long EstimateBytes(CortexResult<object> result)
+    private static long EstimateBytes(RiveTTResult<object> result)
     {
         try
         {

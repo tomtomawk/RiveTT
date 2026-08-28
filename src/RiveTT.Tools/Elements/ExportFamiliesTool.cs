@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Elements;
 /// Exports loaded families as .rfa files to a specified folder.
 /// </summary>
 [ToolSafety(true, false)]
-public class ExportFamiliesTool : ICortexTool
+public class ExportFamiliesTool : IRiveTTTool
 {
     public string Name => "export_families";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Exports loaded families as .rfa files to a specified folder.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var outputDirectory = input["outputDirectory"]?.Value<string>();
         var categories = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
@@ -33,12 +33,12 @@ public class ExportFamiliesTool : ICortexTool
         var overwrite = input["overwrite"]?.Value<bool>() ?? false;
 
         if (string.IsNullOrEmpty(outputDirectory))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "outputDirectory is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "outputDirectory is required");
 
         // H25-wave: this tool creates directories and writes .rfa files — restrict the
         // target to user-owned directories; reject traversal/UNC/system paths.
         if (!Utilities.PathSafety.TryResolveSafe(outputDirectory, out var safeOutputDirectory, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
         outputDirectory = safeOutputDirectory;
@@ -108,7 +108,7 @@ public class ExportFamiliesTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 exportedCount = results.Count(r => ((dynamic)r).success),
                 outputDirectory,
@@ -117,7 +117,7 @@ public class ExportFamiliesTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

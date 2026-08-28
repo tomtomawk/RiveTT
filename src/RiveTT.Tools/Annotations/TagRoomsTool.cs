@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Annotations;
 /// Tags all or specified rooms in the current view.
 /// </summary>
 [ToolSafety(false, false)]
-public class TagRoomsTool : ICortexTool
+public class TagRoomsTool : IRiveTTTool
 {
     public string Name => "tag_rooms";
     public string Category => "Annotations";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Tags all or specified rooms in the current view.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var useLeader = input["useLeader"]?.Value<bool>() ?? false;
         var roomIds = input["roomIds"]?.ToObject<List<long>>();
@@ -107,11 +107,11 @@ public class TagRoomsTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 taggedCount,
                 skippedCount,
@@ -120,7 +120,7 @@ public class TagRoomsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to tag rooms: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to tag rooms: {ex.Message}");
         }
     }
 }

@@ -20,7 +20,7 @@ namespace RiveTT.Tools.Elements;
 /// Input uses a "data" wrapper to match the fork's OperateElementEventHandler schema.
 /// </summary>
 [ToolSafety(false, false)]
-public class OperateElementTool : ICortexTool
+public class OperateElementTool : IRiveTTTool
 {
     public string Name => "manage_view_display";
     public string Category => "Elements";
@@ -34,25 +34,25 @@ public class OperateElementTool : ICortexTool
         "hide", "temphide", "isolate", "unhide", "resetisolate"
     };
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         // The fork wraps parameters in a "data" object — support both layouts
         var data = input["data"] as JObject ?? input;
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // Parse action
         var action = data["action"]?.ToString();
         if (string.IsNullOrWhiteSpace(action))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "action is required",
                 suggestion: $"Supported actions: {string.Join(", ", KnownActions)}");
 
         if (!KnownActions.Contains(action!))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unsupported action: '{action}'",
                 suggestion: $"Supported actions: {string.Join(", ", KnownActions)}");
 
@@ -62,12 +62,12 @@ public class OperateElementTool : ICortexTool
         if (elementIdsToken != null && elementIdsToken.Type != JTokenType.Null)
         {
             try { rawIds = elementIdsToken.ToObject<long[]>() ?? Array.Empty<long>(); }
-            catch { return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "elementIds must be an array of numbers"); }
+            catch { return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "elementIds must be an array of numbers"); }
         }
 
         bool isResetIsolate = string.Equals(action, "resetisolate", StringComparison.OrdinalIgnoreCase);
         if (rawIds.Length == 0 && !isResetIsolate)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementIds is required for this action (use an array of element ID numbers)");
 
         // Build ElementId collection
@@ -92,7 +92,7 @@ public class OperateElementTool : ICortexTool
             elementIds = valid;
 
             if (elementIds.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     "None of the supplied elementIds exist in the active document");
         }
 
@@ -102,7 +102,7 @@ public class OperateElementTool : ICortexTool
         try
         {
             string resultMessage = ExecuteAction(doc, uiDoc, action!, elementIds, data);
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message     = resultMessage,
                 action,
@@ -113,13 +113,13 @@ public class OperateElementTool : ICortexTool
         }
         catch (TransactionRolledBackException trbe)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {trbe.Message}",
                 suggestion: "Fix the reported model errors and retry.");
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Operation '{action}' failed: {ex.Message}");
         }
     }

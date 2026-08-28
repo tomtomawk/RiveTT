@@ -22,7 +22,7 @@ namespace RiveTT.Tools.Elements;
 /// implies instead of stair-sized risers.
 /// </summary>
 [ToolSafety(false, false)]
-public sealed class CreateRampTool : ICortexTool
+public sealed class CreateRampTool : IRiveTTTool
 {
 
     public string Name => "create_ramp";
@@ -37,11 +37,11 @@ public sealed class CreateRampTool : ICortexTool
         "type (list_system_types(category:\"OST_Ramps\")); passing a stair type produces a stair, not a ramp. " +
         "Optionally sets a run width and a railing.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var baseLevelId = input["baseLevelId"]?.Value<long>() ?? 0;
         var topLevelId = input["topLevelId"]?.Value<long>() ?? 0;
@@ -51,33 +51,33 @@ public sealed class CreateRampTool : ICortexTool
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (baseLevelId <= 0 || topLevelId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "baseLevelId and topLevelId are both required",
                 suggestion: "Read the level ids from get_project_info.");
         if (rampTypeIdLong <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "rampTypeId is required",
                 suggestion: "List OST_Ramps types with list_system_types(category: \"OST_Ramps\").");
 
         var baseLevel = doc.GetElement(ToolHelpers.ToElementId(baseLevelId)) as Level;
         var topLevel = doc.GetElement(ToolHelpers.ToElementId(topLevelId)) as Level;
         if (baseLevel == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"baseLevelId {baseLevelId} is not a Level");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"baseLevelId {baseLevelId} is not a Level");
         if (topLevel == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"topLevelId {topLevelId} is not a Level");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"topLevelId {topLevelId} is not a Level");
         if (topLevel.Elevation <= baseLevel.Elevation)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"topLevel '{topLevel.Name}' ({topLevel.Elevation * MmPerFoot:F0} mm) must be ABOVE baseLevel " +
                 $"'{baseLevel.Name}' ({baseLevel.Elevation * MmPerFoot:F0} mm)");
 
         var rampType = doc.GetElement(ToolHelpers.ToElementId(rampTypeIdLong)) as ElementType;
         if (rampType == null || rampType.Category?.Id != new ElementId(BuiltInCategory.OST_Ramps))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"rampTypeId {rampTypeIdLong} is not an OST_Ramps type",
                 suggestion: "List valid ids with list_system_types(category: \"OST_Ramps\").");
 
         if (!TryReadRuns(input["runs"], out var runLines, out var runError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, runError);
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, runError);
 
         var heightFt = topLevel.Elevation - baseLevel.Elevation;
         var totalRunLengthFt = runLines.Sum(l => l.Length);
@@ -88,7 +88,7 @@ public sealed class CreateRampTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"DryRun: a {runLines.Count}-run ramp would be created from '{baseLevel.Name}' to " +
                           $"'{topLevel.Name}' ({heightFt * MmPerFoot:F0} mm), slope {slopePercent:F1}%.",
@@ -139,7 +139,7 @@ public sealed class CreateRampTool : ICortexTool
                 {
                     scope.Cancel();
                     scope = null;
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the ramp runs: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "The run length likely does not fit the height/slope the applied ramp type " +
                                     "allows; lengthen the run(s) or pick a different OST_Ramps type.");
@@ -191,7 +191,7 @@ public sealed class CreateRampTool : ICortexTool
                 railingIds.AddRange(existingRailings);
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Created a ramp from '{baseLevel.Name}' to '{topLevel.Name}' " +
                           $"({runIds.Count} run(s), slope {slopePercent:F1}%).",
@@ -206,7 +206,7 @@ public sealed class CreateRampTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to create the ramp: {exception.Message}",
                 suggestion: "A component ramp needs two distinct levels, an OST_Ramps type, a run that fits the " +
                             "model, and no other edit scope open. Check the run geometry and retry with dryRun first.");

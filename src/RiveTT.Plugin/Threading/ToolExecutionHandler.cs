@@ -22,17 +22,17 @@ public class ToolExecutionHandler : IExternalEventHandler
         _auditLogger = auditLogger ?? new AuditLogger();
     }
 
-    public ICortexTool? PendingTool { get; set; }
+    public IRiveTTTool? PendingTool { get; set; }
     public JObject? PendingInput { get; set; }
-    public CortexSession? PendingSession { get; set; }
-    public CortexResult<object>? Result { get; private set; }
+    public RiveTTSession? PendingSession { get; set; }
+    public RiveTTResult<object>? Result { get; private set; }
 
     public void Execute(UIApplication app)
     {
         int myId;
-        ICortexTool? tool;
+        IRiveTTTool? tool;
         JObject? input;
-        CortexSession? session;
+        RiveTTSession? session;
 
         lock (_stateLock)
         {
@@ -82,8 +82,8 @@ public class ToolExecutionHandler : IExternalEventHandler
             lock (_stateLock)
             {
                 if (_executionId == myId)
-                    Result = CortexResult<object>.Fail(
-                        CortexErrorCode.Unknown, $"Unhandled exception: {ex.Message}");
+                    Result = RiveTTResult<object>.Fail(
+                        RiveTTErrorCode.Unknown, $"Unhandled exception: {ex.Message}");
             }
         }
         finally
@@ -102,7 +102,7 @@ public class ToolExecutionHandler : IExternalEventHandler
         }
     }
 
-    public bool TryPrepareExecution(ICortexTool tool, JObject input, CortexSession session)
+    public bool TryPrepareExecution(IRiveTTTool tool, JObject input, RiveTTSession session)
     {
         lock (_stateLock)
         {

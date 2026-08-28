@@ -59,11 +59,11 @@ public static class TransactionFailureHandling
         return capture.Errors.Count > take ? head + $"; (+{capture.Errors.Count - take} more)" : head;
     }
 
-    public static CortexResult<object> ToFailure(
+    public static RiveTTResult<object> ToFailure(
         FailureCapture capture, string message, string repairHint)
     {
-        return CortexResult<object>.Fail(
-            CortexErrorCode.TransactionFailed,
+        return RiveTTResult<object>.Fail(
+            RiveTTErrorCode.TransactionFailed,
             $"{message}: {Describe(capture)}",
             suggestion: repairHint,
             context: new Dictionary<string, object>

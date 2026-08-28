@@ -16,18 +16,18 @@ namespace RiveTT.Tools.Elements;
 /// (whole model, active view, selection) and instance/type parameter lookup.
 /// </summary>
 [ToolSafety(true, false)]
-public class FilterByParameterValueTool : ICortexTool
+public class FilterByParameterValueTool : IRiveTTTool
 {
     public string Name => "filter_by_parameter_value";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Filters elements by one parameter condition, or several combined with AND/OR via the 'conditions' array. Flexible matching (equals, contains, greater_than, is_empty, etc.). Supports scope filtering (whole model, active view, selection) and instance/type parameter lookup.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var categories      = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
@@ -47,7 +47,7 @@ public class FilterByParameterValueTool : ICortexTool
             try { conditionsToken = JArray.Parse(input["conditions"]!.Value<string>() ?? "[]"); }
             catch
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "conditions must be a JSON array or a JSON array string");
             }
         }
@@ -67,13 +67,13 @@ public class FilterByParameterValueTool : ICortexTool
                     c["parameterType"]?.Value<string>() ?? parameterType));
             }
             if (clauses.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "conditions array provided but no valid {parameterName, condition, value} entries found");
         }
         else
         {
             if (string.IsNullOrWhiteSpace(parameterName))
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "parameterName (or a non-empty conditions array) is required");
             clauses.Add(new FilterClause(parameterName, condition, value, parameterType));
         }
@@ -83,7 +83,7 @@ public class FilterByParameterValueTool : ICortexTool
             // Pre-validate active_view scope — doc.ActiveView can be null when the request
             // arrives without a UI context (socket handler marshalling, document load, etc.).
             if (scope.Equals("active_view", StringComparison.OrdinalIgnoreCase) && doc.ActiveView == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "scope='active_view' but there is no active view in the document.",
                     suggestion: "Activate a view in Revit, or use scope='whole_model'.");
 
@@ -98,7 +98,7 @@ public class FilterByParameterValueTool : ICortexTool
                         resolvedCatIds.Add(catId);
                 }
                 if (resolvedCatIds.Count == 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"None of the specified categories could be resolved: {string.Join(", ", categories)}");
             }
 
@@ -167,7 +167,7 @@ public class FilterByParameterValueTool : ICortexTool
                 matchedElements.Add(elementData);
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 matchCount    = matchedElements.Count,
                 totalScanned  = elements.Count,
@@ -179,7 +179,7 @@ public class FilterByParameterValueTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Filter by parameter value failed: {ex.Message}");
         }
     }

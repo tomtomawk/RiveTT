@@ -20,7 +20,7 @@ namespace RiveTT.Tools.IFC;
 /// heuristic agrees: ifc_set_ is not a read prefix.
 /// </summary>
 [ToolSafety(false, false)]
-public class IfcSetFamilyMappingFileTool : ICortexTool
+public class IfcSetFamilyMappingFileTool : IRiveTTTool
 {
     public string Name => "ifc_set_family_mapping_file";
     public string Category => "IFC";
@@ -30,18 +30,18 @@ public class IfcSetFamilyMappingFileTool : ICortexTool
         "Set the family mapping file used by subsequent IFC exports (persists for the session; pass an "
         + "empty filePath to clear it). Counts as a write: it changes what every later IFC export produces.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var filePath = input["filePath"]?.Value<string>();
         if (filePath == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "filePath is required",
                 suggestion: "Provide the full path to a .txt family mapping file, or empty string to clear");
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
             session.Store.Set("ifc_family_mapping_file", "");
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 action = "cleared",
                 message = "Family mapping file cleared from session",
@@ -51,24 +51,24 @@ public class IfcSetFamilyMappingFileTool : ICortexTool
         // H25-wave: the stored path is later read by the IFC export tools; restrict it
         // to user-owned directories like every other caller-supplied file path.
         if (!PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
         filePath = safePath;
 
         if (!File.Exists(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"File not found: {filePath}");
 
         var ext = Path.GetExtension(filePath).ToLowerInvariant();
         if (ext != ".txt")
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Expected .txt file, got: {ext}",
                 suggestion: "The family mapping file must be a .txt file");
 
         session.Store.Set("ifc_family_mapping_file", filePath);
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "set",
             filePath,

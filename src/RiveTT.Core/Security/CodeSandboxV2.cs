@@ -67,7 +67,7 @@ public static class CodeSandboxV2
         new Regex(@"\.\s*(GetMethod|GetField|GetProperty|GetMember|GetConstructor|InvokeMember)\s*\(\s*\S[^)]*\)", RegexOptions.Compiled),
     };
 
-    public static CortexResult<object>? Validate(string code)
+    public static RiveTTResult<object>? Validate(string code)
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
 
@@ -101,8 +101,8 @@ public static class CodeSandboxV2
 
         if (violations.Count == 0) return null;
 
-        return CortexResult<object>.Fail(
-            CortexErrorCode.PermissionDenied,
+        return RiveTTResult<object>.Fail(
+            RiveTTErrorCode.PermissionDenied,
             $"Code contains prohibited operations: {string.Join(", ", violations)}",
             suggestion: "send_code_to_revit is restricted to Revit API operations. "
                 + "File I/O, network, process spawning, registry, and reflection bypasses are not allowed.");

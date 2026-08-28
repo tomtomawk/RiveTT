@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Project;
 /// exceeding a threshold sorted by line count. Useful for performance auditing.
 /// </summary>
 [ToolSafety(true, false)]
-public class LinesPerViewCountTool : ICortexTool
+public class LinesPerViewCountTool : IRiveTTTool
 {
     public string Name => "count_lines_per_view";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Scans all views and counts detail/model lines per view, returning views exceeding a threshold sorted by line count. Useful for performance auditing.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var threshold          = input["threshold"]?.Value<int>() ?? 0;
@@ -121,7 +121,7 @@ public class LinesPerViewCountTool : ICortexTool
 
             var limited = sorted.Take(limit).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 totalViewsScanned   = views.Count,
                 totalLinesInProject = totalDetailLines + modelLinesInProject,
@@ -141,7 +141,7 @@ public class LinesPerViewCountTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to count lines per view: {ex.Message}");
         }
     }

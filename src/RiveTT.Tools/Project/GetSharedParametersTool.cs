@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// bindings, parameter types, and applicable categories.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetSharedParametersTool : ICortexTool
+public class GetSharedParametersTool : IRiveTTTool
 {
     public string Name => "list_shared_parameters";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Lists all project parameters (shared and project-specific) with their bindings, parameter types, and applicable categories.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var categoryFilter = input["categoryFilter"]?.Value<string>() ?? "";
@@ -69,7 +69,7 @@ public class GetSharedParametersTool : ICortexTool
                 });
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 parameterCount = parameters.Count,
                 parameters
@@ -77,7 +77,7 @@ public class GetSharedParametersTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get shared parameters: {ex.Message}");
         }
     }

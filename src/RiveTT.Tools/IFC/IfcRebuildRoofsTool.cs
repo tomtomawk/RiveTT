@@ -16,7 +16,7 @@ namespace RiveTT.Tools.IFC;
 /// Extracts the bottom face footprint for the roof profile.
 /// </summary>
 [ToolSafety(false, false)]
-public class IfcRebuildRoofsTool : ICortexTool
+public class IfcRebuildRoofsTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_roofs";
     public string Category => "IFC";
@@ -24,7 +24,7 @@ public class IfcRebuildRoofsTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Rebuild native Revit roofs from IFC-imported DirectShape elements";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -51,7 +51,7 @@ public class IfcRebuildRoofsTool : ICortexTool
         {
             roofType = doc!.GetElement(ToolHelpers.ToElementId(roofTypeIdRaw.Value)) as RoofType;
             if (roofType == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"RoofType {roofTypeIdRaw.Value} not found");
         }
         else
@@ -63,7 +63,7 @@ public class IfcRebuildRoofsTool : ICortexTool
         }
 
         if (roofType == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No RoofType available in the document");
 
         var results = new List<object>();
@@ -72,7 +72,7 @@ public class IfcRebuildRoofsTool : ICortexTool
         if (!dryRun)
         {
             if (!session.RequestConfirmation("rebuild roofs", candidates.Count))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
         }
 
         // One TransactionGroup per invocation: the N per-element commits collapse
@@ -185,7 +185,7 @@ public class IfcRebuildRoofsTool : ICortexTool
         if (txGroup != null && txGroup.GetStatus() == TransactionStatus.Started)
             txGroup.Assimilate();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             dryRun,
             totalCandidates = candidates.Count,

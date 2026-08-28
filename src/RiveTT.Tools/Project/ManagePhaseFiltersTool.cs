@@ -27,7 +27,7 @@ namespace RiveTT.Tools.Project;
 ///   DontShow       (also accepted: NotDisplayed, None, Hidden)
 /// </summary>
 [ToolSafety(false, false)]
-public class ManagePhaseFiltersTool : ICortexTool
+public class ManagePhaseFiltersTool : IRiveTTTool
 {
     public string Name => "manage_phase_filters";
     public string Category => "Project";
@@ -35,11 +35,11 @@ public class ManagePhaseFiltersTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "List, set, or create Revit Phase Filters. Actions: list | set | create. The 'set' action changes one presentation for one filter (preserves the other three). For each phase status (New|Demolished|Existing|Temporary), the presentation is None | ByCategory | Overridden | NotDisplayed.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = (input["action"]?.Value<string>() ?? "list").ToLowerInvariant();
 
@@ -50,20 +50,20 @@ public class ManagePhaseFiltersTool : ICortexTool
                 "list"   => ListFilters(doc),
                 "set"    => SetFilter(doc, input, session),
                 "create" => CreateFilter(doc, input, session),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}",
                     suggestion: "Use one of: list, set, create")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"manage_phase_filters failed: {ex.Message}");
         }
     }
 
     // ── LIST ────────────────────────────────────────────────────────────────
-    private static CortexResult<object> ListFilters(Document doc)
+    private static RiveTTResult<object> ListFilters(Document doc)
     {
         var filters = new FilteredElementCollector(doc)
             .OfClass(typeof(PhaseFilter))
@@ -84,7 +84,7 @@ public class ManagePhaseFiltersTool : ICortexTool
             }
         }).Cast<object>().ToList();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "list",
             filterCount = rows.Count,
@@ -93,7 +93,7 @@ public class ManagePhaseFiltersTool : ICortexTool
     }
 
     // ── SET ─────────────────────────────────────────────────────────────────
-    private static CortexResult<object> SetFilter(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> SetFilter(Document doc, JObject input, RiveTTSession session)
     {
         var filterName = input["filterName"]?.Value<string>();
         var filterId   = input["filterId"]?.Value<long>();
@@ -101,43 +101,43 @@ public class ManagePhaseFiltersTool : ICortexTool
         var presentation = input["presentation"]?.Value<string>();
 
         if (string.IsNullOrWhiteSpace(filterName) && (filterId == null || filterId == 0))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "filterName or filterId is required");
         if (string.IsNullOrWhiteSpace(status))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "status is required (New | Demolished | Existing | Temporary)");
         if (string.IsNullOrWhiteSpace(presentation))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "presentation is required (None | ByCategory | Overridden | NotDisplayed)");
 
         if (!Enum.TryParse<ElementOnPhaseStatus>(status, ignoreCase: true, out var statusEnum))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown status '{status}'", suggestion: "Use: New, Demolished, Existing, Temporary");
         var presentationEnumNullable = ResolvePresentation(presentation);
         if (presentationEnumNullable == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown presentation '{presentation}'",
                 suggestion: "Use: ByCategory (ShowByCategory), Overridden (ShowOverriden), NotDisplayed (DontShow)");
         var presentationEnum = presentationEnumNullable.Value;
 
         var filter = FindFilter(doc, filterName, filterId);
         if (filter == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Phase filter not found (name='{filterName}', id={filterId}).");
 
         if (!session.RequestConfirmation("modify phase filter", 1))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Modify Phase Filter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         filter.SetPhaseStatusPresentation(statusEnum, presentationEnum);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "set",
             filterName = filter.Name,
@@ -155,11 +155,11 @@ public class ManagePhaseFiltersTool : ICortexTool
     }
 
     // ── CREATE ──────────────────────────────────────────────────────────────
-    private static CortexResult<object> CreateFilter(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> CreateFilter(Document doc, JObject input, RiveTTSession session)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "name is required for create action");
 
         // Reject duplicates proactively (PhaseFilter.Create throws on duplicate, but the
@@ -167,7 +167,7 @@ public class ManagePhaseFiltersTool : ICortexTool
         var existing = new FilteredElementCollector(doc).OfClass(typeof(PhaseFilter))
             .Cast<PhaseFilter>().FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
         if (existing != null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"A phase filter named '{name}' already exists (id={GetElementIdLong(existing.Id)}). Use action='set' to modify it.");
 
         // Defaults match Revit's "Show All" filter: everything ByCategory.
@@ -177,7 +177,7 @@ public class ManagePhaseFiltersTool : ICortexTool
         var tempP = ParsePresentation(input["temporaryStatus"]?.Value<string>(), PhaseStatusPresentation.ShowByCategory);
 
         if (!session.RequestConfirmation("create phase filter", 1))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Create Phase Filter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -188,11 +188,11 @@ public class ManagePhaseFiltersTool : ICortexTool
         created.SetPhaseStatusPresentation(ElementOnPhaseStatus.Demolished, demP);
         created.SetPhaseStatusPresentation(ElementOnPhaseStatus.Temporary,  tempP);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "create",
             filterName = created.Name,

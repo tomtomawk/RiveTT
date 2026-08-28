@@ -40,7 +40,7 @@ public class AuditLoggerTests : IDisposable
     public void Log_Failure_IncludesErrorCode()
     {
         _logger.Log("delete_element", "ids=[456]", false,
-            errorCode: CortexErrorCode.Cancelled);
+            errorCode: RiveTTErrorCode.Cancelled);
 
         var content = File.ReadAllText(_tempPath);
         Assert.Contains("\"result\":\"fail\"", content);
@@ -96,7 +96,7 @@ public class AuditLoggerTests : IDisposable
     public void LogWithPerf_WithCodeHashAndSnippet_PreservesBothFields()
     {
         _logger.LogWithPerf("send_code_to_revit", "code(42 chars)", false,
-            errorCode: CortexErrorCode.PermissionDenied,
+            errorCode: RiveTTErrorCode.PermissionDenied,
             codeSnippet: "var doc = document; // some revit code",
             codeHash: "abc123def456");
 
@@ -120,7 +120,7 @@ public class AuditLoggerTests : IDisposable
     public void LogWithPerf_Failure_IncludesErrorMessage()
     {
         _logger.LogWithPerf("batch_modify_parameter_values", "(no params)", false,
-            errorCode: CortexErrorCode.Unknown,
+            errorCode: RiveTTErrorCode.Unknown,
             errorMessage: "Failed: Object reference not set to an instance of an object.");
 
         var content = File.ReadAllText(_tempPath);
@@ -143,7 +143,7 @@ public class AuditLoggerTests : IDisposable
     {
         var longMessage = new string('e', 500);
         _logger.LogWithPerf("some_tool", "x", false,
-            errorCode: CortexErrorCode.Unknown,
+            errorCode: RiveTTErrorCode.Unknown,
             errorMessage: longMessage);
 
         var content = File.ReadAllText(_tempPath);

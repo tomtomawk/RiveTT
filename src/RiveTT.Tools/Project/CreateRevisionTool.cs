@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Project;
 /// one on a view (create_revision alone only created the Revision element itself).
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateRevisionTool : ICortexTool
+public class CreateRevisionTool : IRiveTTTool
 {
     public string Name => "create_revision";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Lists, creates, updates, or assigns revisions to sheets, and draws revision clouds. Actions: list, create, set, add_to_sheets, create_cloud.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = input["action"]?.Value<string>() ?? "list";
 
@@ -39,14 +39,14 @@ public class CreateRevisionTool : ICortexTool
                 "set" => SetRevision(doc, input),
                 "add_to_sheets" => AddToSheets(doc, input),
                 "create_cloud" => CreateCloud(doc, input),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}",
                     suggestion: "Use: list, create, set, add_to_sheets, or create_cloud")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
@@ -55,31 +55,31 @@ public class CreateRevisionTool : ICortexTool
     /// the revision has been marked Issued — the failure surfaces as a clear message
     /// rather than a raw exception.
     /// </summary>
-    private static CortexResult<object> CreateCloud(Document doc, JObject input)
+    private static RiveTTResult<object> CreateCloud(Document doc, JObject input)
     {
         var revisionIdLong = input["revisionId"]?.Value<long?>() ?? 0;
         var viewIdLong = input["viewId"]?.Value<long?>() ?? 0;
         var curvesArray = input["curves"] as JArray;
         if (revisionIdLong <= 0 || viewIdLong <= 0 || curvesArray == null || curvesArray.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "revisionId, viewId, and a non-empty curves array are required",
                 suggestion: "Provide {\"revisionId\":123, \"viewId\":456, \"curves\":[{\"type\":\"line\",\"start\":{...},\"end\":{...}}, ...]} forming a closed loop");
 
         var revision = doc.GetElement(ToolHelpers.ToElementId(revisionIdLong)) as Revision;
         if (revision == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Revision {revisionIdLong} not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"Revision {revisionIdLong} not found");
         if (revision.Issued)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "This revision is marked Issued: Revit refuses new clouds on an issued revision",
                 suggestion: "Use a non-issued revision, or create_revision(action=create) a new one first");
 
         var view = doc.GetElement(ToolHelpers.ToElementId(viewIdLong)) as View;
         if (view == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"View {viewIdLong} not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"View {viewIdLong} not found");
 
         var curves = CurveSpecHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
         if (curveError != null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, curveError);
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, curveError);
 
         using var tx = new Transaction(doc, "RiveTT: Create Revision Cloud");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -93,15 +93,15 @@ public class CreateRevisionTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"RevisionCloud.Create failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"RevisionCloud.Create failed: {ex.Message}");
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "create_cloud",
             revisionCloudId = ToolHelpers.GetElementIdValue(cloud.Id),
@@ -110,7 +110,7 @@ public class CreateRevisionTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> ListRevisions(Document doc)
+    private static RiveTTResult<object> ListRevisions(Document doc)
     {
         var revisionIds = Revision.GetAllRevisionIds(doc);
         var revisions = revisionIds.Select(id =>
@@ -127,10 +127,10 @@ public class CreateRevisionTool : ICortexTool
             };
         }).ToList();
 
-        return CortexResult<object>.Ok(new { revisionCount = revisions.Count, revisions });
+        return RiveTTResult<object>.Ok(new { revisionCount = revisions.Count, revisions });
     }
 
-    private static CortexResult<object> CreateNewRevision(Document doc, JObject input)
+    private static RiveTTResult<object> CreateNewRevision(Document doc, JObject input)
     {
         var date = input["date"]?.Value<string>();
         var description = input["description"]?.Value<string>();
@@ -149,11 +149,11 @@ public class CreateRevisionTool : ICortexTool
         ApplyIssuedAndVisibility(revision, input);
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "create",
             revisionId = ToolHelpers.GetElementIdValue(revision.Id),
@@ -164,15 +164,15 @@ public class CreateRevisionTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> SetRevision(Document doc, JObject input)
+    private static RiveTTResult<object> SetRevision(Document doc, JObject input)
     {
         var revisionIdLong = input["revisionId"]?.Value<long>() ?? 0;
         if (revisionIdLong <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "revisionId is required for action 'set'");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "revisionId is required for action 'set'");
 
         var revision = doc.GetElement(ToolHelpers.ToElementId(revisionIdLong)) as Revision;
         if (revision == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Revision {revisionIdLong} not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"Revision {revisionIdLong} not found");
 
         using var tx = new Transaction(doc, "RiveTT: Update Revision");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -189,11 +189,11 @@ public class CreateRevisionTool : ICortexTool
         ApplyIssuedAndVisibility(revision, input);
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "set",
             revisionId = ToolHelpers.GetElementIdValue(revision.Id),
@@ -222,13 +222,13 @@ public class CreateRevisionTool : ICortexTool
         }
     }
 
-    private static CortexResult<object> AddToSheets(Document doc, JObject input)
+    private static RiveTTResult<object> AddToSheets(Document doc, JObject input)
     {
         var sheetIds = input["sheetIds"]?.ToObject<List<long>>();
         var revisionIdLong = input["revisionId"]?.Value<long>() ?? 0;
 
         if (sheetIds == null || sheetIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sheetIds array is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheetIds array is required");
 
         // Use specified revision or latest
         ElementId revisionId;
@@ -240,7 +240,7 @@ public class CreateRevisionTool : ICortexTool
         {
             var allRevIds = Revision.GetAllRevisionIds(doc);
             if (allRevIds.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No revisions exist");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "No revisions exist");
             revisionId = allRevIds.Last();
         }
 
@@ -264,11 +264,11 @@ public class CreateRevisionTool : ICortexTool
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "add_to_sheets",
             revisionId = ToolHelpers.GetElementIdValue(revisionId),

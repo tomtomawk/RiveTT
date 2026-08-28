@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Elements;
 /// Phase-aware lookup via FromRoom/ToRoom with type-level caching.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetRoomOpeningsTool : ICortexTool
+public class GetRoomOpeningsTool : IRiveTTTool
 {
     public string Name => "get_room_openings";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Retrieves doors/windows by room with dimensions and room association data. Phase-aware lookup via FromRoom/ToRoom with type-level caching.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var roomIds             = input["roomIds"]?.ToObject<List<long>>() ?? new List<long>();
@@ -78,7 +78,7 @@ public class GetRoomOpeningsTool : ICortexTool
             }
 
             if (targetRooms.Count == 0)
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     totalRooms = 0, totalDoors = 0, totalWindows = 0,
                     rooms = new List<object>()
@@ -130,7 +130,7 @@ public class GetRoomOpeningsTool : ICortexTool
                 });
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 totalRooms   = targetRooms.Count,
                 totalDoors,
@@ -140,7 +140,7 @@ public class GetRoomOpeningsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Get room openings failed: {ex.Message}");
         }
     }

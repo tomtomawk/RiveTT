@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Views;
 /// Creates a new view (floor plan, ceiling plan, section, elevation, 3D).
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateViewTool : ICortexTool
+public class CreateViewTool : IRiveTTTool
 {
     public string Name => "create_view";
     public string Category => "Views";
@@ -23,11 +23,11 @@ public class CreateViewTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates a new view (floor plan, ceiling plan, section, elevation, 3D).";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var viewType = input["viewType"]?.Value<string>() ?? "floorplan";
         var name = input["name"]?.Value<string>();
@@ -83,11 +83,11 @@ public class CreateViewTool : ICortexTool
                 case "legend":
                     // Confirmed unsupported: the Revit API exposes no method to build a
                     // Legend view from scratch, only View.Duplicate() on an existing one.
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "Legend view creation is unsupported: the Revit API cannot build a Legend view from scratch",
                         suggestion: "Find an existing legend view and duplicate it with duplicate_view instead");
                 default:
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Unsupported viewType: {viewType}",
                         suggestion: "Use: floorplan | ceilingplan | section | elevation | drafting | callout | " +
                                     "3d (aliases: isometric, ThreeD). Legend views cannot be created from scratch " +
@@ -95,7 +95,7 @@ public class CreateViewTool : ICortexTool
             }
 
             if (createdView == null)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed, calloutError ?? "Could not create view");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed, calloutError ?? "Could not create view");
 
             if (!string.IsNullOrEmpty(name))
                 try { createdView.Name = name; } catch { /* duplicate name */ }
@@ -121,11 +121,11 @@ public class CreateViewTool : ICortexTool
             ApplyViewTemplate(doc, createdView, input);
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 viewId = ToolHelpers.GetElementIdValue(createdView.Id),
                 viewName = createdView.Name,
@@ -135,7 +135,7 @@ public class CreateViewTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create view: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to create view: {ex.Message}");
         }
     }
 

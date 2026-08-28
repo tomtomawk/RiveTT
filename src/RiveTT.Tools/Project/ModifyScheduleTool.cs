@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// Modifies an existing schedule: add/remove fields, set/clear filters, set/clear sorting, rename, display options.
 /// </summary>
 [ToolSafety(false, true)]
-public class ModifyScheduleTool : ICortexTool
+public class ModifyScheduleTool : IRiveTTTool
 {
     public string Name => "modify_schedule";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Modifies an existing schedule: add/remove fields, set/clear filters, set/clear sorting, rename, display options.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var scheduleId = input["scheduleId"]?.Value<long>();
         var scheduleName = input["scheduleName"]?.Value<string>();
@@ -45,7 +45,7 @@ public class ModifyScheduleTool : ICortexTool
             }
 
             if (schedule == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Schedule not found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Schedule not found");
 
             var normalizedAction = action.ToLowerInvariant();
             if (normalizedAction == "set_sort")
@@ -59,13 +59,13 @@ public class ModifyScheduleTool : ICortexTool
                 normalizedAction != "clear_filter" &&
                 normalizedAction != "rename")
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}",
                     suggestion: "Use: add_field, remove_field, set_sorting, clear_sorting, set_filter, clear_filter, rename");
             }
 
             if (!session.RequestConfirmation("modify schedule", 1, schedule.Name))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
             using var tx = new Transaction(doc, "RiveTT: Modify Schedule");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -84,25 +84,25 @@ public class ModifyScheduleTool : ICortexTool
             };
 
             // H19: the sub-methods signal validation failures by returning an anonymous
-            // object with an `error` property. Returning that inside CortexResult.Ok hid
+            // object with an `error` property. Returning that inside RiveTTResult.Ok hid
             // the failure from callers (Ok envelope with a buried error). Detect it, roll
             // back, and surface a real Fail instead.
             var errorProp = result.GetType().GetProperty("error");
             if (errorProp?.GetValue(result) is string errMsg && !string.IsNullOrEmpty(errMsg))
             {
                 if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, errMsg);
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, errMsg);
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return CortexResult<object>.Ok(result);
+            return RiveTTResult<object>.Ok(result);
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

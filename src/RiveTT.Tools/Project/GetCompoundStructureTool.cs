@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 /// Walls, Floors, Roofs, Ceilings.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetCompoundStructureTool : ICortexTool
+public class GetCompoundStructureTool : IRiveTTTool
 {
     public string Name => "get_compound_structure";
     public string Category => "Project";
@@ -24,11 +24,11 @@ public class GetCompoundStructureTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Reads compound structure (layer stratigraphy) from system family types: walls, floors, roofs, ceilings. Returns layer function, width, and material for each layer.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var elementId = input["elementId"]?.Value<long?>();
         var typeId    = input["typeId"]?.Value<long?>();
@@ -46,14 +46,14 @@ public class GetCompoundStructureTool : ICortexTool
             {
                 var elem = doc.GetElement(new ElementId(elementId.Value));
                 if (elem == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                         $"Element {elementId} not found");
 
                 hostType = doc.GetElement(elem.GetTypeId()) as HostObjAttributes;
                 resolvedFrom = "element";
 
                 if (hostType == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Element {elementId} is not a system family with compound structure (wall, floor, roof, ceiling)",
                         suggestion: "Provide the ID of a wall, floor, roof, or ceiling element");
             }
@@ -64,7 +64,7 @@ public class GetCompoundStructureTool : ICortexTool
                 resolvedFrom = "typeId";
 
                 if (hostType == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                         $"Type {typeId} is not a system family type with compound structure");
             }
             // Option 3: from type name + category
@@ -74,13 +74,13 @@ public class GetCompoundStructureTool : ICortexTool
                 resolvedFrom = "typeName";
 
                 if (hostType == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                         $"Type '{typeName}' not found" + (category != null ? $" in category {category}" : ""),
                         suggestion: "Use list_family_types to list available types");
             }
             else
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "Provide elementId, typeId, or typeName to identify the system family type",
                     suggestion: "Example: {\"elementId\": 619340} or {\"typeName\": \"Generic - 200mm\", \"category\": \"OST_Walls\"}");
             }
@@ -88,7 +88,7 @@ public class GetCompoundStructureTool : ICortexTool
             var cs = hostType.GetCompoundStructure();
             if (cs == null)
             {
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     typeName = hostType.Name,
                     typeCategory = hostType.Category?.Name ?? "",
@@ -134,7 +134,7 @@ public class GetCompoundStructureTool : ICortexTool
             long typeIdValue;
             typeIdValue = hostType.Id.Value;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 typeId = typeIdValue,
                 typeName = hostType.Name,
@@ -151,7 +151,7 @@ public class GetCompoundStructureTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get compound structure: {ex.Message}");
         }
     }

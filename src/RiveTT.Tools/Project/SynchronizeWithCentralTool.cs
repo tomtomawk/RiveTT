@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Project;
 /// beyond that: the write lock and dryRun default are the confirmation.
 /// </summary>
 [ToolSafety(false, true)]
-public class SynchronizeWithCentralTool : ICortexTool
+public class SynchronizeWithCentralTool : IRiveTTTool
 {
     public string Name => "synchronize_with_central";
     public string Category => "Project";
@@ -30,14 +30,14 @@ public class SynchronizeWithCentralTool : ICortexTool
         "dryRun defaults to true and only reports whether the document is workshared and has pending local " +
         "changes to relinquish, without touching the central file. Only usable on a workshared document.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         if (!doc.IsWorkshared)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "This document is not workshared: there is no central to synchronize with");
 
         var dryRun = input["dryRun"]?.Value<bool?>() ?? true;
@@ -46,7 +46,7 @@ public class SynchronizeWithCentralTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = "DryRun: would synchronize with central" +
                           (relinquishAll ? ", relinquishing all worksets/elements/checked-out items" : "") +
@@ -71,13 +71,13 @@ public class SynchronizeWithCentralTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"SynchronizeWithCentral failed: {ex.Message}",
                 suggestion: "The central file may be locked by another user's sync, or local changes conflict " +
                             "with the central. Resolve the reported issue in Revit and retry.");
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             message = "Synchronized with central.",
             relinquishAll,

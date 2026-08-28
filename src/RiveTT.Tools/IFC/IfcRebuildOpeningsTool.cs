@@ -17,7 +17,7 @@ namespace RiveTT.Tools.IFC;
 /// curve-based floor/roof openings.
 /// </summary>
 [ToolSafety(false, false)]
-public class IfcRebuildOpeningsTool : ICortexTool
+public class IfcRebuildOpeningsTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_openings";
     public string Category => "IFC";
@@ -25,7 +25,7 @@ public class IfcRebuildOpeningsTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Cut openings in rebuilt walls/floors based on IFC opening elements";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -81,7 +81,7 @@ public class IfcRebuildOpeningsTool : ICortexTool
         if (!dryRun)
         {
             if (!session.RequestConfirmation("rebuild openings", openingCandidates.Count))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
         }
 
         // One TransactionGroup per invocation: the N per-element commits collapse
@@ -191,7 +191,7 @@ public class IfcRebuildOpeningsTool : ICortexTool
         if (txGroup != null && txGroup.GetStatus() == TransactionStatus.Started)
             txGroup.Assimilate();
 
-        return CortexResult<object>.Ok(new { dryRun, totalCandidates = openingCandidates.Count, created, skipped, results });
+        return RiveTTResult<object>.Ok(new { dryRun, totalCandidates = openingCandidates.Count, created, skipped, results });
     }
 
     private static Element? FindContainingHost(List<Element> hosts, BoundingBoxXYZ openingBb)

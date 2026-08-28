@@ -18,18 +18,18 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's ExportElementsDataEventHandler.
 /// </summary>
 [ToolSafety(true, false)]
-public class ExportElementsDataTool : ICortexTool
+public class ExportElementsDataTool : IRiveTTTool
 {
     public string Name => "export_elements_data";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Exports element data as JSON or CSV. Supports category filtering (OST_* codes), explicit or auto-discovered parameter columns, and value-based row filtering. Mirrors the fork's ExportElementsDataEventHandler.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // ── Parse inputs ───────────────────────────────────────────────────
@@ -73,7 +73,7 @@ public class ExportElementsDataTool : ICortexTool
             // and there was no way to know that in advance.
             if (countOnly)
             {
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     countOnly = true,
                     totalCount,
@@ -127,7 +127,7 @@ public class ExportElementsDataTool : ICortexTool
                   $"({string.Join(", ", unresolved.Keys)}); their columns are empty for that reason, not because " +
                   "the values are empty.";
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 totalCount,
                 filteredCount,
@@ -145,7 +145,7 @@ public class ExportElementsDataTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Export elements data failed: {ex.Message}");
         }
     }

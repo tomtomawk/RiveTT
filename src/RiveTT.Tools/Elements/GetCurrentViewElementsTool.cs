@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// and field filtering. Mirrors the fork's GetCurrentViewElementsEventHandler logic.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetCurrentViewElementsTool : ICortexTool
+public class GetCurrentViewElementsTool : IRiveTTTool
 {
     public string Name => "get_current_view_elements";
     public string Category => "Elements";
@@ -57,16 +57,16 @@ public class GetCurrentViewElementsTool : ICortexTool
         "OST_TitleBlocks"
     };
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var activeView = doc.ActiveView;
         if (activeView == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active view in the document");
 
         // ── Parse inputs ───────────────────────────────────────────────────
@@ -84,7 +84,7 @@ public class GetCurrentViewElementsTool : ICortexTool
 
         if (!PageCursor.TryDecode(input["cursor"]?.Value<string>(), session.DocumentVersion,
                 out var offset, out var cursorError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, cursorError!,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, cursorError!,
                 suggestion: "Restart the read without a cursor because the document changed.");
 
         // Categories the caller actually asked for — distinct from the built-in
@@ -123,7 +123,7 @@ public class GetCurrentViewElementsTool : ICortexTool
             }
 
             if (categoriesWereRequested && unresolvedCategories.Count > 0 && categoryIds.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"No requested category could be resolved: {string.Join(", ", unresolvedCategories)}",
                     suggestion: "Use OST_* codes (OST_Walls), English names (Walls) or the exact localized label.");
 
@@ -173,7 +173,7 @@ public class GetCurrentViewElementsTool : ICortexTool
 
             var elementInfos = page.Select(e => BuildElementInfo(doc, e, activeView, fieldSet)).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 viewId               = activeView.Id.Value,
                 viewName             = activeView.Name,
@@ -194,7 +194,7 @@ public class GetCurrentViewElementsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get current view elements: {ex.Message}");
         }
     }

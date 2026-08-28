@@ -46,7 +46,7 @@ public sealed class ShowStatusCommand : IExternalCommand
     {
         var app = RiveTTApp.Instance;
         var policy = app?.Session?.WriteAccess;
-        var auditPath = CortexEnvironment.Current.AuditLogPath;
+        var auditPath = RiveTTEnvironment.Current.AuditLogPath;
         var document = commandData?.Application?.ActiveUIDocument?.Document;
 
         var version = typeof(ShowStatusCommand).Assembly.GetName().Version?.ToString() ?? "inconnue";

@@ -15,7 +15,7 @@ namespace RiveTT.Tools.IFC;
 /// Sets a value in the Comments parameter to mark them for manual review.
 /// </summary>
 [ToolSafety(false, true)]
-public class IfcTagUnreconstructableElementsTool : ICortexTool
+public class IfcTagUnreconstructableElementsTool : IRiveTTTool
 {
     public string Name => "ifc_tag_unreconstructable_elements";
     public string Category => "IFC";
@@ -23,7 +23,7 @@ public class IfcTagUnreconstructableElementsTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Tag IFC elements that cannot be rebuilt, marking them for manual review";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -52,7 +52,7 @@ public class IfcTagUnreconstructableElementsTool : ICortexTool
         }
 
         if (targets.Count == 0)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 tagged = 0,
                 message = "No elements to tag",
@@ -60,7 +60,7 @@ public class IfcTagUnreconstructableElementsTool : ICortexTool
 
         if (!session.RequestConfirmation("tag unreconstructable elements", targets.Count,
             $"Set Comments to '{tagValue}' on {targets.Count} elements"))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         int tagged = 0;
         var results = new List<object>();
@@ -109,11 +109,11 @@ public class IfcTagUnreconstructableElementsTool : ICortexTool
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             tagged,
             tagValue,

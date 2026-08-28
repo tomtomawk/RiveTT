@@ -24,20 +24,20 @@ namespace RiveTT.Tools.Project;
 /// </summary>
 public static class DocumentFilePathValidation
 {
-    public static CortexResult<object>? Validate(string? filePath, string requiredExtension)
+    public static RiveTTResult<object>? Validate(string? filePath, string requiredExtension)
     {
         if (string.IsNullOrWhiteSpace(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "filePath is required and was not provided",
                 suggestion: $"Pass filePath as an absolute {requiredExtension} path.");
 
         if (!Path.IsPathFullyQualified(filePath) ||
             !filePath.EndsWith(requiredExtension, StringComparison.OrdinalIgnoreCase))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"filePath must be an absolute path ending in {requiredExtension} (received: {filePath})");
 
         if (!File.Exists(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"File not found: {filePath}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"File not found: {filePath}");
 
         return null;
     }
@@ -55,7 +55,7 @@ public static class DocumentFilePathValidation
 /// Annex A).
 /// </summary>
 [ToolSafety(false, false)]
-public sealed class OpenFamilyTool : ICortexTool
+public sealed class OpenFamilyTool : IRiveTTTool
 {
     public string Name => "open_family";
     public string Category => "Documents";
@@ -69,7 +69,7 @@ public sealed class OpenFamilyTool : ICortexTool
         "accumulates for the rest of the session. To load a family INTO the current project instead, use " +
         "load_family.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var filePath = input["filePath"]?.Value<string>()
                        ?? input["path"]?.Value<string>();
@@ -83,7 +83,7 @@ public sealed class OpenFamilyTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"DryRun: would open and activate '{Path.GetFileName(filePath)}' as a family " +
                           "document. This changes the active document.",
@@ -99,7 +99,7 @@ public sealed class OpenFamilyTool : ICortexTool
 
         var uiApplication = DocumentLifecycleSupport.ResolveUiApplication(session);
         if (uiApplication == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No UIApplication in session, so no document can be activated",
                 suggestion: "Activate any view in Revit once, then retry.");
 
@@ -111,7 +111,7 @@ public sealed class OpenFamilyTool : ICortexTool
             uiApplication.OpenAndActivateDocument(filePath);
             var opened = uiApplication.ActiveUIDocument?.Document;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Opened and activated the family '{opened?.Title ?? Path.GetFileName(filePath)}'. " +
                           "The active document has changed — every later tool call targets this family until " +
@@ -129,7 +129,7 @@ public sealed class OpenFamilyTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Could not open and activate the family: {exception.Message}",
                 suggestion: "Close any open dialog in Revit and retry.");
         }
@@ -142,7 +142,7 @@ public sealed class OpenFamilyTool : ICortexTool
 /// itself.
 /// </summary>
 [ToolSafety(false, false)]
-public sealed class OpenTemplateTool : ICortexTool
+public sealed class OpenTemplateTool : IRiveTTTool
 {
     public string Name => "open_template";
     public string Category => "Documents";
@@ -155,7 +155,7 @@ public sealed class OpenTemplateTool : ICortexTool
         "template instead, use create_document — that reads the template without touching it. The active " +
         "document changes: every later tool call targets the template until you switch back.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var filePath = input["filePath"]?.Value<string>()
                        ?? input["path"]?.Value<string>();
@@ -169,7 +169,7 @@ public sealed class OpenTemplateTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"DryRun: would open and activate '{Path.GetFileName(filePath)}' as an editable " +
                           "template document. This changes the active document.",
@@ -185,7 +185,7 @@ public sealed class OpenTemplateTool : ICortexTool
 
         var uiApplication = DocumentLifecycleSupport.ResolveUiApplication(session);
         if (uiApplication == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No UIApplication in session, so no document can be activated",
                 suggestion: "Activate any view in Revit once, then retry.");
 
@@ -197,7 +197,7 @@ public sealed class OpenTemplateTool : ICortexTool
             uiApplication.OpenAndActivateDocument(filePath);
             var opened = uiApplication.ActiveUIDocument?.Document;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Opened and activated the template '{opened?.Title ?? Path.GetFileName(filePath)}'. " +
                           "Changes made here and saved (save_document) modify the template file itself." +
@@ -213,7 +213,7 @@ public sealed class OpenTemplateTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Could not open and activate the template: {exception.Message}",
                 suggestion: "Close any open dialog in Revit and retry.");
         }
@@ -236,7 +236,7 @@ public sealed class OpenTemplateTool : ICortexTool
 /// refuses rather than guess.
 /// </summary>
 [ToolSafety(false, true)]
-public sealed class CloseDocumentTool : ICortexTool
+public sealed class CloseDocumentTool : IRiveTTTool
 {
     public string Name => "close_document";
     public string Category => "Documents";
@@ -250,11 +250,11 @@ public sealed class CloseDocumentTool : ICortexTool
         "requires another open document to switch to first — if none is open, the call is refused rather than " +
         "guessed at.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var application = DocumentLifecycleSupport.ResolveApplication(session);
         if (application == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No Revit application context is available yet",
                 suggestion: "Open Revit (2026.5+ or 2027) and wait for its session to be published.");
 
@@ -270,7 +270,7 @@ public sealed class CloseDocumentTool : ICortexTool
         {
             target = activeDocument;
             if (target == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "filePath was not provided and there is no active document to close",
                     suggestion: "Pass filePath to close a specific open document.");
         }
@@ -278,7 +278,7 @@ public sealed class CloseDocumentTool : ICortexTool
         {
             target = FindOpenDocument(application, filePath!);
             if (target == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"No open document matches: {filePath}",
                     suggestion: "The path must match an already-open document exactly. " +
                                 "openDocuments in a dryRun call lists what is currently open.");
@@ -289,7 +289,7 @@ public sealed class CloseDocumentTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = !isActive
                     ? $"DryRun: would close '{target!.Title}' directly (not the active document)."
@@ -310,7 +310,7 @@ public sealed class CloseDocumentTool : ICortexTool
         }
 
         if (isActive && swapCandidate == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"'{target!.Title}' is the active document and the only one open. Revit's API refuses to " +
                 "close the active document directly (The active document may not be closed from the API).",
                 suggestion: "Open or activate another document first (open_document, open_family, or " +
@@ -331,13 +331,13 @@ public sealed class CloseDocumentTool : ICortexTool
 
             var closed = target.Close(saveModified);
             if (!closed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit refused to close '{closedTitle}' (Document.Close returned false).",
                     suggestion: saveModified
                         ? "Check the document can be saved to its current path."
                         : "The document may have unsaved changes; pass saveModified=true to save first.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = swappedToPath != null
                     ? $"Activated '{swapCandidate!.Title}', then closed '{closedTitle}'."
@@ -350,7 +350,7 @@ public sealed class CloseDocumentTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Could not close the document: {exception.Message}");
         }
     }

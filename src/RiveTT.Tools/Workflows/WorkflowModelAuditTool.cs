@@ -13,18 +13,18 @@ namespace RiveTT.Tools.Workflows;
 /// Comprehensive model audit combining health check, warnings, and family analysis.
 /// </summary>
 [ToolSafety(true, false)]
-public class WorkflowModelAuditTool : ICortexTool
+public class WorkflowModelAuditTool : IRiveTTTool
 {
     public string Name => "workflow_model_audit";
     public string Category => "Workflows";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Comprehensive model audit combining health check, warnings, and family analysis.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var includeWarnings = input["includeWarnings"]?.Value<bool>() ?? true;
         var includeFamilies = input["includeFamilies"]?.Value<bool>() ?? true;
@@ -78,7 +78,7 @@ public class WorkflowModelAuditTool : ICortexTool
             if (cadImports > 3) recommendations.Add($"Clean up {cadImports} CAD imports (use clean_cad_links tool)");
             if (allWarnings.Count > 20) recommendations.Add($"Resolve {allWarnings.Count} warnings");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 healthScore = Math.Round(score),
                 grade = score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F",
@@ -95,7 +95,7 @@ public class WorkflowModelAuditTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

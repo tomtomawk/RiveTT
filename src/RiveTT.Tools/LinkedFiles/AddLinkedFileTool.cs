@@ -14,7 +14,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// Adds a new Revit link to the current document from a file path.
 /// </summary>
 [ToolSafety(false, false)]
-public class AddLinkedFileTool : ICortexTool
+public class AddLinkedFileTool : IRiveTTTool
 {
     public string Name => "add_linked_file";
     public string Category => "LinkedFiles";
@@ -22,11 +22,11 @@ public class AddLinkedFileTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Adds a new Revit linked file from a file path and optionally places an instance at a specified position.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var filePath = input["filePath"]?.Value<string>();
         var positionX = input["positionX"]?.Value<double>() ?? 0;
@@ -34,18 +34,18 @@ public class AddLinkedFileTool : ICortexTool
         var positionZ = input["positionZ"]?.Value<double>() ?? 0;
 
         if (string.IsNullOrWhiteSpace(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "filePath is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "filePath is required");
 
         // H25-wave: gate caller paths; UNC allowed because linking models from network
         // shares is a standard BIM workflow and the confirmation dialog shows the path.
         if (!PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError, allowUnc: true))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, temp, or a network share");
         filePath = safePath;
 
         if (!session.RequestConfirmation("add linked file", 1, $"Link file: {filePath}"))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         try
         {
@@ -67,12 +67,12 @@ public class AddLinkedFileTool : ICortexTool
                 var offset = new XYZ(positionX / MmPerFoot, positionY / MmPerFoot, positionZ / MmPerFoot);
                 ElementTransformUtils.MoveElement(doc, instance.Id, offset);
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 linkTypeId = ToolHelpers.GetElementIdValue(linkTypeId),
                 instanceId = ToolHelpers.GetElementIdValue(instance.Id),
@@ -83,7 +83,7 @@ public class AddLinkedFileTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to add linked file: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to add linked file: {ex.Message}");
         }
     }
 }

@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Project;
 /// material_takeoff, sheet_list, view_list.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreatePresetScheduleTool : ICortexTool
+public class CreatePresetScheduleTool : IRiveTTTool
 {
     public string Name => "create_preset_schedule";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates preset schedules: door_by_room, window_by_room, room_finish, material_takeoff, sheet_list, view_list.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var preset = input["preset"]?.Value<string>() ?? "";
         var name = input["name"]?.Value<string>();
@@ -56,10 +56,10 @@ public class CreatePresetScheduleTool : ICortexTool
                 case "material_takeoff":
                 {
                     if (string.IsNullOrEmpty(categoryName))
-                        return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "categoryName required for material_takeoff");
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "categoryName required for material_takeoff");
                     var catId = Utilities.CategoryResolver.ResolveToId(doc, categoryName!);
                     if (catId == ElementId.InvalidElementId)
-                        return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"Category not found: {categoryName}");
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"Category not found: {categoryName}");
                     schedule = ViewSchedule.CreateMaterialTakeoff(doc, catId);
                     schedule.Name = name ?? $"Material Takeoff - {categoryName}";
                     AddFieldsIfExist(schedule, "Material: Name", "Material: Area", "Material: Volume");
@@ -82,7 +82,7 @@ public class CreatePresetScheduleTool : ICortexTool
                     break;
                 default:
                     tx.RollBack();
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Unknown preset: {preset}",
                         suggestion: "Use: door_by_room, window_by_room, room_finish, material_takeoff, sheet_list, view_list");
             }
@@ -94,7 +94,7 @@ public class CreatePresetScheduleTool : ICortexTool
             if (schedule.Definition.GetFieldCount() == 0)
             {
                 tx.RollBack();
-                return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                     $"Preset '{preset}' resolved to a schedule with zero fields — none of its expected fields " +
                     "were schedulable in this document. Nothing was created.",
                     suggestion: "Use create_schedule directly and pick fields from " +
@@ -102,10 +102,10 @@ public class CreatePresetScheduleTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 scheduleId = ToolHelpers.GetElementIdValue(schedule.Id),
                 scheduleName = schedule.Name,
@@ -115,7 +115,7 @@ public class CreatePresetScheduleTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

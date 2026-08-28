@@ -8,7 +8,7 @@ using RiveTT.Core.Interop;
 namespace RiveTT.Tools.Interop
 {
     /// <summary>
-    /// Resolves a <see cref="CortexElementRef"/> against the active host
+    /// Resolves a <see cref="RiveTTElementRef"/> against the active host
     /// document and its loaded RevitLinkInstance set. Uses sourceFile
     /// basename matching (case-insensitive) and a UniqueId/IfcGuid/ElementId
     /// fallback cascade.
@@ -59,7 +59,7 @@ namespace RiveTT.Tools.Interop
             return new HostLinkResolver(hostDoc, map);
         }
 
-        public ResolveOutcome Resolve(CortexElementRef refToFind)
+        public ResolveOutcome Resolve(RiveTTElementRef refToFind)
         {
             if (refToFind == null)
                 return ResolveOutcome.NotFound("ref is null");
@@ -83,7 +83,7 @@ namespace RiveTT.Tools.Interop
                 : ResolveOutcome.Linked(link.Id, element.Id);
         }
 
-        private static Element? ResolveElement(Document doc, CortexElementRef r)
+        private static Element? ResolveElement(Document doc, RiveTTElementRef r)
         {
             if (!string.IsNullOrWhiteSpace(r.RevitUniqueId))
             {

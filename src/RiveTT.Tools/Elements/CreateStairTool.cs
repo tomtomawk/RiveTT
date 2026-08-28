@@ -28,7 +28,7 @@ namespace RiveTT.Tools.Elements;
 /// failure preprocessor so a warning cannot open a modal dialog.
 /// </summary>
 [ToolSafety(false, false)]
-public sealed class CreateStairTool : ICortexTool
+public sealed class CreateStairTool : IRiveTTTool
 {
 
     public string Name => "create_stair";
@@ -42,11 +42,11 @@ public sealed class CreateStairTool : ICortexTool
         "Consecutive runs get an automatic landing. Optionally applies a stair type, a run width and a " +
         "railing. The response reports the riser count Revit actually produced against the one it wanted.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var baseLevelId = input["baseLevelId"]?.Value<long>() ?? 0;
         var topLevelId = input["topLevelId"]?.Value<long>() ?? 0;
@@ -56,30 +56,30 @@ public sealed class CreateStairTool : ICortexTool
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (baseLevelId <= 0 || topLevelId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "baseLevelId and topLevelId are both required",
                 suggestion: "Read the level ids from get_project_info.");
 
         var baseLevel = doc.GetElement(ToolHelpers.ToElementId(baseLevelId)) as Level;
         var topLevel = doc.GetElement(ToolHelpers.ToElementId(topLevelId)) as Level;
         if (baseLevel == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"baseLevelId {baseLevelId} is not a Level");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"baseLevelId {baseLevelId} is not a Level");
         if (topLevel == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"topLevelId {topLevelId} is not a Level");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"topLevelId {topLevelId} is not a Level");
         if (topLevel.Elevation <= baseLevel.Elevation)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"topLevel '{topLevel.Name}' ({topLevel.Elevation * MmPerFoot:F0} mm) must be ABOVE baseLevel " +
                 $"'{baseLevel.Name}' ({baseLevel.Elevation * MmPerFoot:F0} mm)");
 
         if (!TryReadRuns(input["runs"], baseLevel.Elevation, out var runLines, out var runError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, runError);
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, runError);
 
         StairsType? stairsType = null;
         if (stairsTypeId > 0)
         {
             stairsType = doc.GetElement(ToolHelpers.ToElementId(stairsTypeId)) as StairsType;
             if (stairsType == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"stairsTypeId {stairsTypeId} is not a StairsType",
                     suggestion: "List the available ones with list_system_types(category: \"OST_Stairs\").");
         }
@@ -90,7 +90,7 @@ public sealed class CreateStairTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"DryRun: a {runLines.Count}-run stair would be created from '{baseLevel.Name}' to " +
                           $"'{topLevel.Name}' ({heightFt * MmPerFoot:F0} mm)." +
@@ -172,7 +172,7 @@ public sealed class CreateStairTool : ICortexTool
                 {
                     scope.Cancel();
                     scope = null;
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the stair runs: {TransactionFailureHandling.Describe(txFailures)}",
                         // Both refusals observed in practice came from these two,
                         // and the raw Revit text ("Impossible de créer l'escalier")
@@ -263,7 +263,7 @@ public sealed class CreateStairTool : ICortexTool
                       ", or add a second run. Revit created the stair anyway.");
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Created a stair from '{baseLevel.Name}' to '{topLevel.Name}' " +
                           $"({runIds.Count} run(s), {landingIds.Count} landing(s), {actualRisers} riser(s)).",
@@ -283,7 +283,7 @@ public sealed class CreateStairTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to create the stair: {exception.Message}",
                 suggestion: "A component stair needs two distinct levels, a run that fits in the model, and no " +
                             "other edit scope open. Check the run geometry and retry with dryRun first.");

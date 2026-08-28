@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// and detailed breakdown with actionable recommendations.
 /// </summary>
 [ToolSafety(true, false)]
-public class CheckModelHealthTool : ICortexTool
+public class CheckModelHealthTool : IRiveTTTool
 {
     public string Name => "check_model_health";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Comprehensive BIM model health audit returning score (0-100), grade (A-F), and detailed breakdown with actionable recommendations.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         try
         {
@@ -97,7 +97,7 @@ public class CheckModelHealthTool : ICortexTool
             score = Math.Max(0, Math.Min(100, score));
             var grade = score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F";
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 healthScore = Math.Round(score),
                 grade,
@@ -112,7 +112,7 @@ public class CheckModelHealthTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

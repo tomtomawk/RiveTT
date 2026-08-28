@@ -12,7 +12,7 @@ namespace RiveTT.Tools.IFC;
 /// Lists available IFC export configurations (built-in presets).
 /// </summary>
 [ToolSafety(true, false)]
-public class IfcListExportConfigurationsTool : ICortexTool
+public class IfcListExportConfigurationsTool : IRiveTTTool
 {
     public string Name => "ifc_list_export_configurations";
     public string Category => "IFC";
@@ -29,7 +29,7 @@ public class IfcListExportConfigurationsTool : ICortexTool
         ["IFC4x3"] = new("IFC4x3", "IFC 4x3 — latest standard with infrastructure support"),
     };
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var configs = Configurations.Select(kvp => new
         {
@@ -38,7 +38,7 @@ public class IfcListExportConfigurationsTool : ICortexTool
             description = kvp.Value.Description,
         }).ToList();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             count = configs.Count,
             configurations = configs,

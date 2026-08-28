@@ -2,7 +2,7 @@
 
 ## Files
 
-- `src/RiveTT.Tools/<Category>/<ToolName>Tool.cs`: `ICortexTool` implementation.
+- `src/RiveTT.Tools/<Category>/<ToolName>Tool.cs`: `IRiveTTTool` implementation.
 - `src/RiveTT.Server/Tools/<Category>Tools.cs`: typed MCP wrapper.
 - `src/RiveTT.Tests`: unit, contract, or source tests.
 - `src/resources/documentation/README.md` (the shipped guide) and the relevant
@@ -18,7 +18,7 @@
 - Execute Revit API work through the plugin dispatcher.
 - Wrap writes in a transaction and surface failed commits as structured errors.
 - Keep `dryRun` preview behavior when relevant.
-- Return `CortexResult<object>.Ok(...)` or `.Fail(...)`; do not leak exceptions.
+- Return `RiveTTResult<object>.Ok(...)` or `.Fail(...)`; do not leak exceptions.
 - Add the matching `[McpServerTool]` wrapper and tests.
 
 ## Verification

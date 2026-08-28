@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Elements;
 /// Renames loaded families with find/replace, prefix, or suffix.
 /// </summary>
 [ToolSafety(false, true)]
-public class RenameFamiliesTool : ICortexTool
+public class RenameFamiliesTool : IRiveTTTool
 {
     public string Name => "rename_families";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Renames loaded families with find/replace, prefix, or suffix.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var operation = input["operation"]?.Value<string>() ?? "prefix";
         var prefix = input["prefix"]?.Value<string>() ?? "";
@@ -57,7 +57,7 @@ public class RenameFamiliesTool : ICortexTool
             if (!dryRun)
             {
                 if (!session.RequestConfirmation("rename", familyList.Count))
-                    return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Rename Families");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -94,7 +94,7 @@ public class RenameFamiliesTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -109,11 +109,11 @@ public class RenameFamiliesTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new { dryRun, renamedCount = results.Count, results });
+            return RiveTTResult<object>.Ok(new { dryRun, renamedCount = results.Count, results });
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

@@ -18,14 +18,14 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's RenumberElementsEventHandler logic.
 /// </summary>
 [ToolSafety(false, true)]
-public class RenumberElementsTool : ICortexTool
+public class RenumberElementsTool : IRiveTTTool
 {
     public string Name => "renumber_elements";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Renumbers elements by assigning sequential numbers with optional prefix/suffix. Defaults to dryRun=true for safety — preview renaming plan before committing. Supports Rooms, Doors, Windows, Parking, or a custom parameterName. Mirrors the fork's RenumberElementsEventHandler logic.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var elementIdsToken = input["elementIds"];
         var targetCategory  = input["targetCategory"]?.Value<string>() ?? "";
@@ -41,18 +41,18 @@ public class RenumberElementsTool : ICortexTool
         if (elementIdsToken != null && elementIdsToken.Type != JTokenType.Null)
         {
             try { rawIds = elementIdsToken.ToObject<long[]>() ?? Array.Empty<long>(); }
-            catch { return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "elementIds must be an array of numbers"); }
+            catch { return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "elementIds must be an array of numbers"); }
         }
 
         // Require either elementIds or a known targetCategory
         if (rawIds.Length == 0 && string.IsNullOrWhiteSpace(targetCategory))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Provide elementIds or targetCategory (Rooms|Doors|Windows|Parking)",
                 suggestion: "Example: {\"targetCategory\": \"Rooms\", \"startNumber\": 1, \"dryRun\": true}");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         try
@@ -60,7 +60,7 @@ public class RenumberElementsTool : ICortexTool
             var elements = GetTargetElements(doc, rawIds, targetCategory);
 
             if (elements.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No elements found to renumber");
 
             elements = SortElements(elements, sortBy);
@@ -69,7 +69,7 @@ public class RenumberElementsTool : ICortexTool
             int currentNumber = startNumber;
 
             if (!dryRun && !session.RequestConfirmation("renumber", elements.Count))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
             Transaction? tx = dryRun ? null : new Transaction(doc, "RiveTT: Renumber Elements");
             var txFailures = tx != null ? TransactionFailureHandling.SuppressWarnings(tx) : null;
@@ -110,7 +110,7 @@ public class RenumberElementsTool : ICortexTool
                 }
 
                 if (tx != null && tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures!)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -125,7 +125,7 @@ public class RenumberElementsTool : ICortexTool
                 tx?.Dispose();
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = dryRun
                     ? $"Preview: {renumberResults.Count} element(s) would be renumbered (dryRun). Set dryRun=false to execute."
@@ -137,7 +137,7 @@ public class RenumberElementsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Renumber elements failed: {ex.Message}");
         }
     }

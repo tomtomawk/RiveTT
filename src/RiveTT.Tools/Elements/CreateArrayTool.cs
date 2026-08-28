@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Elements;
 /// Creates a linear or radial array of elements by copying.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateArrayTool : ICortexTool
+public class CreateArrayTool : IRiveTTTool
 {
     public string Name => "create_array";
     public string Category => "Elements";
@@ -23,20 +23,20 @@ public class CreateArrayTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates a linear or radial array of elements. By default builds a real associative Revit ArrayElement (a group with an editable count); set associative=false for loose independent copies.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var elementIds = input["elementIds"]?.ToObject<List<long>>();
         if (elementIds == null || elementIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "elementIds array is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "elementIds array is required");
 
         var arrayType = input["arrayType"]?.Value<string>() ?? "linear";
         var count = input["count"]?.Value<int>() ?? 1;
         if (count <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "count must be > 0");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "count must be > 0");
         // Real Revit ArrayElement (default) vs. loose independent copies.
         var associative = input["associative"]?.Value<bool>() ?? true;
 
@@ -51,7 +51,7 @@ public class CreateArrayTool : ICortexTool
             foreach (var eid in sourceIds)
             {
                 if (doc.GetElement(eid) == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                         $"Element {ToolHelpers.GetElementIdValue(eid)} not found");
             }
 
@@ -62,7 +62,7 @@ public class CreateArrayTool : ICortexTool
             {
                 var view = doc.ActiveView;
                 if (view == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "Associative arrays need an active view. Activate a view, or pass associative=false for loose copies.");
 
                 using var atx = new Transaction(doc, "RiveTT: Create Array (associative)");
@@ -90,11 +90,11 @@ public class CreateArrayTool : ICortexTool
                     arrayId = la.Id;
                 }
                 if (atx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(atxFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     arrayType,
                     associative = true,
@@ -171,11 +171,11 @@ public class CreateArrayTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 arrayType,
                 copyCount = count,
@@ -185,7 +185,7 @@ public class CreateArrayTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create array: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to create array: {ex.Message}");
         }
     }
 }

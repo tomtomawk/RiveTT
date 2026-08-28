@@ -11,7 +11,7 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.Elements;
 
 [ToolSafety(false, true)]
-public sealed class ManageModelGroupsTool : ICortexTool
+public sealed class ManageModelGroupsTool : IRiveTTTool
 {
     public string Name => "manage_model_groups";
     public string Category => "Elements";
@@ -19,23 +19,23 @@ public sealed class ManageModelGroupsTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Inventory model groups, duplicate a group type for isolated changes, swap selected instances, or ungroup selected instances.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = ToolHelpers.GetDocument(session);
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
         var action = (input["action"]?.Value<string>() ?? "inventory").ToLowerInvariant();
         return action switch
         {
             "inventory" => Inventory(doc, input),
             "duplicate_type" => DuplicateType(doc, input),
             "ungroup" => Ungroup(doc, input),
-            _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "action must be inventory, duplicate_type, or ungroup")
         };
     }
 
-    private static CortexResult<object> Inventory(Document doc, JObject input)
+    private static RiveTTResult<object> Inventory(Document doc, JObject input)
     {
         var includeMembers = input["includeMembers"]?.Value<bool>() ?? false;
         var sampleLimit = Math.Clamp(input["sampleLimit"]?.Value<int>() ?? 20, 0, 200);
@@ -107,7 +107,7 @@ public sealed class ManageModelGroupsTool : ICortexTool
                         : null
                 };
             }).ToList();
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             groupTypeCount = types.Count,
             groupInstanceCount = types.Sum(t => t.instanceCount),
@@ -115,18 +115,18 @@ public sealed class ManageModelGroupsTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> DuplicateType(Document doc, JObject input)
+    private static RiveTTResult<object> DuplicateType(Document doc, JObject input)
     {
         var typeId = input["groupTypeId"]?.Value<long>() ?? 0;
         var name = input["newName"]?.Value<string>();
         var type = doc.GetElement(ToolHelpers.ToElementId(typeId)) as GroupType;
         if (type == null || string.IsNullOrWhiteSpace(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "A valid groupTypeId and newName are required");
         var groupIds = input["groupIds"]?.ToObject<List<long>>() ?? new List<long>();
         var dryRun = ToolHelpers.GetDryRun(input);
         if (dryRun)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 sourceGroupTypeId = typeId,
@@ -142,7 +142,7 @@ public sealed class ManageModelGroupsTool : ICortexTool
         if (duplicate == null)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 "Revit did not create the duplicated group type");
         }
         var swapped = new List<long>();
@@ -158,7 +158,7 @@ public sealed class ManageModelGroupsTool : ICortexTool
             return TransactionFailureHandling.ToFailure(failures,
                 "Group type duplication was rolled back",
                 "Check group consistency and retry with fewer instances.");
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             sourceGroupTypeId = typeId,
             newGroupTypeId = ToolHelpers.GetElementIdValue(duplicate.Id),
@@ -167,11 +167,11 @@ public sealed class ManageModelGroupsTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> Ungroup(Document doc, JObject input)
+    private static RiveTTResult<object> Ungroup(Document doc, JObject input)
     {
         var groupIds = input["groupIds"]?.ToObject<List<long>>() ?? new List<long>();
         if (groupIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "groupIds is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "groupIds is required");
         var groups = groupIds.Distinct().Select(id => doc.GetElement(ToolHelpers.ToElementId(id)) as Group)
             .Where(g => g != null).Cast<Group>().ToList();
         var preview = groups.Select(group => new
@@ -182,7 +182,7 @@ public sealed class ManageModelGroupsTool : ICortexTool
             memberIds = group.GetMemberIds().Select(ToolHelpers.GetElementIdValue).ToArray()
         }).ToList();
         if (ToolHelpers.GetDryRun(input))
-            return CortexResult<object>.Ok(new { dryRun = true, processed = groups.Count, groups = preview });
+            return RiveTTResult<object>.Ok(new { dryRun = true, processed = groups.Count, groups = preview });
 
         using var tx = new Transaction(doc, "RiveTT: Ungroup Model Groups");
         var failures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -196,7 +196,7 @@ public sealed class ManageModelGroupsTool : ICortexTool
             return TransactionFailureHandling.ToFailure(failures,
                 "Ungroup operation was rolled back",
                 "Do not include attached detail groups and resolve inconsistent group types first.");
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             processed = groups.Count,
             ungrouped = groupsToUngroup.Count,

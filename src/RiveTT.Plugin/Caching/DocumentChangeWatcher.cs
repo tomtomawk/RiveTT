@@ -17,7 +17,7 @@ public class DocumentChangeWatcher : IDisposable
     private ControlledApplication? _attachedTo;
     private bool _disposed;
 
-    public DocumentChangeWatcher(CortexSession session)
+    public DocumentChangeWatcher(RiveTTSession session)
     {
         _invalidator = new CacheInvalidator(session);
     }

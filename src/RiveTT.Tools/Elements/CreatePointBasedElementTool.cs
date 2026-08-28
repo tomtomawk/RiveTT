@@ -18,7 +18,7 @@ namespace RiveTT.Tools.Elements;
 /// door/window facing auto-detection, and rotation support.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreatePointBasedElementTool : ICortexTool
+public class CreatePointBasedElementTool : IRiveTTTool
 {
     public string Name => "create_point_based_element";
     public string Category => "Elements";
@@ -26,17 +26,17 @@ public class CreatePointBasedElementTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates one or more point-based family instances (furniture, doors, windows, columns, etc.). Mirrors the fork's CreatePointElementEventHandler logic, including wall-hosted placement, door/window facing auto-detection, and rotation support.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var dataToken = input["data"];
         if (dataToken == null || dataToken.Type != JTokenType.Array)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "data array is required",
                 suggestion: "Provide {\"data\": [{\"typeId\": 123, \"locationPoint\": {\"x\":0,\"y\":0,\"z\":0}, ...}]}");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var createdIds = new List<long>();
@@ -62,7 +62,7 @@ public class CreatePointBasedElementTool : ICortexTool
         if (warnings.Count > 0)
             message += "\n\nWarnings:\n  - " + string.Join("\n  - ", warnings);
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             message,
             dryRun,

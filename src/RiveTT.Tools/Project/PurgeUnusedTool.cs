@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// Finds and removes unused families, types, and materials.
 /// </summary>
 [ToolSafety(false, true)]
-public class PurgeUnusedTool : ICortexTool
+public class PurgeUnusedTool : IRiveTTTool
 {
     public string Name => "purge_unused";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Finds and removes unused families/types, materials, and (optionally) unreferenced view templates and view filters.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
         var maxElements = input["maxElements"]?.Value<int>() ?? 500;
@@ -118,7 +118,7 @@ public class PurgeUnusedTool : ICortexTool
                 var purgeableCount = unusedTypes.Count + unusedMaterials.Count
                     + unusedViewTemplates.Count + unusedFilters.Count;
                 if (!session.RequestConfirmation("purge", purgeableCount))
-                    return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Purge Unused");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -145,10 +145,10 @@ public class PurgeUnusedTool : ICortexTool
                     TryDelete((long)f.id, "filter", () => deletedFilters++);
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     dryRun = false,
                     deletedTypes,
@@ -161,7 +161,7 @@ public class PurgeUnusedTool : ICortexTool
                 });
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 unusedTypeCount = unusedTypes.Count,
@@ -176,7 +176,7 @@ public class PurgeUnusedTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

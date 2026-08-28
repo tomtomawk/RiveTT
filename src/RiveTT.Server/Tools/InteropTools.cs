@@ -9,12 +9,12 @@ namespace RiveTT.Server.Tools;
 public static class InteropTools
 {
     [McpServerTool(Name = "sync_navisworks_selection"),
-     Description("Symmetric Revit↔Navis selection bridge. mode=export → emit CortexElementRefs from current Revit selection (host + linked). mode=import → consume CortexElementRefs and select/isolate them via show_cross_model_elements composition. Resolution priority: revitUniqueId → ifcGuid → revitElementId.")]
+     Description("Symmetric Revit↔Navis selection bridge. mode=export → emit RiveTTElementRefs from current Revit selection (host + linked). mode=import → consume RiveTTElementRefs and select/isolate them via show_cross_model_elements composition. Resolution priority: revitUniqueId → ifcGuid → revitElementId.")]
     public static async Task<string> CrossAppSelection(
         RevitConnectionManager revit,
         [Description("Mode: \"export\" or \"import\".")]
         string mode,
-        [Description("Import-only: array of CortexElementRef objects produced by an export call (this app or Navis).")]
+        [Description("Import-only: array of RiveTTElementRef objects produced by an export call (this app or Navis).")]
         JArray? refs = null,
         [Description("Import-only: when true, append to current selection instead of replacing it. Default false.")]
         bool append = false,

@@ -17,35 +17,35 @@ namespace RiveTT.Tools.Elements;
 /// Requires an ElementId column to match elements.
 /// </summary>
 [ToolSafety(false, true)]
-public class ImportFromExcelTool : ICortexTool
+public class ImportFromExcelTool : IRiveTTTool
 {
     public string Name => "import_from_excel";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Imports data from Excel (.xlsx) into Revit element parameters. Requires an ElementId column to match elements.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var filePath = input["filePath"]?.Value<string>();
         var sheetName = input["sheetName"]?.Value<string>();
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (string.IsNullOrEmpty(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "filePath is required and must exist");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "filePath is required and must exist");
 
         // H25-wave: restrict reads to user-owned directories; reject traversal/UNC/system paths.
         if (!Utilities.PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
         filePath = safePath;
 
         if (!File.Exists(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "filePath is required and must exist");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "filePath is required and must exist");
 
         try
         {
@@ -65,7 +65,7 @@ public class ImportFromExcelTool : ICortexTool
 
             var idColIndex = headers.FindIndex(h => h.Equals("ElementId", StringComparison.OrdinalIgnoreCase));
             if (idColIndex < 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "Excel must have an 'ElementId' column", suggestion: "Export with export_to_excel first");
 
             var paramColumns = headers
@@ -124,7 +124,7 @@ public class ImportFromExcelTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -144,7 +144,7 @@ public class ImportFromExcelTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun,
                 filePath,
@@ -159,7 +159,7 @@ public class ImportFromExcelTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

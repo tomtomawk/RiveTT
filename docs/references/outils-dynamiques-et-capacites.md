@@ -1,7 +1,7 @@
 # Outils dynamiques et capacités du document
 
 **Portée :** outils qui ne s'activent que si le modèle remplit leurs prérequis.
-**Sources :** `src/RiveTT.Core/Discovery/`, `src/RiveTT.Plugin/CortexRouter.cs`.
+**Sources :** `src/RiveTT.Core/Discovery/`, `src/RiveTT.Plugin/RiveTTRouter.cs`.
 **Vérifié le :** 2026-05-25
 
 ## Pattern
@@ -17,7 +17,7 @@ Un tool con `IsDynamic = true` è esposto al client MCP solo se `DocumentCapabil
    - Phases
    - Plugin esterni (revit-ifc, ecc.)
 3. Per ogni tool con `IsDynamic = true`, l'analyzer chiama `capabilities.EnableTool("tool_name")` se i prerequisiti sono soddisfatti.
-4. `CortexRouter` espone solo i tool dove `!IsDynamic || capabilities.IsToolEnabled(tool.Name)`.
+4. `RiveTTRouter` espone solo i tool dove `!IsDynamic || capabilities.IsToolEnabled(tool.Name)`.
 
 ## Quando usare IsDynamic
 
@@ -42,7 +42,7 @@ if (session.Capabilities.IsToolEnabled("ifc_link"))
 
 - [ ] `IsDynamic` impostato correttamente per i tool con prerequisiti.
 - [ ] `DocumentAnalyzer` aggiornato per chiamare `EnableTool` quando appropriato.
-- [ ] `CortexRouter` filtra dinamicamente (verificato in `CortexRouter.cs`).
+- [ ] `RiveTTRouter` filtra dinamicamente (verificato in `RiveTTRouter.cs`).
 
 ## Avoid
 

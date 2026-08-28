@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Project;
 /// Write counterpart of <c>list_worksets</c>; only available for workshared documents.
 /// </summary>
 [ToolSafety(false, true)]
-public class ManageWorksetsTool : ICortexTool
+public class ManageWorksetsTool : IRiveTTTool
 {
     public string Name => "manage_worksets";
     public string Category => "Project";
@@ -23,14 +23,14 @@ public class ManageWorksetsTool : ICortexTool
     public bool IsDynamic => true;
     public string Description => "Creates, renames, deletes, or sets the active workset (workshared models only). Actions: create, rename, delete, set_active. (Opening/closing worksets on a live document is a Revit UI operation with no API — not exposed.)";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         if (!doc.IsWorkshared)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Project is not workshared — worksets are not available",
                 suggestion: "Worksets require a workshared model. Use get_project_info to check isWorkshared.");
 
@@ -44,40 +44,40 @@ public class ManageWorksetsTool : ICortexTool
                 "rename"     => RenameWorkset(doc, input, session),
                 "delete"     => DeleteWorkset(doc, input, session),
                 "set_active" => SetActiveWorkset(doc, input),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}",
                     suggestion: "Use: create, rename, delete, set_active")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to manage worksets: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to manage worksets: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> CreateWorkset(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> CreateWorkset(Document doc, JObject input, RiveTTSession session)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required for create");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required for create");
 
         if (!WorksetTable.IsWorksetNameUnique(doc, name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"A workset named '{name}' already exists");
 
         if (!session.RequestConfirmation("create workset", 1, name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Create Workset");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         var workset = Workset.Create(doc, name);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "create",
             worksetId = workset.Id.IntegerValue,
@@ -85,21 +85,21 @@ public class ManageWorksetsTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> RenameWorkset(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> RenameWorkset(Document doc, JObject input, RiveTTSession session)
     {
         var (workset, error) = ResolveWorkset(doc, input);
         if (error != null) return error;
 
         var newName = input["newName"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "newName is required for rename");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "newName is required for rename");
 
         if (!WorksetTable.IsWorksetNameUnique(doc, newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"A workset named '{newName}' already exists");
 
         if (!session.RequestConfirmation("rename workset", 1, workset!.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var oldName = workset.Name;
         using var tx = new Transaction(doc, "RiveTT: Rename Workset");
@@ -107,30 +107,30 @@ public class ManageWorksetsTool : ICortexTool
         tx.Start();
         WorksetTable.RenameWorkset(doc, workset.Id, newName);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { action = "rename", worksetId = workset.Id.IntegerValue, oldName, newName });
+        return RiveTTResult<object>.Ok(new { action = "rename", worksetId = workset.Id.IntegerValue, oldName, newName });
     }
 
-    private static CortexResult<object> DeleteWorkset(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> DeleteWorkset(Document doc, JObject input, RiveTTSession session)
     {
         var (workset, error) = ResolveWorkset(doc, input);
         if (error != null) return error;
 
         if (workset!.Kind != WorksetKind.UserWorkset)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Only user worksets can be deleted");
 
         if (!session.RequestConfirmation("delete workset", 1, workset.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         // Elements on a deleted workset must move somewhere; default to another user workset.
         var fallback = new FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset)
             .FirstOrDefault(w => w.Id != workset.Id);
         if (fallback == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Cannot delete the only user workset");
 
         var name = workset.Name;
@@ -140,11 +140,11 @@ public class ManageWorksetsTool : ICortexTool
         var settings = new DeleteWorksetSettings(DeleteWorksetOption.MoveElementsToWorkset, fallback.Id);
         WorksetTable.DeleteWorkset(doc, workset.Id, settings);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "delete",
             deletedWorkset = name,
@@ -152,17 +152,17 @@ public class ManageWorksetsTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> SetActiveWorkset(Document doc, JObject input)
+    private static RiveTTResult<object> SetActiveWorkset(Document doc, JObject input)
     {
         var (workset, error) = ResolveWorkset(doc, input);
         if (error != null) return error;
 
         doc.GetWorksetTable().SetActiveWorksetId(workset!.Id);
-        return CortexResult<object>.Ok(new { action = "set_active", worksetId = workset.Id.IntegerValue, name = workset.Name });
+        return RiveTTResult<object>.Ok(new { action = "set_active", worksetId = workset.Id.IntegerValue, name = workset.Name });
     }
 
     /// <summary>Resolves a workset by worksetId (int) or name from the input.</summary>
-    private static (Workset?, CortexResult<object>?) ResolveWorkset(Document doc, JObject input)
+    private static (Workset?, RiveTTResult<object>?) ResolveWorkset(Document doc, JObject input)
     {
         var worksetIdInt = input["worksetId"]?.Value<int?>();
         var name = input["name"]?.Value<string>();
@@ -176,7 +176,7 @@ public class ManageWorksetsTool : ICortexTool
             workset = all.FirstOrDefault(w => w.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
         if (workset == null)
-            return (null, CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return (null, RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 "Workset not found", suggestion: "Provide a valid worksetId or name (list them with list_worksets)"));
 
         return (workset, null);

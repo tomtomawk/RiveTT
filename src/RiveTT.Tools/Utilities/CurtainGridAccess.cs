@@ -27,14 +27,14 @@ public static class CurtainGridAccess
         };
     }
 
-    public static CortexResult<object> DescribeGrid(CurtainGrid grid)
+    public static RiveTTResult<object> DescribeGrid(CurtainGrid grid)
     {
         var uLines = grid.GetUGridLineIds().Select(ToolHelpers.GetElementIdValue).ToList();
         var vLines = grid.GetVGridLineIds().Select(ToolHelpers.GetElementIdValue).ToList();
         var panelIds = grid.GetPanelIds().Select(ToolHelpers.GetElementIdValue).ToList();
         var mullionIds = grid.GetMullionIds().Select(ToolHelpers.GetElementIdValue).ToList();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             uGridLineIds = uLines,
             vGridLineIds = vLines,

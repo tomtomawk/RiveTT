@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Annotations;
 /// Creates one or more dimension annotations between points or element references.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateDimensionsTool : ICortexTool
+public class CreateDimensionsTool : IRiveTTTool
 {
     public string Name => "create_dimensions";
     public string Category => "Annotations";
@@ -23,16 +23,16 @@ public class CreateDimensionsTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates linear dimension annotations between elementIds (2+) or startPoint/endPoint. (Radial/diameter/angular dimensions are not available: the Revit API exposes them only via the Family editor's FamilyItemFactory, not in a project document.)";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var dimensions = input["dimensions"] as JArray;
         if (dimensions == null || dimensions.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "dimensions array is required",
                 suggestion: "Provide {\"dimensions\": [{\"startPoint\": {\"x\":0,\"y\":0,\"z\":0}, \"endPoint\": {\"x\":1000,\"y\":0,\"z\":0}}]}");
 
@@ -57,7 +57,7 @@ public class CreateDimensionsTool : ICortexTool
                 }
             }
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
@@ -67,7 +67,7 @@ public class CreateDimensionsTool : ICortexTool
             throw;
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             createdCount = createdIds.Count,
             createdDimensionIds = createdIds,

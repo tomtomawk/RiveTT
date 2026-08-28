@@ -17,7 +17,7 @@ namespace RiveTT.Tools.IFC;
 /// Uses bounding box center for placement and tries to find matching family symbols.
 /// </summary>
 [ToolSafety(false, false)]
-public class IfcRebuildFamilyInstancesTool : ICortexTool
+public class IfcRebuildFamilyInstancesTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_family_instances";
     public string Category => "IFC";
@@ -25,7 +25,7 @@ public class IfcRebuildFamilyInstancesTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Rebuild doors, windows, and other family instances from IFC DirectShapes";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -68,7 +68,7 @@ public class IfcRebuildFamilyInstancesTool : ICortexTool
         if (!dryRun)
         {
             if (!session.RequestConfirmation("rebuild family instances", candidates.Count))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
         }
 
         // One TransactionGroup per invocation: the N per-element commits collapse
@@ -214,7 +214,7 @@ public class IfcRebuildFamilyInstancesTool : ICortexTool
         if (txGroup != null && txGroup.GetStatus() == TransactionStatus.Started)
             txGroup.Assimilate();
 
-        return CortexResult<object>.Ok(new { dryRun, totalCandidates = candidates.Count, rebuilt, skipped, results });
+        return RiveTTResult<object>.Ok(new { dryRun, totalCandidates = candidates.Count, rebuilt, skipped, results });
     }
 
     private static Wall? FindNearestWall(List<Wall> walls, XYZ point)

@@ -17,14 +17,14 @@ namespace RiveTT.Plugin.Communication;
 /// </summary>
 public sealed class RevitNamedPipeService : IDisposable
 {
-    private readonly CortexRouter _router;
+    private readonly RiveTTRouter _router;
     private readonly CancellationTokenSource _shutdown = new();
     private Task? _listenerTask;
 
     public string PipeName { get; }
     public bool IsRunning { get; private set; }
 
-    public RevitNamedPipeService(CortexRouter router)
+    public RevitNamedPipeService(RiveTTRouter router)
     {
         _router = router;
         PipeName = $"RiveTT.Revit.{Process.GetCurrentProcess().Id}";

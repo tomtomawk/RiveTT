@@ -11,10 +11,10 @@ using Xunit;
 
 namespace RiveTT.Tests.Router;
 
-public class CortexRouterCacheTests
+public class RiveTTRouterCacheTests
 {
     /// <summary>Counts Execute() calls so tests can prove cache hit/miss behavior.</summary>
-    private class CountingTool : ICortexTool
+    private class CountingTool : IRiveTTTool
     {
         public string Name { get; set; } = "list_phases";
         public string Category => "Test";
@@ -22,10 +22,10 @@ public class CortexRouterCacheTests
         public bool IsDynamic => false;
         public string Description => "counts calls";
         public int ExecuteCallCount { get; private set; }
-        public CortexResult<object> NextResult { get; set; } =
-            CortexResult<object>.Ok(new { phases = new[] { "Existing", "New" } });
+        public RiveTTResult<object> NextResult { get; set; } =
+            RiveTTResult<object>.Ok(new { phases = new[] { "Existing", "New" } });
 
-        public CortexResult<object> Execute(JObject input, CortexSession session)
+        public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
         {
             ExecuteCallCount++;
             return NextResult;
@@ -38,22 +38,22 @@ public class CortexRouterCacheTests
         public CacheScope CacheScope { get; set; } = CacheScope.Document;
     }
 
-    private static CortexRouter CreateRouter(out CortexSession session)
+    private static RiveTTRouter CreateRouter(out RiveTTSession session)
     {
         var store = new SessionStore();
-        session = new CortexSession(store);
+        session = new RiveTTSession(store);
         // Explicit temp-file logger: without it this suite writes real entries
         // to %LOCALAPPDATA%\RiveTT\audit.jsonl on every dotnet test run.
         var auditPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
             "rc-audit-" + System.Guid.NewGuid().ToString("N") + ".jsonl");
-        return new CortexRouter(session, new FakeAnalyzer(), new AuditLogger(auditPath));
+        return new RiveTTRouter(session, new FakeAnalyzer(), new AuditLogger(auditPath));
     }
 
-    private static void Register(CortexRouter router, ICortexTool tool)
+    private static void Register(RiveTTRouter router, IRiveTTTool tool)
     {
-        var field = typeof(CortexRouter).GetField("_tools",
+        var field = typeof(RiveTTRouter).GetField("_tools",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var tools = (Dictionary<string, ICortexTool>)field.GetValue(router)!;
+        var tools = (Dictionary<string, IRiveTTTool>)field.GetValue(router)!;
         tools[tool.Name] = tool;
     }
 
@@ -145,8 +145,8 @@ public class CortexRouterCacheTests
         {
             Name = "list_phases",
             CacheScope = CacheScope.Document,
-            NextResult = CortexResult<object>.Fail(
-                CortexErrorCode.InvalidInput, "boom"),
+            NextResult = RiveTTResult<object>.Fail(
+                RiveTTErrorCode.InvalidInput, "boom"),
         };
         Register(router, tool);
 

@@ -11,18 +11,18 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.Elements;
 
 [ToolSafety(false, true)]
-public class ChangeElementTypeTool : ICortexTool
+public class ChangeElementTypeTool : IRiveTTTool
 {
     public string Name => "change_element_type";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Change Element Type";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var elementIds = input["elementIds"]?.ToObject<long[]>();
         if (elementIds == null || elementIds.Length == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementIds is required",
                 suggestion: "Provide [\"elementIds\": [123, 456]]");
 
@@ -31,13 +31,13 @@ public class ChangeElementTypeTool : ICortexTool
         var targetFamilyName = input["targetFamilyName"]?.Value<string>() ?? "";
 
         if (targetTypeId == 0 && string.IsNullOrWhiteSpace(targetTypeName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Specify at least targetTypeId or targetTypeName",
                 suggestion: "Use targetTypeId for exact match, or targetTypeName + optional targetFamilyName for name-based lookup");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         try
@@ -45,7 +45,7 @@ public class ChangeElementTypeTool : ICortexTool
             // Resolve the target type ElementId
             var targetTypeElemId = ResolveTargetType(doc, targetTypeId, targetTypeName, targetFamilyName);
             if (targetTypeElemId == null || targetTypeElemId == ElementId.InvalidElementId)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Target type not found. targetTypeId={targetTypeId}, targetTypeName='{targetTypeName}', targetFamilyName='{targetFamilyName}'",
                     suggestion: "Verify the type exists in the document using filter_elements with includeTypes=true");
 
@@ -54,7 +54,7 @@ public class ChangeElementTypeTool : ICortexTool
             int failCount = 0;
 
             if (!session.RequestConfirmation("change type for", elementIds.Length))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
             using var tx = new Transaction(doc, "RiveTT: Change Element Type");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -88,7 +88,7 @@ public class ChangeElementTypeTool : ICortexTool
                 if (successCount > 0)
                 {
                     if (tx.Commit() != TransactionStatus.Committed)
-                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                             $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                             suggestion: "Fix the reported model errors and retry.");
                 }
@@ -108,7 +108,7 @@ public class ChangeElementTypeTool : ICortexTool
             var resolvedType = doc.GetElement(targetTypeElemId);
             var resolvedTypeName = resolvedType?.Name ?? targetTypeName;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Changed type for {successCount}/{elementIds.Length} elements to '{resolvedTypeName}'",
                 targetTypeName = resolvedTypeName,
@@ -119,7 +119,7 @@ public class ChangeElementTypeTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Change element type failed: {ex.Message}");
         }
     }

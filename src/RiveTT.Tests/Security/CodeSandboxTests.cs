@@ -30,7 +30,7 @@ public class CodeSandboxTests
         var result = CodeSandbox.Validate(code);
         Assert.NotNull(result);
         Assert.False(result!.Success);
-        Assert.Equal(CortexErrorCode.PermissionDenied, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.PermissionDenied, result.Error!.Code);
     }
 
     [Fact]

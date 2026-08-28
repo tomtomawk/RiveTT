@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Views;
 /// Combines create_callout_from_rooms, create_elevations_from_rooms, and create_views_from_rooms.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateViewsFromRoomsTool : ICortexTool
+public class CreateViewsFromRoomsTool : IRiveTTTool
 {
     public string Name => "create_views_from_rooms";
     public string Category => "Views";
@@ -25,11 +25,11 @@ public class CreateViewsFromRoomsTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates callout, section, or elevation views from room bounding boxes. Combines create_callout_from_rooms, create_elevations_from_rooms, and create_views_from_rooms.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var roomIds = input["roomIds"]?.ToObject<List<long>>() ?? new List<long>();
         var viewType = input["viewType"]?.Value<string>() ?? "callout";
@@ -38,14 +38,14 @@ public class CreateViewsFromRoomsTool : ICortexTool
         var namingPattern = input["namingPattern"]?.Value<string>() ?? "{RoomNumber} - {RoomName}";
 
         if (roomIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "roomIds array is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "roomIds array is required");
 
         var normalizedViewType = viewType.ToLowerInvariant();
         if (normalizedViewType != "callout" &&
             normalizedViewType != "section" &&
             normalizedViewType != "elevation")
         {
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Invalid viewType '{viewType}'",
                 suggestion: "Use one of: callout, section, elevation");
         }
@@ -110,10 +110,10 @@ public class CreateViewsFromRoomsTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 createdViewCount = createdViews.Count,
                 createdViews,
@@ -122,7 +122,7 @@ public class CreateViewsFromRoomsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {FormatException(ex)}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {FormatException(ex)}");
         }
     }
 

@@ -35,7 +35,7 @@ namespace RiveTT.Tools.Elements;
 /// therefore refuses a multi-instance group member unless the caller opts in.
 /// </summary>
 [ToolSafety(false, true)]
-public sealed class EditGroupMembersTool : ICortexTool
+public sealed class EditGroupMembersTool : IRiveTTTool
 {
     public string Name => "edit_group_members";
     public string Category => "Elements";
@@ -50,11 +50,11 @@ public sealed class EditGroupMembersTool : ICortexTool
         "multi-instance type is refused unless allowMultiInstance=true. Each instance owns its own copies of " +
         "the members: pass ids read from THAT instance. Preview with dryRun.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var groupId = input["groupId"]?.Value<long>() ?? 0;
         var addIds = input["addElementIds"]?.ToObject<long[]>() ?? Array.Empty<long>();
@@ -64,17 +64,17 @@ public sealed class EditGroupMembersTool : ICortexTool
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (groupId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "groupId is required",
                 suggestion: "List the model groups with manage_model_groups.");
 
         if (addIds.Length == 0 && removeIds.Length == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Provide addElementIds and/or removeElementIds",
                 suggestion: "Nothing to change otherwise; use manage_model_groups to inspect the group.");
 
         if (doc.GetElement(ToolHelpers.ToElementId(groupId)) is not Group group)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Element {groupId} is not a model group instance");
 
         var groupType = group.GroupType;
@@ -123,7 +123,7 @@ public sealed class EditGroupMembersTool : ICortexTool
         }
 
         if (invalid.Count > 0 || groupedElsewhere.Count > 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Some elements cannot be added" +
                 (invalid.Count > 0 ? $"; not found: {string.Join(", ", invalid)}" : "") +
                 (groupedElsewhere.Count > 0
@@ -141,7 +141,7 @@ public sealed class EditGroupMembersTool : ICortexTool
         foreach (var rawId in addIds) plannedMembers.Add(ToolHelpers.ToElementId(rawId));
 
         if (plannedMembers.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "The change would leave the group empty",
                 suggestion: "Use manage_model_groups to ungroup it instead.");
 
@@ -158,14 +158,14 @@ public sealed class EditGroupMembersTool : ICortexTool
                 .ToList();
 
             if (toExclude.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "None of the removeElementIds belong to this group instance",
                     suggestion: "Each instance owns its OWN copies of the members: read the ids from this " +
                                 "instance (manage_model_groups includeMembers=true), not from a sibling.",
                     context: new Dictionary<string, object> { ["notInGroup"] = notInGroup });
 
             if (dryRun)
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     message = $"DryRun: {toExclude.Count} member(s) would be EXCLUDED from group " +
                               $"'{originalTypeName}' instance {groupId}. The type keeps its " +
@@ -190,19 +190,19 @@ public sealed class EditGroupMembersTool : ICortexTool
                 doc.Delete(toExclude.Select(ToolHelpers.ToElementId).ToList());
 
                 if (excludeTx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the exclusion: {TransactionFailureHandling.Describe(excludeFailures)}");
             }
             catch (Exception exception)
             {
-                return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                     $"Failed to exclude the member(s): {exception.Message}");
             }
 
             var remaining = (doc.GetElement(ToolHelpers.ToElementId(groupId)) as Group)?
                 .GetMemberIds().Count ?? 0;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Excluded {toExclude.Count} member(s) from instance {groupId} of " +
                           $"'{originalTypeName}'. The group type and its other instances are unchanged.",
@@ -223,7 +223,7 @@ public sealed class EditGroupMembersTool : ICortexTool
         }
 
         if (instanceCount > 1 && !allowMultiInstance)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Group type '{originalTypeName}' has {instanceCount} instances. Editing members recreates the " +
                 "type, and Revit cannot propagate the change to the other instances: they would keep the old " +
                 "definition.",
@@ -237,7 +237,7 @@ public sealed class EditGroupMembersTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"DryRun: group '{originalTypeName}' would go from {currentMembers.Count} to " +
                           $"{plannedMembers.Count} member(s) via ungroup/regroup. A NEW group type is created.",
@@ -276,7 +276,7 @@ public sealed class EditGroupMembersTool : ICortexTool
             if (finalMembers.Count == 0)
             {
                 tx.RollBack();
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No valid member left after the change; the group was not modified.");
             }
 
@@ -284,7 +284,7 @@ public sealed class EditGroupMembersTool : ICortexTool
             if (newGroup == null)
             {
                 tx.RollBack();
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     "Revit refused to create the new group from the resulting member set.");
             }
 
@@ -312,13 +312,13 @@ public sealed class EditGroupMembersTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the group edit: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Some members may be pinned, in another group, or in a different workset.");
 
             var newPlacement = (newGroup.Location as LocationPoint)?.Point;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Group rebuilt as '{appliedName}' with {finalMembers.Count} member(s) " +
                           $"(was {currentMembers.Count}).",
@@ -342,7 +342,7 @@ public sealed class EditGroupMembersTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to edit the group members: {exception.Message}",
                 suggestion: "Check that no member is pinned or attached to another group, and that the group " +
                             "instance is not in a design option that forbids the change.");

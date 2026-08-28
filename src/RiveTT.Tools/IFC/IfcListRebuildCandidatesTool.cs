@@ -15,7 +15,7 @@ namespace RiveTT.Tools.IFC;
 /// Works best after ifc_analyze_rebuildability has been called (uses cached results).
 /// </summary>
 [ToolSafety(true, false)]
-public class IfcListRebuildCandidatesTool : ICortexTool
+public class IfcListRebuildCandidatesTool : IRiveTTTool
 {
     public string Name => "ifc_list_rebuild_candidates";
     public string Category => "IFC";
@@ -23,7 +23,7 @@ public class IfcListRebuildCandidatesTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "List IFC elements that can be rebuilt as native Revit elements";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -60,7 +60,7 @@ public class IfcListRebuildCandidatesTool : ICortexTool
             if (candidates.Count >= maxElements) break;
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             count = candidates.Count,
             minConfidence,

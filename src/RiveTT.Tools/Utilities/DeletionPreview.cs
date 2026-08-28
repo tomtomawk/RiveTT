@@ -26,13 +26,13 @@ public static class DeletionPreview
     /// <summary>Previews the deletion of a single element.</summary>
     /// <param name="label">Human label for the message, e.g. "Material 'Béton'".</param>
     /// <param name="identity">Tool-specific identity fields merged into the response.</param>
-    public static CortexResult<object> Build(Document doc, ElementId id, string label, object identity)
+    public static RiveTTResult<object> Build(Document doc, ElementId id, string label, object identity)
     {
         return Build(doc, new[] { id }, label, identity);
     }
 
     /// <summary>Previews the deletion of a set of elements.</summary>
-    public static CortexResult<object> Build(
+    public static RiveTTResult<object> Build(
         Document doc, IList<ElementId> ids, string label, object identity)
     {
         var dependentCount = 0;
@@ -90,6 +90,6 @@ public static class DeletionPreview
 
         // Merge the tool's own identity fields (materialName, scheduleName, ...) alongside.
         payload.Merge(Newtonsoft.Json.Linq.JObject.FromObject(identity));
-        return CortexResult<object>.Ok(payload);
+        return RiveTTResult<object>.Ok(payload);
     }
 }

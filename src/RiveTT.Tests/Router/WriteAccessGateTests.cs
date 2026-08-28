@@ -17,14 +17,14 @@ namespace RiveTT.Tests.Router;
 /// </summary>
 public class WriteAccessGateTests
 {
-    private static CortexRouter CreateRouter(out CortexSession session, bool writesAllowed)
+    private static RiveTTRouter CreateRouter(out RiveTTSession session, bool writesAllowed)
     {
-        session = new CortexSession(new SessionStore());
+        session = new RiveTTSession(new SessionStore());
         session.WriteAccess.Set(writesAllowed, "test");
         // Explicit temp-file logger: without it this suite writes real entries
         // to %LOCALAPPDATA%\RiveTT\audit.jsonl on every dotnet test run.
         var auditPath = Path.Combine(Path.GetTempPath(), "rc-audit-" + System.Guid.NewGuid().ToString("N") + ".jsonl");
-        var router = new CortexRouter(session, new FakeAnalyzer(), new AuditLogger(auditPath));
+        var router = new RiveTTRouter(session, new FakeAnalyzer(), new AuditLogger(auditPath));
         router.RegisterTool(new FakeTool { Name = "create_thing" });
         router.RegisterTool(new FakeTool { Name = "get_thing" });
         return router;
@@ -38,7 +38,7 @@ public class WriteAccessGateTests
         var result = router.Route("create_thing", new JObject());
 
         Assert.False(result.Success);
-        Assert.Equal(CortexErrorCode.PermissionDenied, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.PermissionDenied, result.Error!.Code);
         Assert.Contains("read-only", result.Error.Message);
         // The refusal has to say where the switch is; an agent cannot guess a
         // ribbon panel from an error code.
@@ -73,7 +73,7 @@ public class WriteAccessGateTests
         // A preview is a tool's own promise, not a permission boundary. Trusting
         // it would make the lock only as strong as the weakest of ~250 tools.
         Assert.False(result.Success);
-        Assert.Equal(CortexErrorCode.PermissionDenied, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.PermissionDenied, result.Error!.Code);
     }
 
     // Route() succeeds here (get_thing is read-only) and reaches EnrichResult, whose
@@ -130,7 +130,7 @@ public class WriteAccessGateTests
     [Fact]
     public void Policy_ReportsWhoChangedItAndOnlyFlipsOnce()
     {
-        var session = new CortexSession(new SessionStore());
+        var session = new RiveTTSession(new SessionStore());
 
         Assert.True(session.WriteAccess.Set(false, "startup"));
         Assert.Equal("startup", session.WriteAccess.ChangedBy);
@@ -163,7 +163,7 @@ public class WriteAccessGateTests
     [RequiresRevitDbApiFact]
     public void CapabilityContract_AnnouncesTheLockAndItsState()
     {
-        var session = new CortexSession(new SessionStore());
+        var session = new RiveTTSession(new SessionStore());
         session.WriteAccess.Set(false, "startup");
 
         var result = new GetServerCapabilitiesTool().Execute(new JObject(), session);

@@ -11,7 +11,7 @@ namespace RiveTT.Tools.Meta;
 /// telemetry between experiments.
 /// </summary>
 [ToolSafety(true, false)]
-public class ClearCacheTool : ICortexTool
+public class ClearCacheTool : IRiveTTTool
 {
     public string Name => "clear_cache";
     public string Category => "Meta";
@@ -19,11 +19,11 @@ public class ClearCacheTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Drops every entry from the tool-result cache. Returns the entry count just before flushing.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var before = session.Cache.GetStats().EntryCount;
         session.Cache.InvalidateAll();
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             cleared = before,
             message = before == 0

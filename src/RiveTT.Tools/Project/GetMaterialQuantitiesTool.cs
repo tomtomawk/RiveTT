@@ -16,18 +16,18 @@ namespace RiveTT.Tools.Project;
 /// Heavy query — can take time on large models.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetMaterialQuantitiesTool : ICortexTool
+public class GetMaterialQuantitiesTool : IRiveTTTool
 {
     public string Name => "get_material_quantities";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Calculates total area and volume of materials across selected or all elements. Heavy query — can take time on large models.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var categoryFilters      = input["categoryFilters"]?.ToObject<List<string>>() ?? new List<string>();
@@ -71,7 +71,7 @@ public class GetMaterialQuantitiesTool : ICortexTool
             // the 120s dispatcher timeout, and partial sums would be silently wrong.
             // Over-cap is therefore a structured failure, not a truncated result.
             if (elements.Count > maxElements)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"{elements.Count} elements match, above the cap of {maxElements}. Processing them all would freeze Revit's UI thread.",
                     suggestion: "Narrow the query with categoryFilters or selectedElementsOnly, or raise maxElements explicitly if you accept the wait.");
 
@@ -88,7 +88,7 @@ public class GetMaterialQuantitiesTool : ICortexTool
             foreach (var elem in elements)
             {
                 if ((++processed % 500) == 0 && elapsed.ElapsedMilliseconds > TimeBudgetMs)
-                    return CortexResult<object>.Fail(CortexErrorCode.Timeout,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Timeout,
                         $"Time budget exceeded after {processed}/{elements.Count} elements; partial totals would be misleading and were discarded.",
                         suggestion: "Narrow the query with categoryFilters or selectedElementsOnly.");
 
@@ -143,7 +143,7 @@ public class GetMaterialQuantitiesTool : ICortexTool
                     elementCount  = kv.Value.elementCount
                 }).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 totalMaterials = materials.Count,
                 totalCount,
@@ -155,7 +155,7 @@ public class GetMaterialQuantitiesTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get material quantities: {ex.Message}");
         }
     }

@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// Creates a new sheet with optional title block and numbering.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateSheetTool : ICortexTool
+public class CreateSheetTool : IRiveTTTool
 {
     public string Name => "create_sheet";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates a new sheet with optional title block and numbering.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var sheetNumber = input["sheetNumber"]?.Value<string>();
         var sheetName = input["sheetName"]?.Value<string>();
@@ -58,7 +58,7 @@ public class CreateSheetTool : ICortexTool
                     // An explicit id that cannot be used must fail loudly. Falling back
                     // to "any title block" (or to none) silently produced a blank A4
                     // sheet that looked like a success.
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"titleBlockId {titleBlockTypeId} is not a title block type in this document " +
                         $"(resolved to: {DescribeElement(doc, titleBlockTypeId)}).",
                         suggestion: "Pass the ElementId of an OST_TitleBlocks FamilySymbol. " +
@@ -113,7 +113,7 @@ public class CreateSheetTool : ICortexTool
             if (dryRun)
             {
                 var availableTitleBlocks = ListTitleBlocks(doc);
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     message = resolvedTitleBlock != null
                         ? $"DryRun: sheet would be created with title block '{resolvedTitleBlock.FamilyName} / {resolvedTitleBlock.Name}'."
@@ -156,7 +156,7 @@ public class CreateSheetTool : ICortexTool
                 sheet.Name = sheetName;
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
@@ -168,7 +168,7 @@ public class CreateSheetTool : ICortexTool
                 .WhereElementIsNotElementType()
                 .FirstOrDefault();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 sheetId = ToolHelpers.GetElementIdValue(sheet.Id),
                 sheetNumber = sheet.SheetNumber,
@@ -190,7 +190,7 @@ public class CreateSheetTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create sheet: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to create sheet: {ex.Message}");
         }
     }
 

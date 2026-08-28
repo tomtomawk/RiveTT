@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's FindUndimensionedElementsEventHandler logic.
 /// </summary>
 [ToolSafety(true, false)]
-public class FindUndimensionedElementsTool : ICortexTool
+public class FindUndimensionedElementsTool : IRiveTTTool
 {
     public string Name => "find_undimensioned_elements";
     public string Category => "Elements";
@@ -31,11 +31,11 @@ public class FindUndimensionedElementsTool : ICortexTool
         BuiltInCategory.OST_StructuralFraming
     };
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // ── Parse inputs ───────────────────────────────────────────────────
@@ -63,7 +63,7 @@ public class FindUndimensionedElementsTool : ICortexTool
             }
 
             if (targetView == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No active view available and no viewId was provided");
 
             // ── Parse categories ───────────────────────────────────────────
@@ -79,7 +79,7 @@ public class FindUndimensionedElementsTool : ICortexTool
                         builtInCategories.Add(bic.Value);
                 }
                 if (builtInCategories.Count == 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "None of the provided categories could be resolved",
                         suggestion: "Use OST_* codes like OST_Walls, or English friendly names like Walls, Doors");
             }
@@ -144,7 +144,7 @@ public class FindUndimensionedElementsTool : ICortexTool
             bool isTruncated = allUndimensioned.Count > limit;
             var returnedElements = isTruncated ? allUndimensioned.Take(limit).ToList() : allUndimensioned;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 viewId = targetView.Id.Value,
                 viewName = targetView.Name,
@@ -156,7 +156,7 @@ public class FindUndimensionedElementsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to find undimensioned elements: {ex.Message}");
         }
     }

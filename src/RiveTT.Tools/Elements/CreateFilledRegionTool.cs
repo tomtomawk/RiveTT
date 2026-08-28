@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Elements;
 /// Creates a filled region from boundary points in the specified view.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateFilledRegionTool : ICortexTool
+public class CreateFilledRegionTool : IRiveTTTool
 {
     public string Name => "create_filled_region";
     public string Category => "Elements";
@@ -23,15 +23,15 @@ public class CreateFilledRegionTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates a filled region from boundary points in the specified view, optionally with holes (inner loops).";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var boundaryPoints = input["boundaryPoints"] as JArray;
         if (boundaryPoints == null || boundaryPoints.Count < 3)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "boundaryPoints array with minimum 3 points is required");
 
         var viewIdLong = input["viewId"]?.Value<long>() ?? -1;
@@ -51,7 +51,7 @@ public class CreateFilledRegionTool : ICortexTool
             }
 
             if (view == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "Could not resolve view");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "Could not resolve view");
 
             // Resolve type
             var regionType = !string.IsNullOrEmpty(typeName)
@@ -62,7 +62,7 @@ public class CreateFilledRegionTool : ICortexTool
                 .Cast<FilledRegionType>().FirstOrDefault();
 
             if (regionType == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     "No filled region types available");
 
             // Build boundary curve loop
@@ -104,11 +104,11 @@ public class CreateFilledRegionTool : ICortexTool
             tx.Start();
             var region = FilledRegion.Create(doc, regionType.Id, view.Id, loops);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 filledRegionId = ToolHelpers.GetElementIdValue(region.Id),
                 typeName = regionType.Name,
@@ -119,7 +119,7 @@ public class CreateFilledRegionTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create filled region: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to create filled region: {ex.Message}");
         }
     }
 }

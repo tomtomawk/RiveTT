@@ -59,7 +59,7 @@ public class JsonRpcError
 
     /// <summary>
     /// Optional structured error data (JSON-RPC 2.0 §5.1).
-    /// Carries the full CortexError object so the server bridge can
+    /// Carries the full RiveTTError object so the server bridge can
     /// reconstruct typed error information without string-parsing the message.
     /// </summary>
     [JsonProperty("data", NullValueHandling = NullValueHandling.Ignore)]

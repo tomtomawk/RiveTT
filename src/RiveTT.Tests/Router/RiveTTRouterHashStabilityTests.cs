@@ -6,17 +6,17 @@ using Xunit;
 namespace RiveTT.Tests.Router;
 
 /// <summary>
-/// Characterization tests pinning the EXACT output of CortexRouter.HashParams (internal static).
+/// Characterization tests pinning the EXACT output of RiveTTRouter.HashParams (internal static).
 /// The hash is the cache key: any change to its output silently invalidates every cached entry
 /// (a cross-version cache-drift regression). These golden values lock the current behavior so a
 /// refactor of Canonicalize cannot change the produced hash. Reached via reflection because
 /// HashParams is internal and the test assembly has no InternalsVisibleTo.
 /// </summary>
-public class CortexRouterHashStabilityTests
+public class RiveTTRouterHashStabilityTests
 {
     private static string Hash(JObject input)
     {
-        var m = typeof(CortexRouter).GetMethod("HashParams",
+        var m = typeof(RiveTTRouter).GetMethod("HashParams",
             BindingFlags.NonPublic | BindingFlags.Static)!;
         return (string)m.Invoke(null, new object[] { input })!;
     }

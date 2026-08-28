@@ -31,7 +31,7 @@ namespace RiveTT.Tools.Elements;
 /// editing.
 /// </summary>
 [ToolSafety(false, true)]
-public sealed class EditFamilyTool : ICortexTool
+public sealed class EditFamilyTool : IRiveTTTool
 {
     public string Name => "edit_family";
     public string Category => "Elements";
@@ -46,11 +46,11 @@ public sealed class EditFamilyTool : ICortexTool
         "The project's copy of the family is updated in place (LoadFamily with overwrite) — nothing opens " +
         "on screen. Use open_family instead for visual/geometry edits.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var familyId = input["familyId"]?.Value<long>() ?? 0;
         var familyName = input["familyName"]?.Value<string>();
@@ -58,12 +58,12 @@ public sealed class EditFamilyTool : ICortexTool
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (familyId <= 0 && string.IsNullOrWhiteSpace(familyName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "familyId or familyName is required",
                 suggestion: "Read family ids from load_family(action: \"list\") or audit_families.");
 
         if (changesToken == null || changesToken.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "changes is required: [{\"typeName\": \"900x2100\", \"parameters\": {\"Width\": \"900 mm\"}}]");
 
         Family? family = familyId > 0
@@ -72,16 +72,16 @@ public sealed class EditFamilyTool : ICortexTool
                 .FirstOrDefault(f => f.Name.Equals(familyName, StringComparison.OrdinalIgnoreCase));
 
         if (family == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 familyId > 0 ? $"familyId {familyId} is not a Family" : $"No family named '{familyName}'");
 
         if (family.IsInPlace)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"'{family.Name}' is an in-place family: Document.EditFamily does not support those.",
                 suggestion: "Edit in-place families from the Revit UI (Edit In-Place).");
 
         if (!family.IsEditable)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"'{family.Name}' is not editable (a system family, or a family this document cannot open for editing).");
 
         var requests = new List<(string TypeName, Dictionary<string, JToken> Parameters)>();
@@ -95,12 +95,12 @@ public sealed class EditFamilyTool : ICortexTool
         }
 
         if (requests.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "changes did not contain any valid {typeName, parameters} entry");
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"DryRun: would edit {requests.Count} type(s) of '{family.Name}' in the background " +
                           "and reload the family into this project (nothing opens on screen).",
@@ -115,7 +115,7 @@ public sealed class EditFamilyTool : ICortexTool
         {
             famDoc = doc.EditFamily(family);
             if (famDoc == null)
-                return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                     $"Document.EditFamily returned null for '{family.Name}'");
 
             var manager = famDoc.FamilyManager;
@@ -162,13 +162,13 @@ public sealed class EditFamilyTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the family edit: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
 
             if (!anySucceeded)
-                return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                     "None of the requested type/parameter changes could be applied. Nothing was reloaded into the project.",
                     context: new Dictionary<string, object> { ["results"] = results });
 
@@ -176,7 +176,7 @@ public sealed class EditFamilyTool : ICortexTool
             // from — no file path involved, and nothing is left open on screen.
             var loadedFamily = famDoc.LoadFamily(doc, new OverwritingFamilyLoadOptions(overwrite: true));
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = loadedFamily != null
                     ? $"Edited '{family.Name}' in the background and reloaded it into the project."
@@ -190,7 +190,7 @@ public sealed class EditFamilyTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to edit the family: {exception.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to edit the family: {exception.Message}");
         }
         finally
         {

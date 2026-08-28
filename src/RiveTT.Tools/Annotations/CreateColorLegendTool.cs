@@ -15,23 +15,23 @@ namespace RiveTT.Tools.Annotations;
 /// Supports auto, gradient, and custom color schemes.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateColorLegendTool : ICortexTool
+public class CreateColorLegendTool : IRiveTTTool
 {
     public string Name => "create_color_legend";
     public string Category => "Annotations";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Colors elements by parameter value and optionally creates a drafting legend view. Supports auto, gradient, and custom color schemes.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var parameterName = input["parameterName"]?.Value<string>();
         if (string.IsNullOrEmpty(parameterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "parameterName is required");
 
         var categories = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
@@ -52,11 +52,11 @@ public class CreateColorLegendTool : ICortexTool
         }
 
         if (targetView == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Could not resolve target view");
 
         if (targetView.ViewType == ViewType.DrawingSheet)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Cannot color elements on a Sheet view. Activate a model view (FloorPlan, Section, or 3D) or pass a targetViewId.",
                 suggestion: "Use list_views to find a suitable model view, then pass its ID as targetViewId.");
 
@@ -65,7 +65,7 @@ public class CreateColorLegendTool : ICortexTool
             // Collect elements by category
             var elements = CollectElements(doc, categories, targetView);
             if (elements.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     "No elements found for the specified categories");
 
             // Group by parameter value
@@ -111,7 +111,7 @@ public class CreateColorLegendTool : ICortexTool
                     legendViewId = CreateLegend(doc, legendTitle, colorMap, groups);
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
 
@@ -122,7 +122,7 @@ public class CreateColorLegendTool : ICortexTool
                     elementCount = groups.ContainsKey(kvp.Key) ? groups[kvp.Key].Count : 0
                 }).ToList();
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     coloredElementCount = coloredCount,
                     groupCount = colorMap.Count,
@@ -138,7 +138,7 @@ public class CreateColorLegendTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to create color legend: {ex.Message}");
         }
     }

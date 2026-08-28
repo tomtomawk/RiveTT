@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Project;
 /// Duplicates a system family type (wall, floor, roof, ceiling) with a new name.
 /// </summary>
 [ToolSafety(false, true)]
-public class DuplicateSystemTypeTool : ICortexTool
+public class DuplicateSystemTypeTool : IRiveTTTool
 {
     public string Name => "duplicate_system_type";
     public string Category => "Project";
@@ -21,17 +21,17 @@ public class DuplicateSystemTypeTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Duplicates a system family type (wall, floor, roof, ceiling), or renames/deletes an existing type. Actions: duplicate (default), rename, delete.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = (input["action"]?.Value<string>() ?? "duplicate").ToLowerInvariant();
         if (action == "rename") return RenameType(doc, input, session);
         if (action == "delete") return DeleteType(doc, input, session);
         if (action != "duplicate")
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown action: {action}", suggestion: "Use: duplicate, rename, delete");
 
         var sourceTypeId   = input["sourceTypeId"]?.Value<long?>();
@@ -40,7 +40,7 @@ public class DuplicateSystemTypeTool : ICortexTool
         var newName        = input["newName"]?.Value<string>();
 
         if (string.IsNullOrWhiteSpace(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "newName is required",
                 suggestion: "Provide the name for the duplicated type");
 
@@ -53,14 +53,14 @@ public class DuplicateSystemTypeTool : ICortexTool
             {
                 sourceType = doc.GetElement(new ElementId(sourceTypeId.Value)) as ElementType;
                 if (sourceType == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                         $"Type {sourceTypeId} not found or is not an ElementType");
             }
             else if (!string.IsNullOrWhiteSpace(sourceTypeName))
             {
                 sourceType = FindTypeByName(doc, sourceTypeName!, category);
                 if (sourceType == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                         $"Type '{sourceTypeName}' not found" + (category != null ? $" in category {category}" : ""),
                         // Pointing at list_family_types was actively
                         // misleading for system types: it used to enumerate only
@@ -71,7 +71,7 @@ public class DuplicateSystemTypeTool : ICortexTool
             }
             else
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "Provide sourceTypeId or sourceTypeName to identify the source type");
             }
 
@@ -81,7 +81,7 @@ public class DuplicateSystemTypeTool : ICortexTool
             {
                 long existingIdValue;
                 existingIdValue = existing.Id.Value;
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     typeId = existingIdValue,
                     typeName = existing.Name,
@@ -97,14 +97,14 @@ public class DuplicateSystemTypeTool : ICortexTool
                 tx.Start();
                 var newType = sourceType.Duplicate(newName);
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
 
                 long newIdValue;
                 newIdValue = newType.Id.Value;
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     typeId = newIdValue,
                     typeName = newType.Name,
@@ -116,25 +116,25 @@ public class DuplicateSystemTypeTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to duplicate type: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> RenameType(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> RenameType(Document doc, JObject input, RiveTTSession session)
     {
         var (type, error) = ResolveType(doc, input);
         if (error != null) return error;
 
         var newName = input["newName"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "newName is required for rename");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "newName is required for rename");
 
         if (FindTypeByName(doc, newName!, type!.Category?.Name) != null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"A type named '{newName}' already exists");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"A type named '{newName}' already exists");
 
         if (!session.RequestConfirmation("rename type", 1, type.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var oldName = type.Name;
         using var tx = new Transaction(doc, "RiveTT: Rename Type");
@@ -142,20 +142,20 @@ public class DuplicateSystemTypeTool : ICortexTool
         tx.Start();
         type.Name = newName;
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { action = "rename", typeId = ToolHelpers.GetElementIdValue(type.Id), oldName, newName });
+        return RiveTTResult<object>.Ok(new { action = "rename", typeId = ToolHelpers.GetElementIdValue(type.Id), oldName, newName });
     }
 
-    private static CortexResult<object> DeleteType(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> DeleteType(Document doc, JObject input, RiveTTSession session)
     {
         var (type, error) = ResolveType(doc, input);
         if (error != null) return error;
 
         if (!session.RequestConfirmation("delete type", 1, type!.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var name = type!.Name;
         using var tx = new Transaction(doc, "RiveTT: Delete Type");
@@ -163,11 +163,11 @@ public class DuplicateSystemTypeTool : ICortexTool
         tx.Start();
         var deleted = doc.Delete(type.Id);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "delete",
             deletedType = name,
@@ -176,7 +176,7 @@ public class DuplicateSystemTypeTool : ICortexTool
     }
 
     /// <summary>Resolves a type by sourceTypeId, or by sourceTypeName/typeName (+optional category).</summary>
-    private static (ElementType?, CortexResult<object>?) ResolveType(Document doc, JObject input)
+    private static (ElementType?, RiveTTResult<object>?) ResolveType(Document doc, JObject input)
     {
         var sourceTypeId = input["sourceTypeId"]?.Value<long?>() ?? input["typeId"]?.Value<long?>();
         var typeName = input["sourceTypeName"]?.Value<string>() ?? input["typeName"]?.Value<string>();
@@ -189,7 +189,7 @@ public class DuplicateSystemTypeTool : ICortexTool
             type = FindTypeByName(doc, typeName!, category);
 
         if (type == null)
-            return (null, CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return (null, RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 "Type not found",
                 suggestion: "Provide sourceTypeId or sourceTypeName; list the candidates with " +
                             "list_system_types(category)."));

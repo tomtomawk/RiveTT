@@ -11,7 +11,7 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.Elements;
 
 [ToolSafety(true, false)]
-public sealed class CaptureSelectionTool : ICortexTool
+public sealed class CaptureSelectionTool : IRiveTTTool
 {
     public string Name => "capture_selection";
     public string Category => "Elements";
@@ -19,11 +19,11 @@ public sealed class CaptureSelectionTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Capture explicit IDs or the current Revit selection as a temporary, reusable selection token.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = ToolHelpers.GetDocument(session);
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var ids = input["elementIds"]?.ToObject<long[]>()
             ?? new UIDocument(doc).Selection.GetElementIds()
@@ -31,13 +31,13 @@ public sealed class CaptureSelectionTool : ICortexTool
         ids = ids.Where(id => id > 0 && doc.GetElement(ToolHelpers.ToElementId(id)) != null)
             .Distinct().ToArray();
         if (ids.Length == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No valid elements were provided or selected");
 
         var ttlMinutes = Math.Clamp(input["ttlMinutes"]?.Value<int>() ?? 15, 1, 120);
         var token = ElementScopeResolver.Capture(session, ids, TimeSpan.FromMinutes(ttlMinutes),
             out var expiresAtUtc);
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             selectionToken = token,
             elementCount = ids.Length,

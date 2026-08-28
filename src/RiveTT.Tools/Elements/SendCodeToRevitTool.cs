@@ -17,16 +17,16 @@ namespace RiveTT.Tools.Elements;
 /// Executes custom C# code snippets in the Revit context.
 /// Uses Roslyn on Revit (2026.5+ or 2027). The sandbox remains active, but script execution
 /// never asks for user authorization in RiveTT.
-/// CortexRouter records every invocation in audit.jsonl with code snippet + SHA-256.
+/// RiveTTRouter records every invocation in audit.jsonl with code snippet + SHA-256.
 /// Scripts are persisted to %LOCALAPPDATA%/RiveTT/scripts/ and cleaned up at Revit shutdown
 /// unless marked as reusable.
 /// </summary>
 [ToolSafety(false, true)]
-public class SendCodeToRevitTool : ICortexTool
+public class SendCodeToRevitTool : IRiveTTTool
 {
     // Must stay in lockstep with RiveTTApp.CleanupTempScripts, which deletes
     // TEMP scripts from this same folder at Revit shutdown.
-    public static string ScriptsFolder => CortexEnvironment.Current.ScriptsFolder;
+    public static string ScriptsFolder => RiveTTEnvironment.Current.ScriptsFolder;
 
     public string Name => "send_code_to_revit";
     public string Category => "Code";
@@ -34,11 +34,11 @@ public class SendCodeToRevitTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "LAST RESORT ONLY — execute sandboxed custom C# code in the active Revit context. Prefer dedicated tools. Defaults to dryRun=true: the preview runs the sandbox check and reports what would execute, without running it or writing the script to disk. Globals: document (Document), uiDocument (UIDocument), app (Application).";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var code = input["code"]?.Value<string>();
         var transactionMode = input["transactionMode"]?.Value<string>() ?? "auto";
@@ -50,7 +50,7 @@ public class SendCodeToRevitTool : ICortexTool
         var dryRun = ToolHelpers.GetDryRun(input);
 
         if (string.IsNullOrEmpty(code))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "code is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "code is required");
 
         // Sandbox validation is a technical boundary, not an authorization flow. It runs
         // before the dryRun branch so a preview reports a rejection instead of a plan.
@@ -63,7 +63,7 @@ public class SendCodeToRevitTool : ICortexTool
         if (dryRun)
         {
             // Nothing is written to disk here: persisting the script is itself a side effect.
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 message = "DryRun: the script passed the sandbox check and was NOT executed. "
@@ -90,7 +90,7 @@ public class SendCodeToRevitTool : ICortexTool
         var uiDoc = uiApp?.ActiveUIDocument;
 
         if (uiDoc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "UIApplication not available in session");
 
         var globals = new ScriptGlobals
@@ -100,7 +100,7 @@ public class SendCodeToRevitTool : ICortexTool
             app = uiApp!.Application
         };
 
-        CortexResult<object> result;
+        RiveTTResult<object> result;
         result = RoslynExecutor.Execute(code!, globals, transactionMode);
 
         // Attach script path to result so the caller knows where it was saved
@@ -109,7 +109,7 @@ public class SendCodeToRevitTool : ICortexTool
             var data = Newtonsoft.Json.Linq.JObject.FromObject(result.Data);
             data["scriptSavedTo"] = scriptPath;
             data["scriptLifetime"] = reusable ? "REUSABLE" : "TEMP (deleted at Revit close)";
-            return CortexResult<object>.Ok(data);
+            return RiveTTResult<object>.Ok(data);
         }
 
         return result;

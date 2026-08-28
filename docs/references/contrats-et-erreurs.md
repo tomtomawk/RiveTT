@@ -1,17 +1,17 @@
 # Contrats et erreurs
 
 **Portée :** enveloppe de réponse unifiée de tous les outils RiveTT.
-**Sources :** `src/RiveTT.Core/Results/CortexResult.cs`.
+**Sources :** `src/RiveTT.Core/Results/RiveTTResult.cs`.
 **Vérifié le :** 2026-05-25
 
 ## Regola fondamentale
 
-Ogni tool ritorna `CortexResult<T>`. **Mai** lanciare eccezioni o ritornare stringhe raw.
+Ogni tool ritorna `RiveTTResult<T>`. **Mai** lanciare eccezioni o ritornare stringhe raw.
 
 ## Success
 
 ```csharp
-return CortexResult<object>.Ok(new {
+return RiveTTResult<object>.Ok(new {
     greeting = "Hello",
     count = 42
 });
@@ -20,8 +20,8 @@ return CortexResult<object>.Ok(new {
 ## Failure
 
 ```csharp
-return CortexResult<object>.Fail(
-    CortexErrorCode.ElementNotFound,
+return RiveTTResult<object>.Fail(
+    RiveTTErrorCode.ElementNotFound,
     "Element 12345 does not exist in the active document",
     suggestion: "Check the element ID or ensure the correct document is open");
 ```
@@ -40,7 +40,7 @@ return CortexResult<object>.Fail(
 
 ## Propagazione errori dal Plugin al Server
 
-`RevitPipeBridge` trasforma `CortexResult.Fail` in un payload JSON strutturato senza rilanciare eccezioni.
+`RevitPipeBridge` trasforma `RiveTTResult.Fail` in un payload JSON strutturato senza rilanciare eccezioni.
 
 Esempio payload:
 ```json
@@ -56,8 +56,8 @@ Esempio payload:
 
 ## Required checks
 
-- [ ] Tool ritorna `CortexResult<T>` sempre.
-- [ ] Errori usano `CortexErrorCode` enum, mai stringhe libere.
+- [ ] Tool ritorna `RiveTTResult<T>` sempre.
+- [ ] Errori usano `RiveTTErrorCode` enum, mai stringhe libere.
 - [ ] `suggestion` compilato quando utile per l'utente.
 - [ ] Nessun `throw` non gestito da `Execute`.
 - [ ] Gli errori `TransactionFailed` espongono `warnings`, `errors`,

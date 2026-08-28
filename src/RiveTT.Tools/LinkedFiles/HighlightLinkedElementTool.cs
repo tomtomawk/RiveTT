@@ -17,7 +17,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// creating a section box around the element, and zooming to it.
 /// </summary>
 [ToolSafety(false, false)]
-public class HighlightLinkedElementTool : ICortexTool
+public class HighlightLinkedElementTool : IRiveTTTool
 {
     public string Name => "highlight_linked_element";
     public string Category => "LinkedFiles";
@@ -25,11 +25,11 @@ public class HighlightLinkedElementTool : ICortexTool
     public bool IsDynamic => true;
     public string Description => "Highlights an element inside a linked model: selects the link instance, creates a section box around the target element, and zooms to it.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var instanceId = input["instanceId"]?.Value<long>() ?? 0;
         var linkedElementId = input["linkedElementId"]?.Value<long>() ?? 0;
@@ -37,32 +37,32 @@ public class HighlightLinkedElementTool : ICortexTool
         var offsetMm = input["offset"]?.Value<double>() ?? 1000;
 
         if (instanceId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "instanceId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "instanceId is required");
         if (linkedElementId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "linkedElementId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "linkedElementId is required");
 
         try
         {
             var element = doc.GetElement(new ElementId(instanceId));
             var linkInstance = element as RevitLinkInstance;
             if (linkInstance == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Element {instanceId} is not a RevitLinkInstance");
 
             var linkDoc = linkInstance.GetLinkDocument();
             if (linkDoc == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "Linked document is not loaded");
 
             // Find the element in the linked document
             var linkedElement = linkDoc.GetElement(new ElementId(linkedElementId));
             if (linkedElement == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Element {linkedElementId} not found in linked document");
 
             var bb = linkedElement.get_BoundingBox(null);
             if (bb == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "Element has no bounding box geometry");
 
             // Transform the bounding box from link space to host space
@@ -114,7 +114,7 @@ public class HighlightLinkedElementTool : ICortexTool
                     });
 
                     if (tx.Commit() != TransactionStatus.Committed)
-                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                             $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                             suggestion: "Fix the reported model errors and retry.");
 
@@ -125,7 +125,7 @@ public class HighlightLinkedElementTool : ICortexTool
 
             uiDoc.ShowElements(linkInstance.Id);
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 instanceId,
                 linkedElementId,
@@ -144,7 +144,7 @@ public class HighlightLinkedElementTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

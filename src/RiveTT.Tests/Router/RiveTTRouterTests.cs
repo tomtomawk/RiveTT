@@ -9,19 +9,19 @@ using Xunit;
 
 namespace RiveTT.Tests.Router;
 
-public class CortexRouterTests
+public class RiveTTRouterTests
 {
-    private CortexRouter CreateRouter(out CortexSession session, FakeAnalyzer? analyzer = null)
+    private RiveTTRouter CreateRouter(out RiveTTSession session, FakeAnalyzer? analyzer = null)
     {
         var store = new SessionStore();
-        session = new CortexSession(store);
+        session = new RiveTTSession(store);
         var an = analyzer ?? new FakeAnalyzer();
         // An explicit temp-file logger, not the default %LOCALAPPDATA%\RiveTT\audit.jsonl:
         // this suite runs on every `dotnet test` and was otherwise writing real audit
         // entries on the dev machine, masking whether the real execution path logs at all.
         var auditPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
             "rc-audit-" + System.Guid.NewGuid().ToString("N") + ".jsonl");
-        return new CortexRouter(session, an, new AuditLogger(auditPath));
+        return new RiveTTRouter(session, an, new AuditLogger(auditPath));
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public class CortexRouterTests
         var router = CreateRouter(out _);
         var result = router.Route("nonexistent", new JObject());
         Assert.False(result.Success);
-        Assert.Equal(CortexErrorCode.InvalidInput, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.InvalidInput, result.Error!.Code);
         Assert.Contains("not found", result.Error.Message);
     }
 
@@ -39,9 +39,9 @@ public class CortexRouterTests
     {
         var router = CreateRouter(out _);
         var tool = new FakeTool { Name = "needs_doc", RequiresDocument = true };
-        var field = typeof(CortexRouter).GetField("_tools",
+        var field = typeof(RiveTTRouter).GetField("_tools",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.ICortexTool>)field.GetValue(router)!;
+        var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.IRiveTTTool>)field.GetValue(router)!;
         tools[tool.Name] = tool;
 
         var result = router.Route("needs_doc", new JObject());
@@ -54,9 +54,9 @@ public class CortexRouterTests
     {
         var router = CreateRouter(out _);
         var tool = new FakeTool { Name = "list_worksets", IsDynamic = true };
-        var field = typeof(CortexRouter).GetField("_tools",
+        var field = typeof(RiveTTRouter).GetField("_tools",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.ICortexTool>)field.GetValue(router)!;
+        var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.IRiveTTTool>)field.GetValue(router)!;
         tools[tool.Name] = tool;
 
         var result = router.Route("list_worksets", new JObject());
@@ -72,9 +72,9 @@ public class CortexRouterTests
     {
         var router = CreateRouter(out _);
         var tool = new FakeTool { Name = "ping_revit" };
-        var field = typeof(CortexRouter).GetField("_tools",
+        var field = typeof(RiveTTRouter).GetField("_tools",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.ICortexTool>)field.GetValue(router)!;
+        var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.IRiveTTTool>)field.GetValue(router)!;
         tools[tool.Name] = tool;
 
         var result = router.Route("ping_revit", new JObject());
@@ -109,7 +109,7 @@ public class CortexRouterTests
         var result = router.Route("transaction_failing", new JObject());
 
         Assert.False(result.Success);
-        Assert.Equal(CortexErrorCode.TransactionFailed, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.TransactionFailed, result.Error!.Code);
         Assert.True((bool)result.Error.Context!["rolledBack"]);
         Assert.NotNull(result.Error.Context["warnings"]);
         Assert.NotNull(result.Error.Context["failedElementIds"]);
@@ -152,9 +152,9 @@ public class CortexRouterTests
     public void GetAvailableToolNames_ExcludesDisabledDynamicTools()
     {
         var router = CreateRouter(out _);
-        var field = typeof(CortexRouter).GetField("_tools",
+        var field = typeof(RiveTTRouter).GetField("_tools",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.ICortexTool>)field.GetValue(router)!;
+        var tools = (System.Collections.Generic.Dictionary<string, RiveTT.Core.Tools.IRiveTTTool>)field.GetValue(router)!;
 
         tools["always_on"] = new FakeTool { Name = "always_on", IsDynamic = false };
         tools["workset_tool"] = new FakeTool { Name = "workset_tool", IsDynamic = true };
@@ -164,15 +164,15 @@ public class CortexRouterTests
         Assert.DoesNotContain("workset_tool", available);
     }
 
-    private sealed class TransactionFailingTool : ICortexTool
+    private sealed class TransactionFailingTool : IRiveTTTool
     {
         public string Name => "transaction_failing";
         public string Category => "Test";
         public bool RequiresDocument => false;
         public bool IsDynamic => false;
         public string Description => "test";
-        public CortexResult<object> Execute(JObject input, CortexSession session)
-            => CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+        public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
+            => RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 "Revit rejected the transaction", "Repair constraints");
     }
 

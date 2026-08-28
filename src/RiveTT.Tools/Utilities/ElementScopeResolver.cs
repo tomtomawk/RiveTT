@@ -13,7 +13,7 @@ public static class ElementScopeResolver
 {
     private const string StoreKey = "temporarySelectionSnapshots";
 
-    public static string Capture(CortexSession session, IEnumerable<long> elementIds,
+    public static string Capture(RiveTTSession session, IEnumerable<long> elementIds,
         TimeSpan ttl, out DateTime expiresAtUtc)
     {
         var store = GetStore(session);
@@ -26,8 +26,8 @@ public static class ElementScopeResolver
     }
 
     public static IReadOnlyList<Element> Resolve(
-        Document doc, JObject input, CortexSession session,
-        out string resolvedScope, out CortexResult<object>? error,
+        Document doc, JObject input, RiveTTSession session,
+        out string resolvedScope, out RiveTTResult<object>? error,
         string defaultScope = "whole_model")
     {
         error = null;
@@ -46,7 +46,7 @@ public static class ElementScopeResolver
             if (!store.Items.TryGetValue(selectionToken!, out var snapshot))
             {
                 resolvedScope = "selectionToken";
-                error = CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                error = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "Selection token was not found or has expired",
                     suggestion: "Capture a new selection with capture_selection and retry.");
                 return Array.Empty<Element>();
@@ -66,7 +66,7 @@ public static class ElementScopeResolver
             if (filter == null)
             {
                 resolvedScope = "savedSelection";
-                error = CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                error = RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Saved selection '{savedSelectionName}' was not found");
                 return Array.Empty<Element>();
             }
@@ -84,7 +84,7 @@ public static class ElementScopeResolver
                 var ids = new UIDocument(doc).Selection.GetElementIds();
                 if (ids.Count == 0)
                 {
-                    error = CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    error = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "The current Revit selection is empty",
                         suggestion: "Pass elementIds, a selectionToken, or select elements in Revit.");
                     return Array.Empty<Element>();
@@ -96,7 +96,7 @@ public static class ElementScopeResolver
                 var ids = session.Store.Get<long[]>("lastFilterResults") ?? Array.Empty<long>();
                 if (ids.Length == 0)
                 {
-                    error = CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    error = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "No previous filter result exists in this document session");
                     return Array.Empty<Element>();
                 }
@@ -105,7 +105,7 @@ public static class ElementScopeResolver
             case "active_view":
                 if (doc.ActiveView == null)
                 {
-                    error = CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    error = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "There is no active Revit view");
                     return Array.Empty<Element>();
                 }
@@ -115,7 +115,7 @@ public static class ElementScopeResolver
                 return new FilteredElementCollector(doc)
                     .WhereElementIsNotElementType().ToElements().ToList();
             default:
-                error = CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                error = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown scope '{scope}'",
                     suggestion: "Use whole_model, active_view, selection, last_filter, elementIds, selectionToken, or savedSelectionName.");
                 return Array.Empty<Element>();
@@ -126,7 +126,7 @@ public static class ElementScopeResolver
         => ids.Select(id => doc.GetElement(ToolHelpers.ToElementId(id)))
             .Where(e => e != null).Cast<Element>().ToList();
 
-    private static SelectionSnapshotStore GetStore(CortexSession session)
+    private static SelectionSnapshotStore GetStore(RiveTTSession session)
     {
         var store = session.Store.Get<SelectionSnapshotStore>(StoreKey);
         if (store != null) return store;

@@ -17,7 +17,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// Groups instances by their parent RevitLinkType.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetLinkedFileInstancesTool : ICortexTool, ICacheableTool
+public class GetLinkedFileInstancesTool : IRiveTTTool, ICacheableTool
 {
     public string Name => "list_linked_file_instances";
     public string Category => "LinkedFiles";
@@ -26,11 +26,11 @@ public class GetLinkedFileInstancesTool : ICortexTool, ICacheableTool
     public string Description => "Lists all linked Revit files grouped by type, with instance transforms, load status, and file paths.";
     public CacheScope CacheScope => CacheScope.Document;
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var linkNameFilter = input["linkName"]?.Value<string>();
 
@@ -105,7 +105,7 @@ public class GetLinkedFileInstancesTool : ICortexTool, ICacheableTool
                 });
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Found {results.Count} linked file type(s) with {linkInstances.Count} instance(s)",
                 typeCount = results.Count,
@@ -115,7 +115,7 @@ public class GetLinkedFileInstancesTool : ICortexTool, ICacheableTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

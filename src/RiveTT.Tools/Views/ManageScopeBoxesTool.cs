@@ -20,7 +20,7 @@ namespace RiveTT.Tools.Views;
 /// generic failure, same as manage_area_plans(action=create) for the same kind of API gap.
 /// </summary>
 [ToolSafety(false, false)]
-public class ManageScopeBoxesTool : ICortexTool
+public class ManageScopeBoxesTool : IRiveTTTool
 {
     public string Name => "manage_scope_boxes";
     public string Category => "Views";
@@ -33,11 +33,11 @@ public class ManageScopeBoxesTool : ICortexTool
         "rename needs elementId+newName. move needs elementId+translation{x,y,z} (mm). " +
         "assign_to_views needs scopeBoxId (0 clears it) and viewIds (array).";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = (input["action"]?.Value<string>() ?? "list").ToLowerInvariant();
         try
@@ -50,18 +50,18 @@ public class ManageScopeBoxesTool : ICortexTool
                 case "move": return MoveScopeBox(doc, input);
                 case "assign_to_views": return AssignToViews(doc, input);
                 default:
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Unsupported action: {action}",
                         suggestion: "Use: list | rename | move | assign_to_views | create");
             }
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListScopeBoxes(Document doc)
+    private static RiveTTResult<object> ListScopeBoxes(Document doc)
     {
         var boxes = new FilteredElementCollector(doc)
             .OfCategory(BuiltInCategory.OST_VolumeOfInterest)
@@ -79,12 +79,12 @@ public class ManageScopeBoxesTool : ICortexTool
             })
             .ToList();
 
-        return CortexResult<object>.Ok(new { count = boxes.Count, scopeBoxes = boxes });
+        return RiveTTResult<object>.Ok(new { count = boxes.Count, scopeBoxes = boxes });
     }
 
-    private static CortexResult<object> UnsupportedCreateResult()
+    private static RiveTTResult<object> UnsupportedCreateResult()
     {
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             supported = false,
             message = "Scope box creation is unsupported: the Revit API exposes no method to build a " +
@@ -93,39 +93,39 @@ public class ManageScopeBoxesTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> RenameScopeBox(Document doc, JObject input)
+    private static RiveTTResult<object> RenameScopeBox(Document doc, JObject input)
     {
         var elementIdLong = input["elementId"]?.Value<long?>() ?? 0;
         var newName = input["newName"]?.Value<string>();
         if (elementIdLong <= 0 || string.IsNullOrWhiteSpace(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "elementId and newName are required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "elementId and newName are required");
 
         var elem = doc.GetElement(ToolHelpers.ToElementId(elementIdLong));
         if (elem == null || elem.Category?.Id != new ElementId(BuiltInCategory.OST_VolumeOfInterest))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{elementIdLong} is not a scope box");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{elementIdLong} is not a scope box");
 
         using var tx = new Transaction(doc, "RiveTT: Rename Scope Box");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         elem.Name = newName!;
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new { id = ToolHelpers.GetElementIdValue(elem.Id), name = elem.Name });
+        return RiveTTResult<object>.Ok(new { id = ToolHelpers.GetElementIdValue(elem.Id), name = elem.Name });
     }
 
-    private static CortexResult<object> MoveScopeBox(Document doc, JObject input)
+    private static RiveTTResult<object> MoveScopeBox(Document doc, JObject input)
     {
         var elementIdLong = input["elementId"]?.Value<long?>() ?? 0;
         var translationToken = input["translation"];
         if (elementIdLong <= 0 || translationToken == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "elementId and translation ({x,y,z} mm) are required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "elementId and translation ({x,y,z} mm) are required");
 
         var id = ToolHelpers.ToElementId(elementIdLong);
         var elem = doc.GetElement(id);
         if (elem == null || elem.Category?.Id != new ElementId(BuiltInCategory.OST_VolumeOfInterest))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{elementIdLong} is not a scope box");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{elementIdLong} is not a scope box");
 
         var translation = new XYZ(
             (translationToken["x"]?.Value<double>() ?? 0) / MmPerFoot,
@@ -137,11 +137,11 @@ public class ManageScopeBoxesTool : ICortexTool
         tx.Start();
         ElementTransformUtils.MoveElement(doc, id, translation);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
         var bb = elem.get_BoundingBox(null);
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             id = ToolHelpers.GetElementIdValue(elem.Id),
             minMm = bb != null ? ToMm(bb.Min) : null,
@@ -149,12 +149,12 @@ public class ManageScopeBoxesTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> AssignToViews(Document doc, JObject input)
+    private static RiveTTResult<object> AssignToViews(Document doc, JObject input)
     {
         var scopeBoxIdLong = input["scopeBoxId"]?.Value<long?>();
         var viewIds = input["viewIds"]?.ToObject<List<long>>() ?? new List<long>();
         if (scopeBoxIdLong == null || viewIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "scopeBoxId and viewIds (array) are required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "scopeBoxId and viewIds (array) are required");
 
         var targetId = scopeBoxIdLong.Value > 0 ? ToolHelpers.ToElementId(scopeBoxIdLong.Value) : ElementId.InvalidElementId;
 
@@ -182,10 +182,10 @@ public class ManageScopeBoxesTool : ICortexTool
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new { appliedCount = applied.Count, appliedViewIds = applied, warnings });
+        return RiveTTResult<object>.Ok(new { appliedCount = applied.Count, appliedViewIds = applied, warnings });
     }
 
     private static object ToMm(XYZ p) => new { x = p.X * MmPerFoot, y = p.Y * MmPerFoot, z = p.Z * MmPerFoot };

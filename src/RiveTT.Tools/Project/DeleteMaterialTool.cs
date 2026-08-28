@@ -19,7 +19,7 @@ namespace RiveTT.Tools.Project;
 /// preview probes the real cascade instead of only naming the material.
 /// </summary>
 [ToolSafety(false, true)]
-public class DeleteMaterialTool : ICortexTool
+public class DeleteMaterialTool : IRiveTTTool
 {
     public string Name => "delete_material";
     public string Category => "Project";
@@ -29,17 +29,17 @@ public class DeleteMaterialTool : ICortexTool
         "Deletes a material from the project by ID or name. Defaults to dryRun=true: the preview names the "
         + "material and reports the real deletion cascade. Set dryRun=false to execute.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var materialId   = input["materialId"]?.Value<long?>();
         var materialName = input["materialName"]?.Value<string>();
 
         if (materialId == null && string.IsNullOrWhiteSpace(materialName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Provide materialId or materialName",
                 suggestion: "Use list_materials to find the material to delete");
 
@@ -61,7 +61,7 @@ public class DeleteMaterialTool : ICortexTool
             }
 
             if (material == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Material not found (id={materialId}, name={materialName})",
                     suggestion: "Use list_materials to list available materials");
 
@@ -78,12 +78,12 @@ public class DeleteMaterialTool : ICortexTool
                 tx.Start();
                 doc.Delete(material.Id);
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 deleted = true,
                 materialName = matName,
@@ -92,7 +92,7 @@ public class DeleteMaterialTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to delete material: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to delete material: {ex.Message}");
         }
     }
 }

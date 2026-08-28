@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Sheets;
 /// Creates multiple sheets at once with title blocks and optional view placement.
 /// </summary>
 [ToolSafety(false, false)]
-public class BatchCreateSheetsTool : ICortexTool
+public class BatchCreateSheetsTool : IRiveTTTool
 {
     public string Name => "batch_create_sheets";
     public string Category => "Sheets";
@@ -25,18 +25,18 @@ public class BatchCreateSheetsTool : ICortexTool
         + "in the title block's real frame (not the sheet origin, which is not the frame corner); several views "
         + "on one sheet are tiled one per cell. Previews by default: set dryRun=false to create.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var sheetsArray = input["sheets"]?.ToObject<List<JObject>>() ?? new List<JObject>();
         var defaultTitleBlockName = input["defaultTitleBlockName"]?.Value<string>();
         var dryRun = ToolHelpers.GetDryRun(input);
 
         if (sheetsArray.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sheets array is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheets array is required");
 
         try
         {
@@ -119,7 +119,7 @@ public class BatchCreateSheetsTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
@@ -134,7 +134,7 @@ public class BatchCreateSheetsTool : ICortexTool
                     + "placed: Revit refuses a view already placed on another sheet. See each sheet's "
                     + "placedViews[].reason.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 createdCount = results.Count(r => ((dynamic)r).success),
                 sheets = results,
@@ -146,7 +146,7 @@ public class BatchCreateSheetsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
@@ -155,7 +155,7 @@ public class BatchCreateSheetsTool : ICortexTool
     /// per sheet, the views that would be placed, and any sheet number already taken —
     /// Revit rejects a duplicate number, and finding that out mid-batch leaves half a set.
     /// </summary>
-    private static CortexResult<object> Preview(
+    private static RiveTTResult<object> Preview(
         Document doc, List<JObject> sheetsArray, ElementId defaultTbId, string? defaultTitleBlockName)
     {
         var existingNumbers = new HashSet<string>(
@@ -216,7 +216,7 @@ public class BatchCreateSheetsTool : ICortexTool
 
         var blocked = planned.Count(p => ((dynamic)p).numberAlreadyUsed || !((dynamic)p).titleBlockFound);
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             dryRun = true,
             message = $"DryRun: {sheetsArray.Count} sheet(s) would be created"

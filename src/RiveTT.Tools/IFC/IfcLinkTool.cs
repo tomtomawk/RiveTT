@@ -14,7 +14,7 @@ namespace RiveTT.Tools.IFC;
 /// Creates an intermediate .ifc.RVT file and a RevitLinkInstance.
 /// </summary>
 [ToolSafety(false, false)]
-public class IfcLinkTool : ICortexTool
+public class IfcLinkTool : IRiveTTTool
 {
     public string Name => "ifc_link";
     public string Category => "IFC";
@@ -22,27 +22,27 @@ public class IfcLinkTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Link an IFC file into the active Revit document";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
 
         var ifcFilePath = input["ifcFilePath"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(ifcFilePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "ifcFilePath is required",
                 suggestion: "Provide the full path to the IFC file to link");
 
         // H25-wave: gate caller paths; UNC allowed because linking from network shares
         // is a standard BIM workflow and the confirmation dialog shows the path.
         if (!PathSafety.TryResolveSafe(ifcFilePath, out var safeIfcPath, out var pathError, allowUnc: true))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, temp, or a network share");
         ifcFilePath = safeIfcPath;
 
         if (!File.Exists(ifcFilePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"IFC file not found: {ifcFilePath}");
 
         var revitFilePath = input["revitFilePath"]?.Value<string>();
@@ -54,7 +54,7 @@ public class IfcLinkTool : ICortexTool
         {
             // CreateFromIFC overwrites this file — never let it point at an unvetted location.
             if (!PathSafety.TryResolveSafe(revitFilePath, out var safeRvtPath, out var rvtPathError, allowUnc: true))
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     rvtPathError,
                     suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, temp, or a network share");
             revitFilePath = safeRvtPath;
@@ -66,7 +66,7 @@ public class IfcLinkTool : ICortexTool
             ? $"Link: {Path.GetFileName(ifcFilePath)} (overwrites cache {Path.GetFileName(revitFilePath)})"
             : $"Link: {Path.GetFileName(ifcFilePath)}";
         if (!session.RequestConfirmation("link IFC file", 1, confirmDetail))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         try
         {
@@ -84,11 +84,11 @@ public class IfcLinkTool : ICortexTool
                 if (linkTypeId == null || linkTypeId == ElementId.InvalidElementId)
                 {
                     tx.RollBack();
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         "CreateFromIFC returned an invalid element ID");
                 }
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -100,12 +100,12 @@ public class IfcLinkTool : ICortexTool
                 tx2.Start();
                 instance = RevitLinkInstance.Create(doc!, linkTypeId);
                 if (tx2.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures2)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 linkTypeId = ToolHelpers.GetElementIdValue(linkTypeId),
                 instanceId = ToolHelpers.GetElementIdValue(instance.Id),
@@ -117,7 +117,7 @@ public class IfcLinkTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to link IFC file: {ex.Message}",
                 suggestion: "Ensure the IFC file is valid and Revit can access the path");
         }

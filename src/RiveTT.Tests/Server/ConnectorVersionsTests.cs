@@ -67,7 +67,7 @@ public class ConnectorVersionsTests
     [Fact]
     public void Stamp_ToolNotFound_CarriesTheMismatchInTheErrorContext()
     {
-        // The shape CortexRouter returns for an unknown tool — the exact symptom a
+        // The shape RiveTTRouter returns for an unknown tool — the exact symptom a
         // server/plugin split produces, so this is where the explanation must land.
         var failure = new JObject
         {
@@ -137,7 +137,7 @@ public class ExecutionVersionFieldSourceTests
 {
     private static string RouterSource() => File.ReadAllText(
         Path.GetFullPath(Path.Combine(
-            "..", "..", "..", "..", "..", "src", "RiveTT.Plugin", "CortexRouter.cs")));
+            "..", "..", "..", "..", "..", "src", "RiveTT.Plugin", "RiveTTRouter.cs")));
 
     [Fact]
     public void Router_ReportsPluginVersion()

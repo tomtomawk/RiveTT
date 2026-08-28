@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Workflows;
 /// Auto-generates room documentation: callout views and optional sections from rooms.
 /// </summary>
 [ToolSafety(false, false)]
-public class WorkflowRoomDocumentationTool : ICortexTool
+public class WorkflowRoomDocumentationTool : IRiveTTTool
 {
     public string Name => "workflow_room_documentation";
     public string Category => "Workflows";
@@ -24,11 +24,11 @@ public class WorkflowRoomDocumentationTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Auto-generates room documentation: callout views and optional sections from rooms.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var levelName = input["levelName"]?.Value<string>();
         var createSections = input["createSections"]?.Value<bool>() ?? true;
@@ -47,7 +47,7 @@ public class WorkflowRoomDocumentationTool : ICortexTool
                 rooms = rooms.Where(r => r.Level?.Name?.Equals(levelName, StringComparison.OrdinalIgnoreCase) == true).ToList();
 
             if (rooms.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No placed rooms found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No placed rooms found");
 
             var offset = offsetMm / MmPerFoot;
             var createdViews = new List<object>();
@@ -118,10 +118,10 @@ public class WorkflowRoomDocumentationTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 roomCount = rooms.Count,
                 createdViewCount = createdViews.Count,
@@ -132,7 +132,7 @@ public class WorkflowRoomDocumentationTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

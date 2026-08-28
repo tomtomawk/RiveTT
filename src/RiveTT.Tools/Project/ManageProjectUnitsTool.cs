@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Project;
 /// Gets or sets project units (length, area, volume, angle, slope, etc.).
 /// </summary>
 [ToolSafety(false, false)]
-public class ManageProjectUnitsTool : ICortexTool
+public class ManageProjectUnitsTool : IRiveTTTool
 {
     public string Name => "manage_project_units";
     public string Category => "Project";
@@ -38,11 +38,11 @@ public class ManageProjectUnitsTool : ICortexTool
         ("temperature",   SpecTypeId.HvacTemperature),
     };
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = input["action"]?.Value<string>() ?? "get";
 
@@ -53,19 +53,19 @@ public class ManageProjectUnitsTool : ICortexTool
                 "get"               => GetUnits(doc),
                 "set"               => SetUnit(doc, input, session),
                 "list_valid_units"  => ListValidUnits(doc, input),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}",
                     suggestion: "Use one of: get, set, list_valid_units")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to manage project units: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> GetUnits(Document doc)
+    private static RiveTTResult<object> GetUnits(Document doc)
     {
         var units = doc.GetUnits();
         var specResults = new List<object>();
@@ -87,40 +87,40 @@ public class ManageProjectUnitsTool : ICortexTool
             catch { /* spec not applicable to this document */ }
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             specCount = specResults.Count,
             specs = specResults
         });
     }
 
-    private static CortexResult<object> SetUnit(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> SetUnit(Document doc, JObject input, RiveTTSession session)
     {
         var specType = input["specType"]?.Value<string>();
         var unit     = input["unit"]?.Value<string>();
 
         if (string.IsNullOrEmpty(specType))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "specType is required (e.g. length, area, volume, angle)");
         if (string.IsNullOrEmpty(unit))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "unit is required (e.g. meters, millimeters, feet)");
 
         var specEntry = Specs.FirstOrDefault(s => s.key == specType!.ToLowerInvariant());
         if (specEntry.specId == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown specType '{specType}'",
                 suggestion: "Use: " + string.Join(", ", Specs.Select(s => s.key)));
 
         var unitTypeId = ResolveUnitTypeId(unit!);
         if (unitTypeId == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown unit '{unit}'. Use list_valid_units to see available options for this spec.");
 
         // Validate unit is applicable to this spec
         var validUnits = UnitUtils.GetValidUnits(specEntry.specId);
         if (!validUnits.Any(u => u.TypeId == unitTypeId.TypeId))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unit '{unit}' is not valid for specType '{specType}'");
 
         var units = doc.GetUnits();
@@ -134,18 +134,18 @@ public class ManageProjectUnitsTool : ICortexTool
         units.SetFormatOptions(specEntry.specId, opts);
 
         if (!session.RequestConfirmation("set project units", 1, $"{specType} -> {unit}"))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Set Project Units");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         doc.SetUnits(units);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action      = "set",
             specType,
@@ -154,13 +154,13 @@ public class ManageProjectUnitsTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> ListValidUnits(Document doc, JObject input)
+    private static RiveTTResult<object> ListValidUnits(Document doc, JObject input)
     {
         var specType = input["specType"]?.Value<string>() ?? "length";
 
         var specEntry = Specs.FirstOrDefault(s => s.key == specType.ToLowerInvariant());
         if (specEntry.specId == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown specType '{specType}'",
                 suggestion: "Use: " + string.Join(", ", Specs.Select(s => s.key)));
 
@@ -171,7 +171,7 @@ public class ManageProjectUnitsTool : ICortexTool
             displayName = TryGetLabel(u)
         }).ToList();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             specType,
             unitCount = result.Count,

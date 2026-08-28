@@ -12,7 +12,7 @@ using static RiveTT.Tools.Utilities.LengthUnits;
 namespace RiveTT.Tools.Elements;
 
 [ToolSafety(false, false)]
-public class ModifyElementTool : ICortexTool
+public class ModifyElementTool : IRiveTTTool
 {
     public string Name => "modify_element";
     public string Category => "Elements";
@@ -21,22 +21,22 @@ public class ModifyElementTool : ICortexTool
     public string Description => "Move, rotate, mirror, or copy elements. Rotate is about the Z axis by default, or any axis via rotationAxis {x,y,z}.";
     // 1 foot = MmPerFoot mm
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var elementIds = input["elementIds"]?.ToObject<long[]>();
         if (elementIds == null || elementIds.Length == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementIds is required");
 
         var action = input["action"]?.Value<string>()?.ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(action))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "action is required",
                 suggestion: "Supported actions: move, rotate, mirror, copy");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // Resolve valid element ids
@@ -49,7 +49,7 @@ public class ModifyElementTool : ICortexTool
             .ToList();
 
         if (revitIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No valid elements found for the provided elementIds");
 
         try
@@ -77,13 +77,13 @@ public class ModifyElementTool : ICortexTool
                         break;
                     default:
                         tx.RollBack();
-                        return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                             $"Unknown action '{action}'",
                             suggestion: "Supported actions: move, rotate, mirror, copy");
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -95,15 +95,15 @@ public class ModifyElementTool : ICortexTool
             }
 
             var resultData = BuildResult(action, revitIds.Count, newElementIds);
-            return CortexResult<object>.Ok(resultData);
+            return RiveTTResult<object>.Ok(resultData);
         }
         catch (ArgumentException ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, ex.Message);
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, ex.Message);
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Modify element failed: {ex.Message}");
         }
     }

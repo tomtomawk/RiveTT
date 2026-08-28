@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 /// worksets, Revit links, and levels.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetProjectInfoTool : ICortexTool, ICacheableTool
+public class GetProjectInfoTool : IRiveTTTool, ICacheableTool
 {
     public string Name => "get_project_info";
     public string Category => "Project";
@@ -24,11 +24,11 @@ public class GetProjectInfoTool : ICortexTool, ICacheableTool
     public bool IsDynamic => false;
     public string Description => "Returns comprehensive project metadata: name, address, author, phases, worksets, Revit links, and levels.";
     public CacheScope CacheScope => CacheScope.Document;
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var includePhases   = input["includePhases"]?.Value<bool>() ?? true;
@@ -125,11 +125,11 @@ public class GetProjectInfoTool : ICortexTool, ICacheableTool
                 result["levels"] = levels;
             }
 
-            return CortexResult<object>.Ok(result);
+            return RiveTTResult<object>.Ok(result);
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get project info: {ex.Message}");
         }
     }

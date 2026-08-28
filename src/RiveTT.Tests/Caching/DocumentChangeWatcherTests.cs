@@ -20,31 +20,31 @@ public class DocumentChangeWatcherTests
         public int InvalidateAllCount { get; private set; }
 
         public bool TryGet(string toolName, string paramHash, CacheScope scope,
-            long currentDocVersion, out CortexResult<object> result)
+            long currentDocVersion, out RiveTTResult<object> result)
         {
             result = null!;
             return false;
         }
 
         public bool TryGet(string toolName, string paramHash, CacheScope scope,
-            long currentDocVersion, out CortexResult<object> result, out long estimatedBytes)
+            long currentDocVersion, out RiveTTResult<object> result, out long estimatedBytes)
         {
             estimatedBytes = 0;
             return TryGet(toolName, paramHash, scope, currentDocVersion, out result);
         }
 
         public void Set(string toolName, string paramHash, CacheScope scope,
-            long currentDocVersion, CortexResult<object> result, long? knownBytes = null) { }
+            long currentDocVersion, RiveTTResult<object> result, long? knownBytes = null) { }
 
         public void InvalidateScope(CacheScope scope) => InvalidatedScopes.Add(scope);
         public void InvalidateAll() => InvalidateAllCount++;
         public CacheStats GetStats() => new CacheStats();
     }
 
-    private static (CortexSession session, RecordingCache cache) NewSession()
+    private static (RiveTTSession session, RecordingCache cache) NewSession()
     {
         var cache = new RecordingCache();
-        var session = new CortexSession(new SessionStore(), cache);
+        var session = new RiveTTSession(new SessionStore(), cache);
         return (session, cache);
     }
 
@@ -110,11 +110,11 @@ public class DocumentChangeWatcherTests
     public void DocumentChanged_BumpsVersion_StaleEntriesMissOnNextLookup()
     {
         // End-to-end: real ToolResultCache + CacheInvalidator together.
-        var session = new CortexSession(new SessionStore(), new ToolResultCache());
+        var session = new RiveTTSession(new SessionStore(), new ToolResultCache());
         var inv = new CacheInvalidator(session);
 
         session.Cache.Set("list_phases", "h", CacheScope.Document,
-            session.DocumentVersion, CortexResult<object>.Ok("v1"));
+            session.DocumentVersion, RiveTTResult<object>.Ok("v1"));
         Assert.True(session.Cache.TryGet("list_phases", "h", CacheScope.Document,
             session.DocumentVersion, out _));
 

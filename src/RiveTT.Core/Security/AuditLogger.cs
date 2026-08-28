@@ -20,14 +20,14 @@ public class AuditLogger
 
     public AuditLogger(string? logPath = null)
     {
-        _logPath = logPath ?? CortexEnvironment.Current.AuditLogPath;
+        _logPath = logPath ?? RiveTTEnvironment.Current.AuditLogPath;
     }
 
     /// <summary>
     /// Log a tool execution to the audit trail (legacy overload, schema v1).
     /// </summary>
     public void Log(string toolName, string inputSummary, bool success,
-        CortexErrorCode? errorCode = null, int elementsAffected = 0)
+        RiveTTErrorCode? errorCode = null, int elementsAffected = 0)
     {
         WriteEntry(new AuditEntry
         {
@@ -42,14 +42,14 @@ public class AuditLogger
 
     /// <summary>
     /// Log a tool execution with performance data and optional send_code_to_revit
-    /// snippet/hash (schema v2). Used by CortexRouter so rclog can diagnose
+    /// snippet/hash (schema v2). Used by RiveTTRouter so rclog can diagnose
     /// perf bottlenecks and token-heavy tools.
     /// errorMessage is the human-readable failure detail (truncated to 200 chars)
     /// and lets triage distinguish e.g. "Unhandled exception: NRE" from
     /// "No result from tool execution" when both surface as Unknown.
     /// </summary>
     public void LogWithPerf(string toolName, string inputSummary, bool success,
-        CortexErrorCode? errorCode = null, int elementsAffected = 0,
+        RiveTTErrorCode? errorCode = null, int elementsAffected = 0,
         long? durationMs = null, long? responseBytes = null,
         string? codeSnippet = null, string? codeHash = null,
         string? errorMessage = null, string? outputSummary = null)

@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Parameters;
 /// Copies parameter values from a source element to target elements.
 /// </summary>
 [ToolSafety(false, true)]
-public class TransferParametersTool : ICortexTool
+public class TransferParametersTool : IRiveTTTool
 {
     public string Name => "transfer_parameters";
     public string Category => "Parameters";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Copies parameter values from a source element to target elements.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var sourceId = input["sourceElementId"]?.Value<long>() ?? 0;
         var targetIds = input["targetElementIds"]?.ToObject<List<long>>() ?? new List<long>();
@@ -34,15 +34,15 @@ public class TransferParametersTool : ICortexTool
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (sourceId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sourceElementId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sourceElementId is required");
         if (targetIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "targetElementIds is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "targetElementIds is required");
 
         try
         {
             var source = doc.GetElement(new ElementId(sourceId));
             if (source == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Source element not found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Source element not found");
 
             // Collect source parameter values
             var sourceValues = new Dictionary<string, (StorageType type, object? val)>();
@@ -71,14 +71,14 @@ public class TransferParametersTool : ICortexTool
             if (!dryRun)
             {
                 if (!session.RequestConfirmation("transfer parameters to", targetIds.Count))
-                    return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Transfer Parameters");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 results = TransferToTargets(doc, targetIds, sourceValues, includeType);
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -87,7 +87,7 @@ public class TransferParametersTool : ICortexTool
                 results = PreviewTransfer(doc, targetIds, sourceValues);
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun,
                 sourceId,
@@ -98,7 +98,7 @@ public class TransferParametersTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

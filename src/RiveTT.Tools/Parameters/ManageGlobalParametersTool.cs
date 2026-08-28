@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Parameters;
 /// Global parameters are project-level named values that can drive dimensions and constraints.
 /// </summary>
 [ToolSafety(false, true)]
-public class ManageGlobalParametersTool : ICortexTool
+public class ManageGlobalParametersTool : IRiveTTTool
 {
     public string Name => "manage_global_parameters";
     public string Category => "Parameters";
@@ -23,14 +23,14 @@ public class ManageGlobalParametersTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Lists, creates, reads, updates, or deletes global parameters. Actions: list, get, create, set, delete.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         if (!GlobalParametersManager.AreGlobalParametersAllowed(doc))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Global parameters are not supported in this document type (families not supported)");
 
         var action = input["action"]?.Value<string>() ?? "list";
@@ -49,19 +49,19 @@ public class ManageGlobalParametersTool : ICortexTool
                 "move_up"     => ReorderGlobalParameter(doc, input, up: true),
                 "move_down"   => ReorderGlobalParameter(doc, input, up: false),
                 "sort"        => SortGlobalParameters(doc, input),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}",
                     suggestion: "Use one of: list, get, create, set, delete, rename, set_formula, move_up, move_down, sort")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to manage global parameters: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListGlobalParameters(Document doc)
+    private static RiveTTResult<object> ListGlobalParameters(Document doc)
     {
         var paramIds = GlobalParametersManager.GetAllGlobalParameters(doc);
         var parameters = paramIds
@@ -70,35 +70,35 @@ public class ManageGlobalParametersTool : ICortexTool
             .Select(gp => BuildParameterInfo(gp!))
             .ToList();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             parameterCount = parameters.Count,
             parameters
         });
     }
 
-    private static CortexResult<object> GetGlobalParameter(Document doc, JObject input)
+    private static RiveTTResult<object> GetGlobalParameter(Document doc, JObject input)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required");
 
         var gp = FindByName(doc, name!);
         if (gp == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Global parameter '{name}' not found");
 
-        return CortexResult<object>.Ok(BuildParameterInfo(gp));
+        return RiveTTResult<object>.Ok(BuildParameterInfo(gp));
     }
 
-    private static CortexResult<object> CreateGlobalParameter(Document doc, JObject input)
+    private static RiveTTResult<object> CreateGlobalParameter(Document doc, JObject input)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required");
 
         if (FindByName(doc, name!) != null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"A global parameter named '{name}' already exists");
 
         var dataType    = input["dataType"]?.Value<string>() ?? "text";
@@ -118,11 +118,11 @@ public class ManageGlobalParametersTool : ICortexTool
             ApplyStringValue(gp, initialValue!);
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "create",
             name = gp.Name,
@@ -131,23 +131,23 @@ public class ManageGlobalParametersTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> SetGlobalParameterValue(Document doc, JObject input)
+    private static RiveTTResult<object> SetGlobalParameterValue(Document doc, JObject input)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required");
 
         var value = input["value"]?.Value<string>();
         if (value == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "value is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "value is required");
 
         var gp = FindByName(doc, name!);
         if (gp == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Global parameter '{name}' not found");
 
         if (!string.IsNullOrEmpty(GetFormula(gp)))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Parameter '{name}' is driven by a formula and cannot be set directly");
 
         using var tx = new Transaction(doc, "RiveTT: Set Global Parameter Value");
@@ -155,58 +155,58 @@ public class ManageGlobalParametersTool : ICortexTool
         tx.Start();
         ApplyStringValue(gp, value);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { action = "set", name, value });
+        return RiveTTResult<object>.Ok(new { action = "set", name, value });
     }
 
-    private static CortexResult<object> DeleteGlobalParameter(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> DeleteGlobalParameter(Document doc, JObject input, RiveTTSession session)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required");
 
         var gp = FindByName(doc, name!);
         if (gp == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Global parameter '{name}' not found");
 
         if (!session.RequestConfirmation("delete global parameter", 1))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Delete Global Parameter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         doc.Delete(gp.Id);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { action = "delete", name });
+        return RiveTTResult<object>.Ok(new { action = "delete", name });
     }
 
     /// <summary>
     /// Renames a global parameter. Unlike shared/project parameters, the
     /// GlobalParameter.Name setter is writable, so this is supported.
     /// </summary>
-    private static CortexResult<object> RenameGlobalParameter(Document doc, JObject input)
+    private static RiveTTResult<object> RenameGlobalParameter(Document doc, JObject input)
     {
         var name = input["name"]?.Value<string>();
         var newName = input["newName"]?.Value<string>();
         if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Both name and newName are required for rename.");
 
         var gp = FindByName(doc, name!);
         if (gp == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Global parameter '{name}' not found");
 
         if (!GlobalParametersManager.IsUniqueName(doc, newName!))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"A global parameter named '{newName}' already exists.");
 
         using var tx = new Transaction(doc, "RiveTT: Rename Global Parameter");
@@ -214,32 +214,32 @@ public class ManageGlobalParametersTool : ICortexTool
         tx.Start();
         gp.Name = newName;
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { action = "rename", oldName = name, newName });
+        return RiveTTResult<object>.Ok(new { action = "rename", oldName = name, newName });
     }
 
     /// <summary>
     /// Sets (or clears, with an empty string) the formula driving a global
     /// parameter. A formula makes the parameter's value read-only.
     /// </summary>
-    private static CortexResult<object> SetGlobalParameterFormula(Document doc, JObject input)
+    private static RiveTTResult<object> SetGlobalParameterFormula(Document doc, JObject input)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required");
 
         // formula may be empty string to clear; treat missing (null) as an error.
         if (input["formula"] == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "formula is required for set_formula (pass an empty string to clear the formula).");
         var formula = input["formula"]!.Value<string>() ?? "";
 
         var gp = FindByName(doc, name!);
         if (gp == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Global parameter '{name}' not found");
 
         using var tx = new Transaction(doc, "RiveTT: Set Global Parameter Formula");
@@ -249,19 +249,19 @@ public class ManageGlobalParametersTool : ICortexTool
         {
             gp.SetFormula(formula);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
         catch (Exception ex)
         {
             if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Revit rejected the formula: {ex.Message}",
                 suggestion: "Check the formula syntax and that referenced parameters exist and don't create a circular reference.");
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "set_formula",
             name,
@@ -274,15 +274,15 @@ public class ManageGlobalParametersTool : ICortexTool
     /// Moves a global parameter up or down in evaluation/display order. Ordering
     /// only shifts within the parameter's group.
     /// </summary>
-    private static CortexResult<object> ReorderGlobalParameter(Document doc, JObject input, bool up)
+    private static RiveTTResult<object> ReorderGlobalParameter(Document doc, JObject input, bool up)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required");
 
         var gp = FindByName(doc, name!);
         if (gp == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Global parameter '{name}' not found");
 
         bool moved;
@@ -294,12 +294,12 @@ public class ManageGlobalParametersTool : ICortexTool
                 ? GlobalParametersManager.MoveParameterUpOrder(doc, gp.Id)
                 : GlobalParametersManager.MoveParameterDownOrder(doc, gp.Id);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = up ? "move_up" : "move_down",
             name,
@@ -311,7 +311,7 @@ public class ManageGlobalParametersTool : ICortexTool
     /// <summary>
     /// Sorts all global parameters ascending or descending (within each group).
     /// </summary>
-    private static CortexResult<object> SortGlobalParameters(Document doc, JObject input)
+    private static RiveTTResult<object> SortGlobalParameters(Document doc, JObject input)
     {
         var order = (input["order"]?.Value<string>() ?? "ascending").ToLowerInvariant();
         var sortOrder = order == "descending" || order == "desc"
@@ -324,12 +324,12 @@ public class ManageGlobalParametersTool : ICortexTool
             tx.Start();
             GlobalParametersManager.SortParameters(doc, sortOrder);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
 
-        return CortexResult<object>.Ok(new { action = "sort", order = sortOrder.ToString() });
+        return RiveTTResult<object>.Ok(new { action = "sort", order = sortOrder.ToString() });
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────

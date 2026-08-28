@@ -18,7 +18,7 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's GetElementsInSpatialVolumeEventHandler logic.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetElementsInSpatialVolumeTool : ICortexTool
+public class GetElementsInSpatialVolumeTool : IRiveTTTool
 {
     public string Name => "get_elements_in_spatial_volume";
     public string Category => "Elements";
@@ -27,11 +27,11 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
     public string Description => "Returns elements contained within a spatial volume: a room, an area, or a custom axis-aligned bounding box (mm). For rooms, true solid containment (Room ClosedShell) is used by default to avoid the over-reporting of an L-shaped room's bounding box; set useRoomSolid=false for the faster bbox approximation. Set containment=\"boundary\" to get the elements that BOUND the room (walls, columns, separation lines) instead of those inside it: solid containment excludes them by design, and the bounding box pulls in unrelated neighbours. Each volume reports the containment mode actually used.";
     // 1 foot = MmPerFoot mm — used for MM<->feet conversions
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // ── Parse inputs ───────────────────────────────────────────────────
@@ -49,7 +49,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
         var containment         = (input["containment"]?.Value<string>() ?? "inside")
                                     .Trim().ToLowerInvariant();
         if (containment is not ("inside" or "boundary"))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"containment '{containment}' is not recognized. Use \"inside\" (default) or \"boundary\".");
 
         // Custom bounding box coordinates in mm
@@ -63,7 +63,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
         // Validate volumeType
         var normalizedVolumeType = volumeType.ToLowerInvariant();
         if (normalizedVolumeType != "room" && normalizedVolumeType != "area" && normalizedVolumeType != "custom")
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Invalid volumeType '{volumeType}'. Must be 'room', 'area', or 'custom'.");
 
         try
@@ -228,7 +228,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message        = $"Found {totalElements} element(s) across {volumeResults.Count} volume(s) " +
                                  $"(containment={containment})",
@@ -241,7 +241,7 @@ public class GetElementsInSpatialVolumeTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to retrieve elements in spatial volume: {ex.Message}");
         }
     }

@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Sheets;
 /// Aligns viewports across sheets by placement position or model coordinates.
 /// </summary>
 [ToolSafety(false, false)]
-public class AlignViewportsTool : ICortexTool
+public class AlignViewportsTool : IRiveTTTool
 {
     public string Name => "align_viewports";
     public string Category => "Sheets";
@@ -23,26 +23,26 @@ public class AlignViewportsTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Aligns viewports across sheets. alignMode 'placement' matches box centers; 'model' matches the box outline min-corner so equal-scale views of the same model region line up.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var sourceViewportId = input["sourceViewportId"]?.Value<long>() ?? 0;
         var targetViewportIds = input["targetViewportIds"]?.ToObject<List<long>>() ?? new List<long>();
         var alignMode = input["alignMode"]?.Value<string>() ?? "placement";
 
         if (sourceViewportId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sourceViewportId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sourceViewportId is required");
         if (targetViewportIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "targetViewportIds array is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "targetViewportIds array is required");
 
         try
         {
             var sourceVp = doc.GetElement(new ElementId(sourceViewportId)) as Viewport;
             if (sourceVp == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Source viewport not found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Source viewport not found");
 
             var useModel = alignMode.Equals("model", StringComparison.OrdinalIgnoreCase);
             var sourceCenter = sourceVp.GetBoxCenter();
@@ -82,11 +82,11 @@ public class AlignViewportsTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 alignedCount = results.Count(r => ((dynamic)r).success),
                 alignMode,
@@ -96,7 +96,7 @@ public class AlignViewportsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

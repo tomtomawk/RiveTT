@@ -10,7 +10,7 @@ namespace RiveTT.Tests.Tools;
 public class ToolCatalogParitySourceTests
 {
     // Typed MCP aliases that intentionally compose an existing generic plugin
-    // tool rather than requiring a duplicate ICortexTool implementation.
+    // tool rather than requiring a duplicate IRiveTTTool implementation.
     private static readonly HashSet<string> ComposedAliases = new(StringComparer.Ordinal)
     {
         "create_wall",
@@ -70,7 +70,7 @@ public class ToolCatalogParitySourceTests
             .ToList();
 
         Assert.True(missing.Count == 0,
-            "MCP server tools without matching ICortexTool registry names: " +
+            "MCP server tools without matching IRiveTTTool registry names: " +
             string.Join(", ", missing));
     }
 }

@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// Analyzes model complexity with element counts, category breakdown, and level distribution.
 /// </summary>
 [ToolSafety(true, false)]
-public class AnalyzeModelStatisticsTool : ICortexTool
+public class AnalyzeModelStatisticsTool : IRiveTTTool
 {
     public string Name => "analyze_model_statistics";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Analyzes model complexity with element counts, category breakdown, and level distribution.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var includeDetailedTypes = input["includeDetailedTypes"]?.Value<bool>() ?? false;
         var compact = input["compact"]?.Value<bool>() ?? false;
@@ -90,11 +90,11 @@ public class AnalyzeModelStatisticsTool : ICortexTool
                     : null
             };
 
-            return CortexResult<object>.Ok(result);
+            return RiveTTResult<object>.Ok(result);
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

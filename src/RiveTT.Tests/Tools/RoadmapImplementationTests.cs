@@ -123,7 +123,7 @@ public sealed class RoadmapImplementationTests
 
     private static void AssertDryRunBeforeTransaction(string source, string method, string nextMethod)
     {
-        var start = source.IndexOf($"private static CortexResult<object> {method}(", StringComparison.Ordinal);
+        var start = source.IndexOf($"private static RiveTTResult<object> {method}(", StringComparison.Ordinal);
         var end = source.IndexOf("\n    private static ", start + 1, StringComparison.Ordinal);
         Assert.True(start >= 0 && end > start, $"Could not isolate {method}");
         var body = source.Substring(start, end - start);

@@ -14,7 +14,7 @@ namespace RiveTT.Tools.IFC;
 /// whether the open-source revit-ifc add-in is installed.
 /// </summary>
 [ToolSafety(true, false)]
-public class IfcGetCapabilitiesTool : ICortexTool
+public class IfcGetCapabilitiesTool : IRiveTTTool
 {
     public string Name => "ifc_get_capabilities";
     public string Category => "IFC";
@@ -22,7 +22,7 @@ public class IfcGetCapabilitiesTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Get IFC capabilities: supported versions, import/export availability, revit-ifc add-in detection";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var supportedExportVersions = new List<string>();
         foreach (var v in Enum.GetValues(typeof(IFCVersion)))
@@ -44,7 +44,7 @@ public class IfcGetCapabilitiesTool : ICortexTool
             canLink = true,
         };
 
-        return CortexResult<object>.Ok(capabilities);
+        return RiveTTResult<object>.Ok(capabilities);
     }
 
     private static bool DetectRevitIfcAddin()

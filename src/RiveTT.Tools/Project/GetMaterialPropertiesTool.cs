@@ -14,25 +14,25 @@ namespace RiveTT.Tools.Project;
 /// structural and thermal asset data.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetMaterialPropertiesTool : ICortexTool
+public class GetMaterialPropertiesTool : IRiveTTTool
 {
     public string Name => "get_material_properties";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Retrieves detailed properties for a specific material including structural and thermal asset data.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var materialId   = input["materialId"]?.Value<long?>();
         var materialName = input["materialName"]?.Value<string>();
 
         if (materialId == null && string.IsNullOrWhiteSpace(materialName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Provide either materialId or materialName",
                 suggestion: "Use list_materials to find material IDs first");
 
@@ -54,7 +54,7 @@ public class GetMaterialPropertiesTool : ICortexTool
             }
 
             if (material == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Material not found (id={materialId}, name={materialName})",
                     suggestion: "Use list_materials to list available materials");
 
@@ -131,11 +131,11 @@ public class GetMaterialPropertiesTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(result);
+            return RiveTTResult<object>.Ok(result);
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get material properties: {ex.Message}");
         }
     }

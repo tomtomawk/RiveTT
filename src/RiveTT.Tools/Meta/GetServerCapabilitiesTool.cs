@@ -8,7 +8,7 @@ using RiveTT.Core.Tools;
 namespace RiveTT.Tools.Meta;
 
 [ToolSafety(true, false)]
-public sealed class GetServerCapabilitiesTool : ICortexTool
+public sealed class GetServerCapabilitiesTool : IRiveTTTool
 {
     public string Name => "get_server_capabilities";
     public string Category => "Meta";
@@ -16,10 +16,10 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Report the effective RiveTT execution, safety, response, and document capability contract.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var caps = session.Capabilities;
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             connector = "RiveTT",
             // Read from the active document rather than a literal: this connector's
@@ -75,7 +75,7 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
                                "language (Mark/Repere, Level/Niveau, Width/Largeur, Type Name/Nom du type)",
                 unresolved = "reported in unresolvedParameterNames with suggestions, never as an empty column"
             },
-            auditLogPath = CortexEnvironment.Current.AuditLogPath,
+            auditLogPath = RiveTTEnvironment.Current.AuditLogPath,
             responseModes = new[] { "summary", "idsOnly", "details" },
             selectionScopes = new[]
             {
@@ -117,7 +117,7 @@ public sealed class GetServerCapabilitiesTool : ICortexTool
         });
     }
 
-    private static string GetActiveRevitVersion(CortexSession session)
+    private static string GetActiveRevitVersion(RiveTTSession session)
     {
         try
         {

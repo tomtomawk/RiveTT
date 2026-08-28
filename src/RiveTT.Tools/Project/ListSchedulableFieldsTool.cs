@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Project;
 /// a temporary schedule. Requires a transaction (creates + deletes temp element).
 /// </summary>
 [ToolSafety(true, false)]
-public class ListSchedulableFieldsTool : ICortexTool
+public class ListSchedulableFieldsTool : IRiveTTTool
 {
     public string Name => "list_schedulable_fields";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Discovers all available schedulable fields for a given category by creating a temporary schedule. Requires a transaction (creates + deletes temp element).";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // Accept both "categoryName" (wrapper-native) and "category" (the convention used by
@@ -40,7 +40,7 @@ public class ListSchedulableFieldsTool : ICortexTool
 
         var resolved = CategoryResolver.Resolve(categoryName);
         if (resolved == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown category: {categoryName}",
                 suggestion: "Use OST_* codes like OST_Rooms, or English friendly names like Walls, Doors, Foundations");
         var builtInCategory = resolved.Value;
@@ -52,7 +52,7 @@ public class ListSchedulableFieldsTool : ICortexTool
             List<object> fields;
 
             // Create temp schedule inside a transaction
-            using (var tx = new Transaction(doc, "CortexTempSchedule"))
+            using (var tx = new Transaction(doc, "RiveTTTempSchedule"))
             {
                 tx.Start();
                 // Normalize like CreateScheduleTool (strip separators) so 'material_takeoff',
@@ -81,7 +81,7 @@ public class ListSchedulableFieldsTool : ICortexTool
                 tx.RollBack(); // don't keep the temp schedule
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 category     = categoryName,
                 scheduleType,
@@ -91,7 +91,7 @@ public class ListSchedulableFieldsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to list schedulable fields: {ex.Message}");
         }
     }

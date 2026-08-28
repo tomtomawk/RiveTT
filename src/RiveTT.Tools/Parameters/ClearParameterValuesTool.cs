@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Parameters;
 /// Clears parameter values on elements by category, view, or selection scope.
 /// </summary>
 [ToolSafety(false, true)]
-public class ClearParameterValuesTool : ICortexTool
+public class ClearParameterValuesTool : IRiveTTTool
 {
     public string Name => "clear_parameter_values";
     public string Category => "Parameters";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Clears parameter values on elements by category, view, or selection scope.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var parameterName = input["parameterName"]?.Value<string>();
         var categories = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
@@ -37,7 +37,7 @@ public class ClearParameterValuesTool : ICortexTool
         var sampleLimit = Math.Clamp(input["sampleLimit"]?.Value<int>() ?? 20, 0, 500);
 
         if (string.IsNullOrEmpty(parameterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "parameterName is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "parameterName is required");
 
         try
         {
@@ -61,7 +61,7 @@ public class ClearParameterValuesTool : ICortexTool
             if (!dryRun)
             {
                 if (!session.RequestConfirmation("clear parameter values on", elements.Count()))
-                    return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Clear Parameter Values");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -84,7 +84,7 @@ public class ClearParameterValuesTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -106,7 +106,7 @@ public class ClearParameterValuesTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun,
                 clearedCount = cleared.Count,
@@ -120,7 +120,7 @@ public class ClearParameterValuesTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

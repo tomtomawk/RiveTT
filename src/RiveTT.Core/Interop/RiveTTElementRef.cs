@@ -2,9 +2,9 @@ namespace RiveTT.Core.Interop
 {
     /// <summary>
     /// Minimal cross-application element identity contract shared by
-    /// RiveTT and NavisCortex responses.
+    /// RiveTT and NavisRiveTT responses.
     /// </summary>
-    public class CortexElementRef
+    public class RiveTTElementRef
     {
         public string? SourceApp { get; set; }
         public string? SourceFile { get; set; }

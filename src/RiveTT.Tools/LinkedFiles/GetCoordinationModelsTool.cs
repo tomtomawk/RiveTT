@@ -19,7 +19,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// Read-only listing of Autodesk Revit Coordination Models.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetCoordinationModelsTool : ICortexTool, ICacheableTool
+public class GetCoordinationModelsTool : IRiveTTTool, ICacheableTool
 {
     private const int DefaultMaxInstances = 100;
     private const int MaxInstancesCap = 250;
@@ -31,13 +31,13 @@ public class GetCoordinationModelsTool : ICortexTool, ICacheableTool
     public string Description => "Read-only listing of Autodesk Revit Coordination Models with type metadata and optional instances.";
     public CacheScope CacheScope => CacheScope.Document;
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = ToolHelpers.GetDocument(session);
         if (doc == null)
         {
-            return CortexResult<object>.Fail(
-                CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(
+                RiveTTErrorCode.InvalidInput,
                 "No active document in session",
                 suggestion: "Open a Revit document before using this tool");
         }
@@ -45,8 +45,8 @@ public class GetCoordinationModelsTool : ICortexTool, ICacheableTool
         var rawMaxInstances = input["maxInstances"]?.Value<int?>();
         if (rawMaxInstances.HasValue && rawMaxInstances.Value < 0)
         {
-            return CortexResult<object>.Fail(
-                CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(
+                RiveTTErrorCode.InvalidInput,
                 "maxInstances cannot be negative",
                 suggestion: "Use 0 or a positive integer up to 250");
         }
@@ -65,7 +65,7 @@ public class GetCoordinationModelsTool : ICortexTool, ICacheableTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
@@ -110,9 +110,9 @@ public class GetCoordinationModelsTool : ICortexTool, ICacheableTool
         return false;
     }
 
-    private static CortexResult<object> UnsupportedTargetResult()
+    private static RiveTTResult<object> UnsupportedTargetResult()
     {
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             apiAvailable = false,
             modelCount = 0,
@@ -123,7 +123,7 @@ public class GetCoordinationModelsTool : ICortexTool, ICacheableTool
     }
 
 #if REVIT2027_OR_GREATER
-    private static CortexResult<object> ExecuteWithCoordinationModelApi(
+    private static RiveTTResult<object> ExecuteWithCoordinationModelApi(
         Document doc,
         string? nameFilter,
         bool includeInstances,
@@ -208,7 +208,7 @@ public class GetCoordinationModelsTool : ICortexTool, ICacheableTool
             });
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             apiAvailable = true,
             modelCount = models.Count,

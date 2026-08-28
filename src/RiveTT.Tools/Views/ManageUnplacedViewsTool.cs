@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Views;
 /// Lists or deletes views that are not placed on any sheet.
 /// </summary>
 [ToolSafety(false, true)]
-public class ManageUnplacedViewsTool : ICortexTool
+public class ManageUnplacedViewsTool : IRiveTTTool
 {
     public string Name => "manage_unplaced_views";
     public string Category => "Views";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Lists or deletes views that are not placed on any sheet.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = input["action"]?.Value<string>() ?? "list";
         var viewTypes = input["viewTypes"]?.ToObject<List<string>>() ?? new List<string>();
@@ -67,7 +67,7 @@ public class ManageUnplacedViewsTool : ICortexTool
             {
                 // H4: confirm before permanently deleting views.
                 if (!session.RequestConfirmation("delete unplaced views", views.Count))
-                    return CortexResult<object>.Fail(CortexErrorCode.Cancelled,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled,
                         "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Delete Unplaced Views");
@@ -79,10 +79,10 @@ public class ManageUnplacedViewsTool : ICortexTool
                     try { doc.Delete(v.Id); deleted++; } catch { /* skip protected views */ }
                 }
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
-                return CortexResult<object>.Ok(new { action = "delete", deletedCount = deleted });
+                return RiveTTResult<object>.Ok(new { action = "delete", deletedCount = deleted });
             }
 
             var result = views.Select(v => new
@@ -92,7 +92,7 @@ public class ManageUnplacedViewsTool : ICortexTool
                 viewType = v.ViewType.ToString()
             }).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 action = action == "delete" ? "delete_preview" : "list",
                 unplacedViewCount = result.Count,
@@ -101,7 +101,7 @@ public class ManageUnplacedViewsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

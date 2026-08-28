@@ -58,7 +58,7 @@ internal static class DocumentLifecyclePreview
 }
 
 [ToolSafety(false, false)]
-public sealed class SaveDocumentTool : ICortexTool
+public sealed class SaveDocumentTool : IRiveTTTool
 {
     public string Name => "save_document";
     public string Category => "Documents";
@@ -69,13 +69,13 @@ public sealed class SaveDocumentTool : ICortexTool
         "Saves the active Revit project at its current path. Supports dryRun: the preview reports the " +
         "target path, whether the document has unsaved changes and any predictable blocker, without saving.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var document = session.Store.Get<object>("activeDocument") as Document;
         if (document == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
         if (string.IsNullOrWhiteSpace(document.PathName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "This project has no path yet", suggestion: "Use save_as_document with an absolute RVT path.");
 
         var dryRun = input["dryRun"]?.Value<bool>() ?? false;
@@ -92,7 +92,7 @@ public sealed class SaveDocumentTool : ICortexTool
                 blockers.Add("The target file is locked by another process.");
             if (document.IsReadOnly) blockers.Add("Revit reports this document as read-only.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = blockers.Count == 0
                     ? $"DryRun: would save '{document.Title}' to its current path."
@@ -110,7 +110,7 @@ public sealed class SaveDocumentTool : ICortexTool
         try
         {
             document.Save();
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 path = document.PathName,
                 title = document.Title,
@@ -119,14 +119,14 @@ public sealed class SaveDocumentTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Could not save document: {exception.Message}");
         }
     }
 }
 
 [ToolSafety(false, false)]
-public sealed class SaveAsDocumentTool : ICortexTool
+public sealed class SaveAsDocumentTool : IRiveTTTool
 {
     public string Name => "save_as_document";
     public string Category => "Documents";
@@ -139,7 +139,7 @@ public sealed class SaveAsDocumentTool : ICortexTool
         "predictable blockers, without writing. This duplicates the OPEN document — it does not create a " +
         "blank project from a template.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var document = session.Store.Get<object>("activeDocument") as Document;
         // filePath / path are accepted aliases: a wrong parameter name used to reach
@@ -151,17 +151,17 @@ public sealed class SaveAsDocumentTool : ICortexTool
         var dryRun = input["dryRun"]?.Value<bool>() ?? false;
 
         if (document == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         if (string.IsNullOrWhiteSpace(targetPath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "targetPath is required and was not provided",
                 suggestion: "Pass targetPath (aliases: filePath, path) as an absolute .rvt path, " +
                             "e.g. {\"targetPath\": \"C:\\\\Projets\\\\model_V4.rvt\", \"overwrite\": false}.");
 
         if (!Path.IsPathFullyQualified(targetPath) ||
             !targetPath!.EndsWith(".rvt", StringComparison.OrdinalIgnoreCase))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"targetPath must be an absolute path ending in .rvt (received: {targetPath})");
 
         var targetDirectory = Path.GetDirectoryName(targetPath) ?? "";
@@ -179,7 +179,7 @@ public sealed class SaveAsDocumentTool : ICortexTool
             if (targetExists && DocumentLifecyclePreview.IsFileLocked(targetPath))
                 blockers.Add("The target file is locked by another process.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = blockers.Count == 0
                     ? $"DryRun: would save '{document.Title}' as '{Path.GetFileName(targetPath)}'."
@@ -198,18 +198,18 @@ public sealed class SaveAsDocumentTool : ICortexTool
         }
 
         if (targetExists && !overwrite)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Target already exists: {targetPath}", suggestion: "Set overwrite=true to replace it.");
 
         if (!Directory.Exists(targetDirectory))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Target directory does not exist: {targetDirectory}",
                 suggestion: "Create the directory first, or pick an existing one.");
 
         try
         {
             document.SaveAs(targetPath, new SaveAsOptions { OverwriteExistingFile = overwrite });
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 path = targetPath,
                 title = document.Title,
@@ -221,7 +221,7 @@ public sealed class SaveAsDocumentTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Could not save project as: {exception.Message}");
         }
     }

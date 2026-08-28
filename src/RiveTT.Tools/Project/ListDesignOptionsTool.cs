@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Project;
 /// design options "very limited") — there is nothing to build here, only to read.
 /// </summary>
 [ToolSafety(true, false)]
-public class ListDesignOptionsTool : ICortexTool
+public class ListDesignOptionsTool : IRiveTTTool
 {
     public string Name => "list_design_options";
     public string Category => "Project";
@@ -26,21 +26,21 @@ public class ListDesignOptionsTool : ICortexTool
         "element belongs to. Creating a design option set/option from scratch has no public Revit API " +
         "(confirmed unsupported) — use Revit's own Design Options dialog to create them, then read them here.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var elementIdLong = input["elementId"]?.Value<long?>();
         if (elementIdLong is > 0)
         {
             var elem = doc.GetElement(ToolHelpers.ToElementId(elementIdLong.Value));
             if (elem == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Element {elementIdLong} not found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"Element {elementIdLong} not found");
 
             var option = elem.DesignOption;
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 elementId = elementIdLong,
                 designOptionId = option != null ? ToolHelpers.GetElementIdValue(option.Id) : (long?)null,
@@ -75,6 +75,6 @@ public class ListDesignOptionsTool : ICortexTool
             })
             .ToList();
 
-        return CortexResult<object>.Ok(new { count = sets.Count, designOptionSets = sets });
+        return RiveTTResult<object>.Ok(new { count = sets.Count, designOptionSets = sets });
     }
 }

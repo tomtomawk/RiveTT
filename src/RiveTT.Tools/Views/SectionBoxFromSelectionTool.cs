@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Views;
 /// Creates a 3D section box from selected elements' combined bounding box.
 /// </summary>
 [ToolSafety(false, false)]
-public class SectionBoxFromSelectionTool : ICortexTool
+public class SectionBoxFromSelectionTool : IRiveTTTool
 {
     public string Name => "create_section_box_from_selection";
     public string Category => "Views";
@@ -23,11 +23,11 @@ public class SectionBoxFromSelectionTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates a 3D section box from selected elements' combined bounding box.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var elementIds = input["elementIds"]?.ToObject<List<long>>() ?? new List<long>();
         var offsetMm = input["offset"]?.Value<double>() ?? 1000;
@@ -35,7 +35,7 @@ public class SectionBoxFromSelectionTool : ICortexTool
         var viewName = input["viewName"]?.Value<string>();
 
         if (elementIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "elementIds array is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "elementIds array is required");
 
         try
         {
@@ -55,7 +55,7 @@ public class SectionBoxFromSelectionTool : ICortexTool
             }
 
             if (minPt == null || maxPt == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No valid bounding boxes found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No valid bounding boxes found");
 
             var offset = offsetMm / MmPerFoot;
             var sectionBox = new BoundingBoxXYZ
@@ -74,7 +74,7 @@ public class SectionBoxFromSelectionTool : ICortexTool
                 var vft = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
                     .FirstOrDefault(v => v.ViewFamily == ViewFamily.ThreeDimensional);
                 if (vft == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No 3D view family type");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "No 3D view family type");
 
                 targetView = View3D.CreateIsometric(doc, vft.Id);
                 targetView.Name = viewName ?? $"SectionBox_{DateTime.Now:HHmmss}";
@@ -87,17 +87,17 @@ public class SectionBoxFromSelectionTool : ICortexTool
             }
 
             if (targetView == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No 3D view available to apply a section box",
                     suggestion: "Open or create a 3D view, or pass duplicateView=true");
 
             targetView.SetSectionBox(sectionBox);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 viewId = ToolHelpers.GetElementIdValue(targetView.Id),
                 viewName = targetView.Name,
@@ -106,7 +106,7 @@ public class SectionBoxFromSelectionTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

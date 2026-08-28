@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// Creates a schedule view with specified category, fields, filters, and sort options.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateScheduleTool : ICortexTool
+public class CreateScheduleTool : IRiveTTTool
 {
     public string Name => "create_schedule";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates a schedule view with specified category, fields, filters, and sort options.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var categoryName = input["categoryName"]?.Value<string>()
             ?? input["category"]?.Value<string>()
@@ -51,7 +51,7 @@ public class CreateScheduleTool : ICortexTool
             if ((normalizedType == "materialtakeoff" || normalizedType == "keyschedule")
                 && catId == ElementId.InvalidElementId)
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"categoryName is required and must resolve to a valid category for scheduleType '{scheduleType}'.",
                     suggestion: "Pass a valid categoryName (e.g. OST_Walls) or a localized category display name.");
             }
@@ -161,11 +161,11 @@ public class CreateScheduleTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 scheduleId = ToolHelpers.GetElementIdValue(schedule.Id),
                 scheduleName = schedule.Name,
@@ -181,7 +181,7 @@ public class CreateScheduleTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create schedule: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to create schedule: {ex.Message}");
         }
     }
 }

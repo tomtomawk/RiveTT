@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Project;
 /// Exports a schedule view to CSV/TSV format or returns data as structured JSON.
 /// </summary>
 [ToolSafety(true, false)]
-public class ExportScheduleTool : ICortexTool
+public class ExportScheduleTool : IRiveTTTool
 {
     public string Name => "export_schedule";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Exports a schedule view to CSV/TSV format or returns data as structured JSON.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var scheduleId = input["scheduleId"]?.Value<long>() ?? 0;
         var exportPath = input["exportPath"]?.Value<string>();
@@ -43,13 +43,13 @@ public class ExportScheduleTool : ICortexTool
         var includeHeaders = input["includeHeaders"]?.Value<bool>() ?? true;
 
         if (scheduleId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "scheduleId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "scheduleId is required");
 
         try
         {
             var schedule = doc.GetElement(new ElementId(scheduleId)) as ViewSchedule;
             if (schedule == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Schedule not found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Schedule not found");
 
             var tableData = schedule.GetTableData();
             var sectionData = tableData.GetSectionData(SectionType.Body);
@@ -96,7 +96,7 @@ public class ExportScheduleTool : ICortexTool
                     sb.AppendLine(string.Join(sep, row));
 
                 File.WriteAllText(exportPath, sb.ToString(), Encoding.UTF8);
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     scheduleName = schedule.Name,
                     exportedTo = exportPath,
@@ -105,7 +105,7 @@ public class ExportScheduleTool : ICortexTool
                 });
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 scheduleName = schedule.Name,
                 rowCount = rows.Count,
@@ -115,7 +115,7 @@ public class ExportScheduleTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

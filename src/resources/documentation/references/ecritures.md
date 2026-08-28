@@ -109,7 +109,7 @@ Les raisons de demander plutôt que de supposer :
 ### Bac à sable
 
 Ces espaces de noms sont refusés par `CodeSandbox.Validate` avec
-`CortexErrorCode.PermissionDenied` :
+`RiveTTErrorCode.PermissionDenied` :
 
 `System.IO` · `System.Net` · `System.Diagnostics.Process` · `Microsoft.Win32` ·
 `System.Reflection.Emit` · `System.Runtime.InteropServices`

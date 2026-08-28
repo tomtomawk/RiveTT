@@ -16,28 +16,28 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's SetElementWorksetEventHandler logic.
 /// </summary>
 [ToolSafety(false, false)]
-public class SetElementWorksetTool : ICortexTool
+public class SetElementWorksetTool : IRiveTTTool
 {
     public string Name => "set_element_workset";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => true;
     public string Description => "Moves one or more elements to a named user workset. IsDynamic = true — only available when the document is workshared. Mirrors the fork's SetElementWorksetEventHandler logic.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var requests = input["requests"]?.ToObject<List<SetWorksetRequest>>();
         if (requests == null || requests.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "requests array is required",
                 suggestion: "Provide [{\"elementId\": 123, \"worksetName\": \"Structure\"}]");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         if (!doc.IsWorkshared)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Project is not workshared. Worksets are not available.");
 
         var results = new List<object>();
@@ -45,7 +45,7 @@ public class SetElementWorksetTool : ICortexTool
         var failCount = 0;
 
         if (!session.RequestConfirmation("change workset for", requests.Count))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Set Element Workset");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -111,7 +111,7 @@ public class SetElementWorksetTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
@@ -122,7 +122,7 @@ public class SetElementWorksetTool : ICortexTool
             throw;
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             message = $"Moved {successCount}/{requests.Count} element(s) to target workset successfully",
             successCount,

@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// Exports room data from the current project (name, number, level, area, volume, etc.).
 /// </summary>
 [ToolSafety(true, false)]
-public class ExportRoomDataTool : ICortexTool
+public class ExportRoomDataTool : IRiveTTTool
 {
     public string Name => "export_room_data";
     public string Category => "Elements";
@@ -26,11 +26,11 @@ public class ExportRoomDataTool : ICortexTool
     private const double SqFtToSqM = 0.092903;
     private const double CuFtToCuM = 0.0283168;
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var includeUnplaced = input["includeUnplacedRooms"]?.Value<bool>() ?? false;
         var includeNotEnclosed = input["includeNotEnclosedRooms"]?.Value<bool>() ?? false;
@@ -105,7 +105,7 @@ public class ExportRoomDataTool : ICortexTool
                 };
             }).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 roomCount = result.Count,
                 matchedCount,
@@ -117,7 +117,7 @@ public class ExportRoomDataTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

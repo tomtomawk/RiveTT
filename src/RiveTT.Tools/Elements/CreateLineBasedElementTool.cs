@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's CreateLineElementEventHandler logic.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateLineBasedElementTool : ICortexTool
+public class CreateLineBasedElementTool : IRiveTTTool
 {
     public string Name => "create_line_based_element";
     public string Category => "Elements";
@@ -25,17 +25,17 @@ public class CreateLineBasedElementTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates one or more line-based elements (walls, beams, structural framing, etc.). Each locationLine has p0 and p1 (mm); add an optional pMid point to create a curved (arc) wall or beam.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var dataToken = input["data"];
         if (dataToken == null || dataToken.Type != JTokenType.Array)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "data array is required",
                 suggestion: "Provide {\"data\": [{\"category\": \"OST_Walls\", \"locationLine\": {\"p0\":{...}, \"p1\":{...}}, ...}]}");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var createdIds = new List<long>();
@@ -61,7 +61,7 @@ public class CreateLineBasedElementTool : ICortexTool
         if (warnings.Count > 0)
             message += "\n\nWarnings:\n  - " + string.Join("\n  - ", warnings);
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             message,
             dryRun,

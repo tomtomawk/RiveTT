@@ -12,7 +12,7 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.Parameters;
 
 [ToolSafety(false, true)]
-public sealed class SyncCsvParametersTool : ICortexTool
+public sealed class SyncCsvParametersTool : IRiveTTTool
 {
     public string Name => "sync_csv_parameters";
     public string Category => "Parameters";
@@ -20,15 +20,15 @@ public sealed class SyncCsvParametersTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Synchronize parameter values from structured CSV/JSON rows using the shared localized/BuiltInParameter resolver.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = ToolHelpers.GetDocument(session);
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var rows = input["data"]?.ToObject<List<JObject>>() ?? new List<JObject>();
         if (rows.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "data array is required; each row needs elementId and parameter columns or a parameters object");
 
         var dryRun = ToolHelpers.GetDryRun(input);
@@ -148,7 +148,7 @@ public sealed class SyncCsvParametersTool : ICortexTool
                 tx = null;
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun,
                 processed,
@@ -170,7 +170,7 @@ public sealed class SyncCsvParametersTool : ICortexTool
         {
             if (tx?.GetStatus() == TransactionStatus.Started) tx.RollBack();
             tx?.Dispose();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to synchronize parameters: {ex.Message}");
         }
     }

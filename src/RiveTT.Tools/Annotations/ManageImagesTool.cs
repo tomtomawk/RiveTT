@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Annotations;
 /// ImageInstance.Create(Document, View, ElementId, ImagePlacementOptions).
 /// </summary>
 [ToolSafety(false, false)]
-public class ManageImagesTool : ICortexTool
+public class ManageImagesTool : IRiveTTTool
 {
     public string Name => "manage_images";
     public string Category => "Annotations";
@@ -28,11 +28,11 @@ public class ManageImagesTool : ICortexTool
         "action=place|list. place needs filePath (bmp/jpg/jpeg/png/tif/pdf) and viewId; optional position " +
         "({x,y,z} mm, defaults to the view origin) and resolutionDpi (default 300).";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = (input["action"]?.Value<string>() ?? "list").ToLowerInvariant();
         try
@@ -41,17 +41,17 @@ public class ManageImagesTool : ICortexTool
             {
                 "list" => ListImages(doc),
                 "place" => PlaceImage(doc, input),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unsupported action: {action}", suggestion: "Use: list | place")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListImages(Document doc)
+    private static RiveTTResult<object> ListImages(Document doc)
     {
         var instances = new FilteredElementCollector(doc)
             .OfClass(typeof(ImageInstance))
@@ -62,19 +62,19 @@ public class ManageImagesTool : ICortexTool
                 ownerViewId = ToolHelpers.GetElementIdValue(i.OwnerViewId)
             })
             .ToList();
-        return CortexResult<object>.Ok(new { count = instances.Count, images = instances });
+        return RiveTTResult<object>.Ok(new { count = instances.Count, images = instances });
     }
 
-    private static CortexResult<object> PlaceImage(Document doc, JObject input)
+    private static RiveTTResult<object> PlaceImage(Document doc, JObject input)
     {
         var filePath = input["filePath"]?.Value<string>();
         var viewIdLong = input["viewId"]?.Value<long?>() ?? 0;
         if (string.IsNullOrWhiteSpace(filePath) || viewIdLong <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "filePath and viewId are required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "filePath and viewId are required");
 
         var view = doc.GetElement(ToolHelpers.ToElementId(viewIdLong)) as View;
         if (view == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"viewId {viewIdLong} is not a View");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"viewId {viewIdLong} is not a View");
 
         var resolutionDpi = input["resolutionDpi"]?.Value<double?>() ?? 300;
         var positionToken = input["position"];
@@ -104,17 +104,17 @@ public class ManageImagesTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to import/place the image: {ex.Message}",
                 suggestion: "Supported formats: bmp, jpg, jpeg, png, tif, and pdf (when PDF support is available). " +
                             "filePath must be reachable from the Revit process.");
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             imageTypeId = ToolHelpers.GetElementIdValue(imageType.Id),
             imageInstanceId = ToolHelpers.GetElementIdValue(instance.Id),

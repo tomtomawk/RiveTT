@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Project;
 /// PDF export requires Revit 2023+ PDF export API.
 /// </summary>
 [ToolSafety(true, false)]
-public class BatchExportTool : ICortexTool
+public class BatchExportTool : IRiveTTTool
 {
     public string Name => "batch_export";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Exports multiple views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var format = input["format"]?.Value<string>() ?? "DWG";
         var sheetIds = input["sheetIds"]?.ToObject<List<long>>() ?? new List<long>();
@@ -34,7 +34,7 @@ public class BatchExportTool : ICortexTool
         var outputDir = input["outputDirectory"]?.Value<string>();
 
         if (sheetIds.Count == 0 && viewIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sheetIds or viewIds required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheetIds or viewIds required");
 
         if (string.IsNullOrEmpty(outputDir))
         {
@@ -44,7 +44,7 @@ public class BatchExportTool : ICortexTool
         // H25-wave: this tool creates directories and writes export files — restrict the
         // target to user-owned directories; reject traversal/UNC/system paths.
         if (!Utilities.PathSafety.TryResolveSafe(outputDir, out var safeOutputDir, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
         outputDir = safeOutputDir;
@@ -193,11 +193,11 @@ public class BatchExportTool : ICortexTool
                     break;
                 }
                 default:
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Unsupported format: {format}", suggestion: "Use: DWG, DXF, DGN, PDF, IMAGE");
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 format,
                 outputDirectory = outputDir,
@@ -207,7 +207,7 @@ public class BatchExportTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

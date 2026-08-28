@@ -21,7 +21,7 @@ namespace RiveTT.Tools.Elements;
 /// actual physical body instead of its box. Read-only.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetElementSolidGeometryTool : ICortexTool
+public class GetElementSolidGeometryTool : IRiveTTTool
 {
     public string Name => "get_element_solid_geometry";
     public string Category => "Elements";
@@ -32,25 +32,25 @@ public class GetElementSolidGeometryTool : ICortexTool
     private const double Ft3ToM3 = 0.0283168;
     private const double MinVolumeFt3 = 1e-6;
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var elementId = input["elementId"]?.Value<long?>() ?? 0;
         var maxSolids = input["maxSolids"]?.Value<int?>() ?? 20;
         if (maxSolids < 1) maxSolids = 1;
 
         if (elementId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "A positive elementId is required.",
                 suggestion: "Example: {\"elementId\": 606873, \"maxSolids\": 20}");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var element = doc.GetElement(ToElementId(elementId));
         if (element == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Element {elementId} does not exist in the active document",
                 suggestion: "Check the element ID or ensure the correct document is open");
 
@@ -59,7 +59,7 @@ public class GetElementSolidGeometryTool : ICortexTool
             var solids = CollectSolids(element);
 
             if (solids.Count == 0)
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     message = $"Element {elementId} has no solid geometry (annotation, line-based, or empty element).",
                     elementId,
@@ -124,7 +124,7 @@ public class GetElementSolidGeometryTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 elementId,
                 elementName = SafeName(element),
@@ -151,7 +151,7 @@ public class GetElementSolidGeometryTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to read solid geometry of element {elementId}: {ex.Message}");
         }
     }

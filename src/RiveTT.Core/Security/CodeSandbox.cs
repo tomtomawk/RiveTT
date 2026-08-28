@@ -9,5 +9,5 @@ namespace RiveTT.Core.Security;
 /// </summary>
 public static class CodeSandbox
 {
-    public static CortexResult<object>? Validate(string code) => CodeSandboxV2.Validate(code);
+    public static RiveTTResult<object>? Validate(string code) => CodeSandboxV2.Validate(code);
 }

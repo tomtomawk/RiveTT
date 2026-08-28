@@ -20,10 +20,10 @@ public interface IToolResultCache
         string paramHash,
         CacheScope scope,
         long currentDocVersion,
-        out CortexResult<object> result);
+        out RiveTTResult<object> result);
 
     /// <summary>
-    /// Same as <see cref="TryGet(string,string,CacheScope,long,out CortexResult{object})"/>
+    /// Same as <see cref="TryGet(string,string,CacheScope,long,out RiveTTResult{object})"/>
     /// but also returns the entry's stored byte estimate, so hit paths don't have
     /// to re-serialize the result just to measure it.
     /// </summary>
@@ -32,11 +32,11 @@ public interface IToolResultCache
         string paramHash,
         CacheScope scope,
         long currentDocVersion,
-        out CortexResult<object> result,
+        out RiveTTResult<object> result,
         out long estimatedBytes);
 
     /// <summary>
-    /// Store a successful result. Failures (CortexResult.Fail) MUST NOT be
+    /// Store a successful result. Failures (RiveTTResult.Fail) MUST NOT be
     /// passed here — caller is responsible for filtering. When the caller has
     /// already serialized the result (e.g. for audit), pass the byte count via
     /// <paramref name="knownBytes"/> to avoid a second serialization.
@@ -46,7 +46,7 @@ public interface IToolResultCache
         string paramHash,
         CacheScope scope,
         long currentDocVersion,
-        CortexResult<object> result,
+        RiveTTResult<object> result,
         long? knownBytes = null);
 
     /// <summary>

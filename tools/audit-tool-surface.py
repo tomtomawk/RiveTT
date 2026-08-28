@@ -5,7 +5,7 @@
 
 Le document est genere, jamais edite a la main : chaque ligne vient du code. Deux
 surfaces sont croisees — les attributs [McpServerTool] du serveur MCP et les
-classes ICortexTool du runtime — pour repondre a la seule question qui compte sur
+classes IRiveTTTool du runtime — pour repondre a la seule question qui compte sur
 un connecteur a 295 outils : un parametre publie est-il vraiment lu.
 
 Ce que le script sait detecter, et la confiance qu'on peut lui accorder :
@@ -50,7 +50,7 @@ OUT = os.path.join(ROOT, "src", "resources", "documentation", "references",
                    "inventaire-des-outils.md")
 
 # Prefixes que le routeur considere comme lecture seule quand [ToolSafety] manque.
-# Doit rester aligne sur CortexRouter.ReadOnlyPrefixes.
+# Doit rester aligne sur RiveTTRouter.ReadOnlyPrefixes.
 READ_ONLY_PREFIXES = ["get_", "list_", "find_", "analyze_", "check_", "measure_",
                       "audit_", "export_", "ping_revit", "detect_clashes",
                       "count_lines_per_view", "ifc_get_", "ifc_list_", "ifc_export_",
@@ -75,7 +75,7 @@ PARAM_RE = re.compile(
 # Les classes d'outils peuvent etre indentees : le [ \t]* initial est obligatoire.
 CLASS_RE = re.compile(
     r'(?:^|\n)[ \t]*((?:\[[^\n]*\][ \t]*\n[ \t]*)*)public (?:sealed )?class (\w+)'
-    r'\s*:[^{\n]*ICortexTool', re.M)
+    r'\s*:[^{\n]*IRiveTTTool', re.M)
 
 
 def read(path):
@@ -405,7 +405,7 @@ def analyse(server, runtime, corpus):
                 flags.append(("mineur", "position de fenêtre codée en dur"))
             if "get_BoundingBox(" in block and "Solid" not in block and name != "detect_clashes":
                 flags.append(("mineur", "géométrie par boîte englobante"))
-            if re.search(r'CortexErrorCode\.Unknown,\s*\$"Failed', block):
+            if re.search(r'RiveTTErrorCode\.Unknown,\s*\$"Failed', block):
                 flags.append(("mineur", "erreur générique sans suggestion"))
 
         row = {
@@ -480,7 +480,7 @@ def emit(rows):
 
     add("## Comment lire ce document\n")
     add("Deux surfaces sont croisées : les attributs `[McpServerTool]` du serveur MCP et les\n"
-        "classes `ICortexTool` du runtime. La question posée à chaque outil est celle qui a\n"
+        "classes `IRiveTTTool` du runtime. La question posée à chaque outil est celle qui a\n"
         "coûté le plus cher jusqu'ici : **un paramètre publié est-il vraiment lu**.\n")
     add("| Colonne | Ce qu'elle dit |")
     add("|---|---|")

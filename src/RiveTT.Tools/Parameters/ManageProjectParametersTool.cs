@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Parameters;
 /// Lists, creates, deletes, or modifies project parameters.
 /// </summary>
 [ToolSafety(false, true)]
-public class ManageProjectParametersTool : ICortexTool
+public class ManageProjectParametersTool : IRiveTTTool
 {
     public string Name => "manage_project_parameters";
     public string Category => "Parameters";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Lists, creates, deletes, or modifies project parameters.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var action = input["action"]?.Value<string>() ?? "list";
@@ -42,19 +42,19 @@ public class ManageProjectParametersTool : ICortexTool
                 "set_group"        => SetParameterGroup(doc, input, session),
                 "set_binding_type" => SetBindingType(doc, input, session),
                 "rename"           => RenameParameter(doc, input, session),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}",
                     suggestion: "Use one of: list, create, delete, modify, set_group, set_binding_type, rename")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to manage project parameters: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListParameters(Document doc)
+    private static RiveTTResult<object> ListParameters(Document doc)
     {
         var parameters = new List<object>();
         var bindingMap = doc.ParameterBindings;
@@ -89,18 +89,18 @@ public class ManageProjectParametersTool : ICortexTool
             });
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             parameterCount = parameters.Count,
             parameters
         });
     }
 
-    private static CortexResult<object> CreateParameter(Document doc, JObject input)
+    private static RiveTTResult<object> CreateParameter(Document doc, JObject input)
     {
         var parameterName = input["parameterName"]?.Value<string>();
         if (string.IsNullOrEmpty(parameterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "parameterName is required for create action. Example: {\"action\":\"create\",\"parameterName\":\"MyParam\",\"categories\":[\"OST_Doors\"],\"dataType\":\"Text\",\"isInstance\":true}. Do not retry with empty params — ask the user what parameter name and categories to use.");
 
         var categories = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
@@ -108,7 +108,7 @@ public class ManageProjectParametersTool : ICortexTool
         var dataType = input["dataType"]?.Value<string>() ?? "Text";
 
         if (categories.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "categories array is required for create action. Provide OST_* codes (preferred, language-independent) or English display names, e.g. [\"OST_Doors\",\"OST_Windows\"]. Do not retry with the same empty input — ask the user which categories the new parameter should bind to.");
 
         var app = doc.Application;
@@ -127,7 +127,7 @@ public class ManageProjectParametersTool : ICortexTool
             // a NullReferenceException that escapes as a generic "An error occurred
             // invoking" before the router can log or surface a useful message.
             if (tempSharedFile == null)
-                return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                     "Could not open a temporary shared parameter file to back the new project parameter.",
                     suggestion: "Another add-in may be holding the shared parameter file. Close other Revit add-ins, or set a valid Shared Parameters file in Manage → Shared Parameters, then retry.");
 
@@ -159,7 +159,7 @@ public class ManageProjectParametersTool : ICortexTool
             }
 
             if (categorySet.Size == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No valid categories resolved");
 
             ElementBinding binding = isInstance
@@ -173,17 +173,17 @@ public class ManageProjectParametersTool : ICortexTool
                 tx.Start();
                 inserted = doc.ParameterBindings.Insert(definition, binding);
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
 
             if (!inserted)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rejected creating project parameter '{parameterName}'. A parameter with this name may already be bound.",
                     suggestion: "Call action:list to check existing parameters; use a different name or action:modify to change its bindings.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 action = "create",
                 parameterName,
@@ -196,7 +196,7 @@ public class ManageProjectParametersTool : ICortexTool
         {
             // Turn any unhandled Revit/IO/COM exception into a structured failure
             // with the real message, instead of a generic "An error occurred invoking".
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to create project parameter '{parameterName}': {ex.Message}",
                 suggestion: "If another add-in is interfering with the shared parameter file, close it and retry, or create the parameter from a shared parameter file via add_shared_parameter.");
         }
@@ -209,11 +209,11 @@ public class ManageProjectParametersTool : ICortexTool
         }
     }
 
-    private static CortexResult<object> DeleteParameter(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> DeleteParameter(Document doc, JObject input, RiveTTSession session)
     {
         var parameterName = input["parameterName"]?.Value<string>();
         if (string.IsNullOrEmpty(parameterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "parameterName is required for delete action. Example: {\"action\":\"delete\",\"parameterName\":\"MyParam\"}. Do not retry with empty params — first call {\"action\":\"list\"} to discover existing parameter names, then ask the user which one to delete.");
 
         var bindingMap = doc.ParameterBindings;
@@ -230,11 +230,11 @@ public class ManageProjectParametersTool : ICortexTool
         }
 
         if (targetDef == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Parameter '{parameterName}' not found in project bindings");
 
         if (!session.RequestConfirmation("delete project parameter", 1))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         // A shared-based project parameter (ExternalDefinition) is removed cleanly
         // via BindingMap.Remove. A NON-shared (internal) project parameter hits
@@ -278,7 +278,7 @@ public class ManageProjectParametersTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
@@ -292,12 +292,12 @@ public class ManageProjectParametersTool : ICortexTool
         }
 
         if (stillBound)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Parameter '{parameterName}' could not be removed (still bound after delete via {method}). " +
                 (isShared ? "" : "This is a non-shared project parameter affected by Revit bug REVIT-136670."),
                 suggestion: "The parameter may be in use, locked, or built-in. Verify in Revit's Project Parameters dialog.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "delete",
             parameterName,
@@ -313,16 +313,16 @@ public class ManageProjectParametersTool : ICortexTool
     /// binding, then Insert a fresh binding of the opposite type with the same
     /// categories. Collect-then-mutate (iterator must be closed before mutating).
     /// </summary>
-    private static CortexResult<object> SetBindingType(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> SetBindingType(Document doc, JObject input, RiveTTSession session)
     {
         var parameterName = input["parameterName"]?.Value<string>();
         if (string.IsNullOrEmpty(parameterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "parameterName is required for set_binding_type. Example: {\"action\":\"set_binding_type\",\"parameterName\":\"MyParam\",\"isInstance\":false}. First call {\"action\":\"list\"} to discover names.");
 
         var targetIsInstance = input["isInstance"]?.Value<bool>();
         if (targetIsInstance == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "isInstance (bool) is required for set_binding_type: true = instance parameter, false = type parameter.");
 
         // Capture definition, current binding, categories and group up-front.
@@ -342,12 +342,12 @@ public class ManageProjectParametersTool : ICortexTool
         }
 
         if (targetDef == null || existingBinding == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Parameter '{parameterName}' not found in project bindings");
 
         bool currentIsInstance = existingBinding is InstanceBinding;
         if (currentIsInstance == targetIsInstance.Value)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 action = "set_binding_type",
                 parameterName,
@@ -362,12 +362,12 @@ public class ManageProjectParametersTool : ICortexTool
 
         if (!session.RequestConfirmation(
                 $"change '{parameterName}' to {(targetIsInstance.Value ? "instance" : "type")} parameter", 1))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var app = doc.Application;
         var categorySet = BuildCategorySet(doc, app, catNames);
         if (categorySet.Size == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 "Could not rebuild the parameter's category set.");
 
         ElementBinding newBinding = targetIsInstance.Value
@@ -386,17 +386,17 @@ public class ManageProjectParametersTool : ICortexTool
             if (!inserted)
             {
                 tx.RollBack();
-                return CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.PermissionDenied,
                     $"Revit rejected re-binding '{parameterName}'. The parameter may be built-in or Revit-owned.",
                     suggestion: "Instance/type toggle only works on user-created project parameters.");
             }
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "set_binding_type",
             parameterName,
@@ -412,12 +412,12 @@ public class ManageProjectParametersTool : ICortexTool
     /// global parameters can be renamed). We surface this clearly rather than
     /// silently failing, and point at the only real workaround.
     /// </summary>
-    private static CortexResult<object> RenameParameter(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> RenameParameter(Document doc, JObject input, RiveTTSession session)
     {
         var parameterName = input["parameterName"]?.Value<string>();
         var newName = input["newName"]?.Value<string>();
         if (string.IsNullOrEmpty(parameterName) || string.IsNullOrEmpty(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Both parameterName and newName are required for rename.");
 
         // Confirm the parameter exists so the error is specific.
@@ -435,10 +435,10 @@ public class ManageProjectParametersTool : ICortexTool
         }
 
         if (!exists)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Parameter '{parameterName}' not found in project bindings");
 
-        return CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
+        return RiveTTResult<object>.Fail(RiveTTErrorCode.PermissionDenied,
             $"The Revit API cannot rename a bound {(isShared ? "shared" : "non-shared")} project parameter — " +
             "Definition.Name is read-only and only global parameters support renaming. " +
             "Renaming is only possible through Revit's Project Parameters dialog UI.",
@@ -447,23 +447,23 @@ public class ManageProjectParametersTool : ICortexTool
                         "then delete the old parameter with {\"action\":\"delete\"}.");
     }
 
-    private static CortexResult<object> ModifyParameter(Document doc, JObject input)
+    private static RiveTTResult<object> ModifyParameter(Document doc, JObject input)
     {
         var parameterName = input["parameterName"]?.Value<string>();
         if (string.IsNullOrEmpty(parameterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "parameterName is required for modify action. Example: {\"action\":\"modify\",\"parameterName\":\"MyParam\",\"categories\":[\"OST_Windows\"],\"categoriesMode\":\"add\"}. Do not retry with empty params — first call {\"action\":\"list\"} to discover existing names.");
 
         var requestedCategories = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
         var categoriesMode = (input["categoriesMode"]?.Value<string>() ?? "add").ToLowerInvariant();
 
         if (categoriesMode != "add" && categoriesMode != "remove" && categoriesMode != "replace")
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown categoriesMode: {categoriesMode}",
                 suggestion: "Use one of: add, remove, replace");
 
         if (requestedCategories.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "categories array is required for modify action. Provide OST_* codes (preferred, language-independent) or English display names, e.g. [\"OST_Doors\"]. Do not retry with empty categories — ask the user which category bindings to modify.");
 
         // Collect all (Definition, ElementBinding) pairs up-front: the BindingMap iterator
@@ -488,7 +488,7 @@ public class ManageProjectParametersTool : ICortexTool
         ElementBinding? existingBinding = targetDef != null && allBindings.TryGetValue(targetDef.Name, out var b) ? b : null;
 
         if (targetDef == null || existingBinding == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Parameter '{parameterName}' not found in project bindings");
 
         var app = doc.Application;
@@ -501,7 +501,7 @@ public class ManageProjectParametersTool : ICortexTool
         {
             newCategorySet = BuildCategorySet(doc, app, requestedCategories);
             if (newCategorySet.Size == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No valid categories resolved for replace");
             foreach (Category c in newCategorySet) addedCategories.Add(c.Name);
         }
@@ -551,7 +551,7 @@ public class ManageProjectParametersTool : ICortexTool
                 }
                 var keptNames = existingNames.Where(n => !toRemoveNames.Contains(n)).ToList();
                 if (keptNames.Count == 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "Refusing to remove all categories: a project parameter must remain bound to at least one category. Use 'delete' action to remove the parameter entirely.");
                 newCategorySet = BuildCategorySet(doc, app, keptNames);
             }
@@ -562,7 +562,7 @@ public class ManageProjectParametersTool : ICortexTool
         // here with an empty set. Reject explicitly so the caller sees InvalidInput
         // rather than the misleading PermissionDenied that ReInsert would surface.
         if (newCategorySet.Size == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Resolved category set is empty (none of the requested categories allow parameter binding).",
                 suggestion: "Check the category names and ensure they support bound parameters.");
 
@@ -581,18 +581,18 @@ public class ManageProjectParametersTool : ICortexTool
         var freshMap = doc.ParameterBindings;
         bool persistReInsert = freshMap.ReInsert(targetDef, newBinding);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
         if (!persistReInsert)
-            return CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.PermissionDenied,
                 $"Revit rejected the modification of parameter '{parameterName}'. This usually means the parameter is built-in or owned by Revit/an add-in and its category bindings cannot be changed via the API.",
                 suggestion: "Try the modification on a user-created project parameter instead.");
 
         var allCategories = newCategorySet.Cast<Category>().Select(c => c.Name).ToList();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "modify",
             parameterName,
@@ -603,7 +603,7 @@ public class ManageProjectParametersTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> SetParameterGroup(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> SetParameterGroup(Document doc, JObject input, RiveTTSession session)
     {
         var requestedNames = input["parameterNames"]?.ToObject<List<string>>() ?? new List<string>();
         // Back-compat: allow single 'parameterName' too
@@ -614,17 +614,17 @@ public class ManageProjectParametersTool : ICortexTool
         var dryRun = ToolHelpers.GetDryRun(input);
 
         if (requestedNames.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "parameterNames (string[]) or parameterName is required for set_group action. Example: {\"action\":\"set_group\",\"parameterNames\":[\"BCA_RES_Stato-Conservazione\"],\"targetGroup\":\"IdentityData\"}. Do not retry empty — first call {\"action\":\"list\"} to discover names.");
 
         if (string.IsNullOrEmpty(targetGroup))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "targetGroup is required. Example values: IdentityData, Data, Constraints, Geometry, Graphics, Materials, Text, General, PhasingFilter, Visibility, Construction, ElectricalEngineering, Mechanical, Plumbing, Energy, ModelProperties, IFC, AnalysisResults, Other.",
                 suggestion: "Pass a GroupTypeId short name (e.g. 'IdentityData') or a full ForgeTypeId (e.g. 'autodesk.parameter.group:identityData-1.0.0').");
 
         var resolved = ResolveGroupTypeId(targetGroup!);
         if (resolved == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown targetGroup '{targetGroup}'. Use one of the documented short names or a full ForgeTypeId.",
                 suggestion: "Examples: IdentityData, Data, Constraints, Geometry, Graphics, Materials, Text, General, ModelProperties, IFC.");
 
@@ -671,7 +671,7 @@ public class ManageProjectParametersTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 action = "set_group",
                 dryRun = true,
@@ -686,7 +686,7 @@ public class ManageProjectParametersTool : ICortexTool
         }
 
         if (modifiable.Count == 0)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 action = "set_group",
                 modifiedCount = 0,
@@ -698,7 +698,7 @@ public class ManageProjectParametersTool : ICortexTool
             });
 
         if (!session.RequestConfirmation("change parameter group", modifiable.Count))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var modified = new List<object>();
         var failed = new List<object>();
@@ -721,12 +721,12 @@ public class ManageProjectParametersTool : ICortexTool
                 }
             }
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "set_group",
             targetGroup = resolved.TypeId,

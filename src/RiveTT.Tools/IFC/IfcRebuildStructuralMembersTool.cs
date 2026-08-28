@@ -17,7 +17,7 @@ namespace RiveTT.Tools.IFC;
 /// Columns use point-based NewFamilyInstance; beams use curve-based NewFamilyInstance.
 /// </summary>
 [ToolSafety(false, false)]
-public class IfcRebuildStructuralMembersTool : ICortexTool
+public class IfcRebuildStructuralMembersTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_structural_members";
     public string Category => "IFC";
@@ -25,7 +25,7 @@ public class IfcRebuildStructuralMembersTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Rebuild native Revit columns and beams from IFC-imported DirectShape elements";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -60,7 +60,7 @@ public class IfcRebuildStructuralMembersTool : ICortexTool
         {
             userSymbol = doc!.GetElement(ToolHelpers.ToElementId(familySymbolIdRaw.Value)) as FamilySymbol;
             if (userSymbol == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"FamilySymbol {familySymbolIdRaw.Value} not found");
         }
 
@@ -70,7 +70,7 @@ public class IfcRebuildStructuralMembersTool : ICortexTool
         if (!dryRun)
         {
             if (!session.RequestConfirmation("rebuild structural members", candidates.Count))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
         }
 
         // One TransactionGroup per invocation: the N per-element commits collapse
@@ -274,7 +274,7 @@ public class IfcRebuildStructuralMembersTool : ICortexTool
         if (txGroup != null && txGroup.GetStatus() == TransactionStatus.Started)
             txGroup.Assimilate();
 
-        return CortexResult<object>.Ok(new { dryRun, totalCandidates = candidates.Count, rebuilt, skipped, results });
+        return RiveTTResult<object>.Ok(new { dryRun, totalCandidates = candidates.Count, rebuilt, skipped, results });
     }
 
     private static FamilySymbol? FindColumnSymbol(Document doc)

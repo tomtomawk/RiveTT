@@ -18,7 +18,7 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's AIElementFilterEventHandler filtering logic.
 /// </summary>
 [ToolSafety(true, false)]
-public class AIElementFilterTool : ICortexTool
+public class AIElementFilterTool : IRiveTTTool
 {
     public string Name => "filter_elements";
     public string Category => "Elements";
@@ -27,14 +27,14 @@ public class AIElementFilterTool : ICortexTool
     public string Description => "Smart element query tool — supports category, element-class, family-symbol, view-visibility and bounding-box filters, all combinable via logical AND. Mirrors the fork's AIElementFilterEventHandler filtering logic.";
     // ── Revit internal-unit conversion factor: 1 foot = MmPerFoot mm ──────────
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         // The fork wraps parameters in a "data" object — support both layouts
         var data = input["data"] as JObject ?? input;
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // ── Parse inputs ───────────────────────────────────────────────────
@@ -48,11 +48,11 @@ public class AIElementFilterTool : ICortexTool
                                              ?? data["maxElements"]?.Value<int>() ?? 100, 1, 500);
         var responseMode       = (data["responseMode"]?.Value<string>() ?? "summary").ToLowerInvariant();
         if (responseMode is not ("summary" or "idsonly" or "details"))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "responseMode must be summary, idsOnly, or details");
         if (!TryDecodeCursor(data["cursor"]?.Value<string>(), session.DocumentVersion,
                 out var offset, out var cursorError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, cursorError!,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, cursorError!,
                 suggestion: "Restart the search without a cursor because the document changed.");
 
         // Logical combination of the individual filters: "and" (default) or "or".
@@ -65,12 +65,12 @@ public class AIElementFilterTool : ICortexTool
         var wallConstraintStatus = data["wallConstraintStatus"]?.Value<string>();
         if (!string.IsNullOrWhiteSpace(groupStatus) &&
             !new[] { "grouped", "ungrouped" }.Contains(groupStatus, StringComparer.OrdinalIgnoreCase))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "groupStatus must be grouped or ungrouped");
         if (!string.IsNullOrWhiteSpace(wallConstraintStatus) &&
             !new[] { "level_constrained", "unconnected", "attached", "unattached" }
                 .Contains(wallConstraintStatus, StringComparer.OrdinalIgnoreCase))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "wallConstraintStatus must be level_constrained, unconnected, attached, or unattached");
 
         // Bounding box (coordinates in mm, matching the fork's convention)
@@ -81,7 +81,7 @@ public class AIElementFilterTool : ICortexTool
 
         // ── Validate ───────────────────────────────────────────────────────
         if (!includeTypes && !includeInstances)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "At least one of includeTypes or includeInstances must be true");
 
         if (string.IsNullOrWhiteSpace(filterCategory) &&
@@ -91,27 +91,27 @@ public class AIElementFilterTool : ICortexTool
             string.IsNullOrWhiteSpace(groupStatus) &&
             string.IsNullOrWhiteSpace(wallConstraintStatus) &&
             bbMin == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Specify at least one filter: filterCategory, filterElementType, filterFamilySymbolId, levelFilter, groupStatus, wallConstraintStatus, or boundingBox",
                 suggestion: "Use OST_* codes for filterCategory, e.g. OST_Walls, OST_Doors");
 
         if ((bbMin == null) != (bbMax == null))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Both boundingBoxMin and boundingBoxMax must be provided together");
 
         if (bbMin != null && bbMax != null)
         {
             if (bbMin.X > bbMax.X || bbMin.Y > bbMax.Y || bbMin.Z > bbMax.Z)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "boundingBoxMin coordinates must be less than or equal to boundingBoxMax");
         }
 
         if (includeTypes && !includeInstances && filterFamilySymId > 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "filterFamilySymbolId cannot be combined with includeTypes-only mode");
 
         if (includeTypes && !includeInstances && filterVisibleInView)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "filterVisibleInCurrentView cannot be combined with includeTypes-only mode");
 
         try
@@ -179,7 +179,7 @@ public class AIElementFilterTool : ICortexTool
                 ? BuildElementInfoList(doc, elements)
                 : null;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Found {totalCount} element(s), returning {ids.Length} from offset {offset}",
                 totalCount,
@@ -193,7 +193,7 @@ public class AIElementFilterTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Filter failed: {ex.Message}");
         }
     }

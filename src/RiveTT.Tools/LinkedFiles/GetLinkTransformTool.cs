@@ -12,7 +12,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// Returns the full transform of a linked file instance (origin, basis vectors, rotation angle).
 /// </summary>
 [ToolSafety(true, false)]
-public class GetLinkTransformTool : ICortexTool
+public class GetLinkTransformTool : IRiveTTTool
 {
     public string Name => "get_link_transform";
     public string Category => "LinkedFiles";
@@ -20,24 +20,24 @@ public class GetLinkTransformTool : ICortexTool
     public bool IsDynamic => true;
     public string Description => "Returns the full transform of a linked file instance: origin (mm), basis vectors, and rotation angle (degrees).";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var instanceId = input["instanceId"]?.Value<long?>()
             ?? input["linkInstanceId"]?.Value<long?>()
             ?? 0;
         if (instanceId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "instanceId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "instanceId is required");
 
         try
         {
             var element = doc.GetElement(new ElementId(instanceId));
             var linkInstance = element as RevitLinkInstance;
             if (linkInstance == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Element {instanceId} is not a RevitLinkInstance");
 
             var transform = linkInstance.GetTotalTransform();
@@ -63,7 +63,7 @@ public class GetLinkTransformTool : ICortexTool
                 catch { /* shared coords not available */ }
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 instanceId,
                 name = linkInstance.Name,
@@ -84,7 +84,7 @@ public class GetLinkTransformTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

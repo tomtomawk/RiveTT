@@ -12,24 +12,24 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.Elements;
 
 [ToolSafety(false, true)]
-public class SetElementParametersTool : ICortexTool
+public class SetElementParametersTool : IRiveTTTool
 {
     public string Name => "set_element_parameters";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Set element parameters. Numeric values are written in Revit internal units (feet); pass a string with a unit (e.g. \"3000 mm\", \"3 m\") to write a display value that Revit parses unit- and locale-aware. A null value clears the parameter.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var requests = input["requests"]?.ToObject<List<SetParameterRequest>>();
         if (requests == null || requests.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "requests array is required",
                 suggestion: "Provide [{\"elementId\": 123, \"parameterName\": \"Comments\", \"value\": \"test\"}]");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var dryRun = ToolHelpers.GetDryRun(input);
@@ -66,7 +66,7 @@ public class SetElementParametersTool : ICortexTool
                         success ? null : $"Value is invalid for {parameter.StorageType}"
                 });
             }
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 processed = requests.Count,
@@ -84,7 +84,7 @@ public class SetElementParametersTool : ICortexTool
         var failCount = 0;
 
         if (!session.RequestConfirmation("modify parameters on", requests.Count))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Set Parameters");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -162,7 +162,7 @@ public class SetElementParametersTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
@@ -173,7 +173,7 @@ public class SetElementParametersTool : ICortexTool
             throw;
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             message = $"Set {successCount}/{requests.Count} parameters successfully",
             processed = requests.Count,

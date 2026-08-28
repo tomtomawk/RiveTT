@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Elements;
 
 /// <summary>Creates an independent guardrail from a horizontal, connected path.</summary>
 [ToolSafety(false, false)]
-public sealed class CreateRailingTool : ICortexTool
+public sealed class CreateRailingTool : IRiveTTTool
 {
 
     public string Name => "create_railing";
@@ -26,33 +26,33 @@ public sealed class CreateRailingTool : ICortexTool
         "are required. ELEVATION: the path z values only have to be equal to each other — baseLevelId sets " +
         "the height, exactly like create_wall. Pass z=0 and choose the level.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var document = ToolHelpers.GetDocument(session);
         if (document == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var path = input["path"] as JArray;
         var railingTypeId = input["railingTypeId"]?.Value<long>() ?? -1;
         var baseLevelId = input["baseLevelId"]?.Value<long>() ?? -1;
         if (path == null || path.Count < 2)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "path must contain at least two points");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "path must contain at least two points");
         if (railingTypeId <= 0 || baseLevelId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "railingTypeId and baseLevelId are required");
 
         var railingType = document.GetElement(ToolHelpers.ToElementId(railingTypeId)) as RailingType;
         var level = document.GetElement(ToolHelpers.ToElementId(baseLevelId)) as Level;
         if (railingType == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Railing type {railingTypeId} was not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"Railing type {railingTypeId} was not found");
         if (level == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Level {baseLevelId} was not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"Level {baseLevelId} was not found");
 
         try
         {
             var points = path.Select(ToXyz).ToList();
             if (points.Zip(points.Skip(1), (a, b) => Math.Abs(a.Z - b.Z) > 1e-8).Any(x => x))
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "A railing path must be horizontal");
 
             var curveLoop = new CurveLoop();
@@ -60,7 +60,7 @@ public sealed class CreateRailingTool : ICortexTool
                 curveLoop.Append(Line.CreateBound(points[index], points[index + 1]));
 
             if (ToolHelpers.GetDryRun(input))
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     dryRun = true,
                     railingTypeId,
@@ -78,7 +78,7 @@ public sealed class CreateRailingTool : ICortexTool
                 return TransactionFailureHandling.ToFailure(failures,
                     "Railing creation was rolled back", "Check path continuity and railing constraints.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 railingId = ToolHelpers.GetElementIdValue(railing.Id),
                 railingType = railingType.Name,
@@ -87,7 +87,7 @@ public sealed class CreateRailingTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Could not create railing: {exception.Message}");
         }
     }

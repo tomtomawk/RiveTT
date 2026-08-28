@@ -14,25 +14,25 @@ namespace RiveTT.Tools.Views;
 /// Duplicates one or more views with optional naming prefix/suffix.
 /// </summary>
 [ToolSafety(false, false)]
-public class DuplicateViewTool : ICortexTool
+public class DuplicateViewTool : IRiveTTTool
 {
     public string Name => "duplicate_view";
     public string Category => "Views";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Duplicates one or more views with optional naming prefix/suffix.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var viewIds = input["viewIds"]?.ToObject<List<long>>() ?? new List<long>();
         var legacyViewId = input["viewId"]?.Value<long?>() ?? 0;
         if (viewIds.Count == 0 && legacyViewId > 0)
             viewIds.Add(legacyViewId);
         if (viewIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "viewIds array is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "viewIds array is required");
 
         var duplicateOption = input["duplicateOption"]?.Value<string>() ?? "Duplicate";
         var prefix = input["newNamePrefix"]?.Value<string>() ?? "";
@@ -76,14 +76,14 @@ public class DuplicateViewTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return CortexResult<object>.Ok(new { duplicatedCount = results.Count, views = results });
+            return RiveTTResult<object>.Ok(new { duplicatedCount = results.Count, views = results });
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// Creates a room at the specified location point inside enclosed walls.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateRoomTool : ICortexTool
+public class CreateRoomTool : IRiveTTTool
 {
     public string Name => "create_room";
     public string Category => "Elements";
@@ -24,16 +24,16 @@ public class CreateRoomTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates a room at the specified location point inside enclosed walls. Supports dryRun. An unenclosed result (area 0) is refused and nothing is left in the model, unless allowUnenclosed=true.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var name = input["name"]?.Value<string>() ?? "";
         var location = input["location"];
         if (location == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "location {x, y, z} in mm is required");
 
         var number = input["number"]?.Value<string>();
@@ -68,7 +68,7 @@ public class CreateRoomTool : ICortexTool
             }
 
             if (level == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No levels found in document");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "No levels found in document");
 
             // Placing a point inside an area an existing room already owns creates an
             // unbounded, overlapping room that Revit accepts silently. Report the
@@ -78,7 +78,7 @@ public class CreateRoomTool : ICortexTool
 
             if (dryRun)
             {
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     message = occupant == null
                         ? $"DryRun: a room would be created on level '{level.Name}' at ({location["x"]}, {location["y"]}) mm."
@@ -112,7 +112,7 @@ public class CreateRoomTool : ICortexTool
             var room = doc.Create.NewRoom(level, uv);
 
             if (room == null)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     "Room creation failed — location may not be inside enclosed walls");
 
             if (!string.IsNullOrEmpty(name))
@@ -152,7 +152,7 @@ public class CreateRoomTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
@@ -172,7 +172,7 @@ public class CreateRoomTool : ICortexTool
                 doc.Delete(roomId);
                 deleteTx.Commit();
 
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "The room would not be enclosed (area = 0): the point is not inside a closed loop of " +
                     "room-bounding elements, or it falls inside a room that already exists. Nothing was left " +
                     "in the model.",
@@ -180,7 +180,7 @@ public class CreateRoomTool : ICortexTool
                                 "allowUnenclosed=true to keep an unenclosed room deliberately.");
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 roomId = ToolHelpers.GetElementIdValue(room.Id),
                 roomName = room.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? name,
@@ -201,7 +201,7 @@ public class CreateRoomTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create room: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to create room: {ex.Message}");
         }
     }
 

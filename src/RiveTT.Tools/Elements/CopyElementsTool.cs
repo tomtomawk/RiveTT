@@ -17,18 +17,18 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's CopyElementsEventHandler logic.
 /// </summary>
 [ToolSafety(false, false)]
-public class CopyElementsTool : ICortexTool
+public class CopyElementsTool : IRiveTTTool
 {
     public string Name => "copy_elements";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Copies elements within the same document, between views, or to another open document (set targetDocumentTitle). Offsets are in mm.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var elementIdsToken = input["elementIds"];
         if (elementIdsToken == null || elementIdsToken.Type == JTokenType.Null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementIds is required",
                 suggestion: "Provide an array of element ID numbers: {\"elementIds\": [123, 456]}");
 
@@ -39,12 +39,12 @@ public class CopyElementsTool : ICortexTool
         }
         catch
         {
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementIds must be an array of numbers");
         }
 
         if (rawIds.Length == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementIds array must not be empty");
 
         var sourceViewId = input["sourceViewId"]?.Value<long?>() ?? 0;
@@ -56,7 +56,7 @@ public class CopyElementsTool : ICortexTool
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // MM → internal units (feet)
@@ -82,11 +82,11 @@ public class CopyElementsTool : ICortexTool
                     }
                 }
                 if (destDoc == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                         $"No open document titled '{targetDocumentTitle}'",
                         suggestion: "Open the target document in Revit first; match its title (without .rvt) exactly");
                 if (destDoc.Equals(doc))
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "targetDocumentTitle is the active document — omit it for a same-document copy");
 
                 using var tx = new Transaction(destDoc, "RiveTT: Copy Elements Across Documents");
@@ -97,7 +97,7 @@ public class CopyElementsTool : ICortexTool
                     copiedIds = ElementTransformUtils.CopyElements(
                         doc, ids, destDoc, transform, new CopyPasteOptions());
                     if (tx.Commit() != TransactionStatus.Committed)
-                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                             $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                             suggestion: "Fix the reported model errors and retry.");
                 }
@@ -118,7 +118,7 @@ public class CopyElementsTool : ICortexTool
                     };
                 }).ToList();
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     message = $"Copied {copiedIds.Count} element(s) to '{destDoc.Title}'",
                     copiedCount = copiedIds.Count,
@@ -131,20 +131,20 @@ public class CopyElementsTool : ICortexTool
             {
                 // View-to-view copy — both view IDs are required together
                 if (sourceViewId <= 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "sourceViewId is required when targetViewId is provided");
                 if (targetViewId <= 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "targetViewId is required when sourceViewId is provided");
 
                 var sourceView = doc.GetElement(ToElementId(sourceViewId)) as View;
                 var targetView = doc.GetElement(ToElementId(targetViewId)) as View;
 
                 if (sourceView == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Source view with ID {sourceViewId} not found");
                 if (targetView == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Target view with ID {targetViewId} not found");
 
                 using var tx = new Transaction(doc, "RiveTT: Copy Elements Between Views");
@@ -155,7 +155,7 @@ public class CopyElementsTool : ICortexTool
                     copiedIds = ElementTransformUtils.CopyElements(
                         sourceView, ids, targetView, transform, new CopyPasteOptions());
                     if (tx.Commit() != TransactionStatus.Committed)
-                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                             $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                             suggestion: "Fix the reported model errors and retry.");
                 }
@@ -176,7 +176,7 @@ public class CopyElementsTool : ICortexTool
                 {
                     copiedIds = ElementTransformUtils.CopyElements(doc, ids, translation);
                     if (tx.Commit() != TransactionStatus.Committed)
-                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                             $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                             suggestion: "Fix the reported model errors and retry.");
                 }
@@ -199,7 +199,7 @@ public class CopyElementsTool : ICortexTool
                 };
             }).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Copied {copiedIds.Count} element(s) successfully",
                 copiedCount = copiedIds.Count,
@@ -208,7 +208,7 @@ public class CopyElementsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Copy elements failed: {ex.Message}");
         }
     }

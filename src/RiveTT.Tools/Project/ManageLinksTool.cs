@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// Lists, reloads, or unloads linked Revit/CAD/IFC files.
 /// </summary>
 [ToolSafety(false, true)]
-public class ManageLinksTool : ICortexTool
+public class ManageLinksTool : IRiveTTTool
 {
     public string Name => "manage_links";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Lists, reloads, reloads-from-path, unloads, or removes linked Revit/CAD/IFC files. Actions: list, reload, reload_from, unload, remove.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = input["action"]?.Value<string>() ?? "list";
         var linkId = input["linkId"]?.Value<long>() ?? 0;
@@ -39,17 +39,17 @@ public class ManageLinksTool : ICortexTool
                 "reload_from" => ReloadLinkFrom(doc, linkId, input, session),
                 "unload" => UnloadLink(doc, linkId, session),
                 "remove" => RemoveLink(doc, linkId, session),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}", suggestion: "Use: list, reload, reload_from, unload, remove")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListLinks(Document doc)
+    private static RiveTTResult<object> ListLinks(Document doc)
     {
         var links = new List<object>();
 
@@ -82,94 +82,94 @@ public class ManageLinksTool : ICortexTool
             });
         }
 
-        return CortexResult<object>.Ok(new { linkCount = links.Count, links });
+        return RiveTTResult<object>.Ok(new { linkCount = links.Count, links });
     }
 
-    private static CortexResult<object> ReloadLink(Document doc, long linkId, CortexSession session)
+    private static RiveTTResult<object> ReloadLink(Document doc, long linkId, RiveTTSession session)
     {
         if (linkId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "linkId required for reload");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "linkId required for reload");
 
         var linkInstance = doc.GetElement(new ElementId(linkId)) as RevitLinkInstance;
         if (linkInstance == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Link not found");
 
         var linkType = doc.GetElement(linkInstance.GetTypeId()) as RevitLinkType;
         if (linkType == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link type not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Link type not found");
 
         if (!session.RequestConfirmation("reload link", 1, linkInstance.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Reload Link");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         linkType.Reload();
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded" });
+        return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded" });
     }
 
-    private static CortexResult<object> UnloadLink(Document doc, long linkId, CortexSession session)
+    private static RiveTTResult<object> UnloadLink(Document doc, long linkId, RiveTTSession session)
     {
         if (linkId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "linkId required for unload");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "linkId required for unload");
 
         var linkInstance = doc.GetElement(new ElementId(linkId)) as RevitLinkInstance;
         if (linkInstance == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Link not found");
 
         var linkType = doc.GetElement(linkInstance.GetTypeId()) as RevitLinkType;
         if (linkType == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link type not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Link type not found");
 
         if (!session.RequestConfirmation("unload link", 1, linkInstance.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Unload Link");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         linkType.Unload(null);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "unloaded" });
+        return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "unloaded" });
     }
 
-    private static CortexResult<object> ReloadLinkFrom(Document doc, long linkId, JObject input, CortexSession session)
+    private static RiveTTResult<object> ReloadLinkFrom(Document doc, long linkId, JObject input, RiveTTSession session)
     {
         if (linkId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "linkId required for reload_from");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "linkId required for reload_from");
 
         var newPath = input["newPath"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(newPath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "newPath required for reload_from", suggestion: "Provide the absolute path to reload the link from");
 
         // Absorbed from the retired reload_linked_file_from, which had this guard and this
         // tool did not: UNC allowed because linking models from network shares is a standard
         // BIM workflow and the confirmation dialog shows the path.
         if (!PathSafety.TryResolveSafe(newPath, out var safePath, out var pathError, allowUnc: true))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, temp, or a network share");
         newPath = safePath;
 
         var linkInstance = doc.GetElement(ToolHelpers.ToElementId(linkId)) as RevitLinkInstance;
         if (linkInstance == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Link not found");
 
         var linkType = doc.GetElement(linkInstance.GetTypeId()) as RevitLinkType;
         if (linkType == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link type not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Link type not found");
 
         if (!session.RequestConfirmation("reload link from new path", 1, linkInstance.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var modelPath = ModelPathUtils.ConvertUserVisiblePathToModelPath(newPath);
 
@@ -178,26 +178,26 @@ public class ManageLinksTool : ICortexTool
         tx.Start();
         linkType.LoadFrom(modelPath, new WorksetConfiguration());
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded_from", newPath });
+        return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded_from", newPath });
     }
 
-    private static CortexResult<object> RemoveLink(Document doc, long linkId, CortexSession session)
+    private static RiveTTResult<object> RemoveLink(Document doc, long linkId, RiveTTSession session)
     {
         if (linkId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "linkId required for remove");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "linkId required for remove");
 
         var element = doc.GetElement(ToolHelpers.ToElementId(linkId));
         if (element == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Link not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Link not found");
 
         var name = element.Name;
 
         if (!session.RequestConfirmation("remove link", 1, name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         // Delete the link instance and, if no other instances reference the type, the type too.
         var typeId = element is RevitLinkInstance rli ? rli.GetTypeId() : ElementId.InvalidElementId;
@@ -220,10 +220,10 @@ public class ManageLinksTool : ICortexTool
             }
         }
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { linkId, name, action = "removed", typeRemoved });
+        return RiveTTResult<object>.Ok(new { linkId, name, action = "removed", typeRemoved });
     }
 }

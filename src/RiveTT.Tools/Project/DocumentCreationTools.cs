@@ -30,14 +30,14 @@ namespace RiveTT.Tools.Project;
 /// </summary>
 internal static class DocumentLifecycleSupport
 {
-    internal static Application? ResolveApplication(CortexSession session)
+    internal static Application? ResolveApplication(RiveTTSession session)
     {
         if (session.Store.Get<object>("uiApplication") is UIApplication uiApplication)
             return uiApplication.Application;
         return (session.Store.Get<object>("activeDocument") as Document)?.Application;
     }
 
-    internal static UIApplication? ResolveUiApplication(CortexSession session)
+    internal static UIApplication? ResolveUiApplication(RiveTTSession session)
         => session.Store.Get<object>("uiApplication") as UIApplication;
 
     internal static bool IsWritableDirectory(string directory)
@@ -70,7 +70,7 @@ internal static class DocumentLifecycleSupport
 
 /// <summary>Creates a new project document from a Revit template (.rte).</summary>
 [ToolSafety(false, false)]
-public sealed class CreateDocumentTool : ICortexTool
+public sealed class CreateDocumentTool : IRiveTTTool
 {
     public string Name => "create_document";
     public string Category => "Documents";
@@ -84,11 +84,11 @@ public sealed class CreateDocumentTool : ICortexTool
         "to use the Revit default project template. The document is created in memory, saved, then closed; " +
         "set activate=true to open it in Revit afterwards.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var application = DocumentLifecycleSupport.ResolveApplication(session);
         if (application == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No Revit application context is available yet",
                 suggestion: "Open Revit (2026.5+ or 2027) and wait for its session to be published.");
 
@@ -107,21 +107,21 @@ public sealed class CreateDocumentTool : ICortexTool
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (string.IsNullOrWhiteSpace(targetPath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "targetPath is required and was not provided",
                 suggestion: "Pass targetPath as an absolute .rvt path, e.g. " +
                             "{\"targetPath\": \"C:\\\\Projets\\\\T2.rvt\", \"dryRun\": false}.");
 
         if (!Path.IsPathFullyQualified(targetPath) ||
             !targetPath!.EndsWith(".rvt", StringComparison.OrdinalIgnoreCase))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"targetPath must be an absolute path ending in .rvt (received: {targetPath})");
 
         var defaultTemplate = SafeDefaultTemplate(application);
         var resolvedTemplate = string.IsNullOrWhiteSpace(templatePath) ? defaultTemplate : templatePath;
 
         if (string.IsNullOrWhiteSpace(resolvedTemplate))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No template available: templatePath was not provided and Revit has no default project template configured.",
                 suggestion: "Pass templatePath explicitly, e.g. " +
                             "C:\\ProgramData\\Autodesk\\RVT <year>\\Templates\\French\\Modele-architecture.rte " +
@@ -142,7 +142,7 @@ public sealed class CreateDocumentTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = blockers.Count == 0
                     ? $"DryRun: would create '{Path.GetFileName(targetPath)}' from template " +
@@ -161,7 +161,7 @@ public sealed class CreateDocumentTool : ICortexTool
         }
 
         if (blockers.Count > 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Cannot create the document: {string.Join("; ", blockers)}");
 
         Document? created = null;
@@ -169,7 +169,7 @@ public sealed class CreateDocumentTool : ICortexTool
         {
             created = application.NewProjectDocument(resolvedTemplate);
             if (created == null)
-                return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                     $"Revit returned no document for template '{resolvedTemplate}'");
 
             created.SaveAs(targetPath, new SaveAsOptions { OverwriteExistingFile = overwrite });
@@ -209,7 +209,7 @@ public sealed class CreateDocumentTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = activated
                     ? $"Created '{title}' from '{Path.GetFileName(resolvedTemplate)}' and activated it in Revit."
@@ -229,7 +229,7 @@ public sealed class CreateDocumentTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Could not create the document: {exception.Message}",
                 suggestion: "Check that the template path is a valid .rte for the running Revit version and that " +
                             "no other process holds the template or the target file.");
@@ -258,7 +258,7 @@ public sealed class CreateDocumentTool : ICortexTool
 
 /// <summary>Opens and activates an existing project file in Revit.</summary>
 [ToolSafety(false, false)]
-public sealed class OpenDocumentTool : ICortexTool
+public sealed class OpenDocumentTool : IRiveTTTool
 {
     public string Name => "open_document";
     public string Category => "Documents";
@@ -271,7 +271,7 @@ public sealed class OpenDocumentTool : ICortexTool
         "Supported from this connector's ExternalEvent context — it is the API *event* handlers (Idling, " +
         "DocumentChanged) that cannot switch documents.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var application = DocumentLifecycleSupport.ResolveApplication(session);
         var filePath = input["filePath"]?.Value<string>()
@@ -281,17 +281,17 @@ public sealed class OpenDocumentTool : ICortexTool
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (string.IsNullOrWhiteSpace(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "filePath is required and was not provided",
                 suggestion: "Pass filePath as an absolute .rvt path.");
 
         if (!Path.IsPathFullyQualified(filePath) ||
             !filePath!.EndsWith(".rvt", StringComparison.OrdinalIgnoreCase))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"filePath must be an absolute path ending in .rvt (received: {filePath})");
 
         if (!File.Exists(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"File not found: {filePath}");
 
         var currentDocument = session.Store.Get<object>("activeDocument") as Document;
@@ -300,7 +300,7 @@ public sealed class OpenDocumentTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = alreadyActive
                     ? "DryRun: this file is already the active document."
@@ -322,7 +322,7 @@ public sealed class OpenDocumentTool : ICortexTool
 
         var uiApplication = DocumentLifecycleSupport.ResolveUiApplication(session);
         if (uiApplication == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No UIApplication in session, so no document can be activated",
                 suggestion: "Activate any view in Revit once, then retry.");
 
@@ -344,7 +344,7 @@ public sealed class OpenDocumentTool : ICortexTool
             }
 
             var opened = uiApplication.ActiveUIDocument?.Document;
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Opened and activated '{Path.GetFileName(filePath)}'. All caches were flushed." +
                           (dialogs.Answered.Count > 0
@@ -361,7 +361,7 @@ public sealed class OpenDocumentTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Could not open and activate the document: {exception.Message}",
                 suggestion: "Revit refuses to switch documents while another operation is in progress, and a " +
                             "workshared central model needs detachFromCentral=true. Close any open dialog in " +

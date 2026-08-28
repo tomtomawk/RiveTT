@@ -14,14 +14,14 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's MeasureBetweenElementsEventHandler logic.
 /// </summary>
 [ToolSafety(true, false)]
-public class MeasureBetweenElementsTool : ICortexTool
+public class MeasureBetweenElementsTool : IRiveTTTool
 {
     public string Name => "measure_between_elements";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Measures the distance between two elements or explicit points (in mm). Supports center_to_center, closest_points, and bounding_box measure types. Mirrors the fork's MeasureBetweenElementsEventHandler logic.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var elementId1 = input["elementId1"]?.Value<long?>() ?? 0;
         var elementId2 = input["elementId2"]?.Value<long?>() ?? 0;
@@ -38,13 +38,13 @@ public class MeasureBetweenElementsTool : ICortexTool
         bool hasRef2 = elementId2 > 0 || rawPoint2 != null;
 
         if (!hasRef1 || !hasRef2)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Must provide two references. Each can be an elementId or an explicit point {x, y, z} (mm).",
                 suggestion: "Example: {\"elementId1\": 123, \"elementId2\": 456} or {\"point1\": {\"x\":0,\"y\":0,\"z\":0}, \"elementId2\": 456}");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         try
@@ -71,7 +71,7 @@ public class MeasureBetweenElementsTool : ICortexTool
             double dy = Math.Abs(p2.Y - p1.Y) * MmPerFoot;
             double dz = Math.Abs(p2.Z - p1.Z) * MmPerFoot;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message      = $"Distance: {distanceMm:F1} mm ({distanceMm / 1000:F3} m)",
                 distance     = Math.Round(distanceMm, 1),
@@ -86,11 +86,11 @@ public class MeasureBetweenElementsTool : ICortexTool
         }
         catch (ArgumentException ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, ex.Message);
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, ex.Message);
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Measure failed: {ex.Message}");
         }
     }

@@ -5,7 +5,7 @@ using RiveTT.Core.Tools;
 
 namespace RiveTT.Tests.Router;
 
-public class FakeTool : ICortexTool
+public class FakeTool : IRiveTTTool
 {
     public string Name { get; set; } = "fake_tool";
     public string Category { get; set; } = "Test";
@@ -13,8 +13,8 @@ public class FakeTool : ICortexTool
     public bool IsDynamic { get; set; } = false;
     public string Description { get; set; } = "A fake tool for testing.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
-        return CortexResult<object>.Ok(new { called = true, toolName = Name });
+        return RiveTTResult<object>.Ok(new { called = true, toolName = Name });
     }
 }

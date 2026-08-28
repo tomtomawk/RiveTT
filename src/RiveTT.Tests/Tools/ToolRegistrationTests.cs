@@ -10,13 +10,13 @@ namespace RiveTT.Tests.Tools;
 
 /// <summary>
 /// Structural tests that verify tool correctness without requiring Revit.
-/// These ensure all ICortexTool implementations follow conventions.
+/// These ensure all IRiveTTTool implementations follow conventions.
 /// </summary>
 public class ToolRegistrationTests
 {
     private static readonly List<Type> AllToolTypes = GetLoadableTypes(
             typeof(RiveTT.Tools.Meta.SayHelloTool).Assembly)
-        .Where(t => t.IsClass && !t.IsAbstract && typeof(ICortexTool).IsAssignableFrom(t))
+        .Where(t => t.IsClass && !t.IsAbstract && typeof(IRiveTTTool).IsAssignableFrom(t))
         .ToList();
 
     /// <summary>
@@ -36,13 +36,13 @@ public class ToolRegistrationTests
     }
 
     [Fact]
-    public void AllToolTypes_ImplementICortexTool()
+    public void AllToolTypes_ImplementIRiveTTTool()
     {
         Assert.NotEmpty(AllToolTypes);
         foreach (var toolType in AllToolTypes)
         {
-            Assert.True(typeof(ICortexTool).IsAssignableFrom(toolType),
-                $"{toolType.Name} should implement ICortexTool");
+            Assert.True(typeof(IRiveTTTool).IsAssignableFrom(toolType),
+                $"{toolType.Name} should implement IRiveTTTool");
         }
     }
 
@@ -50,7 +50,7 @@ public class ToolRegistrationTests
     public void AllTools_HaveUniqueNames()
     {
         var tools = AllToolTypes
-            .Select(t => (ICortexTool)Activator.CreateInstance(t)!)
+            .Select(t => (IRiveTTTool)Activator.CreateInstance(t)!)
             .ToList();
 
         var names = tools.Select(t => t.Name).ToList();
@@ -63,7 +63,7 @@ public class ToolRegistrationTests
     public void AllTools_HaveSnakeCaseNames()
     {
         var tools = AllToolTypes
-            .Select(t => (ICortexTool)Activator.CreateInstance(t)!)
+            .Select(t => (IRiveTTTool)Activator.CreateInstance(t)!)
             .ToList();
 
         foreach (var tool in tools)
@@ -76,7 +76,7 @@ public class ToolRegistrationTests
     public void AllTools_HaveNonEmptyCategory()
     {
         var tools = AllToolTypes
-            .Select(t => (ICortexTool)Activator.CreateInstance(t)!)
+            .Select(t => (IRiveTTTool)Activator.CreateInstance(t)!)
             .ToList();
 
         foreach (var tool in tools)
@@ -91,7 +91,7 @@ public class ToolRegistrationTests
     {
         foreach (var toolType in AllToolTypes)
         {
-            var instance = Activator.CreateInstance(toolType) as ICortexTool;
+            var instance = Activator.CreateInstance(toolType) as IRiveTTTool;
             Assert.NotNull(instance);
         }
     }
@@ -113,7 +113,7 @@ public class ToolRegistrationTests
     public void DynamicCapabilityNames_AllMapToRegisteredTools()
     {
         var tools = AllToolTypes
-            .Select(t => (ICortexTool)Activator.CreateInstance(t)!)
+            .Select(t => (IRiveTTTool)Activator.CreateInstance(t)!)
             .Select(t => t.Name)
             .ToHashSet(StringComparer.Ordinal);
 

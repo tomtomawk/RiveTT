@@ -20,7 +20,7 @@ namespace RiveTT.Tools.Project;
 /// ribbon write-lock cannot express (it gates per tool, not per call).
 /// </summary>
 [ToolSafety(true, false)]
-public class ClashDetectionTool : ICortexTool
+public class ClashDetectionTool : IRiveTTTool
 {
     public string Name => "detect_clashes";
     public string Category => "Project";
@@ -28,11 +28,11 @@ public class ClashDetectionTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Detects geometric intersections (clashes) between two sets of elements. Uses true solid-geometry intersection by default (bounding-box pre-filter + ElementIntersectsElementFilter); set useSolidGeometry=false for a faster bbox-only approximation.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var categoryA = input["categoryA"]?.Value<string>() ?? input["category1"]?.Value<string>();
         var categoryB = input["categoryB"]?.Value<string>() ?? input["category2"]?.Value<string>();
@@ -61,7 +61,7 @@ public class ClashDetectionTool : ICortexTool
             }
             else
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "categoryA or elementIdsA required");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "categoryA or elementIdsA required");
             }
 
             // Resolve set B
@@ -80,7 +80,7 @@ public class ClashDetectionTool : ICortexTool
             }
             else
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "categoryB or elementIdsB required");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "categoryB or elementIdsB required");
             }
 
             // The detection pass itself lives in ClashFinder so show_clashes runs
@@ -88,7 +88,7 @@ public class ClashDetectionTool : ICortexTool
             var found = ClashFinder.Find(
                 doc, setA, setB, toleranceMm / MmPerFoot, maxResults, useSolidGeometry);
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 setACount = setA.Count,
                 setBCount = setB.Count,
@@ -101,7 +101,7 @@ public class ClashDetectionTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Clash detection failed: {ex.Message}",
                 suggestion: "Check that both categories exist in this document (list them with "
                           + "analyze_model_statistics) and lower maxResults on a very large model.");

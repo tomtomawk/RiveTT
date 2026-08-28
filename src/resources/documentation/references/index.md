@@ -15,7 +15,7 @@ les retrouver à la main. Le guide complet est dans `../README.md`.
 
 `inventaire-des-outils.md` n'est jamais édité à la main : il sort de
 `tools/audit-tool-surface.py`, qui croise les attributs `[McpServerTool]` du serveur
-et les classes `ICortexTool` du runtime. C'est la seule liste d'outils exacte par
+et les classes `IRiveTTTool` du runtime. C'est la seule liste d'outils exacte par
 construction — les autres documents la citent, ils ne la recopient pas.
 
 Ces six fichiers en remplacent onze. Les précédents étaient hérités du projet source

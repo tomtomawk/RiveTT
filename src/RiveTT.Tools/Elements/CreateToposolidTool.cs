@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Elements;
 /// platform at all before this.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateToposolidTool : ICortexTool
+public class CreateToposolidTool : IRiveTTTool
 {
     public string Name => "create_toposolid";
     public string Category => "Elements";
@@ -28,32 +28,32 @@ public class CreateToposolidTool : ICortexTool
         "curves is [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm, forming a closed loop. " +
         "toposolidTypeId and levelId are required — list types with list_system_types(category: \"OST_Toposolid\").";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var typeIdLong = input["toposolidTypeId"]?.Value<long?>() ?? 0;
         var levelIdLong = input["levelId"]?.Value<long?>() ?? 0;
         var curvesArray = input["curves"] as JArray;
         if (typeIdLong <= 0 || levelIdLong <= 0 || curvesArray == null || curvesArray.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "toposolidTypeId, levelId, and a non-empty curves array (closed loop, mm) are required");
 
         var toposolidType = doc.GetElement(ToolHelpers.ToElementId(typeIdLong)) as ElementType;
         if (toposolidType == null || toposolidType.Category?.Id != new ElementId(BuiltInCategory.OST_Toposolid))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"toposolidTypeId {typeIdLong} is not an OST_Toposolid type",
                 suggestion: "List valid ids with list_system_types(category: \"OST_Toposolid\").");
 
         var level = doc.GetElement(ToolHelpers.ToElementId(levelIdLong)) as Level;
         if (level == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"levelId {levelIdLong} is not a Level");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"levelId {levelIdLong} is not a Level");
 
         var curves = CurveSpecHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
         if (curveError != null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, curveError);
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, curveError);
 
         CurveLoop loop;
         try
@@ -62,7 +62,7 @@ public class CreateToposolidTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"curves do not form a valid closed loop: {ex.Message}");
         }
 
@@ -78,14 +78,14 @@ public class CreateToposolidTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Toposolid.Create failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Toposolid.Create failed: {ex.Message}");
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             toposolidId = ToolHelpers.GetElementIdValue(toposolid.Id),
             levelName = level.Name

@@ -38,7 +38,7 @@ public class MaterialQuantitiesGuardrailSourceTests
         // Budget must stay under the 120s dispatcher timeout so the caller receives
         // this structured error instead of the generic dispatcher Timeout.
         Assert.Contains("TimeBudgetMs = 90", src);
-        Assert.Contains("CortexErrorCode.Timeout", src);
+        Assert.Contains("RiveTTErrorCode.Timeout", src);
     }
 
     [Fact]

@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 /// Corresponds to Manage → Additional Settings dropdown.
 /// </summary>
 [ToolSafety(false, false)]
-public class ManageAdditionalSettingsTool : ICortexTool
+public class ManageAdditionalSettingsTool : IRiveTTTool
 {
     public string Name => "manage_additional_settings";
     public string Category => "Project";
@@ -27,11 +27,11 @@ public class ManageAdditionalSettingsTool : ICortexTool
         "Actions: list_line_styles, create_line_style, set_line_style, list_line_weights, " +
         "list_line_patterns, list_fill_patterns, get_halftone, set_halftone.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = input["action"]?.Value<string>() ?? "list_line_styles";
 
@@ -47,7 +47,7 @@ public class ManageAdditionalSettingsTool : ICortexTool
                 "list_fill_patterns" => ListFillPatterns(doc),
                 "get_halftone"       => GetHalftone(doc),
                 "set_halftone"       => SetHalftone(doc, input, session),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}",
                     suggestion: "Use: list_line_styles, create_line_style, set_line_style, " +
                                 "list_line_weights, list_line_patterns, list_fill_patterns, get_halftone, set_halftone")
@@ -55,14 +55,14 @@ public class ManageAdditionalSettingsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Additional settings operation failed: {ex.Message}");
         }
     }
 
     // ── LINE STYLES ──────────────────────────────────────────────────────
 
-    private static CortexResult<object> ListLineStyles(Document doc)
+    private static RiveTTResult<object> ListLineStyles(Document doc)
     {
         var linesCategory = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines);
 
@@ -73,18 +73,18 @@ public class ManageAdditionalSettingsTool : ICortexTool
 
         var styles = sortedSubs.Select(sub => BuildLineStyleInfo(doc, sub)).ToList();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             styleCount = styles.Count,
             lineStyles = styles
         });
     }
 
-    private static CortexResult<object> CreateLineStyle(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> CreateLineStyle(Document doc, JObject input, RiveTTSession session)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required");
 
         var linesCategory = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines);
 
@@ -92,12 +92,12 @@ public class ManageAdditionalSettingsTool : ICortexTool
         foreach (Category sub in linesCategory.SubCategories)
         {
             if (sub.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Line style '{name}' already exists");
         }
 
         if (!session.RequestConfirmation("create line style", 1, name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Create Line Style");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -108,11 +108,11 @@ public class ManageAdditionalSettingsTool : ICortexTool
         ApplyLineStyleOverrides(doc, newStyle, input);
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "create",
             name   = newStyle.Name,
@@ -120,11 +120,11 @@ public class ManageAdditionalSettingsTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> SetLineStyle(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> SetLineStyle(Document doc, JObject input, RiveTTSession session)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required");
 
         var linesCategory = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines);
         Category? target = null;
@@ -138,22 +138,22 @@ public class ManageAdditionalSettingsTool : ICortexTool
         }
 
         if (target == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Line style '{name}' not found");
 
         if (!session.RequestConfirmation("modify line style", 1, name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Modify Line Style");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         ApplyLineStyleOverrides(doc, target, input);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "set",
             name   = target.Name,
@@ -184,7 +184,7 @@ public class ManageAdditionalSettingsTool : ICortexTool
 
     // ── LINE WEIGHTS ─────────────────────────────────────────────────────
 
-    private static CortexResult<object> ListLineWeights(Document doc)
+    private static RiveTTResult<object> ListLineWeights(Document doc)
     {
         // Line weights are assigned per-category. Collect all top-level categories
         // and return their projection/cut weights.
@@ -212,7 +212,7 @@ public class ManageAdditionalSettingsTool : ICortexTool
 
         results = results.OrderBy(r => ((dynamic)r).category.ToString()).ToList();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             note = "Line weights 1-16 map to print widths. Use set_line_style to change weights per line style.",
             categoryCount = results.Count,
@@ -222,7 +222,7 @@ public class ManageAdditionalSettingsTool : ICortexTool
 
     // ── LINE PATTERNS ─────────────────────────────────────────────────────
 
-    private static CortexResult<object> ListLinePatterns(Document doc)
+    private static RiveTTResult<object> ListLinePatterns(Document doc)
     {
         var patterns = new FilteredElementCollector(doc)
             .OfClass(typeof(LinePatternElement))
@@ -242,7 +242,7 @@ public class ManageAdditionalSettingsTool : ICortexTool
             name = "<Solid>"
         });
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             patternCount = patterns.Count,
             linePatterns = patterns
@@ -251,7 +251,7 @@ public class ManageAdditionalSettingsTool : ICortexTool
 
     // ── FILL PATTERNS ─────────────────────────────────────────────────────
 
-    private static CortexResult<object> ListFillPatterns(Document doc)
+    private static RiveTTResult<object> ListFillPatterns(Document doc)
     {
         var patterns = new FilteredElementCollector(doc)
             .OfClass(typeof(FillPatternElement))
@@ -270,7 +270,7 @@ public class ManageAdditionalSettingsTool : ICortexTool
             .OrderBy(p => p.name)
             .ToList<object>();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             patternCount = patterns.Count,
             fillPatterns = patterns
@@ -281,35 +281,35 @@ public class ManageAdditionalSettingsTool : ICortexTool
     // Note: HalftoneAndUnderlaySettings API class name/location varies across Revit versions.
     // We use reflection to call it safely across R23-R27.
 
-    private static CortexResult<object> GetHalftone(Document doc)
+    private static RiveTTResult<object> GetHalftone(Document doc)
     {
         var (settings, getMethod, setMethod, settingsType) = ResolveHalftoneApi(doc);
         if (settings == null)
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 "Halftone/Underlay settings API is not available in this Revit version");
 
         int halftonePercent    = GetIntProp(settings, settingsType!, "HalftonePercent");
         int underlayBrightness = GetIntProp(settings, settingsType!, "BackgroundPatternBrightness");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             halftonePercent,
             underlayBrightness
         });
     }
 
-    private static CortexResult<object> SetHalftone(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> SetHalftone(Document doc, JObject input, RiveTTSession session)
     {
         var (settings, getMethod, setMethod, settingsType) = ResolveHalftoneApi(doc);
         if (settings == null || setMethod == null)
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 "Halftone/Underlay settings API is not available in this Revit version");
 
         var percent = input["halftonePercent"]?.Value<int?>();
         if (percent.HasValue)
         {
             if (percent < 0 || percent > 100)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "halftonePercent must be 0–100");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "halftonePercent must be 0–100");
             settingsType!.GetProperty("HalftonePercent")?.SetValue(settings, percent.Value);
         }
 
@@ -317,23 +317,23 @@ public class ManageAdditionalSettingsTool : ICortexTool
         if (underlayBrightness.HasValue)
         {
             if (underlayBrightness < 0 || underlayBrightness > 100)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "underlayBrightness must be 0–100");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "underlayBrightness must be 0–100");
             settingsType!.GetProperty("BackgroundPatternBrightness")?.SetValue(settings, underlayBrightness.Value);
         }
 
         if (!session.RequestConfirmation("set halftone/underlay settings", 1))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Set Halftone/Underlay Settings");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         setMethod.Invoke(null, new[] { doc, settings });
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action             = "set",
             halftonePercent    = GetIntProp(settings, settingsType!, "HalftonePercent"),

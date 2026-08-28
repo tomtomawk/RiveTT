@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// description filtering. Useful for model health auditing.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetWarningsTool : ICortexTool
+public class GetWarningsTool : IRiveTTTool
 {
     public string Name => "list_warnings";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Retrieves all warnings/errors in the model with optional severity and description filtering. Useful for model health auditing.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var severityFilter = input["severityFilter"]?.Value<string>() ?? "All";
@@ -82,7 +82,7 @@ public class GetWarningsTool : ICortexTool
                 count++;
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 totalWarnings    = allWarnings.Count,
                 returnedWarnings = warnings.Count,
@@ -92,7 +92,7 @@ public class GetWarningsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get warnings: {ex.Message}");
         }
     }

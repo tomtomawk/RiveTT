@@ -18,7 +18,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// and identifies any RevitLinkInstance elements, reporting their status and element summary.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetSelectedLinkedElementsTool : ICortexTool
+public class GetSelectedLinkedElementsTool : IRiveTTTool
 {
     public string Name => "get_selected_linked_elements";
     public string Category => "LinkedFiles";
@@ -26,11 +26,11 @@ public class GetSelectedLinkedElementsTool : ICortexTool
     public bool IsDynamic => true;
     public string Description => "Returns info about currently selected link instances: load status, path, and element counts by category. Ask the user to select link instances first.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var includeCategorySummary = input["includeCategorySummary"]?.Value<bool>() ?? true;
         var maxCategories = input["maxCategories"]?.Value<int>() ?? 20;
@@ -106,7 +106,7 @@ public class GetSelectedLinkedElementsTool : ICortexTool
 
             if (linkResults.Count == 0)
             {
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     message = selectedIds.Count == 0
                         ? "No elements selected. Ask the user to select one or more linked file instances."
@@ -116,7 +116,7 @@ public class GetSelectedLinkedElementsTool : ICortexTool
                 });
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Found {linkResults.Count} selected link instance(s)",
                 selectedLinkCount = linkResults.Count,
@@ -125,7 +125,7 @@ public class GetSelectedLinkedElementsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

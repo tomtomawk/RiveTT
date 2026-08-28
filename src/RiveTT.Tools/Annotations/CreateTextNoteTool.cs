@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Annotations;
 /// Creates one or more text notes in the active or specified view.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateTextNoteTool : ICortexTool
+public class CreateTextNoteTool : IRiveTTTool
 {
     public string Name => "create_text_note";
     public string Category => "Annotations";
@@ -23,16 +23,16 @@ public class CreateTextNoteTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates one or more text notes in the active or specified view.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var textNotes = input["textNotes"] as JArray;
         if (textNotes == null || textNotes.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "textNotes array is required",
                 suggestion: "Provide {\"textNotes\": [{\"text\": \"Hello\", \"position\": {\"x\":0,\"y\":0,\"z\":0}}]}");
 
@@ -68,7 +68,7 @@ public class CreateTextNoteTool : ICortexTool
                 }
             }
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
@@ -78,7 +78,7 @@ public class CreateTextNoteTool : ICortexTool
             throw;
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             createdCount = createdIds.Count,
             createdTextNoteIds = createdIds,

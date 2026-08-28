@@ -22,7 +22,7 @@ namespace RiveTT.Tools.Project;
 /// railingTypeId nobody could enumerate.
 /// </summary>
 [ToolSafety(true, false)]
-public sealed class ListSystemTypesTool : ICortexTool
+public sealed class ListSystemTypesTool : IRiveTTTool
 {
     public string Name => "list_system_types";
     public string Category => "Project";
@@ -35,11 +35,11 @@ public sealed class ListSystemTypesTool : ICortexTool
         "or localized labels; omit the category to get the per-category inventory. " +
         "Use the returned typeId with create_wall / create_railing / duplicate_system_type.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var category = input["category"]?.Value<string>();
         var nameFilter = input["nameFilter"]?.Value<string>();
@@ -59,7 +59,7 @@ public sealed class ListSystemTypesTool : ICortexTool
             {
                 var categoryId = CategoryResolver.ResolveToId(doc, category!);
                 if (categoryId == null || categoryId == ElementId.InvalidElementId)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Category '{category}' could not be resolved in this document.",
                         suggestion: "Use an OST_* code (OST_StairsRailing, OST_Walls…), the English name, " +
                                     "or the exact localized label. Call this tool without a category to see " +
@@ -97,7 +97,7 @@ public sealed class ListSystemTypesTool : ICortexTool
                     .OrderByDescending(entry => entry.typeCount)
                     .ToList();
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     message = $"{types.Count} system type(s) across {inventory.Count} categories. " +
                               "Pass a category (categoryBic is language-independent) to list its types.",
@@ -125,7 +125,7 @@ public sealed class ListSystemTypesTool : ICortexTool
                 })
                 .ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"{items.Count} type(s) returned of {types.Count} matching '{category}'.",
                 count = items.Count,
@@ -136,7 +136,7 @@ public sealed class ListSystemTypesTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to list system types: {exception.Message}");
         }
     }

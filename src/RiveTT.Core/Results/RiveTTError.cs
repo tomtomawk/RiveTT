@@ -4,11 +4,11 @@ using System.Collections.Generic;
 
 namespace RiveTT.Core.Results;
 
-public class CortexError
+public class RiveTTError
 {
     [JsonConverter(typeof(StringEnumConverter))]
     [JsonProperty("code")]
-    public CortexErrorCode Code { get; }
+    public RiveTTErrorCode Code { get; }
 
     [JsonProperty("message")]
     public string Message { get; }
@@ -19,7 +19,7 @@ public class CortexError
     [JsonProperty("context", NullValueHandling = NullValueHandling.Ignore)]
     public Dictionary<string, object>? Context { get; }
 
-    public CortexError(CortexErrorCode code, string message,
+    public RiveTTError(RiveTTErrorCode code, string message,
         string? suggestion = null, Dictionary<string, object>? context = null)
     {
         Code = code;

@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's ColorSplashEventHandler logic.
 /// </summary>
 [ToolSafety(false, false)]
-public class ColorElementsTool : ICortexTool
+public class ColorElementsTool : IRiveTTTool
 {
     public string Name => "color_elements";
     public string Category => "Elements";
@@ -26,7 +26,7 @@ public class ColorElementsTool : ICortexTool
     public string Description => "Colors elements in the active view by grouping them on a parameter value, or resets (clears) the color overrides. Actions: color (default), reset. Supports OST_* category codes or localized display names. Color strategies: customColors array → gradient (blue→red) → random.";
     private static readonly Random Rng = new Random();
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var action        = (input["action"]?.Value<string>() ?? "color").ToLowerInvariant();
         var categoryName  = input["categoryName"]?.Value<string>();
@@ -35,45 +35,45 @@ public class ColorElementsTool : ICortexTool
         var customColors  = input["customColors"] as JArray;
 
         if (string.IsNullOrWhiteSpace(categoryName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "categoryName is required",
                 suggestion: "Use an OST_* code (e.g. OST_Walls) or a localized display name");
 
         // parameterName is only needed for the 'color' action.
         if (action == "color" && string.IsNullOrWhiteSpace(parameterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "parameterName is required",
                 suggestion: "E.g. \"Type Name\", \"Level\", \"Comments\"");
 
         if (action != "color" && action != "reset")
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown action: {action}", suggestion: "Use: color, reset");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // viewId when given, active view otherwise. See ToolHelpers.ResolveTargetView.
         var activeView = ToolHelpers.ResolveTargetView(doc, input, out var viewError);
         if (viewError != null) return viewError;
         if (activeView == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active view in the document");
 
         if (activeView.ViewType == ViewType.DrawingSheet)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Cannot color elements on a Sheet view. Activate a model view (FloorPlan, Section, or 3D).",
                 suggestion: "Switch to a model view in Revit before calling color_elements.");
 
         if (!activeView.CanUseTemporaryVisibilityModes())
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Cannot modify element overrides in {activeView.ViewType} views. Switch to a 3D or floor plan view.");
 
         // Resolve category
         Autodesk.Revit.DB.Category? category = ResolveCategory(doc, categoryName!);
         if (category == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Category '{categoryName}' not found",
                 suggestion: "Use an OST_* code or the exact localized display name");
 
@@ -87,7 +87,7 @@ public class ColorElementsTool : ICortexTool
             var elements = collector.ToElements();
 
             if (elements.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"No elements of category '{categoryName}' found in the current view");
 
             // ── Reset action: clear overrides on the category's elements ──────────
@@ -104,11 +104,11 @@ public class ColorElementsTool : ICortexTool
                     reset++;
                 }
                 if (resetTx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(resetTxFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     message = $"Cleared color overrides on {reset} element(s) of '{categoryName}' in the active view",
                     resetCount = reset
@@ -185,11 +185,11 @@ public class ColorElementsTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     message = $"Colored {elements.Count} element(s) across {groups.Count} group(s)",
                     totalElements = elements.Count,
@@ -208,7 +208,7 @@ public class ColorElementsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to color elements: {ex.Message}");
         }
     }

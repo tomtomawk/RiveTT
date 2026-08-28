@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's GetSelectedElementsEventHandler logic.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetSelectedElementsTool : ICortexTool
+public class GetSelectedElementsTool : IRiveTTTool
 {
     public string Name => "get_selected_elements";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Returns the currently selected elements in the Revit UI. Mirrors the fork's GetSelectedElementsEventHandler logic.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var limit = input["limit"]?.Value<int>() ?? 500;
@@ -51,7 +51,7 @@ public class GetSelectedElementsTool : ICortexTool
                 category = e.Category?.Name
             }).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message          = elements.Count == 0
                                        ? "No elements are currently selected"
@@ -62,7 +62,7 @@ public class GetSelectedElementsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to retrieve selected elements: {ex.Message}");
         }
     }

@@ -80,7 +80,7 @@ public class ConfirmedDefectFixSourceTests
         // order, so the shared before/after check must be scoped to the Delete method only —
         // its own Transaction, not Save's, is what the dryRun check has to precede.
         var full = ReadSource("RiveTT.Tools", "Elements", "ManageSelectionTool.cs");
-        var deleteStart = full.IndexOf("private static CortexResult<object> Delete(", StringComparison.Ordinal);
+        var deleteStart = full.IndexOf("private static RiveTTResult<object> Delete(", StringComparison.Ordinal);
         Assert.True(deleteStart >= 0, "manage_selection has no Delete method");
         var src = full.Substring(deleteStart);
         AssertPreviewsBeforeWriting(src, "manage_selection(action=delete)");
@@ -131,7 +131,7 @@ public class ConfirmedDefectFixSourceTests
     [Fact]
     public void SendCodeToRevit_DoesNotClaimAnInRevitConfirmationThatDoesNotExist()
     {
-        // CortexSession.RequestConfirmation is a no-op that always returns true, and this
+        // RiveTTSession.RequestConfirmation is a no-op that always returns true, and this
         // tool never called it: advertising a human gate that cannot fire is worse than
         // advertising none, because the caller stops looking for one.
         var wrapper = ServerWrapper("ProjectTools.cs", "send_code_to_revit");

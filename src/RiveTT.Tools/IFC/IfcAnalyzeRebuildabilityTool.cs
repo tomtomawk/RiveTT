@@ -15,7 +15,7 @@ namespace RiveTT.Tools.IFC;
 /// and returns confidence scores per element.
 /// </summary>
 [ToolSafety(true, false)]
-public class IfcAnalyzeRebuildabilityTool : ICortexTool
+public class IfcAnalyzeRebuildabilityTool : IRiveTTTool
 {
     public string Name => "ifc_analyze_rebuildability";
     public string Category => "IFC";
@@ -23,7 +23,7 @@ public class IfcAnalyzeRebuildabilityTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Analyze IFC-imported elements for native Revit reconstruction feasibility";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -37,7 +37,7 @@ public class IfcAnalyzeRebuildabilityTool : ICortexTool
 
         var directShapes = IfcGeometryHelper.GetDirectShapes(doc!, builtInCat);
         if (directShapes.Count == 0)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = "No IFC DirectShape elements found",
                 totalAnalyzed = 0,
@@ -79,7 +79,7 @@ public class IfcAnalyzeRebuildabilityTool : ICortexTool
         // Store analysis results in session for use by other IFC tools
         session.Store.Set("ifc_analysis_results", results);
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             totalAnalyzed = results.Count,
             totalInDocument = directShapes.Count,

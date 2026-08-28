@@ -46,9 +46,9 @@ public class DryRunUniformitySourceTests
         var src = ReadSource("RiveTT.Tools", "Elements", "CreateLevelTool.cs");
         Assert.Contains("ToolHelpers.GetDryRun(input)", src);
 
-        var createStart = src.IndexOf("private static CortexResult<object> CreateLevel(", System.StringComparison.Ordinal);
+        var createStart = src.IndexOf("private static RiveTTResult<object> CreateLevel(", System.StringComparison.Ordinal);
         Assert.True(createStart >= 0, "CreateLevel method not found");
-        var createEnd = src.IndexOf("private static CortexResult<object> SetLevel(", createStart, System.StringComparison.Ordinal);
+        var createEnd = src.IndexOf("private static RiveTTResult<object> SetLevel(", createStart, System.StringComparison.Ordinal);
         var createBody = createEnd > createStart ? src.Substring(createStart, createEnd - createStart) : src.Substring(createStart);
 
         var dryRunIdx = createBody.IndexOf("ToolHelpers.GetDryRun(input)", System.StringComparison.Ordinal);

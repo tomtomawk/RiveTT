@@ -12,7 +12,7 @@ namespace RiveTT.Core.Security;
 ///
 /// Deliberately unreachable from any tool. The lock is meant to be a human
 /// decision taken in Revit; a tool able to lift it would be a lock in name only.
-/// It also survives <see cref="Session.CortexSession.Reinitialize"/>, because it
+/// It also survives <see cref="Session.RiveTTSession.Reinitialize"/>, because it
 /// describes the Revit session and not the document that happens to be open.
 /// </summary>
 public sealed class WriteAccessPolicy

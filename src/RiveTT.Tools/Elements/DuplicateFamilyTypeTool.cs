@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Elements;
 /// optionally setting parameter values on the new type in the same transaction.
 /// </summary>
 [ToolSafety(false, false)]
-public class DuplicateFamilyTypeTool : ICortexTool
+public class DuplicateFamilyTypeTool : IRiveTTTool
 {
     public string Name => "duplicate_family_type";
     public string Category => "Elements";
@@ -23,7 +23,7 @@ public class DuplicateFamilyTypeTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Duplicates a loadable family type (door, window, furniture, etc.) with a new name. Optionally sets type parameters on the new type in the same operation.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -35,7 +35,7 @@ public class DuplicateFamilyTypeTool : ICortexTool
         var parameterOverrides = input["parameterOverrides"] as JObject;
 
         if (string.IsNullOrWhiteSpace(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "newName is required",
                 suggestion: "Provide the name for the duplicated type");
 
@@ -47,7 +47,7 @@ public class DuplicateFamilyTypeTool : ICortexTool
             {
                 source = doc!.GetElement(ToolHelpers.ToElementId(sourceTypeId.Value)) as FamilySymbol;
                 if (source == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                         $"Element {sourceTypeId} not found or is not a FamilySymbol",
                         suggestion: "Provide a valid loadable family type ID. Use list_family_types to list them.");
             }
@@ -59,14 +59,14 @@ public class DuplicateFamilyTypeTool : ICortexTool
                     var hint = string.IsNullOrWhiteSpace(familyName)
                         ? "If the type name exists in multiple families, add familyName to disambiguate."
                         : $"No type '{sourceTypeName}' found in family '{familyName}'.";
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                         $"Family type '{sourceTypeName}' not found",
                         suggestion: $"{hint} Use list_family_types to list available types.");
                 }
             }
             else
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "Provide sourceTypeId or sourceTypeName to identify the source type");
             }
 
@@ -74,7 +74,7 @@ public class DuplicateFamilyTypeTool : ICortexTool
             var existing = FindFamilySymbol(doc!, newName!, source.FamilyName);
             if (existing != null)
             {
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     typeId = ToolHelpers.GetElementIdValue(existing),
                     typeName = existing.Name,
@@ -93,7 +93,7 @@ public class DuplicateFamilyTypeTool : ICortexTool
                 if (newType == null)
                 {
                     tx.RollBack();
-                    return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                         "Duplicate returned null — the type could not be created");
                 }
 
@@ -128,7 +128,7 @@ public class DuplicateFamilyTypeTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
 
@@ -147,12 +147,12 @@ public class DuplicateFamilyTypeTool : ICortexTool
                 if (failedParams.Count > 0)
                     result["failedParameters"] = failedParams;
 
-                return CortexResult<object>.Ok(result);
+                return RiveTTResult<object>.Ok(result);
             }
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to duplicate family type: {ex.Message}");
         }
     }

@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Parameters;
 /// Bulk set, prefix, suffix, find/replace, or clear parameter values on elements.
 /// </summary>
 [ToolSafety(false, true)]
-public class BulkModifyParameterValuesTool : ICortexTool
+public class BulkModifyParameterValuesTool : IRiveTTTool
 {
     public string Name => "batch_modify_parameter_values";
     public string Category => "Parameters";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Bulk set, prefix, suffix, find/replace, or clear parameter values on elements.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var categoryName = input["categoryName"]?.Value<string>();
         var parameterName = input["parameterName"]?.Value<string>();
@@ -43,7 +43,7 @@ public class BulkModifyParameterValuesTool : ICortexTool
         var sampleLimit = input["sampleLimit"]?.Value<int>() ?? 100;
 
         if (string.IsNullOrEmpty(parameterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "parameterName is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "parameterName is required");
 
         try
         {
@@ -62,13 +62,13 @@ public class BulkModifyParameterValuesTool : ICortexTool
             {
                 var catId = Utilities.CategoryResolver.ResolveToId(doc, categoryName!);
                 if (catId == ElementId.InvalidElementId)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"Category not found: {categoryName}");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"Category not found: {categoryName}");
                 elements = new FilteredElementCollector(doc).OfCategoryId(catId).WhereElementIsNotElementType();
                 resolvedScope = "category";
             }
             else
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "categoryName, elementIds, selectionToken, savedSelectionName, or scope is required");
             }
 
@@ -80,14 +80,14 @@ public class BulkModifyParameterValuesTool : ICortexTool
             if (!dryRun)
             {
                 if (!session.RequestConfirmation("modify parameters on", elementList.Count))
-                    return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Bulk Modify Parameters");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
                 ProcessElements(elementList, parameterName!, operation, value, findText, replaceText, onlyEmpty, modified, ref skipped, failures);
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -101,7 +101,7 @@ public class BulkModifyParameterValuesTool : ICortexTool
                 ? modified.Take(Math.Max(0, sampleLimit)).ToList()
                 : null;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun,
                 modifiedCount = modified.Count,
@@ -117,7 +117,7 @@ public class BulkModifyParameterValuesTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

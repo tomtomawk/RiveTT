@@ -9,9 +9,9 @@ namespace RiveTT.Core.Caching;
 /// </summary>
 public class CacheInvalidator
 {
-    private readonly CortexSession _session;
+    private readonly RiveTTSession _session;
 
-    public CacheInvalidator(CortexSession session)
+    public CacheInvalidator(RiveTTSession session)
     {
         _session = session;
     }

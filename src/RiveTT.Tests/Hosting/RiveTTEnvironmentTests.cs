@@ -3,7 +3,7 @@ using Xunit;
 
 namespace RiveTT.Tests.Hosting;
 
-public class CortexEnvironmentTests
+public class RiveTTEnvironmentTests
 {
     [Fact]
     public void CreateDefault_UsesLocalApplicationData()
@@ -12,13 +12,13 @@ public class CortexEnvironmentTests
             System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
             "RiveTT");
 
-        Assert.Equal(expected, CortexEnvironment.CreateDefault().RootFolder);
+        Assert.Equal(expected, RiveTTEnvironment.CreateDefault().RootFolder);
     }
 
     [Fact]
     public void Paths_DeriveFromRootFolder()
     {
-        var env = CortexEnvironment.ForTests(@"C:\temp\RiveTT");
+        var env = RiveTTEnvironment.ForTests(@"C:\temp\RiveTT");
 
         Assert.Equal(@"C:\temp\RiveTT\audit.jsonl", env.AuditLogPath);
         Assert.Equal(@"C:\temp\RiveTT\scripts", env.ScriptsFolder);

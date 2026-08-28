@@ -4,7 +4,7 @@ using RiveTT.Core.Session;
 
 namespace RiveTT.Core.Tools;
 
-public interface ICortexTool
+public interface IRiveTTTool
 {
     /// <summary>Tool name as exposed via MCP (e.g., "get_element_parameters").</summary>
     string Name { get; }
@@ -22,5 +22,5 @@ public interface ICortexTool
     string Description { get; }
 
     /// <summary>Execute the tool with the given input and session context.</summary>
-    CortexResult<object> Execute(JObject input, CortexSession session);
+    RiveTTResult<object> Execute(JObject input, RiveTTSession session);
 }

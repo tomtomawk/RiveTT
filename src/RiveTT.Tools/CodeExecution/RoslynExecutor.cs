@@ -32,7 +32,7 @@ public static class RoslynExecutor
     private static MethodInfo? _compileMethod;
     private static readonly object _compileLock = new object();
 
-    public static CortexResult<object> Execute(
+    public static RiveTTResult<object> Execute(
         string code,
         ScriptGlobals globals,
         string transactionMode = "auto")
@@ -54,16 +54,16 @@ public static class RoslynExecutor
             }
             catch (TargetInvocationException ex) when (ex.InnerException != null)
             {
-                return CortexResult<object>.Fail(
-                    CortexErrorCode.Unknown,
+                return RiveTTResult<object>.Fail(
+                    RiveTTErrorCode.Unknown,
                     $"Roslyn compilation failed: {ex.InnerException.Message}",
                     suggestion: "This is an internal compiler/assembly-loading error, not a problem with your code.");
             }
 
             if (assemblyBytes == null)
             {
-                return CortexResult<object>.Fail(
-                    CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(
+                    RiveTTErrorCode.InvalidInput,
                     $"Compilation error:\n{string.Join("\n", compileErrors)}",
                     suggestion: "Globals: document (Document), uiDocument (UIDocument), app (Application). Use explicit 'return'.");
             }
@@ -90,8 +90,8 @@ public static class RoslynExecutor
                     if (txGroup.GetStatus() == TransactionStatus.Started
                         && txGroup.Assimilate() != TransactionStatus.Committed)
                     {
-                        return CortexResult<object>.Fail(
-                            CortexErrorCode.TransactionFailed,
+                        return RiveTTResult<object>.Fail(
+                            RiveTTErrorCode.TransactionFailed,
                             "Revit rolled back the script transaction group on commit.",
                             suggestion: "The script triggered a Revit error during commit. Fix the reported model errors and retry.");
                     }
@@ -114,8 +114,8 @@ public static class RoslynExecutor
                     if (tx.GetStatus() == TransactionStatus.Started
                         && tx.Commit() != TransactionStatus.Committed)
                     {
-                        return CortexResult<object>.Fail(
-                            CortexErrorCode.TransactionFailed,
+                        return RiveTTResult<object>.Fail(
+                            RiveTTErrorCode.TransactionFailed,
                             $"Revit rolled back the script transaction: {TransactionFailureHandling.Describe(txFailures)}",
                             suggestion: "The script triggered a Revit error during commit. Fix the reported model errors and retry.");
                     }
@@ -128,19 +128,19 @@ public static class RoslynExecutor
                 }
             }
 
-            return CortexResult<object>.Ok(SerializeResult(result));
+            return RiveTTResult<object>.Ok(SerializeResult(result));
         }
         catch (TargetInvocationException ex) when (ex.InnerException != null)
         {
-            return CortexResult<object>.Fail(
-                CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(
+                RiveTTErrorCode.Unknown,
                 $"Runtime error: {ex.InnerException}",
                 suggestion: "Check variable names, null references, and Revit API usage. Full stack trace above.");
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(
-                CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(
+                RiveTTErrorCode.Unknown,
                 $"Execution error: {ex.Message}");
         }
     }

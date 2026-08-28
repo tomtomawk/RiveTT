@@ -8,8 +8,8 @@ namespace RiveTT.Tests.Caching;
 
 public class ToolResultCacheTests
 {
-    private static CortexResult<object> Ok(string payload) =>
-        CortexResult<object>.Ok(payload);
+    private static RiveTTResult<object> Ok(string payload) =>
+        RiveTTResult<object>.Ok(payload);
 
     [Fact]
     public void TryGet_OnEmptyCache_ReturnsFalse()

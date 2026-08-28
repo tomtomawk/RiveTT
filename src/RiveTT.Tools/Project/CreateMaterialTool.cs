@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Project;
 /// Creates a new material in the project with optional color, class, and transparency.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateMaterialTool : ICortexTool
+public class CreateMaterialTool : IRiveTTTool
 {
     public string Name => "create_material";
     public string Category => "Project";
@@ -21,15 +21,15 @@ public class CreateMaterialTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates a new material in the project with name, class, color, transparency, and optional structural/thermal asset setup.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "name is required",
                 suggestion: "Provide a material name, e.g. {\"name\": \"Custom Concrete\"}");
 
@@ -54,7 +54,7 @@ public class CreateMaterialTool : ICortexTool
                 if (mat == null)
                 {
                     tx.RollBack();
-                    return CortexResult<object>.Fail(CortexErrorCode.Unknown, "Material.Create returned invalid element");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, "Material.Create returned invalid element");
                 }
 
                 if (!string.IsNullOrEmpty(materialClass))
@@ -79,7 +79,7 @@ public class CreateMaterialTool : ICortexTool
                     mat.Smoothness = Math.Max(0, Math.Min(100, smoothness.Value));
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -87,7 +87,7 @@ public class CreateMaterialTool : ICortexTool
             long idValue;
             idValue = newMatId.Value;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 materialId = idValue,
                 name,
@@ -97,7 +97,7 @@ public class CreateMaterialTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create material: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to create material: {ex.Message}");
         }
     }
 

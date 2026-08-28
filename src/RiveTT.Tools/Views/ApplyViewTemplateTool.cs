@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Views;
 /// Lists, applies, or removes view templates from views.
 /// </summary>
 [ToolSafety(false, false)]
-public class ApplyViewTemplateTool : ICortexTool
+public class ApplyViewTemplateTool : IRiveTTTool
 {
     public string Name => "apply_view_template";
     public string Category => "Views";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Lists, applies, or removes view templates from views.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = input["action"]?.Value<string>() ?? "apply";
 
@@ -36,17 +36,17 @@ public class ApplyViewTemplateTool : ICortexTool
                 "list" => ListTemplates(doc),
                 "apply" => ApplyTemplate(doc, input, session),
                 "remove" => RemoveTemplate(doc, input, session),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}", suggestion: "Use: list, apply, remove")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListTemplates(Document doc)
+    private static RiveTTResult<object> ListTemplates(Document doc)
     {
         var templates = new FilteredElementCollector(doc)
             .OfClass(typeof(View))
@@ -54,10 +54,10 @@ public class ApplyViewTemplateTool : ICortexTool
             .Where(v => v.IsTemplate)
             .Select(v => new { id = ToolHelpers.GetElementIdValue(v.Id), name = v.Name, viewType = v.ViewType.ToString() })
             .ToList();
-        return CortexResult<object>.Ok(new { templateCount = templates.Count, templates });
+        return RiveTTResult<object>.Ok(new { templateCount = templates.Count, templates });
     }
 
-    private static CortexResult<object> ApplyTemplate(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> ApplyTemplate(Document doc, JObject input, RiveTTSession session)
     {
         var viewIds = input["viewIds"]?.ToObject<List<long>>() ?? new List<long>();
         var templateId = input["templateId"]?.Value<long>() ?? 0;
@@ -75,11 +75,11 @@ public class ApplyViewTemplateTool : ICortexTool
                 .FirstOrDefault(v => v.IsTemplate && v.Name.Equals(templateName, StringComparison.OrdinalIgnoreCase));
         }
         if (template == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View template not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "View template not found");
 
         // H14: confirm before changing view templates across a set of views.
         if (!session.RequestConfirmation("apply view template to", viewIds.Count))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Apply View Template");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -91,19 +91,19 @@ public class ApplyViewTemplateTool : ICortexTool
             if (view != null && !view.IsTemplate) { view.ViewTemplateId = template.Id; applied++; }
         }
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
-        return CortexResult<object>.Ok(new { appliedCount = applied, templateName = template.Name });
+        return RiveTTResult<object>.Ok(new { appliedCount = applied, templateName = template.Name });
     }
 
-    private static CortexResult<object> RemoveTemplate(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> RemoveTemplate(Document doc, JObject input, RiveTTSession session)
     {
         var viewIds = input["viewIds"]?.ToObject<List<long>>() ?? new List<long>();
 
         // H14: confirm before clearing view templates across a set of views.
         if (!session.RequestConfirmation("remove view template from", viewIds.Count))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Remove View Template");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -115,9 +115,9 @@ public class ApplyViewTemplateTool : ICortexTool
             if (view != null && !view.IsTemplate) { view.ViewTemplateId = ElementId.InvalidElementId; removed++; }
         }
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
-        return CortexResult<object>.Ok(new { removedCount = removed });
+        return RiveTTResult<object>.Ok(new { removedCount = removed });
     }
 }

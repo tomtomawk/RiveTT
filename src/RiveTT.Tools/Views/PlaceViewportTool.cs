@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Views;
 /// Places a view on a sheet at the specified position.
 /// </summary>
 [ToolSafety(false, false)]
-public class PlaceViewportTool : ICortexTool
+public class PlaceViewportTool : IRiveTTTool
 {
     public string Name => "place_viewport";
     public string Category => "Views";
@@ -23,11 +23,11 @@ public class PlaceViewportTool : ICortexTool
     public string Description =>
         "Places a view on a sheet. positionX/positionY are the viewport CENTRE in mm, measured in sheet coordinates; omit both to centre it on the sheet. The response reports the sheet size, the viewport's real outline and fitsOnSheet: an UNCROPPED view produces a viewport far larger than the sheet, and its content then lands outside the frame. Crop the view first — at 1:100 a 16 x 13.5 m crop is 160 x 135 mm on paper.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var sheetId = input["sheetId"]?.Value<long>() ?? 0;
         var viewId = input["viewId"]?.Value<long>() ?? 0;
@@ -40,7 +40,7 @@ public class PlaceViewportTool : ICortexTool
         var viewportTypeId = input["viewportTypeId"]?.Value<long?>() ?? 0;
 
         if (sheetId <= 0 || viewId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sheetId and viewId are required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheetId and viewId are required");
 
         try
         {
@@ -48,15 +48,15 @@ public class PlaceViewportTool : ICortexTool
             var view = doc.GetElement(new ElementId(viewId)) as View;
             var viewEid = new ElementId(viewId);
             var sheetEid = new ElementId(sheetId);
-            if (sheet == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Sheet not found");
-            if (view == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View not found");
+            if (sheet == null) return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Sheet not found");
+            if (view == null) return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "View not found");
 
             // A schedule is not a viewport. Revit places it with ScheduleSheetInstance,
             // and CanAddViewToSheet answers a flat false — which used to surface as
             // "already placed or not placeable" and sent the caller looking at the sheet
             // instead of at the view type.
             if (view is ViewSchedule)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"'{view.Name}' is a SCHEDULE, and a schedule is not placed as a viewport.",
                     suggestion: "Schedules go on a sheet through ScheduleSheetInstance, which this tool "
                               + "does not cover. Place it from the Revit project browser, or ask for a "
@@ -74,14 +74,14 @@ public class PlaceViewportTool : ICortexTool
                 if (placedOn != null)
                 {
                     var host = doc.GetElement(placedOn.SheetId) as ViewSheet;
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"'{view.Name}' is already placed on sheet {host?.SheetNumber ?? "?"} "
                         + $"{host?.Name}. A view can live on one sheet only.",
                         suggestion: "Delete that viewport first, or duplicate the view with "
                                   + "duplicate_view and place the copy.");
                 }
 
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Revit refuses '{view.Name}' ({view.ViewType}) on this sheet, and it is not "
                     + "already placed elsewhere.",
                     suggestion: "Legends and some view types cannot be placed on every sheet. Check "
@@ -106,7 +106,7 @@ public class PlaceViewportTool : ICortexTool
             if (centreOnSheet)
             {
                 if (!frame.IsKnown)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Sheet {sheet.SheetNumber} has no title block and no measurable extent, "
                         + "so there is no centre to place the view at.",
                         suggestion: "Add a title block with place_title_block, or pass positionX and "
@@ -144,7 +144,7 @@ public class PlaceViewportTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
@@ -193,7 +193,7 @@ public class PlaceViewportTool : ICortexTool
                     "from the sheet size.");
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 viewportId = ToolHelpers.GetElementIdValue(viewport.Id),
                 sheetNumber = sheet.SheetNumber,
@@ -224,7 +224,7 @@ public class PlaceViewportTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

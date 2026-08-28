@@ -16,18 +16,18 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's GetLinkedElementsEventHandler logic.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetLinkedElementsTool : ICortexTool
+public class GetLinkedElementsTool : IRiveTTTool
 {
     public string Name => "get_linked_elements";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Returns elements from Revit linked models, with optional filtering by link name, categories (OST_* codes) and parameter extraction. Mirrors the fork's GetLinkedElementsEventHandler logic.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // ── Parse inputs ───────────────────────────────────────────────────
@@ -54,7 +54,7 @@ public class GetLinkedElementsTool : ICortexTool
 
             if (linkInstances.Count == 0)
             {
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     message   = string.IsNullOrWhiteSpace(linkName)
                                     ? "No linked models found in the document"
@@ -122,7 +122,7 @@ public class GetLinkedElementsTool : ICortexTool
                 });
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message   = $"Found {linksData.Count} linked model(s)",
                 linkCount = linksData.Count,
@@ -131,7 +131,7 @@ public class GetLinkedElementsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to retrieve linked elements: {ex.Message}");
         }
     }

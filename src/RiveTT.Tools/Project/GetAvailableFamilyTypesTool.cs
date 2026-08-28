@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// Lists available family types (loadable and system) with optional category/name filtering.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetAvailableFamilyTypesTool : ICortexTool
+public class GetAvailableFamilyTypesTool : IRiveTTTool
 {
     public string Name => "list_family_types";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Lists available family types (loadable and system) with optional category/name filtering.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var categoryList     = input["categoryList"]?.ToObject<List<string>>() ?? new List<string>();
@@ -65,7 +65,7 @@ public class GetAvailableFamilyTypesTool : ICortexTool
                 // result set: skipping it (or dropping the whole filter at zero
                 // matches) used to return the entire model's types as Ok.
                 if (unresolvedCategories.Count > 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"These categories could not be resolved in this document: {string.Join(", ", unresolvedCategories)}",
                         suggestion: "Use OST_* BuiltInCategory codes (e.g. OST_Doors, OST_StairsRailing) or the exact localized display name; the category must exist in the document.");
 
@@ -116,7 +116,7 @@ public class GetAvailableFamilyTypesTool : ICortexTool
             // A bare array response cannot carry counters, and the client-side
             // compact shaper silently produced count:0 from it. The object form
             // keeps totals truthful and makes truncation visible.
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 count = result.Count,
                 totalCount = matched.Count,
@@ -127,7 +127,7 @@ public class GetAvailableFamilyTypesTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get available family types: {ex.Message}");
         }
     }

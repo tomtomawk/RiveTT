@@ -12,7 +12,7 @@ public class CachedEntry
     public string ToolName { get; }
     public string ParamHash { get; }
     public CacheScope Scope { get; }
-    public CortexResult<object> Result { get; }
+    public RiveTTResult<object> Result { get; }
     public long DocumentVersion { get; }
     public DateTimeOffset CreatedAt { get; }
     public long EstimatedBytes { get; }
@@ -23,7 +23,7 @@ public class CachedEntry
         string toolName,
         string paramHash,
         CacheScope scope,
-        CortexResult<object> result,
+        RiveTTResult<object> result,
         long documentVersion,
         long estimatedBytes)
     {

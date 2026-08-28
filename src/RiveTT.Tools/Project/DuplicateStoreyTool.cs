@@ -12,7 +12,7 @@ using static RiveTT.Tools.Utilities.LengthUnits;
 namespace RiveTT.Tools.Project;
 
 [ToolSafety(false, true)]
-public sealed class DuplicateStoreyTool : ICortexTool
+public sealed class DuplicateStoreyTool : IRiveTTTool
 {
     public string Name => "duplicate_storey";
     public string Category => "Project";
@@ -20,19 +20,19 @@ public sealed class DuplicateStoreyTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Preview or transactionally duplicate one storey's model elements to a target elevation, with conservative group and constraint handling.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = ToolHelpers.GetDocument(session);
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
         var source = ResolveLevel(doc, input["sourceLevelId"]?.Value<long>(),
             input["sourceLevelName"]?.Value<string>());
         if (source == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 "Source level was not found");
         var targetElevationMm = input["targetElevationMm"]?.Value<double?>();
         if (!targetElevationMm.HasValue)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "targetElevationMm is required");
         var targetName = input["targetLevelName"]?.Value<string>()
             ?? $"{source.Name} Copy";
@@ -47,7 +47,7 @@ public sealed class DuplicateStoreyTool : ICortexTool
         var targetElevationFt = targetElevationMm.Value / MmPerFoot;
         var deltaFt = targetElevationFt - source.Elevation;
         if (Math.Abs(deltaFt) < 1e-9)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Target elevation must differ from source elevation");
 
         var analysis = AnalyzeCandidates(doc, source, categories, copyGroups);
@@ -58,7 +58,7 @@ public sealed class DuplicateStoreyTool : ICortexTool
             : new List<Level>();
 
         if (dryRun)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 sourceLevel = LevelInfo(source),
@@ -81,7 +81,7 @@ public sealed class DuplicateStoreyTool : ICortexTool
             });
 
         if (analysis.Copyable.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No copyable model elements were found on the source level");
 
         using var group = new TransactionGroup(doc, "RiveTT: Duplicate Storey");
@@ -163,10 +163,10 @@ public sealed class DuplicateStoreyTool : ICortexTool
             }
 
             if (group.Assimilate() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     "The duplicate_storey transaction group could not be assimilated");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 sourceLevelId = ToolHelpers.GetElementIdValue(source.Id),
                 targetLevelId = ToolHelpers.GetElementIdValue(targetLevel.Id),
@@ -186,7 +186,7 @@ public sealed class DuplicateStoreyTool : ICortexTool
         catch (Exception ex)
         {
             if (group.GetStatus() == TransactionStatus.Started) group.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"duplicate_storey failed and was rolled back: {ex.Message}",
                 suggestion: "Run dryRun again with fewer categories and inspect grouped or constrained elements.",
                 context: new Dictionary<string, object>

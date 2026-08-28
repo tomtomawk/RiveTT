@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Annotations;
 /// Finds and removes tags that have empty text or reference deleted/invalid elements.
 /// </summary>
 [ToolSafety(false, true)]
-public class WipeEmptyTagsTool : ICortexTool
+public class WipeEmptyTagsTool : IRiveTTTool
 {
     public string Name => "delete_empty_tags";
     public string Category => "Annotations";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Finds and removes tags that have empty text or reference deleted/invalid elements.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
         var viewId = input["viewId"]?.Value<long>();
@@ -123,7 +123,7 @@ public class WipeEmptyTagsTool : ICortexTool
             if (!dryRun && emptyTags.Count > 0)
             {
                 if (!session.RequestConfirmation("delete empty tags from", emptyTags.Count))
-                    return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Wipe Empty Tags");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -142,10 +142,10 @@ public class WipeEmptyTagsTool : ICortexTool
                     catch (Exception ex) { failures.Add(new { id = t.id, reason = ex.Message }); }
                 }
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     dryRun = false,
                     deletedCount = deleted,
@@ -155,7 +155,7 @@ public class WipeEmptyTagsTool : ICortexTool
                 });
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun,
                 emptyTagCount = emptyTags.Count,
@@ -164,7 +164,7 @@ public class WipeEmptyTagsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

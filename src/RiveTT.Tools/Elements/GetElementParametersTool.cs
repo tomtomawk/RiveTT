@@ -11,7 +11,7 @@ using RiveTT.Tools.Utilities;
 namespace RiveTT.Tools.Elements;
 
 [ToolSafety(true, false)]
-public class GetElementParametersTool : ICortexTool
+public class GetElementParametersTool : IRiveTTTool
 {
     public string Name => "get_element_parameters";
     public string Category => "Elements";
@@ -23,11 +23,11 @@ public class GetElementParametersTool : ICortexTool
         "an explicit unit and the Revit internal value. Missing IDs are reported in notFoundIds, " +
         "never as an element with empty parameters.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var elementIds = input["elementIds"]?.ToObject<long[]>();
         if (elementIds == null || elementIds.Length == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementIds is required and cannot be empty",
                 suggestion: "Provide an array of Revit element IDs, e.g. {\"elementIds\": [606873]}");
 
@@ -36,7 +36,7 @@ public class GetElementParametersTool : ICortexTool
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var results = new List<object>();
@@ -129,7 +129,7 @@ public class GetElementParametersTool : ICortexTool
             : $"Retrieved parameters for {foundCount} of {elementIds.Length} element(s); " +
               $"{notFoundIds.Count} ID(s) do not exist in this document.";
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             message,
             requestedCount = elementIds.Length,

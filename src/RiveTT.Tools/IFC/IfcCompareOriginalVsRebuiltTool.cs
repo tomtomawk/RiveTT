@@ -14,7 +14,7 @@ namespace RiveTT.Tools.IFC;
 /// Reports volume difference, bounding box overlap, and geometric similarity.
 /// </summary>
 [ToolSafety(true, false)]
-public class IfcCompareOriginalVsRebuiltTool : ICortexTool
+public class IfcCompareOriginalVsRebuiltTool : IRiveTTTool
 {
     public string Name => "ifc_compare_original_vs_rebuilt";
     public string Category => "IFC";
@@ -22,7 +22,7 @@ public class IfcCompareOriginalVsRebuiltTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Compare original IFC element with its rebuilt native Revit counterpart";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -31,18 +31,18 @@ public class IfcCompareOriginalVsRebuiltTool : ICortexTool
         var rebuiltId = input["rebuiltElementId"]?.Value<long>() ?? 0;
 
         if (originalId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "originalElementId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "originalElementId is required");
         if (rebuiltId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "rebuiltElementId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "rebuiltElementId is required");
 
         var original = doc!.GetElement(ToolHelpers.ToElementId(originalId));
         var rebuilt = doc!.GetElement(ToolHelpers.ToElementId(rebuiltId));
 
         if (original == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Original element {originalId} not found");
         if (rebuilt == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Rebuilt element {rebuiltId} not found");
 
         var origVolume = IfcGeometryHelper.GetVolumeCubicMeters(original);
@@ -61,7 +61,7 @@ public class IfcCompareOriginalVsRebuiltTool : ICortexTool
 
         var qualityScore = ComputeQualityScore(volumeDiffPercent, bbOverlap);
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             original = new
             {

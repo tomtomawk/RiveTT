@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Project;
 /// for why the old RequestConfirmation call was not a safety net.
 /// </summary>
 [ToolSafety(false, true)]
-public class DeleteScheduleTool : ICortexTool
+public class DeleteScheduleTool : IRiveTTTool
 {
     public string Name => "delete_schedule";
     public string Category => "Project";
@@ -23,11 +23,11 @@ public class DeleteScheduleTool : ICortexTool
     public string Description =>
         "Deletes a Revit schedule by ID or name. Defaults to dryRun=true: the preview names the schedule and "
         + "reports the cascade, including the viewports that placed it on sheets. Set dryRun=false to execute.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var scheduleId = input["scheduleId"]?.Value<long>();
         var scheduleName = input["scheduleName"]?.Value<string>();
@@ -49,7 +49,7 @@ public class DeleteScheduleTool : ICortexTool
             }
 
             if (schedule == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     "Schedule not found",
                     suggestion: "List the schedules with get_schedule_data or export_schedule, or pass "
                               + "scheduleId instead of scheduleName.");
@@ -66,15 +66,15 @@ public class DeleteScheduleTool : ICortexTool
             tx.Start();
             doc.Delete(schedule.Id);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new { deleted = true, scheduleName = name });
+            return RiveTTResult<object>.Ok(new { deleted = true, scheduleName = name });
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to delete the schedule: {ex.Message}",
                 suggestion: "Run again with dryRun=true to see what the deletion would cascade to.");
         }

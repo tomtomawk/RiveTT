@@ -17,12 +17,12 @@ using RiveTT.Plugin.Threading;
 
 namespace RiveTT.Plugin;
 
-public class CortexRouter
+public class RiveTTRouter
 {
-    private readonly Dictionary<string, ICortexTool> _tools = new();
+    private readonly Dictionary<string, IRiveTTTool> _tools = new();
     private readonly Dictionary<string, ToolSafetyRegistration> _toolSafety =
         new(StringComparer.OrdinalIgnoreCase);
-    private readonly CortexSession _session;
+    private readonly RiveTTSession _session;
     private readonly IDocumentAnalyzer _analyzer;
     private readonly AuditLogger _auditLogger;
     // volatile: set once from OnStartup (UI thread) but read from the pipe
@@ -66,7 +66,7 @@ public class CortexRouter
         public bool Declared { get; }
     }
 
-    public CortexRouter(CortexSession session, IDocumentAnalyzer analyzer,
+    public RiveTTRouter(RiveTTSession session, IDocumentAnalyzer analyzer,
         AuditLogger? auditLogger = null)
     {
         _session = session;
@@ -75,18 +75,18 @@ public class CortexRouter
     }
 
     /// <summary>
-    /// Scan an assembly for all ICortexTool implementations and register them.
+    /// Scan an assembly for all IRiveTTTool implementations and register them.
     /// </summary>
     public void RegisterToolsFromAssembly(Assembly assembly)
     {
         var toolTypes = assembly.GetTypes()
-            .Where(t => typeof(ICortexTool).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
+            .Where(t => typeof(IRiveTTTool).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
 
         foreach (var type in toolTypes)
         {
             try
             {
-                var tool = (ICortexTool)Activator.CreateInstance(type)!;
+                var tool = (IRiveTTTool)Activator.CreateInstance(type)!;
                 RegisterTool(tool, type);
             }
             catch (Exception ex)
@@ -97,12 +97,12 @@ public class CortexRouter
         }
     }
 
-    public void RegisterTool(ICortexTool tool)
+    public void RegisterTool(IRiveTTTool tool)
     {
         RegisterTool(tool, tool.GetType());
     }
 
-    private void RegisterTool(ICortexTool tool, Type toolType)
+    private void RegisterTool(IRiveTTTool tool, Type toolType)
     {
         _tools[tool.Name] = tool;
 
@@ -123,7 +123,7 @@ public class CortexRouter
         }
     }
 
-    private static ToolSafetyRegistration ResolveToolSafety(ICortexTool tool, Type toolType)
+    private static ToolSafetyRegistration ResolveToolSafety(IRiveTTTool tool, Type toolType)
     {
         var aware = tool as IToolSafetyAware;
         if (aware != null)
@@ -152,9 +152,9 @@ public class CortexRouter
     /// execution.mcpServerVersion and flags the disagreement.
     /// </summary>
     internal static string PluginVersion { get; } =
-        typeof(CortexRouter).Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
+        typeof(RiveTTRouter).Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
 
-    public CortexResult<object> Route(string toolName, JObject input, string? publicToolName = null)
+    public RiveTTResult<object> Route(string toolName, JObject input, string? publicToolName = null)
     {
         // The name to show the caller: several agent-facing MCP tools route
         // through one shared generic RiveTT tool (create_wall, create_door and
@@ -168,7 +168,7 @@ public class CortexRouter
             // server older than the plugin publishes tool names this router no longer
             // knows, and "not found" is the only symptom -- so the two versions must be
             // readable right here, where the server stamps its own alongside them.
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Tool '{displayName}' not found",
                 suggestion: "If the MCP server and the plugin report different versions in " +
                             "this error's context, that is the cause: the server is publishing " +
@@ -187,7 +187,7 @@ public class CortexRouter
         // only a human, from the RiveTT panel of the Revit ribbon.
         if (!_session.WriteAccess.WritesAllowed && !IsToolReadOnly(toolName))
         {
-            var refusal = CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
+            var refusal = RiveTTResult<object>.Fail(RiveTTErrorCode.PermissionDenied,
                 $"'{displayName}' can modify the model and RiveTT is currently in read-only mode.",
                 suggestion: "In Revit: Add-Ins tab (Complements) > RiveTT panel > Write. " +
                             "No tool can unlock it; it is a human decision taken in Revit. " +
@@ -206,24 +206,24 @@ public class CortexRouter
             // Refusals belong in the audit log as much as writes do: this is the
             // trace showing an agent tried to write while the model was locked.
             _auditLogger.LogWithPerf(toolName, BuildInputSummary(toolName, input),
-                success: false, errorCode: CortexErrorCode.PermissionDenied,
+                success: false, errorCode: RiveTTErrorCode.PermissionDenied,
                 elementsAffected: 0, durationMs: 0, responseBytes: 0,
                 errorMessage: refusal.Error?.Message);
             return refusal;
         }
 
         if (tool.RequiresDocument && _session.Store.Get<object>("activeDocument") == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No document open in Revit",
                 suggestion: "Open a Revit document before using this tool");
 
         if (tool.IsDynamic && !_session.Capabilities.IsToolEnabled(toolName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Tool '{toolName}' is not available for this document",
                 suggestion: "This tool requires specific document features (e.g., worksets, phases)");
 
         var stopwatch = Stopwatch.StartNew();
-        CortexResult<object> result;
+        RiveTTResult<object> result;
 
         // Cache lookup for read-only tools that opted into ICacheableTool.
         // On hit, skip the dispatcher entirely — no UI-thread marshal is needed
@@ -274,7 +274,7 @@ public class CortexRouter
             // as a raw JSON-RPC -32603 (paid-readiness spec, P1 finding).
             System.Diagnostics.Trace.WriteLine(
                 $"[RiveTT] Route('{toolName}') unhandled: {ex}");
-            result = CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            result = RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Unhandled exception: {ex.Message}",
                 suggestion: "Retry the command; if it persists, inspect the local audit log.");
         }
@@ -331,12 +331,12 @@ public class CortexRouter
         return result;
     }
 
-    private CortexResult<object> EnrichResult(
-        string toolName, JObject input, CortexResult<object> result)
+    private RiveTTResult<object> EnrichResult(
+        string toolName, JObject input, RiveTTResult<object> result)
     {
         if (!result.Success)
         {
-            if (result.Error?.Code != CortexErrorCode.TransactionFailed)
+            if (result.Error?.Code != RiveTTErrorCode.TransactionFailed)
                 return result;
 
             var context = result.Error.Context != null
@@ -351,7 +351,7 @@ public class CortexRouter
                     ? Array.Empty<string>()
                     : new[] { result.Error.Suggestion! };
 
-            return CortexResult<object>.Fail(
+            return RiveTTResult<object>.Fail(
                 result.Error.Code, result.Error.Message, result.Error.Suggestion, context);
         }
 
@@ -383,7 +383,7 @@ public class CortexRouter
             ["writesAllowed"] = _session.WriteAccess.WritesAllowed,
             ["cached"] = false
         };
-        return CortexResult<object>.Ok(obj);
+        return RiveTTResult<object>.Ok(obj);
     }
 
     /// <summary>
@@ -409,7 +409,7 @@ public class CortexRouter
     /// Flags a cache hit in the response's execution block. The stored entry is
     /// left untouched — flipping the flag in place would make the next hit lie.
     /// </summary>
-    private static CortexResult<object> MarkCached(CortexResult<object> cached)
+    private static RiveTTResult<object> MarkCached(RiveTTResult<object> cached)
     {
         try
         {
@@ -422,7 +422,7 @@ public class CortexRouter
             else
                 clone["execution"] = new JObject { ["cached"] = true };
 
-            return CortexResult<object>.Ok(clone);
+            return RiveTTResult<object>.Ok(clone);
         }
         catch
         {
@@ -430,7 +430,7 @@ public class CortexRouter
         }
     }
 
-    private static int EstimateElementsAffected(CortexResult<object> result)
+    private static int EstimateElementsAffected(RiveTTResult<object> result)
     {
         if (!result.Success || result.Data == null) return 0;
         try
@@ -458,7 +458,7 @@ public class CortexRouter
         return 0;
     }
 
-    private static string BuildOutputSummary(CortexResult<object> result)
+    private static string BuildOutputSummary(RiveTTResult<object> result)
     {
         if (!result.Success)
             return $"error={result.Error?.Code}; rolledBack={result.Error?.Context?.ContainsKey("rolledBack") == true}";
@@ -480,7 +480,7 @@ public class CortexRouter
         catch { return "(unserializable)"; }
     }
 
-    private static long EstimateResponseBytes(CortexResult<object> result)
+    private static long EstimateResponseBytes(RiveTTResult<object> result)
     {
         try
         {
@@ -512,7 +512,7 @@ public class CortexRouter
         // Emit the canonical JSON directly (object keys sorted recursively, no whitespace)
         // instead of building a parallel sorted JToken tree and deep-cloning every leaf.
         // The byte output is identical to the previous Canonicalize(...).ToString(Formatting.None),
-        // so cache keys are unchanged (locked by CortexRouterHashStabilityTests).
+        // so cache keys are unchanged (locked by RiveTTRouterHashStabilityTests).
         var sw = new System.IO.StringWriter(new StringBuilder(256),
             System.Globalization.CultureInfo.InvariantCulture);
         using (var writer = new JsonTextWriter(sw) { Formatting = Formatting.None })

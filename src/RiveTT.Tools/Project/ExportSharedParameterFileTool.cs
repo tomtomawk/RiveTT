@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Project;
 /// Exports the shared parameter file contents as structured data or to a file path.
 /// </summary>
 [ToolSafety(true, false)]
-public class ExportSharedParameterFileTool : ICortexTool
+public class ExportSharedParameterFileTool : IRiveTTTool
 {
     public string Name => "export_shared_parameter_file";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Exports the shared parameter file contents as structured data or to a file path.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         // outputPath is the name the MCP surface publishes; filePath is the runtime
         // name. Only filePath was read, so the export never wrote a file.
@@ -37,7 +37,7 @@ public class ExportSharedParameterFileTool : ICortexTool
         if (!string.IsNullOrEmpty(filePath))
         {
             if (!Utilities.PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError))
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     pathError,
                     suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
             filePath = safePath;
@@ -49,7 +49,7 @@ public class ExportSharedParameterFileTool : ICortexTool
             var spFile = app.OpenSharedParameterFile();
 
             if (spFile == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     "No shared parameter file is set",
                     suggestion: "Set a shared parameter file in Revit settings");
 
@@ -78,7 +78,7 @@ public class ExportSharedParameterFileTool : ICortexTool
                 if (File.Exists(sourceFile))
                 {
                     File.Copy(sourceFile, filePath, true);
-                    return CortexResult<object>.Ok(new
+                    return RiveTTResult<object>.Ok(new
                     {
                         exportedTo = filePath,
                         sourceFile,
@@ -88,7 +88,7 @@ public class ExportSharedParameterFileTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 sourceFile = app.SharedParametersFilename,
                 groupCount = groups.Count,
@@ -97,7 +97,7 @@ public class ExportSharedParameterFileTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

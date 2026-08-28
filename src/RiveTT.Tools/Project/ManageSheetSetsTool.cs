@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Project;
 /// for saving a named set (PrintRange.Select + ViewSheetSetting.SaveAs).
 /// </summary>
 [ToolSafety(false, false)]
-public class ManageSheetSetsTool : ICortexTool
+public class ManageSheetSetsTool : IRiveTTTool
 {
     public string Name => "manage_sheet_sets";
     public string Category => "Project";
@@ -29,11 +29,11 @@ public class ManageSheetSetsTool : ICortexTool
         "create needs name + viewIds/sheetIds (element IDs, either views or sheets). Revit has no rename API for " +
         "a saved set: recreate it under the new name instead.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = (input["action"]?.Value<string>() ?? "list").ToLowerInvariant();
         try
@@ -43,18 +43,18 @@ public class ManageSheetSetsTool : ICortexTool
                 "list" => ListSheetSets(doc),
                 "create" => CreateSheetSet(doc, input),
                 "delete" => DeleteSheetSet(doc, input),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unsupported action: {action}",
                     suggestion: "Use: list | create | delete")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListSheetSets(Document doc)
+    private static RiveTTResult<object> ListSheetSets(Document doc)
     {
         var sets = new FilteredElementCollector(doc)
             .OfClass(typeof(ViewSheetSet))
@@ -67,15 +67,15 @@ public class ManageSheetSetsTool : ICortexTool
             })
             .ToList();
 
-        return CortexResult<object>.Ok(new { count = sets.Count, sheetSets = sets });
+        return RiveTTResult<object>.Ok(new { count = sets.Count, sheetSets = sets });
     }
 
-    private static CortexResult<object> CreateSheetSet(Document doc, JObject input)
+    private static RiveTTResult<object> CreateSheetSet(Document doc, JObject input)
     {
         var name = input["name"]?.Value<string>();
         var ids = input["viewIds"]?.ToObject<List<long>>() ?? input["sheetIds"]?.ToObject<List<long>>() ?? new List<long>();
         if (string.IsNullOrWhiteSpace(name) || ids.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "name and a non-empty viewIds/sheetIds array are required");
 
         var viewSet = new ViewSet();
@@ -88,7 +88,7 @@ public class ManageSheetSetsTool : ICortexTool
         }
 
         if (viewSet.IsEmpty)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "None of the given IDs resolved to a view or sheet", suggestion: "Check the element IDs");
 
         var printManager = doc.PrintManager;
@@ -110,19 +110,19 @@ public class ManageSheetSetsTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Could not save sheet set '{name}': {ex.Message}",
                 suggestion: "A sheet set with this name may already exist; delete it first or pick another name.");
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
         var created = new FilteredElementCollector(doc).OfClass(typeof(ViewSheetSet)).Cast<ViewSheetSet>()
             .FirstOrDefault(s => s.Name == name);
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "create",
             name,
@@ -132,7 +132,7 @@ public class ManageSheetSetsTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> DeleteSheetSet(Document doc, JObject input)
+    private static RiveTTResult<object> DeleteSheetSet(Document doc, JObject input)
     {
         var elementIdLong = input["elementId"]?.Value<long?>() ?? 0;
         var name = input["name"]?.Value<string>();
@@ -143,7 +143,7 @@ public class ManageSheetSetsTool : ICortexTool
                 .FirstOrDefault(s => s.Name == name);
 
         if (target == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 "No matching sheet set found", suggestion: "Provide elementId or an exact name from action=list");
 
         using var tx = new Transaction(doc, "RiveTT: Delete Sheet Set");
@@ -152,9 +152,9 @@ public class ManageSheetSetsTool : ICortexTool
         var deletedName = target.Name;
         doc.Delete(target.Id);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new { action = "delete", name = deletedName });
+        return RiveTTResult<object>.Ok(new { action = "delete", name = deletedName });
     }
 }

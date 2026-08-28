@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// Creates a beam system (structural framing system) from boundary on a level.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateStructuralFramingSystemTool : ICortexTool
+public class CreateStructuralFramingSystemTool : IRiveTTTool
 {
     public string Name => "create_structural_framing_system";
     public string Category => "Elements";
@@ -24,11 +24,11 @@ public class CreateStructuralFramingSystemTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates a beam system on a level over a rectangular area. By default builds a real associative Revit BeamSystem (a single element with editable layout); set associative=false for loose independent beams.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var levelName = input["levelName"]?.Value<string>();
         var xMin = input["xMin"]?.Value<double>() ?? 0;
@@ -41,14 +41,14 @@ public class CreateStructuralFramingSystemTool : ICortexTool
         var associative = input["associative"]?.Value<bool>() ?? true;
 
         if (string.IsNullOrEmpty(levelName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "levelName is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "levelName is required");
 
         try
         {
             var level = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>()
                 .FirstOrDefault(l => l.Name.Equals(levelName, StringComparison.OrdinalIgnoreCase));
             if (level == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Level '{levelName}' not found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"Level '{levelName}' not found");
 
             // Resolve beam type
             var beamType = new FilteredElementCollector(doc)
@@ -60,7 +60,7 @@ public class CreateStructuralFramingSystemTool : ICortexTool
                     $"{fs.FamilyName}: {fs.Name}".Equals(beamTypeName, StringComparison.OrdinalIgnoreCase));
 
             if (beamType == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No beam type found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "No beam type found");
 
             // Convert to feet
             var x0 = xMin / MmPerFoot;
@@ -102,11 +102,11 @@ public class CreateStructuralFramingSystemTool : ICortexTool
                 }
                 catch (Exception ex) { layoutWarning = ex.Message; }
                 if (btx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(btxFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     associative = true,
                     beamSystemId = ToolHelpers.GetElementIdValue(bs.Id),
@@ -146,10 +146,10 @@ public class CreateStructuralFramingSystemTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 beamCount = createdBeams.Count,
                 beamTypeName = beamType.Name,
@@ -160,7 +160,7 @@ public class CreateStructuralFramingSystemTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

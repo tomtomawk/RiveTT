@@ -12,7 +12,7 @@ namespace RiveTT.Core.Session;
 /// direct Revit Document reference — that lives in the Plugin layer.
 /// Core has no Revit dependency.
 /// </summary>
-public class CortexSession
+public class RiveTTSession
 {
     public ISessionStore Store { get; }
     public DocumentCapabilities Capabilities { get; private set; }
@@ -47,12 +47,12 @@ public class CortexSession
     public long BumpDocumentVersion() => Interlocked.Increment(ref _documentVersion);
 
 
-    public CortexSession(ISessionStore store)
+    public RiveTTSession(ISessionStore store)
         : this(store, new ToolResultCache())
     {
     }
 
-    public CortexSession(ISessionStore store, IToolResultCache cache)
+    public RiveTTSession(ISessionStore store, IToolResultCache cache)
     {
         Store = store;
         Cache = cache;

@@ -24,31 +24,31 @@ namespace RiveTT.Plugin;
 public sealed class RiveTTApp : IExternalApplication
 {
     private RevitNamedPipeService? _pipeService;
-    private CortexRouter? _router;
-    private CortexSession? _session;
+    private RiveTTRouter? _router;
+    private RiveTTSession? _session;
     private DocumentChangeWatcher? _cacheWatcher;
     private UIApplication? _uiApplication;
 
     public static RiveTTApp? Instance { get; private set; }
     public bool IsServiceRunning => _pipeService?.IsRunning == true;
     public UIApplication? UiApplication => _uiApplication;
-    public CortexRouter? Router => _router;
-    public CortexSession? Session => _session;
+    public RiveTTRouter? Router => _router;
+    public RiveTTSession? Session => _session;
 
     public Result OnStartup(UIControlledApplication application)
     {
         Instance = this;
         try
         {
-            _session = new CortexSession(new SessionStore());
+            _session = new RiveTTSession(new SessionStore());
 
             // Read-only until a human says otherwise. The connector loads with
             // Revit and asks nothing, so the safe default is the one that cannot
             // touch a model on its own: the ribbon toggle is the only way out of
             // it, and no tool can reach it.
             _session.WriteAccess.Set(writesAllowed: false, origin: "startup");
-            var auditLogger = new AuditLogger(CortexEnvironment.Current.AuditLogPath);
-            _router = new CortexRouter(_session, new DocumentAnalyzer(), auditLogger: auditLogger);
+            var auditLogger = new AuditLogger(RiveTTEnvironment.Current.AuditLogPath);
+            _router = new RiveTTRouter(_session, new DocumentAnalyzer(), auditLogger: auditLogger);
 
             var toolsAssembly = LoadToolsAssembly();
             if (toolsAssembly == null)
@@ -176,7 +176,7 @@ public sealed class RiveTTApp : IExternalApplication
 
     private static void CleanupTempScripts()
     {
-        var scriptsFolder = CortexEnvironment.Current.ScriptsFolder;
+        var scriptsFolder = RiveTTEnvironment.Current.ScriptsFolder;
         if (!System.IO.Directory.Exists(scriptsFolder)) return;
         foreach (var file in System.IO.Directory.GetFiles(scriptsFolder, "*.cs"))
         {

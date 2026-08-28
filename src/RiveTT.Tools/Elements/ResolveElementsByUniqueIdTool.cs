@@ -12,12 +12,12 @@ namespace RiveTT.Tools.Elements
 {
     /// <summary>
     /// Resolves Revit UniqueId strings to ElementId records. This is the
-    /// cross-app bridge used by NavisCortex when Navisworks exposes a
+    /// cross-app bridge used by NavisRiveTT when Navisworks exposes a
     /// Revit-derived InstanceGuid / UniqueId and the next call needs a
     /// Revit ElementId.
     /// </summary>
     [ToolSafety(true, false)]
-    public class ResolveElementsByUniqueIdTool : ICortexTool
+    public class ResolveElementsByUniqueIdTool : IRiveTTTool
     {
         public string Name => "get_elements_by_unique_id";
         public string Category => "Elements";
@@ -25,17 +25,17 @@ namespace RiveTT.Tools.Elements
         public bool IsDynamic => false;
         public string Description => "Resolve Revit UniqueId strings to ElementId records for cross-app workflows.";
 
-        public CortexResult<object> Execute(JObject input, CortexSession session)
+        public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
         {
             var uniqueIds = input["uniqueIds"]?.ToObject<string[]>();
             if (uniqueIds == null || uniqueIds.Length == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "uniqueIds is required and cannot be empty",
                     suggestion: "Provide an array of Revit UniqueId strings, e.g. {\"uniqueIds\":[\"...\"]}");
 
             var doc = session.Store.Get<object>("activeDocument") as Document;
             if (doc == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No active document in session");
 
             var elements = new List<object>();
@@ -65,7 +65,7 @@ namespace RiveTT.Tools.Elements
                         elementId = ToolHelpers.GetElementIdValue(element.Id),
                         name = element.Name,
                         category = element.Category?.Name,
-                        cortexElementRef = new CortexElementRef
+                        cortexElementRef = new RiveTTElementRef
                         {
                             SourceApp = "Revit",
                             SourceFile = doc.PathName,
@@ -83,7 +83,7 @@ namespace RiveTT.Tools.Elements
                 }
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 requested = uniqueIds.Length,
                 resolved = elements.Count,

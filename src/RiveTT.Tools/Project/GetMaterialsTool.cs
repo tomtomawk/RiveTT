@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Project;
 /// Lists all materials in the project with optional filtering by material class or name.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetMaterialsTool : ICortexTool, ICacheableTool
+public class GetMaterialsTool : IRiveTTTool, ICacheableTool
 {
     public string Name => "list_materials";
     public string Category => "Project";
@@ -22,11 +22,11 @@ public class GetMaterialsTool : ICortexTool, ICacheableTool
     public bool IsDynamic => false;
     public string Description => "Lists all materials in the project with optional filtering by material class or name.";
     public CacheScope CacheScope => CacheScope.Document;
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var materialClass = input["materialClass"]?.Value<string>() ?? "";
@@ -61,7 +61,7 @@ public class GetMaterialsTool : ICortexTool, ICacheableTool
                 hasThermalAsset    = m.ThermalAssetId != ElementId.InvalidElementId
             }).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 materialCount = materials.Count,
                 materials
@@ -69,7 +69,7 @@ public class GetMaterialsTool : ICortexTool, ICacheableTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get materials: {ex.Message}");
         }
     }

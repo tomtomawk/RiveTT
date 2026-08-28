@@ -16,7 +16,7 @@ namespace RiveTT.Tools.IFC;
 /// are passed via IFCExportOptions.AddOption().
 /// </summary>
 [ToolSafety(false, false)]
-public class IfcExportWithConfigurationTool : ICortexTool, ICommandTimeoutTool
+public class IfcExportWithConfigurationTool : IRiveTTTool, ICommandTimeoutTool
 {
     public string Name => "ifc_export_with_configuration";
     public string Category => "IFC";
@@ -75,36 +75,36 @@ public class IfcExportWithConfigurationTool : ICortexTool, ICommandTimeoutTool
         },
     };
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
 
         var outputDirectory = input["outputDirectory"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(outputDirectory))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "outputDirectory is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "outputDirectory is required");
 
         // H25-wave: restrict writes to user-owned directories; reject traversal/UNC/system paths.
         if (!PathSafety.TryResolveSafe(outputDirectory, out var safeOutputDirectory, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
         outputDirectory = safeOutputDirectory;
 
         if (!Directory.Exists(outputDirectory))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Output directory does not exist: {outputDirectory}");
 
         var requestedFileName = input["fileName"]?.Value<string>() ?? "";
         var fileName = NormalizeIfcFileName(requestedFileName, doc!.Title);
         var configName = input["configurationName"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(configName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "configurationName is required",
                 suggestion: $"Available: {string.Join(", ", BuiltInConfigs.Keys)}");
 
         if (!BuiltInConfigs.TryGetValue(configName!, out var configOptions))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Configuration '{configName}' not found",
                 suggestion: $"Available: {string.Join(", ", BuiltInConfigs.Keys)}");
 
@@ -113,7 +113,7 @@ public class IfcExportWithConfigurationTool : ICortexTool, ICommandTimeoutTool
 
         if (!session.RequestConfirmation("export IFC", 1,
             $"Export with config '{configName}' to {outputDirectory}"))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         try
         {
@@ -153,25 +153,25 @@ public class IfcExportWithConfigurationTool : ICortexTool, ICommandTimeoutTool
             tx.Start();
             var exportResult = doc!.Export(outputDirectory, fileName, options);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
             var outputPath = Path.Combine(outputDirectory, fileName + ".ifc");
 
             if (!exportResult)
-                return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                     $"Revit export returned false for {outputPath}",
                     suggestion: "Check that the document contains exportable elements and the output path is writable");
 
             if (!File.Exists(outputPath))
-                return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                     $"Export reported success but file was not written: {outputPath}",
                     suggestion: "Check disk space, permissions, and antivirus exclusions for the output directory");
 
             var fileInfo = new FileInfo(outputPath);
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 configurationName = configName,
                 outputDirectory,
@@ -184,7 +184,7 @@ public class IfcExportWithConfigurationTool : ICortexTool, ICommandTimeoutTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"IFC export failed: {ex.Message}");
         }
     }

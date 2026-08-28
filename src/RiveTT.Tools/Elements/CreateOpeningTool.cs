@@ -20,7 +20,7 @@ namespace RiveTT.Tools.Elements;
 /// rectangular opening defined by two corner points on the wall face).
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateOpeningTool : ICortexTool
+public class CreateOpeningTool : IRiveTTTool
 {
     public string Name => "create_opening";
     public string Category => "Elements";
@@ -34,11 +34,11 @@ public class CreateOpeningTool : ICortexTool
         "defaults to true. " +
         "wall: hostElementId (a wall)+point1+point2 ({x,y,z} mm, two opposite corners on the wall face).";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var openingType = (input["openingType"]?.Value<string>() ?? "").ToLowerInvariant();
         try
@@ -48,33 +48,33 @@ public class CreateOpeningTool : ICortexTool
                 "shaft" => CreateShaft(doc, input),
                 "host" => CreateHostOpening(doc, input),
                 "wall" => CreateWallOpening(doc, input),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unsupported openingType: {openingType}",
                     suggestion: "Use: shaft | host | wall")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> CreateShaft(Document doc, JObject input)
+    private static RiveTTResult<object> CreateShaft(Document doc, JObject input)
     {
         var baseLevelIdLong = input["baseLevelId"]?.Value<long?>() ?? 0;
         var topLevelIdLong = input["topLevelId"]?.Value<long?>() ?? 0;
         var curvesArray = input["curves"] as JArray;
         if (baseLevelIdLong <= 0 || topLevelIdLong <= 0 || curvesArray == null || curvesArray.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "baseLevelId, topLevelId, and a non-empty curves array (closed loop, mm) are required");
 
         var baseLevel = doc.GetElement(ToolHelpers.ToElementId(baseLevelIdLong)) as Level;
         var topLevel = doc.GetElement(ToolHelpers.ToElementId(topLevelIdLong)) as Level;
-        if (baseLevel == null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{baseLevelIdLong} is not a Level");
-        if (topLevel == null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{topLevelIdLong} is not a Level");
+        if (baseLevel == null) return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{baseLevelIdLong} is not a Level");
+        if (topLevel == null) return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{topLevelIdLong} is not a Level");
 
         var curves = CurveSpecHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
-        if (curveError != null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, curveError);
+        if (curveError != null) return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, curveError);
 
         var curveArray = new CurveArray();
         foreach (var c in curves) curveArray.Append(c);
@@ -91,14 +91,14 @@ public class CreateOpeningTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"NewOpening (shaft) failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"NewOpening (shaft) failed: {ex.Message}");
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             openingId = ToolHelpers.GetElementIdValue(opening.Id),
             baseLevel = baseLevel.Name,
@@ -106,20 +106,20 @@ public class CreateOpeningTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> CreateHostOpening(Document doc, JObject input)
+    private static RiveTTResult<object> CreateHostOpening(Document doc, JObject input)
     {
         var hostIdLong = input["hostElementId"]?.Value<long?>() ?? 0;
         var curvesArray = input["curves"] as JArray;
         if (hostIdLong <= 0 || curvesArray == null || curvesArray.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "hostElementId and a non-empty curves array (closed loop, mm) are required");
 
         var host = doc.GetElement(ToolHelpers.ToElementId(hostIdLong));
         if (host == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"hostElementId {hostIdLong} not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"hostElementId {hostIdLong} not found");
 
         var curves = CurveSpecHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
-        if (curveError != null) return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, curveError);
+        if (curveError != null) return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, curveError);
 
         var curveArray = new CurveArray();
         foreach (var c in curves) curveArray.Append(c);
@@ -138,30 +138,30 @@ public class CreateOpeningTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"NewOpening (host) failed: {ex.Message}",
                 suggestion: "hostElementId must be a floor or roof; the curves must form a closed loop within its boundary.");
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new { openingId = ToolHelpers.GetElementIdValue(opening.Id), hostElementId = hostIdLong });
+        return RiveTTResult<object>.Ok(new { openingId = ToolHelpers.GetElementIdValue(opening.Id), hostElementId = hostIdLong });
     }
 
-    private static CortexResult<object> CreateWallOpening(Document doc, JObject input)
+    private static RiveTTResult<object> CreateWallOpening(Document doc, JObject input)
     {
         var hostIdLong = input["hostElementId"]?.Value<long?>() ?? 0;
         var p1Token = input["point1"];
         var p2Token = input["point2"];
         if (hostIdLong <= 0 || p1Token == null || p2Token == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "hostElementId, point1, and point2 ({x,y,z} in mm) are required");
 
         var wall = doc.GetElement(ToolHelpers.ToElementId(hostIdLong)) as Wall;
         if (wall == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"hostElementId {hostIdLong} is not a Wall");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"hostElementId {hostIdLong} is not a Wall");
 
         var p1 = ParseXYZ(p1Token);
         var p2 = ParseXYZ(p2Token);
@@ -178,14 +178,14 @@ public class CreateOpeningTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"NewOpening (wall) failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"NewOpening (wall) failed: {ex.Message}");
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new { openingId = ToolHelpers.GetElementIdValue(opening.Id), hostElementId = hostIdLong });
+        return RiveTTResult<object>.Ok(new { openingId = ToolHelpers.GetElementIdValue(opening.Id), hostElementId = hostIdLong });
     }
 
     private static XYZ ParseXYZ(JToken token) => new XYZ(

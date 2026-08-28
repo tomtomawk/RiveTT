@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// and two structurally different geometric writes are not CRUD on one object.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetCurtainGridInfoTool : ICortexTool
+public class GetCurtainGridInfoTool : IRiveTTTool
 {
     public string Name => "get_curtain_grid_info";
     public string Category => "Elements";
@@ -26,20 +26,20 @@ public class GetCurtainGridInfoTool : ICortexTool
         "Reads an existing curtain wall/system grid: U/V grid line ids, panel ids, mullion ids. "
         + "hostElementId is the curtain wall or curtain system element.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var hostIdLong = input["hostElementId"]?.Value<long?>() ?? 0;
         if (hostIdLong <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "hostElementId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "hostElementId is required");
 
         var host = doc.GetElement(ToolHelpers.ToElementId(hostIdLong));
         var grid = CurtainGridAccess.GetCurtainGrid(host);
         if (grid == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"hostElementId {hostIdLong} has no curtain grid (not a curtain wall/system/roof, or its type has no automatic grid)");
 
         return CurtainGridAccess.DescribeGrid(grid);

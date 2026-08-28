@@ -18,7 +18,7 @@ namespace RiveTT.Tools.Workflows;
 /// result — and reads better than the double verb detect_show_clashes would have.
 /// </summary>
 [ToolSafety(false, false)]
-public class WorkflowClashReviewTool : ICortexTool
+public class WorkflowClashReviewTool : IRiveTTTool
 {
     public string Name => "show_clashes";
     public string Category => "Workflows";
@@ -29,11 +29,11 @@ public class WorkflowClashReviewTool : ICortexTool
         + "Uses the same true solid-geometry intersection as detect_clashes (bounding-box pre-filter, then "
         + "ElementIntersectsElementFilter); set useSolidGeometry=false for the faster box-only approximation.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var categoryA = input["categoryA"]?.Value<string>() ?? input["category1"]?.Value<string>();
         var categoryB = input["categoryB"]?.Value<string>() ?? input["category2"]?.Value<string>();
@@ -45,14 +45,14 @@ public class WorkflowClashReviewTool : ICortexTool
         var useSolidGeometry = input["useSolidGeometry"]?.Value<bool>() ?? true;
 
         if (string.IsNullOrEmpty(categoryA) || string.IsNullOrEmpty(categoryB))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "categoryA and categoryB required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "categoryA and categoryB required");
 
         try
         {
             var catIdA = Utilities.CategoryResolver.ResolveToId(doc, categoryA!);
             var catIdB = Utilities.CategoryResolver.ResolveToId(doc, categoryB!);
             if (catIdA == null || catIdB == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "Category not found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "Category not found");
 
             var setA = new FilteredElementCollector(doc).OfCategoryId(catIdA).WhereElementIsNotElementType().ToList();
             var setB = new FilteredElementCollector(doc).OfCategoryId(catIdB).WhereElementIsNotElementType().ToList();
@@ -88,7 +88,7 @@ public class WorkflowClashReviewTool : ICortexTool
                     sectionBoxViewId = ToolHelpers.GetElementIdValue(view3D.Id);
                 }
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -106,7 +106,7 @@ public class WorkflowClashReviewTool : ICortexTool
                 suggestion = $"No elements found for '{categoryA}'. Try the non-structural variant.";
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 categoryA, categoryB,
                 setACount = setA.Count, setBCount = setB.Count,
@@ -121,7 +121,7 @@ public class WorkflowClashReviewTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

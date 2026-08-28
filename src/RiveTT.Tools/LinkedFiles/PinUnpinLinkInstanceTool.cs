@@ -14,7 +14,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// Pins or unpins one or more link instances.
 /// </summary>
 [ToolSafety(false, false)]
-public class PinUnpinLinkInstanceTool : ICortexTool
+public class PinUnpinLinkInstanceTool : IRiveTTTool
 {
     public string Name => "pin_unpin_link_instance";
     public string Category => "LinkedFiles";
@@ -22,21 +22,21 @@ public class PinUnpinLinkInstanceTool : ICortexTool
     public bool IsDynamic => true;
     public string Description => "Pins or unpins one or more linked file instances to prevent or allow accidental movement.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var instanceIds = input["instanceIds"]?.ToObject<List<long>>() ?? new List<long>();
         var pin = input["pin"]?.Value<bool>() ?? true;
 
         if (instanceIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "instanceIds array is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "instanceIds array is required");
 
         var action = pin ? "pin" : "unpin";
         if (!session.RequestConfirmation($"{action} link instance(s)", instanceIds.Count))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         try
         {
@@ -63,10 +63,10 @@ public class PinUnpinLinkInstanceTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"{(pin ? "Pinned" : "Unpinned")} {successCount}/{instanceIds.Count} instance(s)",
                 action,
@@ -75,7 +75,7 @@ public class PinUnpinLinkInstanceTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

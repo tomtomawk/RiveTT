@@ -8,7 +8,7 @@ Relevé du 2026-08-28 — connecteur 0.4.0 — **198 outils publiés**, 195 clas
 ## Comment lire ce document
 
 Deux surfaces sont croisées : les attributs `[McpServerTool]` du serveur MCP et les
-classes `ICortexTool` du runtime. La question posée à chaque outil est celle qui a
+classes `IRiveTTTool` du runtime. La question posée à chaque outil est celle qui a
 coûté le plus cher jusqu'ici : **un paramètre publié est-il vraiment lu**.
 
 | Colonne | Ce qu'elle dit |
@@ -373,7 +373,7 @@ documentation.
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
-| `sync_navisworks_selection` | écriture | — | 2 | Symmetric Revit↔Navis selection bridge. mode=export → emit CortexElementRefs from current Revit selection (host + linked). mode=import → consume Corte… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : append, createLinkedMarkers, createSectionBox, isolate, usePostCommandIsolate |
+| `sync_navisworks_selection` | écriture | — | 2 | Symmetric Revit↔Navis selection bridge. mode=export → emit RiveTTElementRefs from current Revit selection (host + linked). mode=import → consume RiveT… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : append, createLinkedMarkers, createSectionBox, isolate, usePostCommandIsolate |
 
 ## Lacunes comblées depuis le relevé précédent
 

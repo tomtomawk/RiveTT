@@ -1,6 +1,6 @@
 namespace RiveTT.Core.Results;
 
-public enum CortexErrorCode
+public enum RiveTTErrorCode
 {
     None = 0,
     ElementNotFound = 100,

@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Views;
 /// Creates, applies, or lists view filters with optional parameter rules and graphic overrides.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateViewFilterTool : ICortexTool
+public class CreateViewFilterTool : IRiveTTTool
 {
     public string Name => "create_view_filter";
     public string Category => "Views";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Creates, applies, or lists view filters. A filter can carry one rule (parameterName/filterRule/filterValue) or several via a 'rules' array combined with AND/OR (logic). Apply supports color overrides.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = input["action"]?.Value<string>() ?? "create";
 
@@ -36,17 +36,17 @@ public class CreateViewFilterTool : ICortexTool
                 "list" => ListFilters(doc),
                 "create" => CreateFilter(doc, input),
                 "apply" => ApplyFilter(doc, input),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}", suggestion: "Use: list, create, apply")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListFilters(Document doc)
+    private static RiveTTResult<object> ListFilters(Document doc)
     {
         var filters = new FilteredElementCollector(doc)
             .OfClass(typeof(ParameterFilterElement))
@@ -57,18 +57,18 @@ public class CreateViewFilterTool : ICortexTool
                 name = f.Name,
                 categoryCount = f.GetCategories().Count
             }).ToList();
-        return CortexResult<object>.Ok(new { filterCount = filters.Count, filters });
+        return RiveTTResult<object>.Ok(new { filterCount = filters.Count, filters });
     }
 
-    private static CortexResult<object> CreateFilter(Document doc, JObject input)
+    private static RiveTTResult<object> CreateFilter(Document doc, JObject input)
     {
         var filterName = input["filterName"]?.Value<string>();
         if (string.IsNullOrEmpty(filterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "filterName is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "filterName is required");
 
         var categories = input["categoryNames"]?.ToObject<List<string>>() ?? new List<string>();
         if (categories.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "categoryNames is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "categoryNames is required");
 
         var catIds = new List<ElementId>();
         foreach (var catName in categories)
@@ -78,7 +78,7 @@ public class CreateViewFilterTool : ICortexTool
         }
 
         if (catIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No valid categories resolved");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No valid categories resolved");
 
         using var tx = new Transaction(doc, "RiveTT: Create View Filter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -183,7 +183,7 @@ public class CreateViewFilterTool : ICortexTool
             if (rulesApplied == 0)
             {
                 tx.RollBack();
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"None of the {ruleSpecs.Count} requested rule(s) could be resolved: " +
                     string.Join("; ", ruleWarnings),
                     suggestion: "Check the parameter names against get_element_parameters on a representative " +
@@ -192,11 +192,11 @@ public class CreateViewFilterTool : ICortexTool
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             filterId = ToolHelpers.GetElementIdValue(filter.Id),
             filterName = filter.Name,
@@ -206,19 +206,19 @@ public class CreateViewFilterTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> ApplyFilter(Document doc, JObject input)
+    private static RiveTTResult<object> ApplyFilter(Document doc, JObject input)
     {
         var filterId = input["filterId"]?.Value<long>() ?? 0;
         var viewId = input["viewId"]?.Value<long>() ?? 0;
         var isVisible = input["isVisible"]?.Value<bool>() ?? true;
 
         if (filterId <= 0 || viewId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "filterId and viewId are required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "filterId and viewId are required");
 
         var filter = doc.GetElement(new ElementId(filterId)) as ParameterFilterElement;
         var view = doc.GetElement(new ElementId(viewId)) as View;
-        if (filter == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Filter not found");
-        if (view == null) return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View not found");
+        if (filter == null) return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Filter not found");
+        if (view == null) return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "View not found");
 
         using var tx = new Transaction(doc, "RiveTT: Apply View Filter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -241,11 +241,11 @@ public class CreateViewFilterTool : ICortexTool
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             applied = true,
             filterName = filter.Name,

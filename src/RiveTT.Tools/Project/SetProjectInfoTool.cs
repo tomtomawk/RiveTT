@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Project;
 /// organization, status, client, etc.). Write counterpart of <c>get_project_info</c>.
 /// </summary>
 [ToolSafety(false, false)]
-public class SetProjectInfoTool : ICortexTool
+public class SetProjectInfoTool : IRiveTTTool
 {
     public string Name => "set_project_info";
     public string Category => "Project";
@@ -22,21 +22,21 @@ public class SetProjectInfoTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Sets editable Project Information fields: projectName, projectNumber, projectAddress, buildingName, author, organizationName, organizationDescription, issueDate, status, clientName. Only the fields you provide are changed.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var info = doc.ProjectInformation;
         if (info == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No Project Information element in document");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "No Project Information element in document");
 
         // Map of input key -> setter action. Only keys present in the request are applied.
         var changed = new List<string>();
 
         if (!session.RequestConfirmation("update project information", 1, doc.Title))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         try
         {
@@ -67,16 +67,16 @@ public class SetProjectInfoTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
             if (changed.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No recognized fields provided",
                     suggestion: "Provide at least one of: projectName, projectNumber, projectAddress, buildingName, author, organizationName, organizationDescription, issueDate, status, clientName");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Updated {changed.Count} field(s)",
                 changedFields = changed
@@ -84,7 +84,7 @@ public class SetProjectInfoTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to set project info: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to set project info: {ex.Message}");
         }
     }
 

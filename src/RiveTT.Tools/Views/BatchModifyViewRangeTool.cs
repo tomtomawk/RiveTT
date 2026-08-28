@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Views;
 /// Modifies the view range (top, cut plane, bottom, view depth) for one or more plan views.
 /// </summary>
 [ToolSafety(false, false)]
-public class BatchModifyViewRangeTool : ICortexTool
+public class BatchModifyViewRangeTool : IRiveTTTool
 {
     public string Name => "batch_modify_view_range";
     public string Category => "Views";
@@ -23,11 +23,11 @@ public class BatchModifyViewRangeTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Modifies the view range (top, cut plane, bottom, view depth) for one or more plan views.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var viewIds = input["viewIds"]?.ToObject<List<long>>() ?? new List<long>();
         var topOffsetMm = input["topOffset"]?.Value<double?>();
@@ -36,11 +36,11 @@ public class BatchModifyViewRangeTool : ICortexTool
         var viewDepthOffsetMm = input["viewDepthOffset"]?.Value<double?>();
 
         if (viewIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "viewIds array is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "viewIds array is required");
 
         // H9: confirm before modifying view ranges across a set of views.
         if (!session.RequestConfirmation("modify view range for", viewIds.Count))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled,
                 "Operation cancelled by user");
 
         try
@@ -80,14 +80,14 @@ public class BatchModifyViewRangeTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return CortexResult<object>.Ok(new { modifiedCount = results.Count, views = results });
+            return RiveTTResult<object>.Ok(new { modifiedCount = results.Count, views = results });
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

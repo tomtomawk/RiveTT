@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Project;
 /// and instance counts. Merges audit_families and check_family_health.
 /// </summary>
 [ToolSafety(true, false)]
-public class AuditFamiliesTool : ICortexTool
+public class AuditFamiliesTool : IRiveTTTool
 {
     public string Name => "audit_families";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Family audit with instance counts, unused detection, and in-place identification. Covers loadable (.rfa) families by default; set includeSystemFamilies=true to also list system-family types (wall/floor/roof/ceiling types).";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var includeUnused = input["includeUnused"]?.Value<bool>() ?? true;
         var categoryFilter = input["categoryFilter"]?.Value<string>();
@@ -158,7 +158,7 @@ public class AuditFamiliesTool : ICortexTool
                     .ToList()
             };
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 summary,
                 includeSystemFamilies,
@@ -167,7 +167,7 @@ public class AuditFamiliesTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

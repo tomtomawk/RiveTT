@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Annotations;
 /// only builds linear dimensions.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateSpotDimensionTool : ICortexTool
+public class CreateSpotDimensionTool : IRiveTTTool
 {
     public string Name => "create_spot_dimension";
     public string Category => "Annotations";
@@ -28,16 +28,16 @@ public class CreateSpotDimensionTool : ICortexTool
         "(defaults to the active view). Optional bend/end (mm) place the elbow and leader end; " +
         "when omitted they are derived from the view's up/right directions. hasLeader defaults to true.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var elementIdLong = input["elementId"]?.Value<long?>() ?? 0;
         var pointToken = input["point"];
         if (elementIdLong <= 0 || pointToken == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementId and point ({x,y,z} in mm) are required",
                 suggestion: "Provide {\"elementId\": 123456, \"point\": {\"x\":0,\"y\":0,\"z\":3000}}");
 
@@ -46,16 +46,16 @@ public class CreateSpotDimensionTool : ICortexTool
             ? doc.GetElement(ToolHelpers.ToElementId(viewIdLong)) as View
             : doc.ActiveView;
         if (view == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "Could not resolve target view");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "Could not resolve target view");
 
         var elem = doc.GetElement(ToolHelpers.ToElementId(elementIdLong));
         if (elem == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"Element {elementIdLong} not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"Element {elementIdLong} not found");
 
         var origin = ParseXYZ(pointToken);
         var reference = GetBestReference(elem, view, origin);
         if (reference == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"No dimensionable face/edge reference found near the given point on element {elementIdLong}");
 
         var hasLeader = input["hasLeader"]?.Value<bool?>() ?? true;
@@ -74,16 +74,16 @@ public class CreateSpotDimensionTool : ICortexTool
             if (spot == null)
             {
                 tx.RollBack();
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     "SpotDimension.Create returned null");
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 spotDimensionId = ToolHelpers.GetElementIdValue(spot.Id),
                 viewId = ToolHelpers.GetElementIdValue(view.Id)
@@ -92,7 +92,7 @@ public class CreateSpotDimensionTool : ICortexTool
         catch (Exception ex)
         {
             if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

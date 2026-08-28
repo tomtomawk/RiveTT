@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Views;
 /// Renames views using find/replace, prefix, or suffix with optional view type filtering.
 /// </summary>
 [ToolSafety(false, true)]
-public class RenameViewsTool : ICortexTool
+public class RenameViewsTool : IRiveTTTool
 {
     public string Name => "rename_views";
     public string Category => "Views";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Renames views using find/replace, prefix, or suffix with optional view type filtering.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var operation = input["operation"]?.Value<string>() ?? "find_replace";
         var prefix = input["prefix"]?.Value<string>() ?? "";
@@ -57,7 +57,7 @@ public class RenameViewsTool : ICortexTool
             if (!dryRun)
             {
                 if (!session.RequestConfirmation("rename", viewList.Count))
-                    return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Rename Views");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -81,7 +81,7 @@ public class RenameViewsTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -96,11 +96,11 @@ public class RenameViewsTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new { dryRun, renamedCount = results.Count, results = results.Take(200).ToList() });
+            return RiveTTResult<object>.Ok(new { dryRun, renamedCount = results.Count, results = results.Take(200).ToList() });
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

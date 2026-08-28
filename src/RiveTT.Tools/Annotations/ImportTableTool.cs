@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Annotations;
 /// Imports a CSV/TSV file as a formatted table of text notes in a drafting or legend view.
 /// </summary>
 [ToolSafety(false, false)]
-public class ImportTableTool : ICortexTool
+public class ImportTableTool : IRiveTTTool
 {
     public string Name => "import_table";
     public string Category => "Annotations";
@@ -24,22 +24,22 @@ public class ImportTableTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Imports a CSV/TSV file as a formatted table of text notes in a drafting or legend view.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var filePath = input["filePath"]?.Value<string>();
         // H28: restrict reads to user-owned directories; reject traversal/UNC/system paths.
         if (!PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
         filePath = safePath;
         if (!File.Exists(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"File not found: {filePath}",
                 suggestion: "Provide a valid absolute path to a CSV or TSV file");
 
@@ -54,7 +54,7 @@ public class ImportTableTool : ICortexTool
         {
             var lines = File.ReadAllLines(filePath);
             if (lines.Length == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "File is empty");
 
             // Parse rows
@@ -98,7 +98,7 @@ public class ImportTableTool : ICortexTool
                         : vft.ViewFamily == ViewFamily.Drafting);
 
                 if (viewFamilyType == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                         $"No {viewType} view family type available");
 
                 View tableView;
@@ -144,11 +144,11 @@ public class ImportTableTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     viewId = ToolHelpers.GetElementIdValue(tableView.Id),
                     viewName = tableView.Name,
@@ -166,7 +166,7 @@ public class ImportTableTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to import table: {ex.Message}");
         }
     }

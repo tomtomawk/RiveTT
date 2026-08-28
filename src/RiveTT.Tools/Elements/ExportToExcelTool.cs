@@ -16,18 +16,18 @@ namespace RiveTT.Tools.Elements;
 /// Exports elements by category to Excel (.xlsx) with color-coded columns.
 /// </summary>
 [ToolSafety(true, false)]
-public class ExportToExcelTool : ICortexTool
+public class ExportToExcelTool : IRiveTTTool
 {
     public string Name => "export_to_excel";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Exports elements by category to Excel (.xlsx) with color-coded columns.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var categories = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
         var legacyCategory = input["category"]?.Value<string>();
@@ -47,7 +47,7 @@ public class ExportToExcelTool : ICortexTool
 
         // H25-wave: restrict writes to user-owned directories; reject traversal/UNC/system paths.
         if (!PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
         filePath = safePath;
@@ -76,7 +76,7 @@ public class ExportToExcelTool : ICortexTool
             var truncated = probed.Count > maxElements;
             var elemList = truncated ? probed.Take(maxElements).ToList() : probed;
             if (elemList.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No elements found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No elements found");
 
             // Discover parameters (with type element cache)
             var instanceParamNames = new LinkedHashSet();
@@ -187,7 +187,7 @@ public class ExportToExcelTool : ICortexTool
                 ws.Columns().AdjustToContents(1, 50);
             workbook.SaveAs(filePath);
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 filePath,
                 elementCount = elemList.Count,
@@ -202,7 +202,7 @@ public class ExportToExcelTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

@@ -15,18 +15,18 @@ namespace RiveTT.Tools.Sheets;
 /// Views can optionally be duplicated with detailing.
 /// </summary>
 [ToolSafety(false, false)]
-public class DuplicateSheetWithContentTool : ICortexTool
+public class DuplicateSheetWithContentTool : IRiveTTTool
 {
     public string Name => "duplicate_sheet_with_content";
     public string Category => "Sheets";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Duplicates a sheet including all annotations and detail items. Views can optionally be duplicated with detailing.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var sheetId = input["sheetId"]?.Value<long>() ?? 0;
         var copies = input["copies"]?.Value<int>() ?? 1;
@@ -42,13 +42,13 @@ public class DuplicateSheetWithContentTool : ICortexTool
         var newName = input["newName"]?.Value<string>();
 
         if (sheetId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sheetId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheetId is required");
 
         try
         {
             var sourceSheet = doc.GetElement(new ElementId(sheetId)) as ViewSheet;
             if (sourceSheet == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "Sheet not found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Sheet not found");
 
             // Get title block type
             var titleBlockId = GetTitleBlockTypeId(doc, sourceSheet);
@@ -150,14 +150,14 @@ public class DuplicateSheetWithContentTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return CortexResult<object>.Ok(new { duplicatedCount = results.Count, sheets = results });
+            return RiveTTResult<object>.Ok(new { duplicatedCount = results.Count, sheets = results });
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

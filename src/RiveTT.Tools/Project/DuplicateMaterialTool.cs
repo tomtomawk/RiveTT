@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Project;
 /// Duplicates an existing material with a new name, copying all properties and assets.
 /// </summary>
 [ToolSafety(false, false)]
-public class DuplicateMaterialTool : ICortexTool
+public class DuplicateMaterialTool : IRiveTTTool
 {
     public string Name => "duplicate_material";
     public string Category => "Project";
@@ -21,23 +21,23 @@ public class DuplicateMaterialTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Duplicates an existing material with a new name, copying color, class, transparency, and optionally appearance/structural/thermal assets.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var sourceMaterialId   = input["sourceMaterialId"]?.Value<long?>();
         var sourceMaterialName = input["sourceMaterialName"]?.Value<string>();
         var newName            = input["newName"]?.Value<string>();
 
         if (string.IsNullOrWhiteSpace(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "newName is required",
                 suggestion: "Provide a name for the duplicate material");
 
         if (sourceMaterialId == null && string.IsNullOrWhiteSpace(sourceMaterialName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Provide sourceMaterialId or sourceMaterialName",
                 suggestion: "Use list_materials to find the source material");
 
@@ -59,7 +59,7 @@ public class DuplicateMaterialTool : ICortexTool
             }
 
             if (source == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Source material not found (id={sourceMaterialId}, name={sourceMaterialName})",
                     suggestion: "Use list_materials to list available materials");
 
@@ -75,7 +75,7 @@ public class DuplicateMaterialTool : ICortexTool
                 if (newMat == null)
                 {
                     tx.RollBack();
-                    return CortexResult<object>.Fail(CortexErrorCode.Unknown, "Failed to create duplicate material");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, "Failed to create duplicate material");
                 }
 
                 // Copy basic properties
@@ -133,7 +133,7 @@ public class DuplicateMaterialTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -141,7 +141,7 @@ public class DuplicateMaterialTool : ICortexTool
             long newIdValue;
             newIdValue = newMatId.Value;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 materialId = newIdValue,
                 name = newName,
@@ -151,7 +151,7 @@ public class DuplicateMaterialTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to duplicate material: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to duplicate material: {ex.Message}");
         }
     }
 }

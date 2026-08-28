@@ -16,7 +16,7 @@ namespace RiveTT.Tools.IFC;
 /// Extracts wall profile (base line + height + thickness) and finds matching WallType.
 /// </summary>
 [ToolSafety(false, false)]
-public class IfcRebuildWallsTool : ICortexTool
+public class IfcRebuildWallsTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_walls";
     public string Category => "IFC";
@@ -24,7 +24,7 @@ public class IfcRebuildWallsTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Rebuild native Revit walls from IFC-imported DirectShape elements";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -54,7 +54,7 @@ public class IfcRebuildWallsTool : ICortexTool
         {
             wallType = doc!.GetElement(ToolHelpers.ToElementId(wallTypeIdRaw.Value)) as WallType;
             if (wallType == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"WallType {wallTypeIdRaw.Value} not found");
         }
 
@@ -69,7 +69,7 @@ public class IfcRebuildWallsTool : ICortexTool
         if (!dryRun)
         {
             if (!session.RequestConfirmation("rebuild walls", candidates.Count))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
         }
 
         // One TransactionGroup per invocation: the N per-element commits collapse
@@ -185,7 +185,7 @@ public class IfcRebuildWallsTool : ICortexTool
         if (txGroup != null && txGroup.GetStatus() == TransactionStatus.Started)
             txGroup.Assimilate();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             dryRun,
             totalCandidates = candidates.Count,

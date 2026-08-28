@@ -16,7 +16,7 @@ namespace RiveTT.Tools.IFC;
 /// Extracts the bottom face footprint as a CurveLoop for the floor profile.
 /// </summary>
 [ToolSafety(false, false)]
-public class IfcRebuildFloorsTool : ICortexTool
+public class IfcRebuildFloorsTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_floors";
     public string Category => "IFC";
@@ -24,7 +24,7 @@ public class IfcRebuildFloorsTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Rebuild native Revit floors from IFC-imported DirectShape elements";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
@@ -51,7 +51,7 @@ public class IfcRebuildFloorsTool : ICortexTool
         {
             floorType = doc!.GetElement(ToolHelpers.ToElementId(floorTypeIdRaw.Value)) as FloorType;
             if (floorType == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"FloorType {floorTypeIdRaw.Value} not found");
         }
         else
@@ -64,7 +64,7 @@ public class IfcRebuildFloorsTool : ICortexTool
         }
 
         if (floorType == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No FloorType available in the document");
 
         var results = new List<object>();
@@ -73,7 +73,7 @@ public class IfcRebuildFloorsTool : ICortexTool
         if (!dryRun)
         {
             if (!session.RequestConfirmation("rebuild floors", candidates.Count))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
         }
 
         // One TransactionGroup per invocation: the N per-element commits collapse
@@ -185,7 +185,7 @@ public class IfcRebuildFloorsTool : ICortexTool
         if (txGroup != null && txGroup.GetStatus() == TransactionStatus.Started)
             txGroup.Assimilate();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             dryRun,
             totalCandidates = candidates.Count,

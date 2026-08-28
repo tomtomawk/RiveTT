@@ -16,24 +16,24 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's SetElementPhaseEventHandler logic.
 /// </summary>
 [ToolSafety(false, false)]
-public class SetElementPhaseTool : ICortexTool
+public class SetElementPhaseTool : IRiveTTTool
 {
     public string Name => "set_element_phase";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => true;
     public string Description => "Sets the created and/or demolished phase on one or more elements. IsDynamic = true — only available when the document has phases. Mirrors the fork's SetElementPhaseEventHandler logic.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var requests = input["requests"]?.ToObject<List<SetPhaseRequest>>();
         if (requests == null || requests.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "requests array is required",
                 suggestion: "Provide [{\"elementId\": 123, \"createdPhaseId\": 456}]");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var results = new List<object>();
@@ -41,7 +41,7 @@ public class SetElementPhaseTool : ICortexTool
         var failCount = 0;
 
         if (!session.RequestConfirmation("change phase for", requests.Count))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Set Element Phase");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -135,7 +135,7 @@ public class SetElementPhaseTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
@@ -146,7 +146,7 @@ public class SetElementPhaseTool : ICortexTool
             throw;
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             message = $"Set phase on {successCount}/{requests.Count} element(s) successfully",
             successCount,

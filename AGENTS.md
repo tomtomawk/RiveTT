@@ -23,8 +23,8 @@ time: it is not multi-targeted, it is rebuilt per target.
       -> RiveTT.Server (stdio)
       -> Windows named pipe (current user only)
       -> RiveTT.Plugin (Revit ExternalEvent)
-      -> CortexRouter
-      -> ICortexTool implementations
+      -> RiveTTRouter
+      -> IRiveTTTool implementations
 
 The C# server is the only server implementation. Nothing generated is ever
 committed, and it lands in one of two trees:
@@ -86,7 +86,7 @@ When you add or rename a parameter:
 
 ## The write lock
 
-Every Revit session starts read-only. `CortexRouter.Route` refuses any tool whose
+Every Revit session starts read-only. `RiveTTRouter.Route` refuses any tool whose
 `toolReadOnly` classification is false with `PermissionDenied`, before the cache
 and before the open-document check, until a human presses *Écriture* in the
 **RiveTT** ribbon panel (Add-Ins tab).
@@ -102,12 +102,12 @@ Consequences for anything you add here:
   `RiveTT.Tools` and fails if a tool calls it.
 - `dryRun` is not an exemption. A preview is a tool's own promise; the lock
   cannot depend on 250 implementations keeping it.
-- The lock is session state, not document state: `CortexSession.Reinitialize`
+- The lock is session state, not document state: `RiveTTSession.Reinitialize`
   must leave it alone.
 
 ## Development rules
 
-- Prefer a dedicated `ICortexTool`; keep `send_code_to_revit` as a fallback.
+- Prefer a dedicated `IRiveTTTool`; keep `send_code_to_revit` as a fallback.
 - Revit API calls must execute through `ExternalEvent`. That context is a valid
   API context and is less restricted than an API *event* handler: switching the
   active document (`OpenAndActivateDocument`) and opening API edit scopes
@@ -118,7 +118,7 @@ Consequences for anything you add here:
 - An API edit scope must be started with no transaction open, committed with a
   failure preprocessor (an unhandled warning opens a modal dialog and freezes
   the pipe), and cancelled in a `finally` so Revit never stays in edit mode.
-- Writes use a `Transaction`, return a structured `CortexResult`, and must
+- Writes use a `Transaction`, return a structured `RiveTTResult`, and must
   not leak exceptions across the router.
 - Keep `dryRun` preview behavior where a tool supports it. RiveTT does not
   display confirmation or licensing dialogs.

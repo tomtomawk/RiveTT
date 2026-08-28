@@ -19,7 +19,7 @@ public class RevitThreadDispatcher
         _externalEvent = externalEvent;
     }
 
-    public CortexResult<object> Execute(ICortexTool tool, JObject input, CortexSession session,
+    public RiveTTResult<object> Execute(IRiveTTTool tool, JObject input, RiveTTSession session,
         int timeoutMs = 120000)
     {
         // H5: only the prepare + Raise pair must be atomic against other requests; the
@@ -31,7 +31,7 @@ public class RevitThreadDispatcher
         {
             if (!_handler.TryPrepareExecution(tool, input, session))
             {
-                return CortexResult<object>.Fail(CortexErrorCode.Timeout,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Timeout,
                     $"Tool '{tool.Name}' could not start because a previous Revit event is still pending or running",
                     suggestion: "Wait for Revit to finish the previous operation, then try again.");
             }
@@ -40,7 +40,7 @@ public class RevitThreadDispatcher
             if (raiseResult != ExternalEventRequest.Accepted)
             {
                 _handler.ClearPreparedExecution();
-                return CortexResult<object>.Fail(CortexErrorCode.Timeout,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Timeout,
                     $"Revit rejected the event request: {raiseResult}",
                     suggestion: "Revit may be busy with another operation. Try again.");
             }
@@ -52,12 +52,12 @@ public class RevitThreadDispatcher
             // stays true and the very next request is refused until Revit eventually fires
             // the deferred event.
             _handler.ClearPreparedExecution();
-            return CortexResult<object>.Fail(CortexErrorCode.Timeout,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Timeout,
                 $"Tool '{tool.Name}' timed out after {timeoutMs}ms",
                 suggestion: "The operation took too long. If it was already running it may still complete inside Revit after this error (it would be logged as completed_after_timeout in the audit log) — verify the model state before retrying. Try with fewer elements.");
         }
 
-        return _handler.Result ?? CortexResult<object>.Fail(
-            CortexErrorCode.Unknown, "No result from tool execution");
+        return _handler.Result ?? RiveTTResult<object>.Fail(
+            RiveTTErrorCode.Unknown, "No result from tool execution");
     }
 }

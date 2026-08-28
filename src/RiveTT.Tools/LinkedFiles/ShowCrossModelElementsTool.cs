@@ -20,7 +20,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// bounding box so the user can actually see where the linked element is.
 /// </summary>
 [ToolSafety(false, false)]
-public class ShowCrossModelElementsTool : ICortexTool
+public class ShowCrossModelElementsTool : IRiveTTTool
 {
     public string Name => "show_cross_model_elements";
     public string Category => "LinkedFiles";
@@ -31,11 +31,11 @@ public class ShowCrossModelElementsTool : ICortexTool
     private const string MarkerCommentTag = "RiveTT:CrossModelMarker";
     private const double MarkerOffsetMm = 50.0;
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var hostIds = ReadLongArray(input["hostElementIds"]);
         var linkedTargets = input["linkedElements"] as JArray ?? new JArray();
@@ -53,7 +53,7 @@ public class ShowCrossModelElementsTool : ICortexTool
         }
 
         if (hostIds.Count == 0 && linkedTargets.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Provide at least one hostElementIds value or linkedElements target.");
 
         try
@@ -211,7 +211,7 @@ public class ShowCrossModelElementsTool : ICortexTool
                     postCommandUsed = $"failed: {ex.Message}";
                 }
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     selectedReferenceCount = selectionElementIds.Count,
                     isolatedElementIds = Array.Empty<long>(),
@@ -287,7 +287,7 @@ public class ShowCrossModelElementsTool : ICortexTool
                     }
 
                     if (tx.Commit() != TransactionStatus.Committed)
-                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                             $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                             suggestion: "Fix the reported model errors and retry.");
                 }
@@ -304,7 +304,7 @@ public class ShowCrossModelElementsTool : ICortexTool
                 var prop = m.GetType().GetProperty("directShapeId");
                 return prop?.GetValue(m) is long;
             });
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 selectedReferenceCount = shouldSelect ? selectionElementIds.Count : 0,
                 isolatedElementIds = isolateIds.Select(ToolHelpers.GetElementIdValue).ToArray(),
@@ -319,7 +319,7 @@ public class ShowCrossModelElementsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to show cross-model elements: {ex.Message}");
         }
     }

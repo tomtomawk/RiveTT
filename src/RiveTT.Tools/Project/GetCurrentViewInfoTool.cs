@@ -11,25 +11,25 @@ namespace RiveTT.Tools.Project;
 /// Returns metadata about the currently active view (name, type, scale, detail level).
 /// </summary>
 [ToolSafety(true, false)]
-public class GetCurrentViewInfoTool : ICortexTool
+public class GetCurrentViewInfoTool : IRiveTTTool
 {
     public string Name => "get_current_view_info";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Returns metadata about the currently active view (name, type, scale, detail level).";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         try
         {
             var activeView = doc.ActiveView;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 id = activeView.Id.Value,
                 uniqueId    = activeView.UniqueId,
@@ -42,7 +42,7 @@ public class GetCurrentViewInfoTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get current view info: {ex.Message}");
         }
     }

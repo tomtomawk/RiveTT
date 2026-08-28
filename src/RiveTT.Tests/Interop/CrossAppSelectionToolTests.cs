@@ -8,7 +8,7 @@ namespace RiveTT.Tests.Interop;
 
 public class CrossAppSelectionToolTests
 {
-    private static CortexSession MakeSession() => new CortexSession(new SessionStore());
+    private static RiveTTSession MakeSession() => new RiveTTSession(new SessionStore());
 
     [Fact]
     public void RejectsMissingMode()
@@ -16,7 +16,7 @@ public class CrossAppSelectionToolTests
         var tool = new CrossAppSelectionTool();
         var result = tool.Execute(new JObject(), MakeSession());
         Assert.False(result.Success);
-        Assert.Equal(CortexErrorCode.InvalidInput, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.InvalidInput, result.Error!.Code);
         Assert.Contains("mode", result.Error.Message, System.StringComparison.OrdinalIgnoreCase);
     }
 
@@ -26,7 +26,7 @@ public class CrossAppSelectionToolTests
         var tool = new CrossAppSelectionTool();
         var result = tool.Execute(JObject.Parse("{\"mode\":\"banana\"}"), MakeSession());
         Assert.False(result.Success);
-        Assert.Equal(CortexErrorCode.InvalidInput, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.InvalidInput, result.Error!.Code);
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public class CrossAppSelectionToolTests
         var result = tool.Execute(
             JObject.Parse("{\"mode\":\"import\",\"refs\":[]}"), MakeSession());
         Assert.False(result.Success);
-        Assert.Equal(CortexErrorCode.InvalidInput, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.InvalidInput, result.Error!.Code);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class CrossAppSelectionToolTests
     }
 
     [Fact]
-    public void Import_ReadsRefsArray_AsCortexElementRef()
+    public void Import_ReadsRefsArray_AsRiveTTElementRef()
     {
         var tool = new CrossAppSelectionTool();
         var session = MakeSession();

@@ -15,7 +15,7 @@ public static class ToolHelpers
     /// Retrieves the active Revit Document from the session store.
     /// Returns null if no document is open.
     /// </summary>
-    public static Document? GetDocument(CortexSession session)
+    public static Document? GetDocument(RiveTTSession session)
     {
         return session.Store.Get<object>("activeDocument") as Document;
     }
@@ -24,13 +24,13 @@ public static class ToolHelpers
     /// Retrieves the active Document or returns a standard failure result.
     /// Use this when early-returning on missing document.
     /// </summary>
-    public static (Document? doc, CortexResult<object>? error) RequireDocument(CortexSession session)
+    public static (Document? doc, RiveTTResult<object>? error) RequireDocument(RiveTTSession session)
     {
         var doc = GetDocument(session);
         if (doc == null)
         {
-            return (null, CortexResult<object>.Fail(
-                CortexErrorCode.InvalidInput,
+            return (null, RiveTTResult<object>.Fail(
+                RiveTTErrorCode.InvalidInput,
                 "No active document in session",
                 suggestion: "Open a Revit document before using this tool"));
         }
@@ -86,7 +86,7 @@ public static class ToolHelpers
     /// operation reproducible.
     /// </summary>
     /// <param name="error">Set when no usable view could be resolved; the tool returns it.</param>
-    public static View? ResolveTargetView(Document doc, JObject input, out CortexResult<object>? error)
+    public static View? ResolveTargetView(Document doc, JObject input, out RiveTTResult<object>? error)
     {
         error = null;
         var viewId = input["viewId"]?.Value<long?>();
@@ -96,7 +96,7 @@ public static class ToolHelpers
             var element = doc.GetElement(ToElementId(viewId.Value));
             if (element is not View requested)
             {
-                error = CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                error = RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"viewId {viewId} is not a view (found: {element?.GetType().Name ?? "nothing"}).",
                     suggestion: "Pass the element id of a view, or omit viewId to use the active view.");
                 return null;
@@ -105,7 +105,7 @@ public static class ToolHelpers
             // A template is not a place to put annotations, and neither is a sheet.
             if (requested.IsTemplate)
             {
-                error = CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                error = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"'{requested.Name}' is a view TEMPLATE, not a view.",
                     suggestion: "Pass a real view; apply_view_template edits templates.");
                 return null;
@@ -117,7 +117,7 @@ public static class ToolHelpers
         var active = doc.ActiveView;
         if (active == null)
         {
-            error = CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            error = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active view in the document, and no viewId was given.",
                 suggestion: "Pass viewId explicitly.");
         }

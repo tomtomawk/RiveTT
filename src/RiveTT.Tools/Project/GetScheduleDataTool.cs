@@ -13,18 +13,18 @@ namespace RiveTT.Tools.Project;
 /// Lists all schedules (if no scheduleId) or retrieves headers/rows for a specific schedule.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetScheduleDataTool : ICortexTool
+public class GetScheduleDataTool : IRiveTTTool
 {
     public string Name => "get_schedule_data";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Lists all schedules (if no scheduleId) or retrieves headers/rows for a specific schedule. availableFields is NOT returned unless includeAvailableFields=true: on a real project it lists several hundred schedulable parameters and dwarfs the rows you asked for.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var scheduleId = input["scheduleId"]?.Value<long>() ?? 0;
@@ -43,12 +43,12 @@ public class GetScheduleDataTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get schedule data: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListAllSchedules(Document doc)
+    private static RiveTTResult<object> ListAllSchedules(Document doc)
     {
         var schedules = new FilteredElementCollector(doc)
             .OfClass(typeof(ViewSchedule))
@@ -64,19 +64,19 @@ public class GetScheduleDataTool : ICortexTool
             })
             .ToList();
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             scheduleCount = schedules.Count,
             schedules
         });
     }
 
-    private static CortexResult<object> GetScheduleRows(
+    private static RiveTTResult<object> GetScheduleRows(
         Document doc, long scheduleId, int maxRows, bool includeAvailableFields)
     {
         var elem = doc.GetElement(new ElementId(scheduleId));
         if (elem is not ViewSchedule schedule)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Schedule with ID {scheduleId} not found",
                 suggestion: "Call get_schedule_data with no scheduleId to list all schedules");
 
@@ -123,7 +123,7 @@ public class GetScheduleDataTool : ICortexTool
                 .ToList()
             : null;
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             scheduleId,
             scheduleName    = schedule.Name,

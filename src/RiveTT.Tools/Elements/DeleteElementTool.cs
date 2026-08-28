@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's DeleteElementEventHandler logic.
 /// </summary>
 [ToolSafety(false, true)]
-public class DeleteElementTool : ICortexTool
+public class DeleteElementTool : IRiveTTTool
 {
     public string Name => "delete_element";
     public string Category => "Elements";
@@ -27,14 +27,14 @@ public class DeleteElementTool : ICortexTool
         "group membership. Deleting a group MEMBER performs Revit's exclusion — the element leaves that " +
         "instance only, the type and the other instances are untouched, and the instance is renamed " +
         "\"(membre exclu)\". That is legitimate and reversible from the Revit ribbon; the response says so.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         // Parse inputs
         var elementIdsToken = input["elementIds"];
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (elementIdsToken == null || elementIdsToken.Type == JTokenType.Null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementIds is required",
                 suggestion: "Provide an array of element ID numbers: {\"elementIds\": [123, 456], \"dryRun\": true}");
 
@@ -45,17 +45,17 @@ public class DeleteElementTool : ICortexTool
         }
         catch
         {
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementIds must be an array of numbers");
         }
 
         if (rawIds.Length == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "elementIds array must not be empty");
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // Validate IDs and separate valid from invalid
@@ -167,7 +167,7 @@ public class DeleteElementTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = cascadePreviewError == null
                     ? $"DryRun: {validElements.Count} element(s) requested; deletion would cascade to {dependentCount} dependent element(s) ({validElements.Count + dependentCount} total). Set dryRun=false to execute."
@@ -196,14 +196,14 @@ public class DeleteElementTool : ICortexTool
 
         // Actual deletion
         if (validElements.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No valid elements to delete",
                 context: invalidIds.Count > 0
                     ? new Dictionary<string, object> { ["invalidIds"] = invalidIds }
                     : null);
 
         if (!session.RequestConfirmation("delete", validElements.Count))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         try
         {
@@ -248,7 +248,7 @@ public class DeleteElementTool : ICortexTool
 
                 deletedIds = doc.Delete(requestedIds);
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the deletion: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -261,7 +261,7 @@ public class DeleteElementTool : ICortexTool
 
             var deletedElementIds = deletedIds.Select(GetElementIdLongFromId).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message      = cascadeInfo.Count == 0
                     ? $"Deleted {deletedIds.Count} element(s) successfully."
@@ -296,7 +296,7 @@ public class DeleteElementTool : ICortexTool
             // Document.Delete throws a bare ArgumentException ("One or more of the
             // elementIds cannot be deleted") with no indication of which element or
             // why. Name the likely cause so the caller is not left guessing.
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to delete elements: {ex.Message}",
                 suggestion: ex is ArgumentException
                     ? "Revit refuses this deletion. Common causes: the element is the last sheet/view of its " +

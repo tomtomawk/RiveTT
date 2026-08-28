@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Project;
 /// Supports adding, removing, and modifying layers.
 /// </summary>
 [ToolSafety(false, true)]
-public class SetCompoundStructureTool : ICortexTool
+public class SetCompoundStructureTool : IRiveTTTool
 {
     public string Name => "set_compound_structure";
     public string Category => "Project";
@@ -25,11 +25,11 @@ public class SetCompoundStructureTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Modifies compound structure (layer stratigraphy) on system family types. Actions: replace, add, remove, modify (layers), and set_wrapping (openingWrapping/endCap/per-layer wraps).";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var typeId   = input["typeId"]?.Value<long?>();
         var typeName = input["typeName"]?.Value<string>();
@@ -52,13 +52,13 @@ public class SetCompoundStructureTool : ICortexTool
             }
 
             if (hostType == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     "System family type not found. Provide typeId or typeName+category.",
                     suggestion: "Use get_compound_structure to find the type first");
 
             var cs = hostType.GetCompoundStructure();
             if (cs == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Type '{hostType.Name}' does not have a compound structure (curtain/stacked wall?)");
 
             switch (action.ToLowerInvariant())
@@ -79,23 +79,23 @@ public class SetCompoundStructureTool : ICortexTool
                     return SetWrapping(doc, hostType, cs, input, session, dryRun);
 
                 default:
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Unknown action '{action}'. Use: replace, add, remove, modify, set_wrapping");
             }
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to set compound structure: {ex.Message}");
         }
     }
 
-    private CortexResult<object> ReplaceAllLayers(Document doc, HostObjAttributes hostType,
-        CompoundStructure cs, JObject input, CortexSession session, bool dryRun)
+    private RiveTTResult<object> ReplaceAllLayers(Document doc, HostObjAttributes hostType,
+        CompoundStructure cs, JObject input, RiveTTSession session, bool dryRun)
     {
         var layersJson = input["layers"]?.ToObject<List<JObject>>();
         if (layersJson == null || layersJson.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "layers array is required for 'replace' action",
                 suggestion: "Provide layers: [{function: \"Structure\", widthMm: 200, materialId: 12345}, ...]");
 
@@ -104,14 +104,14 @@ public class SetCompoundStructureTool : ICortexTool
         {
             var (ok, layer, error) = ParseLayer(doc, lj);
             if (!ok || layer == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Invalid layer definition: {error ?? "function and widthMm are required"} (layer: {lj})");
             newLayers.Add(layer);
         }
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 typeName = hostType.Name,
@@ -126,7 +126,7 @@ public class SetCompoundStructureTool : ICortexTool
         var desc = $"Replace all layers on '{hostType.Name}' with {newLayers.Count} new layers " +
                    $"({Math.Round(newLayers.Sum(l => l.Width) * MmPerFoot, 1)}mm total)";
         if (!session.RequestConfirmation("replace compound structure", 1, desc))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using (var tx = new Transaction(doc, "RiveTT: Replace Compound Structure"))
         {
@@ -155,12 +155,12 @@ public class SetCompoundStructureTool : ICortexTool
 
             hostType.SetCompoundStructure(cs);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             dryRun = false,
             typeName = hostType.Name,
@@ -171,19 +171,19 @@ public class SetCompoundStructureTool : ICortexTool
         });
     }
 
-    private CortexResult<object> AddLayer(Document doc, HostObjAttributes hostType,
-        CompoundStructure cs, JObject input, CortexSession session, bool dryRun)
+    private RiveTTResult<object> AddLayer(Document doc, HostObjAttributes hostType,
+        CompoundStructure cs, JObject input, RiveTTSession session, bool dryRun)
     {
         var layerJson = input["layer"]?.ToObject<JObject>();
         var position  = input["position"]?.Value<int?>(); // null = append at end
 
         if (layerJson == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "layer object is required for 'add' action");
 
         var (ok, newLayer, layerError) = ParseLayer(doc, layerJson);
         if (!ok || newLayer == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Invalid layer definition: {layerError ?? "function and widthMm are required"}");
 
         var existingLayers = cs.GetLayers().ToList();
@@ -192,7 +192,7 @@ public class SetCompoundStructureTool : ICortexTool
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 typeName = hostType.Name,
@@ -206,7 +206,7 @@ public class SetCompoundStructureTool : ICortexTool
         var addDesc = $"Add {newLayer.Function} layer at position {insertAt} on '{hostType.Name}' " +
                       $"({Math.Round(newLayer.Width * MmPerFoot, 1)}mm)";
         if (!session.RequestConfirmation("add compound structure layer", 1, addDesc))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         existingLayers.Insert(insertAt, newLayer);
 
@@ -217,12 +217,12 @@ public class SetCompoundStructureTool : ICortexTool
             cs.SetLayers(existingLayers);
             hostType.SetCompoundStructure(cs);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             dryRun = false,
             typeName = hostType.Name,
@@ -233,27 +233,27 @@ public class SetCompoundStructureTool : ICortexTool
         });
     }
 
-    private CortexResult<object> RemoveLayer(Document doc, HostObjAttributes hostType,
-        CompoundStructure cs, JObject input, CortexSession session, bool dryRun)
+    private RiveTTResult<object> RemoveLayer(Document doc, HostObjAttributes hostType,
+        CompoundStructure cs, JObject input, RiveTTSession session, bool dryRun)
     {
         var layerIndex = input["layerIndex"]?.Value<int?>();
         if (layerIndex == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "layerIndex is required for 'remove' action",
                 suggestion: "Use get_compound_structure to see layer indices");
 
         var existingLayers = cs.GetLayers().ToList();
         if (layerIndex < 0 || layerIndex >= existingLayers.Count)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"layerIndex {layerIndex} out of range (0-{existingLayers.Count - 1})");
 
         if (existingLayers.Count <= 1)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Cannot remove the last layer. Use 'replace' to redefine the structure.");
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 typeName = hostType.Name,
@@ -267,7 +267,7 @@ public class SetCompoundStructureTool : ICortexTool
 
         var removeDesc = $"Remove layer {layerIndex} ({existingLayers[layerIndex.Value].Function}) from '{hostType.Name}'";
         if (!session.RequestConfirmation("remove compound structure layer", 1, removeDesc))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         existingLayers.RemoveAt(layerIndex.Value);
 
@@ -278,12 +278,12 @@ public class SetCompoundStructureTool : ICortexTool
             cs.SetLayers(existingLayers);
             hostType.SetCompoundStructure(cs);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             dryRun = false,
             typeName = hostType.Name,
@@ -294,17 +294,17 @@ public class SetCompoundStructureTool : ICortexTool
         });
     }
 
-    private CortexResult<object> ModifyLayer(Document doc, HostObjAttributes hostType,
-        CompoundStructure cs, JObject input, CortexSession session, bool dryRun)
+    private RiveTTResult<object> ModifyLayer(Document doc, HostObjAttributes hostType,
+        CompoundStructure cs, JObject input, RiveTTSession session, bool dryRun)
     {
         var layerIndex = input["layerIndex"]?.Value<int?>();
         if (layerIndex == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "layerIndex is required for 'modify' action");
 
         var existingLayers = cs.GetLayers().ToList();
         if (layerIndex < 0 || layerIndex >= existingLayers.Count)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"layerIndex {layerIndex} out of range (0-{existingLayers.Count - 1})");
 
         var layer = existingLayers[layerIndex.Value];
@@ -352,14 +352,14 @@ public class SetCompoundStructureTool : ICortexTool
         }
 
         if (changes.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No changes specified. Provide function, widthMm/widthFt, or materialId/materialName.");
 
         existingLayers[layerIndex.Value] = layer;
 
         if (dryRun)
         {
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 typeName = hostType.Name,
@@ -372,7 +372,7 @@ public class SetCompoundStructureTool : ICortexTool
 
         var modifyDesc = $"Modify layer {layerIndex} on '{hostType.Name}': {string.Join(", ", changes)}";
         if (!session.RequestConfirmation("modify compound structure layer", 1, modifyDesc))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using (var tx = new Transaction(doc, "RiveTT: Modify Compound Structure Layer"))
         {
@@ -381,12 +381,12 @@ public class SetCompoundStructureTool : ICortexTool
             cs.SetLayers(existingLayers);
             hostType.SetCompoundStructure(cs);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             dryRun = false,
             typeName = hostType.Name,
@@ -397,8 +397,8 @@ public class SetCompoundStructureTool : ICortexTool
         });
     }
 
-    private CortexResult<object> SetWrapping(Document doc, HostObjAttributes hostType,
-        CompoundStructure cs, JObject input, CortexSession session, bool dryRun)
+    private RiveTTResult<object> SetWrapping(Document doc, HostObjAttributes hostType,
+        CompoundStructure cs, JObject input, RiveTTSession session, bool dryRun)
     {
         var changes = new List<string>();
 
@@ -447,17 +447,17 @@ public class SetCompoundStructureTool : ICortexTool
         }
 
         if (changes.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No wrapping changes specified. Provide openingWrapping, endCap, or layerWrapping[].");
 
         if (dryRun)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true, typeName = hostType.Name, action = "set_wrapping", changes
             });
 
         if (!session.RequestConfirmation("set compound structure wrapping", 1, hostType.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using (var tx = new Transaction(doc, "RiveTT: Set Compound Structure Wrapping"))
         {
@@ -465,12 +465,12 @@ public class SetCompoundStructureTool : ICortexTool
             tx.Start();
             hostType.SetCompoundStructure(cs);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             dryRun = false, typeName = hostType.Name, action = "set_wrapping", changes,
             message = $"Updated wrapping on '{hostType.Name}': {string.Join(", ", changes)}"
@@ -610,7 +610,7 @@ public class SetCompoundStructureTool : ICortexTool
             .FirstOrDefault(t => t.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static CortexResult<object> BuildValidationError(
+    private static RiveTTResult<object> BuildValidationError(
         Document doc, IDictionary<int, CompoundStructureError> errors,
         List<CompoundStructureLayer> layers)
     {
@@ -637,7 +637,7 @@ public class SetCompoundStructureTool : ICortexTool
                           return $"  Layer [{d.layer}] {d.function_} ({d.widthMm}mm): {d.description}";
                       }));
 
-        return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, message,
+        return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, message,
             suggestion: suggestions.Count > 0 ? string.Join("\n", suggestions) : null,
             context: new Dictionary<string, object>
             {

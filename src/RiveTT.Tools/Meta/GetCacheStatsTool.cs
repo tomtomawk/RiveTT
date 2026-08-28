@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Meta;
 /// inspecting which cached tools are paying for themselves.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetCacheStatsTool : ICortexTool
+public class GetCacheStatsTool : IRiveTTTool
 {
     public string Name => "get_cache_stats";
     public string Category => "Meta";
@@ -21,7 +21,7 @@ public class GetCacheStatsTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Returns hit/miss/entry counters from the tool-result cache for diagnostic use.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var stats = session.Cache.GetStats();
 
@@ -40,7 +40,7 @@ public class GetCacheStatsTool : ICortexTool
             .ToList<object>();
 
         var totalCalls = stats.TotalHits + stats.TotalMisses;
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             entryCount = stats.EntryCount,
             estimatedBytes = stats.EstimatedBytes,

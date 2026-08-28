@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Elements;
 /// Creates a new level at the specified elevation, optionally with floor/ceiling plan views.
 /// </summary>
 [ToolSafety(false, true)]
-public class CreateLevelTool : ICortexTool
+public class CreateLevelTool : IRiveTTTool
 {
     public string Name => "create_level";
     public string Category => "Elements";
@@ -23,11 +23,11 @@ public class CreateLevelTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates, edits, renames, or deletes levels. Actions: create (default), set (elevation/isBuildingStory), rename, delete.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = (input["action"]?.Value<string>() ?? "create").ToLowerInvariant();
 
@@ -39,21 +39,21 @@ public class CreateLevelTool : ICortexTool
                 "set"    => SetLevel(doc, input, session),
                 "rename" => RenameLevel(doc, input, session),
                 "delete" => DeleteLevel(doc, input, session),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}", suggestion: "Use: create, set, rename, delete")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to manage level: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to manage level: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> CreateLevel(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> CreateLevel(Document doc, JObject input, RiveTTSession session)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required");
 
         var elevationMm = input["elevation"]?.Value<double>() ?? 0;
         var isBuildingStory = input["isBuildingStory"]?.Value<bool>() ?? true;
@@ -68,13 +68,13 @@ public class CreateLevelTool : ICortexTool
                 .FirstOrDefault(l => l.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
             if (existing != null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Level '{name}' already exists at elevation {existing.Elevation * MmPerFoot:F0} mm");
 
             // Preview-first: dryRun (default true) reports what would be created without
             // touching the model. Only after this do we confirm and open a transaction.
             if (ToolHelpers.GetDryRun(input))
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     dryRun = true,
                     action = "create",
@@ -86,7 +86,7 @@ public class CreateLevelTool : ICortexTool
                 });
 
             if (!session.RequestConfirmation("create level", 1, name))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
             var warnings = new List<string>();
 
@@ -129,11 +129,11 @@ public class CreateLevelTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 levelId = ToolHelpers.GetElementIdValue(level.Id),
                 name = level.Name,
@@ -146,7 +146,7 @@ public class CreateLevelTool : ICortexTool
         }
     }
 
-    private static CortexResult<object> SetLevel(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> SetLevel(Document doc, JObject input, RiveTTSession session)
     {
         var (level, error) = ResolveLevel(doc, input);
         if (error != null) return error;
@@ -154,7 +154,7 @@ public class CreateLevelTool : ICortexTool
         var elevationMm = input["elevation"]?.Value<double?>();
         var isBuildingStory = input["isBuildingStory"]?.Value<bool?>();
         if (ToolHelpers.GetDryRun(input))
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 action = "set",
@@ -166,7 +166,7 @@ public class CreateLevelTool : ICortexTool
             });
 
         if (!session.RequestConfirmation("modify level", 1, level!.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var changed = new List<string>();
         using var tx = new Transaction(doc, "RiveTT: Set Level");
@@ -190,11 +190,11 @@ public class CreateLevelTool : ICortexTool
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             action = "set",
             levelId = ToolHelpers.GetElementIdValue(level.Id),
@@ -204,22 +204,22 @@ public class CreateLevelTool : ICortexTool
         });
     }
 
-    private static CortexResult<object> RenameLevel(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> RenameLevel(Document doc, JObject input, RiveTTSession session)
     {
         var (level, error) = ResolveLevel(doc, input);
         if (error != null) return error;
 
         var newName = input["newName"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "newName is required for rename");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "newName is required for rename");
 
         var clash = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>()
             .FirstOrDefault(l => l.Id != level!.Id && l.Name.Equals(newName, StringComparison.OrdinalIgnoreCase));
         if (clash != null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"A level named '{newName}' already exists");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"A level named '{newName}' already exists");
 
         if (ToolHelpers.GetDryRun(input))
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 action = "rename",
@@ -229,7 +229,7 @@ public class CreateLevelTool : ICortexTool
             });
 
         if (!session.RequestConfirmation("rename level", 1, level!.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var oldName = level.Name;
         using var tx = new Transaction(doc, "RiveTT: Rename Level");
@@ -237,20 +237,20 @@ public class CreateLevelTool : ICortexTool
         tx.Start();
         level.Name = newName;
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { action = "rename", levelId = ToolHelpers.GetElementIdValue(level.Id), oldName, newName });
+        return RiveTTResult<object>.Ok(new { action = "rename", levelId = ToolHelpers.GetElementIdValue(level.Id), oldName, newName });
     }
 
-    private static CortexResult<object> DeleteLevel(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> DeleteLevel(Document doc, JObject input, RiveTTSession session)
     {
         var (level, error) = ResolveLevel(doc, input);
         if (error != null) return error;
 
         if (ToolHelpers.GetDryRun(input))
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 action = "delete",
@@ -260,7 +260,7 @@ public class CreateLevelTool : ICortexTool
             });
 
         if (!session.RequestConfirmation("delete level", 1, level!.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var name = level!.Name;
         using var tx = new Transaction(doc, "RiveTT: Delete Level");
@@ -268,15 +268,15 @@ public class CreateLevelTool : ICortexTool
         tx.Start();
         doc.Delete(level.Id);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { action = "delete", deletedLevel = name });
+        return RiveTTResult<object>.Ok(new { action = "delete", deletedLevel = name });
     }
 
     /// <summary>Resolves a level by levelId or name from the input.</summary>
-    private static (Level?, CortexResult<object>?) ResolveLevel(Document doc, JObject input)
+    private static (Level?, RiveTTResult<object>?) ResolveLevel(Document doc, JObject input)
     {
         var levelIdLong = input["levelId"]?.Value<long?>() ?? 0;
         var name = input["name"]?.Value<string>();
@@ -289,7 +289,7 @@ public class CreateLevelTool : ICortexTool
                 .FirstOrDefault(l => l.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
         if (level == null)
-            return (null, CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return (null, RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 "Level not found", suggestion: "Provide a valid levelId or name"));
 
         return (level, null);

@@ -98,7 +98,7 @@ public class ServerRuntimeParameterContractTests
             foreach (var name in toolNames)
                 fileByToolName[name] = file;
 
-            // A file with no ICortexTool is a shared helper (ElementScopeResolver,
+            // A file with no IRiveTTTool is a shared helper (ElementScopeResolver,
             // TransactionFailureHandling, CurveSpecHelpers...) and its reads count
             // for every tool that delegates to it.
             var fileName = Path.GetFileName(file);
@@ -296,7 +296,7 @@ public class ServerRuntimeParameterContractTests
     {
         var watcher = File.ReadAllText(RepoPath("RiveTT.Plugin", "Caching", "DocumentChangeWatcher.cs"));
         var invalidator = File.ReadAllText(RepoPath("RiveTT.Core", "Caching", "CacheInvalidator.cs"));
-        var router = File.ReadAllText(RepoPath("RiveTT.Plugin", "CortexRouter.cs"));
+        var router = File.ReadAllText(RepoPath("RiveTT.Plugin", "RiveTTRouter.cs"));
 
         // Save As raises DocumentSavedAs, not DocumentSaved: without this hook,
         // get_project_info kept answering with the pre-Save-As path in 0 ms.

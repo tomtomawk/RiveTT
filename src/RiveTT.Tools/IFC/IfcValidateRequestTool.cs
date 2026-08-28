@@ -12,7 +12,7 @@ namespace RiveTT.Tools.IFC;
 /// and reads the IFC header line to detect schema version.
 /// </summary>
 [ToolSafety(true, false)]
-public class IfcValidateRequestTool : ICortexTool
+public class IfcValidateRequestTool : IRiveTTTool
 {
     public string Name => "ifc_validate_request";
     public string Category => "IFC";
@@ -20,30 +20,30 @@ public class IfcValidateRequestTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Validate an IFC file path, check format, and report basic metadata";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var filePath = input["filePath"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "filePath is required",
                 suggestion: "Provide the full path to an IFC file");
 
         // The header sniff below returns raw file lines to the caller — restrict
         // reads to user-owned directories like the other file-reading tools.
         if (!Utilities.PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
                 suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
         filePath = safePath;
 
         if (!File.Exists(filePath))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"File not found: {filePath}",
                 suggestion: "Check the file path and ensure it exists");
 
         var ext = Path.GetExtension(filePath).ToLowerInvariant();
         if (ext != ".ifc" && ext != ".ifczip" && ext != ".ifcxml")
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unsupported extension: {ext}",
                 suggestion: "Supported extensions: .ifc, .ifczip, .ifcxml");
 
@@ -73,7 +73,7 @@ public class IfcValidateRequestTool : ICortexTool
             // Non-critical — just can't read header
         }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             valid = true,
             filePath,

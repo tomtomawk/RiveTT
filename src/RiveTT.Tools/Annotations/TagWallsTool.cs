@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Annotations;
 /// Tags all walls in the current view at their midpoint.
 /// </summary>
 [ToolSafety(false, false)]
-public class TagWallsTool : ICortexTool
+public class TagWallsTool : IRiveTTTool
 {
     public string Name => "tag_walls";
     public string Category => "Annotations";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Tags walls in the current view. Tags all walls by default, or specific ones via wallIds. Supports useLeader, tagTypeId, and orientation (horizontal/vertical).";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var useLeader = input["useLeader"]?.Value<bool>() ?? false;
         var orientationStr = input["orientation"]?.Value<string>() ?? "horizontal";
@@ -69,7 +69,7 @@ public class TagWallsTool : ICortexTool
             }
 
             if (tagType == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     "No wall tag or multi-category tag types found in project");
 
             int taggedCount = 0;
@@ -106,11 +106,11 @@ public class TagWallsTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 taggedCount,
                 totalWalls = walls.Count,
@@ -119,7 +119,7 @@ public class TagWallsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to tag walls: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to tag walls: {ex.Message}");
         }
     }
 }

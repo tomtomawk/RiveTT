@@ -13,7 +13,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// Aligns a link instance to the host project's internal origin or shared coordinates.
 /// </summary>
 [ToolSafety(false, false)]
-public class AlignLinkToHostTool : ICortexTool
+public class AlignLinkToHostTool : IRiveTTTool
 {
     public string Name => "align_link_to_host";
     public string Category => "LinkedFiles";
@@ -21,32 +21,32 @@ public class AlignLinkToHostTool : ICortexTool
     public bool IsDynamic => true;
     public string Description => "Aligns a link instance to the host project's internal origin (resets transform to identity) or to shared coordinates.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var instanceId = input["instanceId"]?.Value<long>() ?? 0;
         var alignMode = input["alignMode"]?.Value<string>() ?? "origin";
 
         if (instanceId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "instanceId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "instanceId is required");
 
         try
         {
             var element = doc.GetElement(new ElementId(instanceId));
             var linkInstance = element as RevitLinkInstance;
             if (linkInstance == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Element {instanceId} is not a RevitLinkInstance");
 
             if (linkInstance.Pinned)
-                return CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.PermissionDenied,
                     "Link instance is pinned. Unpin it first using pin_unpin_link_instance.");
 
             if (!session.RequestConfirmation("align link instance", 1, $"Align '{linkInstance.Name}' to {alignMode}"))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
             var currentTransform = linkInstance.GetTotalTransform();
             var oldOriginMm = new
@@ -71,7 +71,7 @@ public class AlignLinkToHostTool : ICortexTool
                 if (linkDoc == null)
                 {
                     if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "Shared-coordinate alignment requires the linked model to be loaded.",
                         suggestion: "Reload the link, or use alignMode='origin' to reset to the internal origin.");
                 }
@@ -101,12 +101,12 @@ public class AlignLinkToHostTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
             var newTransform = linkInstance.GetTotalTransform();
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 instanceId,
                 name = linkInstance.Name,
@@ -122,7 +122,7 @@ public class AlignLinkToHostTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

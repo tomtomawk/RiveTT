@@ -8,14 +8,14 @@ namespace RiveTT.Tools.Interop
 {
     /// <summary>
     /// Reads the active UIDocument selection (host + linked) and emits
-    /// a <see cref="CortexElementRef"/> per element. Pure helpers are
+    /// a <see cref="RiveTTElementRef"/> per element. Pure helpers are
     /// public for unit testing without a live Revit document.
     /// </summary>
     public static class SelectionExporter
     {
         public class Output
         {
-            public List<CortexElementRef> Refs { get; } = new List<CortexElementRef>();
+            public List<RiveTTElementRef> Refs { get; } = new List<RiveTTElementRef>();
             public List<object> Skipped { get; } = new List<object>();
         }
 
@@ -95,7 +95,7 @@ namespace RiveTT.Tools.Interop
             return output;
         }
 
-        private static CortexElementRef BuildRef(Element element, string sourceFile)
+        private static RiveTTElementRef BuildRef(Element element, string sourceFile)
         {
             var category = element.Category;
             long catId = 0;
@@ -109,7 +109,7 @@ namespace RiveTT.Tools.Interop
             long elementIdValue =
                 element.Id.Value;
 
-            return new CortexElementRef
+            return new RiveTTElementRef
             {
                 SourceApp = "Revit",
                 SourceFile = sourceFile,

@@ -16,18 +16,18 @@ namespace RiveTT.Tools.Project;
 /// Useful for identifying bloated/unused families.
 /// </summary>
 [ToolSafety(true, false)]
-public class ListFamilySizesTool : ICortexTool
+public class ListFamilySizesTool : IRiveTTTool
 {
     public string Name => "list_family_sizes";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Lists families with type/instance counts and, optionally, the family file size in KB (measured by exporting each family to a temp file). Sortable by instanceCount, typeCount, name, or sizeKB. Useful for identifying bloated, unused, or oversized families.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var limit       = input["limit"]?.Value<int>() ?? 50;
@@ -133,7 +133,7 @@ public class ListFamilySizesTool : ICortexTool
                         fi.SizeKB = TryGetFamilySizeKB(doc, fi.Family);
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 totalFamilies  = familyInfos.Count,
                 totalInstances = familyInfos.Sum(f => f.InstanceCount),
@@ -156,7 +156,7 @@ public class ListFamilySizesTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to list family sizes: {ex.Message}");
         }
     }

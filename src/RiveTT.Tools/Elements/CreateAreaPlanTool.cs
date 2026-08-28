@@ -24,7 +24,7 @@ namespace RiveTT.Tools.Elements;
 /// real, verified creation API.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateAreaPlanTool : ICortexTool
+public class CreateAreaPlanTool : IRiveTTTool
 {
     public string Name => "manage_area_plans";
     public string Category => "Elements";
@@ -38,11 +38,11 @@ public class CreateAreaPlanTool : ICortexTool
         "areaSchemeId+levelId. create_boundary needs viewId+curves (closed loop, mm). create_area needs " +
         "viewId+point ({x,y} mm, inside a closed boundary).";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = (input["action"]?.Value<string>() ?? "list_schemes").ToLowerInvariant();
         try
@@ -54,39 +54,39 @@ public class CreateAreaPlanTool : ICortexTool
                 "create_plan" => CreatePlan(doc, input),
                 "create_boundary" => CreateBoundary(doc, input),
                 "create_area" => CreateArea(doc, input),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unsupported action: {action}",
                     suggestion: "Use: list_schemes | duplicate_scheme | create_plan | create_boundary | create_area")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListSchemes(Document doc)
+    private static RiveTTResult<object> ListSchemes(Document doc)
     {
         var schemes = new FilteredElementCollector(doc)
             .OfClass(typeof(AreaScheme))
             .Cast<AreaScheme>()
             .Select(s => new { id = ToolHelpers.GetElementIdValue(s.Id), name = s.Name })
             .ToList();
-        return CortexResult<object>.Ok(new { count = schemes.Count, areaSchemes = schemes });
+        return RiveTTResult<object>.Ok(new { count = schemes.Count, areaSchemes = schemes });
     }
 
-    private static CortexResult<object> DuplicateScheme(Document doc, JObject input)
+    private static RiveTTResult<object> DuplicateScheme(Document doc, JObject input)
     {
         var sourceIdLong = input["sourceSchemeId"]?.Value<long?>() ?? 0;
         var newName = input["newName"]?.Value<string>();
         if (sourceIdLong <= 0 || string.IsNullOrWhiteSpace(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "sourceSchemeId and newName are required",
                 suggestion: "List existing schemes with action=list_schemes first");
 
         var source = doc.GetElement(ToolHelpers.ToElementId(sourceIdLong)) as AreaScheme;
         if (source == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{sourceIdLong} is not an AreaScheme");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{sourceIdLong} is not an AreaScheme");
 
         using var tx = new Transaction(doc, "RiveTT: Duplicate Area Scheme");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -97,7 +97,7 @@ public class CreateAreaPlanTool : ICortexTool
         if (copy == null)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 "ElementTransformUtils.CopyElement did not return an AreaScheme");
         }
 
@@ -105,31 +105,31 @@ public class CreateAreaPlanTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Could not rename the copy to '{newName}': {ex.Message}",
                 suggestion: "Pick a name not already used by another area scheme");
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new { id = ToolHelpers.GetElementIdValue(copy.Id), name = copy.Name });
+        return RiveTTResult<object>.Ok(new { id = ToolHelpers.GetElementIdValue(copy.Id), name = copy.Name });
     }
 
-    private static CortexResult<object> CreatePlan(Document doc, JObject input)
+    private static RiveTTResult<object> CreatePlan(Document doc, JObject input)
     {
         var areaSchemeIdLong = input["areaSchemeId"]?.Value<long?>() ?? 0;
         var levelIdLong = input["levelId"]?.Value<long?>() ?? 0;
         if (areaSchemeIdLong <= 0 || levelIdLong <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "areaSchemeId and levelId are required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "areaSchemeId and levelId are required");
 
         var schemeId = ToolHelpers.ToElementId(areaSchemeIdLong);
         var levelId = ToolHelpers.ToElementId(levelIdLong);
         if (doc.GetElement(schemeId) is not AreaScheme)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{areaSchemeIdLong} is not an AreaScheme");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{areaSchemeIdLong} is not an AreaScheme");
         if (doc.GetElement(levelId) is not Level)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{levelIdLong} is not a Level");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{levelIdLong} is not a Level");
 
         using var tx = new Transaction(doc, "RiveTT: Create Area Plan");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -143,38 +143,38 @@ public class CreateAreaPlanTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"ViewPlan.CreateAreaPlan failed: {ex.Message}",
                 suggestion: "An area plan for this scheme+level combination may already exist");
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             viewId = ToolHelpers.GetElementIdValue(plan.Id),
             viewName = plan.Name
         });
     }
 
-    private static CortexResult<object> CreateBoundary(Document doc, JObject input)
+    private static RiveTTResult<object> CreateBoundary(Document doc, JObject input)
     {
         var viewIdLong = input["viewId"]?.Value<long?>() ?? 0;
         var curvesArray = input["curves"] as JArray;
         if (viewIdLong <= 0 || curvesArray == null || curvesArray.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "viewId and a non-empty curves array are required",
                 suggestion: "Provide {\"viewId\":123, \"curves\":[{\"type\":\"line\",\"start\":{...},\"end\":{...}}, ...]} forming a closed loop");
 
         var view = doc.GetElement(ToolHelpers.ToElementId(viewIdLong)) as ViewPlan;
         if (view == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{viewIdLong} is not a plan view");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{viewIdLong} is not a plan view");
 
         var curves = CurveSpecHelpers.ParseCurveSpecsMm(curvesArray, out var curveError);
         if (curveError != null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, curveError);
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, curveError);
 
         var plane = SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(XYZ.BasisZ, new XYZ(0, 0, view.GenLevel?.Elevation ?? 0)));
 
@@ -200,28 +200,28 @@ public class CreateAreaPlanTool : ICortexTool
         if (createdIds.Count == 0)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 "No boundary line segment was created", suggestion: string.Join("; ", warnings));
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new { createdCount = createdIds.Count, createdIds, warnings });
+        return RiveTTResult<object>.Ok(new { createdCount = createdIds.Count, createdIds, warnings });
     }
 
-    private static CortexResult<object> CreateArea(Document doc, JObject input)
+    private static RiveTTResult<object> CreateArea(Document doc, JObject input)
     {
         var viewIdLong = input["viewId"]?.Value<long?>() ?? 0;
         var pointToken = input["point"];
         if (viewIdLong <= 0 || pointToken == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "viewId and point ({x,y} in mm, inside a closed area boundary) are required");
 
         var view = doc.GetElement(ToolHelpers.ToElementId(viewIdLong)) as ViewPlan;
         if (view == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{viewIdLong} is not a plan view");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{viewIdLong} is not a plan view");
 
         var uv = new UV(
             (pointToken["x"]?.Value<double>() ?? 0) / MmPerFoot,
@@ -239,20 +239,20 @@ public class CreateAreaPlanTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"NewArea failed: {ex.Message}",
                 suggestion: "The point must fall inside a closed loop of area boundary lines in this view " +
                             "(create_boundary first).");
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
         double areaM2 = 0;
         try { areaM2 = (area.get_Parameter(BuiltInParameter.ROOM_AREA)?.AsDouble() ?? 0) * 0.09290304; } catch { }
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             areaId = ToolHelpers.GetElementIdValue(area.Id),
             areaM2 = Math.Round(areaM2, 2)

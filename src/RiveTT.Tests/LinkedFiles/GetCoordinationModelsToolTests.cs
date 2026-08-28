@@ -67,26 +67,26 @@ public class GetCoordinationModelsToolTests
         Assert.Equal(4, tool.ExecuteCallCount);
     }
 
-    private static CortexRouter CreateRouter()
+    private static RiveTTRouter CreateRouter()
     {
         var store = new SessionStore();
-        var session = new CortexSession(store);
+        var session = new RiveTTSession(store);
         // Explicit temp-file logger: without it this suite writes real entries
         // to %LOCALAPPDATA%\RiveTT\audit.jsonl on every dotnet test run.
         var auditPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
             "rc-audit-" + System.Guid.NewGuid().ToString("N") + ".jsonl");
-        return new CortexRouter(session, new FakeAnalyzer(), new AuditLogger(auditPath));
+        return new RiveTTRouter(session, new FakeAnalyzer(), new AuditLogger(auditPath));
     }
 
-    private static void Register(CortexRouter router, ICortexTool tool)
+    private static void Register(RiveTTRouter router, IRiveTTTool tool)
     {
-        var field = typeof(CortexRouter).GetField("_tools",
+        var field = typeof(RiveTTRouter).GetField("_tools",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var tools = (Dictionary<string, ICortexTool>)field.GetValue(router)!;
+        var tools = (Dictionary<string, IRiveTTTool>)field.GetValue(router)!;
         tools[tool.Name] = tool;
     }
 
-    private class CachingCountingTool : ICortexTool, ICacheableTool
+    private class CachingCountingTool : IRiveTTTool, ICacheableTool
     {
         public string Name { get; set; } = "list_coordination_models";
         public string Category => "Test";
@@ -96,10 +96,10 @@ public class GetCoordinationModelsToolTests
         public CacheScope CacheScope { get; set; } = CacheScope.Document;
         public int ExecuteCallCount { get; private set; }
 
-        public CortexResult<object> Execute(JObject input, CortexSession session)
+        public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
         {
             ExecuteCallCount++;
-            return CortexResult<object>.Ok(new { ok = true });
+            return RiveTTResult<object>.Ok(new { ok = true });
         }
     }
 

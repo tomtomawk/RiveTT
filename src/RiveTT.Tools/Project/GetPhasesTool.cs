@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Project;
 /// Lists all project phases with sequence order and optionally phase filters.
 /// </summary>
 [ToolSafety(true, false)]
-public class GetPhasesTool : ICortexTool, ICacheableTool
+public class GetPhasesTool : IRiveTTTool, ICacheableTool
 {
     public string Name => "list_phases";
     public string Category => "Project";
@@ -22,11 +22,11 @@ public class GetPhasesTool : ICortexTool, ICacheableTool
     public bool IsDynamic => false;
     public string Description => "Lists all project phases with sequence order and optionally phase filters.";
     public CacheScope CacheScope => CacheScope.Document;
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var includePhaseFilters = input["includePhaseFilters"]?.Value<bool>() ?? true;
@@ -63,11 +63,11 @@ public class GetPhasesTool : ICortexTool, ICacheableTool
                 result["phaseFilters"] = phaseFilters;
             }
 
-            return CortexResult<object>.Ok(result);
+            return RiveTTResult<object>.Ok(result);
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get phases: {ex.Message}");
         }
     }

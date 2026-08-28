@@ -14,18 +14,18 @@ namespace RiveTT.Tools.Views;
 /// Lists, duplicates, deletes, or renames view templates.
 /// </summary>
 [ToolSafety(false, true)]
-public class ManageViewTemplatesTool : ICortexTool
+public class ManageViewTemplatesTool : IRiveTTTool
 {
     public string Name => "manage_view_templates";
     public string Category => "Views";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Lists, duplicates, deletes, or renames view templates.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = input["action"]?.Value<string>() ?? "list";
 
@@ -37,17 +37,17 @@ public class ManageViewTemplatesTool : ICortexTool
                 "duplicate" => DuplicateTemplate(doc, input),
                 "delete" => DeleteTemplate(doc, input, session),
                 "rename" => RenameTemplate(doc, input),
-                _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}", suggestion: "Use: list, duplicate, delete, rename")
             };
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> ListTemplates(Document doc, JObject input)
+    private static RiveTTResult<object> ListTemplates(Document doc, JObject input)
     {
         var filterViewType = input["filterViewType"]?.Value<string>();
         var templates = new FilteredElementCollector(doc).OfClass(typeof(View)).Cast<View>()
@@ -59,14 +59,14 @@ public class ManageViewTemplatesTool : ICortexTool
         {
             id = ToolHelpers.GetElementIdValue(v.Id), name = v.Name, viewType = v.ViewType.ToString()
         }).ToList();
-        return CortexResult<object>.Ok(new { templateCount = result.Count, templates = result });
+        return RiveTTResult<object>.Ok(new { templateCount = result.Count, templates = result });
     }
 
-    private static CortexResult<object> DuplicateTemplate(Document doc, JObject input)
+    private static RiveTTResult<object> DuplicateTemplate(Document doc, JObject input)
     {
         var templateIds = input["templateIds"]?.ToObject<List<long>>() ?? new List<long>();
         if (templateIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "templateIds required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "templateIds required");
 
         var results = new List<object>();
         using var tx = new Transaction(doc, "RiveTT: Duplicate View Templates");
@@ -98,17 +98,17 @@ public class ManageViewTemplatesTool : ICortexTool
                 results.Add(new { originalId = tid, newId = ToolHelpers.GetElementIdValue(newId), newName = newView.Name });
         }
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
-        return CortexResult<object>.Ok(new { duplicatedCount = results.Count, templates = results });
+        return RiveTTResult<object>.Ok(new { duplicatedCount = results.Count, templates = results });
     }
 
-    private static CortexResult<object> DeleteTemplate(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> DeleteTemplate(Document doc, JObject input, RiveTTSession session)
     {
         var templateIds = input["templateIds"]?.ToObject<List<long>>() ?? new List<long>();
         if (!session.RequestConfirmation("delete view template(s)", templateIds.Count))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
         using var tx = new Transaction(doc, "RiveTT: Delete View Templates");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -119,22 +119,22 @@ public class ManageViewTemplatesTool : ICortexTool
             if (template != null && template.IsTemplate) { doc.Delete(template.Id); deleted++; }
         }
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
-        return CortexResult<object>.Ok(new { deletedCount = deleted });
+        return RiveTTResult<object>.Ok(new { deletedCount = deleted });
     }
 
-    private static CortexResult<object> RenameTemplate(Document doc, JObject input)
+    private static RiveTTResult<object> RenameTemplate(Document doc, JObject input)
     {
         var templateId = input["templateId"]?.Value<long>() ?? 0;
         var newName = input["newName"]?.Value<string>();
         if (templateId <= 0 || string.IsNullOrEmpty(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "templateId and newName required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "templateId and newName required");
 
         var template = doc.GetElement(new ElementId(templateId)) as View;
         if (template == null || !template.IsTemplate)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "View template not found");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "View template not found");
 
         using var tx = new Transaction(doc, "RiveTT: Rename View Template");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -142,9 +142,9 @@ public class ManageViewTemplatesTool : ICortexTool
         var oldName = template.Name;
         template.Name = newName;
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
-        return CortexResult<object>.Ok(new { oldName, newName, templateId });
+        return RiveTTResult<object>.Ok(new { oldName, newName, templateId });
     }
 }

@@ -16,29 +16,29 @@ namespace RiveTT.Tools.Parameters;
 /// Supports dry-run preview mode.
 /// </summary>
 [ToolSafety(false, true)]
-public class AddPrefixSuffixTool : ICortexTool
+public class AddPrefixSuffixTool : IRiveTTTool
 {
     public string Name => "batch_rename_affix";
     public string Category => "Parameters";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Adds a prefix and/or suffix to a parameter value on matching elements. Supports dry-run preview mode.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var parameterName = input["parameterName"]?.Value<string>();
         if (string.IsNullOrEmpty(parameterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "parameterName is required");
 
         var prefix = input["prefix"]?.Value<string>() ?? "";
         var suffix = input["suffix"]?.Value<string>() ?? "";
         if (string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(suffix))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "At least one of prefix or suffix is required");
 
         var separator = input["separator"]?.Value<string>() ?? "";
@@ -69,7 +69,7 @@ public class AddPrefixSuffixTool : ICortexTool
             if (!dryRun)
             {
                 if (!session.RequestConfirmation("modify parameters on", elements.Count))
-                    return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 tx = new Transaction(doc, "RiveTT: Add Prefix/Suffix");
                 txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -140,7 +140,7 @@ public class AddPrefixSuffixTool : ICortexTool
                     tx.Dispose();
                     tx = null;
                     if (!committed)
-                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                             $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures!)}",
                             suggestion: "Fix the reported model errors and retry.");
                 }
@@ -160,7 +160,7 @@ public class AddPrefixSuffixTool : ICortexTool
                 result["includeDetails"] = includeDetails;
                 result["sampleLimit"] = sampleLimit;
 
-                return CortexResult<object>.Ok(result);
+                return RiveTTResult<object>.Ok(result);
             }
             catch
             {
@@ -175,7 +175,7 @@ public class AddPrefixSuffixTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to add prefix/suffix: {ex.Message}");
         }
     }

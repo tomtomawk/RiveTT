@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Project;
 /// Only available for workshared documents (IsDynamic = true).
 /// </summary>
 [ToolSafety(true, false)]
-public class GetWorksetsTool : ICortexTool, ICacheableTool
+public class GetWorksetsTool : IRiveTTTool, ICacheableTool
 {
     public string Name => "list_worksets";
     public string Category => "Project";
@@ -25,15 +25,15 @@ public class GetWorksetsTool : ICortexTool, ICacheableTool
     // Transaction scope: ownership can change after a sync-with-central, so we
     // also drop on Save/Synchronized in addition to model-edit invalidation.
     public CacheScope CacheScope => CacheScope.Transaction;
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         if (!doc.IsWorkshared)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Project is not workshared — worksets are not available",
                 suggestion: "Use get_project_info to check isWorkshared before calling this tool");
 
@@ -60,7 +60,7 @@ public class GetWorksetsTool : ICortexTool, ICacheableTool
                 isVisibleByDefault = ws.IsVisibleByDefault
             }).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Retrieved {worksets.Count} workset(s)",
                 worksetCount = worksets.Count,
@@ -69,7 +69,7 @@ public class GetWorksetsTool : ICortexTool, ICacheableTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to get worksets: {ex.Message}");
         }
     }

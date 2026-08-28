@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Project;
 /// element-instance schedules, not the key-driven kind.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateKeyScheduleTool : ICortexTool
+public class CreateKeyScheduleTool : IRiveTTTool
 {
     public string Name => "create_key_schedule";
     public string Category => "Project";
@@ -26,20 +26,20 @@ public class CreateKeyScheduleTool : ICortexTool
         "which only build element-instance schedules. categoryName is the category the keys apply to " +
         "(e.g. Rooms). Add/edit fields and key rows afterward with modify_schedule.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var categoryName = input["categoryName"]?.Value<string>();
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(categoryName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "categoryName is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "categoryName is required");
 
         var categoryId = CategoryResolver.ResolveToId(doc, categoryName!);
         if (categoryId == null || categoryId == ElementId.InvalidElementId)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Category '{categoryName}' could not be resolved in this document",
                 suggestion: "Use an OST_* name, an English category name, or the exact localized label");
 
@@ -55,7 +55,7 @@ public class CreateKeyScheduleTool : ICortexTool
         catch (Exception ex)
         {
             tx.RollBack();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"CreateKeySchedule failed: {ex.Message}",
                 suggestion: "Not every category supports a key schedule; Rooms and most model categories do.");
         }
@@ -66,10 +66,10 @@ public class CreateKeyScheduleTool : ICortexTool
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             viewId = ToolHelpers.GetElementIdValue(schedule.Id),
             viewName = schedule.Name

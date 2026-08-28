@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Elements;
 /// Creates a grid system with specified counts, spacing, and labeling.
 /// </summary>
 [ToolSafety(false, true)]
-public class CreateGridTool : ICortexTool
+public class CreateGridTool : IRiveTTTool
 {
     public string Name => "create_grid";
     public string Category => "Elements";
@@ -23,17 +23,17 @@ public class CreateGridTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates a grid system, or renames/deletes an existing grid. Actions: create (default), rename, delete.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = (input["action"]?.Value<string>() ?? "create").ToLowerInvariant();
         if (action == "rename") return RenameGrid(doc, input, session);
         if (action == "delete") return DeleteGrid(doc, input, session);
         if (action != "create")
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown action: {action}", suggestion: "Use: create, rename, delete");
 
         var xCount = input["xCount"]?.Value<int>() ?? 0;
@@ -51,7 +51,7 @@ public class CreateGridTool : ICortexTool
         var yExtentMaxMm = input["yExtentMax"]?.Value<double>() ?? (xCount > 0 ? xCount * xSpacingMm + 5000 : 30000);
 
         if (xCount <= 0 && yCount <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "At least one of xCount or yCount must be > 0");
 
         try
@@ -103,11 +103,11 @@ public class CreateGridTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 createdCount = createdGrids.Count,
                 grids = createdGrids,
@@ -116,7 +116,7 @@ public class CreateGridTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to create grid: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to create grid: {ex.Message}");
         }
     }
 
@@ -144,22 +144,22 @@ public class CreateGridTool : ICortexTool
         catch { return false; }
     }
 
-    private static CortexResult<object> RenameGrid(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> RenameGrid(Document doc, JObject input, RiveTTSession session)
     {
         var (grid, error) = ResolveGrid(doc, input);
         if (error != null) return error;
 
         var newName = input["newName"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(newName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "newName is required for rename");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "newName is required for rename");
 
         var clash = new FilteredElementCollector(doc).OfClass(typeof(Grid)).Cast<Grid>()
             .FirstOrDefault(g => g.Id != grid!.Id && g.Name.Equals(newName, StringComparison.OrdinalIgnoreCase));
         if (clash != null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"A grid named '{newName}' already exists");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"A grid named '{newName}' already exists");
 
         if (!session.RequestConfirmation("rename grid", 1, grid!.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var oldName = grid.Name;
         using var tx = new Transaction(doc, "RiveTT: Rename Grid");
@@ -167,20 +167,20 @@ public class CreateGridTool : ICortexTool
         tx.Start();
         grid.Name = newName;
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { action = "rename", gridId = ToolHelpers.GetElementIdValue(grid.Id), oldName, newName });
+        return RiveTTResult<object>.Ok(new { action = "rename", gridId = ToolHelpers.GetElementIdValue(grid.Id), oldName, newName });
     }
 
-    private static CortexResult<object> DeleteGrid(Document doc, JObject input, CortexSession session)
+    private static RiveTTResult<object> DeleteGrid(Document doc, JObject input, RiveTTSession session)
     {
         var (grid, error) = ResolveGrid(doc, input);
         if (error != null) return error;
 
         if (!session.RequestConfirmation("delete grid", 1, grid!.Name))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         var name = grid!.Name;
         using var tx = new Transaction(doc, "RiveTT: Delete Grid");
@@ -188,15 +188,15 @@ public class CreateGridTool : ICortexTool
         tx.Start();
         doc.Delete(grid.Id);
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
 
-        return CortexResult<object>.Ok(new { action = "delete", deletedGrid = name });
+        return RiveTTResult<object>.Ok(new { action = "delete", deletedGrid = name });
     }
 
     /// <summary>Resolves a grid by gridId or name from the input.</summary>
-    private static (Grid?, CortexResult<object>?) ResolveGrid(Document doc, JObject input)
+    private static (Grid?, RiveTTResult<object>?) ResolveGrid(Document doc, JObject input)
     {
         var gridIdLong = input["gridId"]?.Value<long?>() ?? 0;
         var name = input["name"]?.Value<string>();
@@ -209,7 +209,7 @@ public class CreateGridTool : ICortexTool
                 .FirstOrDefault(g => g.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
         if (grid == null)
-            return (null, CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return (null, RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 "Grid not found", suggestion: "Provide a valid gridId or name"));
 
         return (grid, null);

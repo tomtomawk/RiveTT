@@ -16,24 +16,24 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's MatchElementPropertiesEventHandler.
 /// </summary>
 [ToolSafety(false, true)]
-public class MatchElementPropertiesTool : ICortexTool
+public class MatchElementPropertiesTool : IRiveTTTool
 {
     public string Name => "match_element_properties";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Copies parameter values from a source element to one or more target elements. Matches parameters by name, respects read-only state, and handles all StorageTypes. Mirrors the fork's MatchElementPropertiesEventHandler.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var sourceElementId = input["sourceElementId"]?.Value<long?>();
         if (sourceElementId == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "sourceElementId is required",
                 suggestion: "Provide the element ID of the source element, e.g. {\"sourceElementId\": 123456}");
 
         var targetElementIds = input["targetElementIds"]?.ToObject<long[]>();
         if (targetElementIds == null || targetElementIds.Length == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "targetElementIds is required and cannot be empty");
 
         var parameterNames    = input["parameterNames"]?.ToObject<string[]>() ?? Array.Empty<string>();
@@ -41,19 +41,19 @@ public class MatchElementPropertiesTool : ICortexTool
 
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // ── Resolve source element ─────────────────────────────────────────
         var sourceElem = doc.GetElement(ToElementId(sourceElementId.Value));
         if (sourceElem == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Source element {sourceElementId} not found");
 
         // ── Collect parameter values from source ───────────────────────────
         var sourceValues = CollectSourceValues(doc, sourceElem, parameterNames, includeTypeParams);
         if (sourceValues.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No matching parameters found on source element");
 
         try
@@ -117,7 +117,7 @@ public class MatchElementPropertiesTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -128,7 +128,7 @@ public class MatchElementPropertiesTool : ICortexTool
                 throw;
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 sourceElementId = sourceElementId.Value,
                 totalCopied,
@@ -138,7 +138,7 @@ public class MatchElementPropertiesTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Match element properties failed: {ex.Message}");
         }
     }

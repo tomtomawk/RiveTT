@@ -13,7 +13,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// Moves a linked file instance by a delta offset or to an absolute position (in mm).
 /// </summary>
 [ToolSafety(false, false)]
-public class MoveLinkInstanceTool : ICortexTool
+public class MoveLinkInstanceTool : IRiveTTTool
 {
     public string Name => "move_link_instance";
     public string Category => "LinkedFiles";
@@ -21,11 +21,11 @@ public class MoveLinkInstanceTool : ICortexTool
     public bool IsDynamic => true;
     public string Description => "Moves a linked file instance by a delta offset (mm) or to an absolute position (mm). Specify mode: 'delta' or 'absolute'.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var instanceId = input["instanceId"]?.Value<long>() ?? 0;
         var x = input["x"]?.Value<double>() ?? 0;
@@ -34,22 +34,22 @@ public class MoveLinkInstanceTool : ICortexTool
         var mode = input["mode"]?.Value<string>() ?? "delta";
 
         if (instanceId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "instanceId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "instanceId is required");
 
         try
         {
             var element = doc.GetElement(new ElementId(instanceId));
             var linkInstance = element as RevitLinkInstance;
             if (linkInstance == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Element {instanceId} is not a RevitLinkInstance");
 
             if (linkInstance.Pinned)
-                return CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.PermissionDenied,
                     "Link instance is pinned. Unpin it first using pin_unpin_link_instance.");
 
             if (!session.RequestConfirmation("move link instance", 1, $"Move '{linkInstance.Name}'"))
-                return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
             var currentTransform = linkInstance.GetTotalTransform();
             XYZ translation;
@@ -71,13 +71,13 @@ public class MoveLinkInstanceTool : ICortexTool
             tx.Start();
             ElementTransformUtils.MoveElement(doc, linkInstance.Id, translation);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
             // Read new position
             var newTransform = linkInstance.GetTotalTransform();
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 instanceId,
                 name = linkInstance.Name,
@@ -92,7 +92,7 @@ public class MoveLinkInstanceTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

@@ -9,7 +9,7 @@ public sealed class RiveTTTests
     [Fact]
     public void Automatic_mode_never_requires_a_confirmation_dialog()
     {
-        var session = new CortexSession(new SessionStore());
+        var session = new RiveTTSession(new SessionStore());
 
         Assert.True(session.RequestConfirmation("delete", 100, critical: true));
     }
@@ -17,7 +17,7 @@ public sealed class RiveTTTests
     [Fact]
     public void Core_assembly_uses_the_RiveTT_identity()
     {
-        Assert.Equal("RiveTT.Core", typeof(CortexSession).Assembly.GetName().Name);
+        Assert.Equal("RiveTT.Core", typeof(RiveTTSession).Assembly.GetName().Name);
     }
 
     [Fact]

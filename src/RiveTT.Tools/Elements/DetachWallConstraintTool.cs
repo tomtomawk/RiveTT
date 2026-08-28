@@ -12,7 +12,7 @@ using static RiveTT.Tools.Utilities.LengthUnits;
 namespace RiveTT.Tools.Elements;
 
 [ToolSafety(false, true)]
-public sealed class DetachWallConstraintTool : ICortexTool
+public sealed class DetachWallConstraintTool : IRiveTTTool
 {
     public string Name => "detach_wall_constraint";
     public string Category => "Elements";
@@ -20,18 +20,18 @@ public sealed class DetachWallConstraintTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Preview or detach wall top-level constraints and Revit 2027 top/base attachments while preserving unconnected height.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = ToolHelpers.GetDocument(session);
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var wallIds = input["wallIds"]?.ToObject<List<long>>() ?? new List<long>();
         if (wallIds.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "wallIds is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "wallIds is required");
         var mode = (input["mode"]?.Value<string>() ?? "level_top").ToLowerInvariant();
         if (mode is not ("level_top" or "attachment_top" or "attachment_base" or "all_attachments"))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "mode must be level_top, attachment_top, attachment_base, or all_attachments");
         var dryRun = ToolHelpers.GetDryRun(input);
         var details = new List<object>();
@@ -124,7 +124,7 @@ public sealed class DetachWallConstraintTool : ICortexTool
                 tx = null;
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 dryRun,
                 processed = wallIds.Count,
@@ -140,7 +140,7 @@ public sealed class DetachWallConstraintTool : ICortexTool
         {
             if (tx?.GetStatus() == TransactionStatus.Started) tx.RollBack();
             tx?.Dispose();
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to detach wall constraints: {ex.Message}");
         }
     }

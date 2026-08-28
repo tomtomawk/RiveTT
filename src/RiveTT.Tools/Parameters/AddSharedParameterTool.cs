@@ -16,23 +16,23 @@ namespace RiveTT.Tools.Parameters;
 /// Creates the group/definition if it doesn't exist.
 /// </summary>
 [ToolSafety(false, false)]
-public class AddSharedParameterTool : ICortexTool
+public class AddSharedParameterTool : IRiveTTTool
 {
     public string Name => "add_shared_parameter";
     public string Category => "Parameters";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Adds a shared parameter to project categories from the shared parameter file. Creates the group/definition if it doesn't exist.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         var parameterName = input["parameterName"]?.Value<string>();
         if (string.IsNullOrEmpty(parameterName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "parameterName is required");
 
         var groupName = input["groupName"]?.Value<string>() ?? "RiveTT";
@@ -41,7 +41,7 @@ public class AddSharedParameterTool : ICortexTool
         var dataType = input["dataType"]?.Value<string>() ?? "text";
 
         if (categories.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "categories array is required (at least one category)");
 
         var app = doc.Application;
@@ -65,7 +65,7 @@ public class AddSharedParameterTool : ICortexTool
                 overrodeSharedParamFile = true;
                 sharedParamFile = app.OpenSharedParameterFile();
                 if (sharedParamFile == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                         "Could not open or create shared parameter file");
             }
 
@@ -113,7 +113,7 @@ public class AddSharedParameterTool : ICortexTool
             }
 
             if (categorySet.Size == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No valid categories found for parameter binding",
                     suggestion: "Check category names. Use OST_* codes for language-independent matching.");
 
@@ -136,13 +136,13 @@ public class AddSharedParameterTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
 
                 var guid = definition is ExternalDefinition extDef ? extDef.GUID.ToString() : "";
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     parameterName,
                     guid,
@@ -161,7 +161,7 @@ public class AddSharedParameterTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to add shared parameter: {ex.Message}");
         }
         finally

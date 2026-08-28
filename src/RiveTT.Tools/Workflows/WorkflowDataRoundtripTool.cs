@@ -18,18 +18,18 @@ namespace RiveTT.Tools.Workflows;
 /// Step 2 (import): User edits externally, then uses import_from_excel to re-import.
 /// </summary>
 [ToolSafety(true, false)]
-public class WorkflowDataRoundtripTool : ICortexTool
+public class WorkflowDataRoundtripTool : IRiveTTTool
 {
     public string Name => "workflow_data_roundtrip";
     public string Category => "Workflows";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description => "Exports element parameters to Excel for external editing, then re-imports. Step 1 (export): Creates an Excel file with element data. Step 2 (import): User edits externally, then uses import_from_excel to re-import.";
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var categories = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
         var parameterNames = input["parameterNames"]?.ToObject<List<string>>() ?? new List<string>();
@@ -46,7 +46,7 @@ public class WorkflowDataRoundtripTool : ICortexTool
             // H36: a caller-supplied path must stay under a user-owned directory;
             // workbook.SaveAs would otherwise write anywhere the Revit process can reach.
             if (!PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError))
-                return CortexResult<object>.Fail(CortexErrorCode.PermissionDenied,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.PermissionDenied,
                     pathError,
                     suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
             filePath = safePath;
@@ -65,7 +65,7 @@ public class WorkflowDataRoundtripTool : ICortexTool
                     .Where(id => id != null && id != ElementId.InvalidElementId)
                     .ToList();
                 if (catIds.Count == 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "None of the supplied categories could be resolved.",
                         suggestion: "Use OST_* codes or valid localized category names.");
                 elements = catIds.SelectMany(catId =>
@@ -73,13 +73,13 @@ public class WorkflowDataRoundtripTool : ICortexTool
             }
             else
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "categories required for data roundtrip export");
             }
 
             var elemList = elements.Take(5000).ToList();
             if (elemList.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No elements found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No elements found");
 
             // Discover writable parameters
             var paramNames = new List<string>();
@@ -132,7 +132,7 @@ public class WorkflowDataRoundtripTool : ICortexTool
             ws.Columns().AdjustToContents(1, 50);
             workbook.SaveAs(filePath);
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 filePath,
                 elementCount = elemList.Count,
@@ -143,7 +143,7 @@ public class WorkflowDataRoundtripTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 }

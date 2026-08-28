@@ -9,7 +9,7 @@ namespace RiveTT.Tests.Threading;
 
 public class ToolExecutionHandlerTests
 {
-    private sealed class CountingTool : ICortexTool
+    private sealed class CountingTool : IRiveTTTool
     {
         private readonly List<string> _executed;
 
@@ -25,10 +25,10 @@ public class ToolExecutionHandlerTests
         public bool IsDynamic => false;
         public string Description => "Counting test tool";
 
-        public CortexResult<object> Execute(JObject input, CortexSession session)
+        public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
         {
             _executed.Add(Name);
-            return CortexResult<object>.Ok(new { Name });
+            return RiveTTResult<object>.Ok(new { Name });
         }
     }
 
@@ -36,7 +36,7 @@ public class ToolExecutionHandlerTests
     public void TryPrepareExecution_RejectsSecondCommandUntilFirstExternalEventDrains()
     {
         var executed = new List<string>();
-        var session = new CortexSession(new SessionStore());
+        var session = new RiveTTSession(new SessionStore());
         var handler = new ToolExecutionHandler();
 
         Assert.True(handler.TryPrepareExecution(new CountingTool("first", executed), new JObject(), session));

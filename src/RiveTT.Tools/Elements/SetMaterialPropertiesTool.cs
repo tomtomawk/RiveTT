@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// and identity parameters (description, manufacturer, model, URL, etc.).
 /// </summary>
 [ToolSafety(false, true)]
-public class SetMaterialPropertiesTool : ICortexTool
+public class SetMaterialPropertiesTool : IRiveTTTool
 {
     public string Name => "set_material_properties";
     public string Category => "Elements";
@@ -24,17 +24,17 @@ public class SetMaterialPropertiesTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Sets identity, appearance (color, transparency, shininess, smoothness), class, product info, and assigns appearance/structural/thermal assets (by id) on Revit materials.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var requests = input["requests"]?.ToObject<List<JObject>>() ?? new List<JObject>();
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (requests.Count == 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "requests array is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "requests array is required");
 
         try
         {
@@ -43,7 +43,7 @@ public class SetMaterialPropertiesTool : ICortexTool
             if (!dryRun)
             {
                 if (!session.RequestConfirmation("modify material properties", requests.Count))
-                    return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Set Material Properties");
                 var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -119,7 +119,7 @@ public class SetMaterialPropertiesTool : ICortexTool
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
             }
@@ -135,11 +135,11 @@ public class SetMaterialPropertiesTool : ICortexTool
                 }
             }
 
-            return CortexResult<object>.Ok(new { dryRun, modifiedCount = results.Count(r => ((dynamic)r).success), results });
+            return RiveTTResult<object>.Ok(new { dryRun, modifiedCount = results.Count(r => ((dynamic)r).success), results });
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
         }
     }
 

@@ -11,7 +11,7 @@ namespace RiveTT.Tools.IFC;
 /// Returns the full details of a specific IFC export configuration.
 /// </summary>
 [ToolSafety(true, false)]
-public class IfcGetExportConfigurationTool : ICortexTool
+public class IfcGetExportConfigurationTool : IRiveTTTool
 {
     public string Name => "ifc_get_export_configuration";
     public string Category => "IFC";
@@ -84,23 +84,23 @@ public class IfcGetExportConfigurationTool : ICortexTool
         },
     };
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var configName = input["configurationName"]?.Value<string>();
         if (string.IsNullOrWhiteSpace(configName))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "configurationName is required",
                 suggestion: "Use ifc_list_export_configurations to see available names");
 
         if (!ConfigDetails.TryGetValue(configName!, out var options))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Configuration '{configName}' not found",
                 suggestion: $"Available: {string.Join(", ", ConfigDetails.Keys)}");
 
         if (!IfcListExportConfigurationsTool.Configurations.TryGetValue(configName!, out var info))
             info = new IfcListExportConfigurationsTool.ConfigInfo("unknown", "");
 
-        return CortexResult<object>.Ok(new
+        return RiveTTResult<object>.Ok(new
         {
             name = configName,
             ifcVersion = info.Version,

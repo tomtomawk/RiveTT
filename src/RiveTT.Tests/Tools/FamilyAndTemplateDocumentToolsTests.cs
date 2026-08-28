@@ -14,7 +14,7 @@ namespace RiveTT.Tests.Tools;
 /// </summary>
 public class FamilyAndTemplateDocumentToolsTests
 {
-    private static CortexSession NewSession() => new(new SessionStore());
+    private static RiveTTSession NewSession() => new(new SessionStore());
 
     [Fact]
     public void OpenFamily_Metadata()
@@ -38,7 +38,7 @@ public class FamilyAndTemplateDocumentToolsTests
 
         Assert.NotNull(result);
         Assert.False(result!.Success);
-        Assert.Equal(CortexErrorCode.InvalidInput, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.InvalidInput, result.Error!.Code);
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class FamilyAndTemplateDocumentToolsTests
         var result = tool.Execute(new JObject(), NewSession());
 
         Assert.False(result.Success);
-        Assert.Equal(CortexErrorCode.InvalidInput, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.InvalidInput, result.Error!.Code);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class FamilyAndTemplateDocumentToolsTests
         var result = tool.Execute(input, NewSession());
 
         Assert.False(result.Success);
-        Assert.Equal(CortexErrorCode.InvalidInput, result.Error!.Code);
+        Assert.Equal(RiveTTErrorCode.InvalidInput, result.Error!.Code);
     }
 
     [RequiresRevitDbApiFact]

@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Elements;
 /// Mirrors the fork's FindUntaggedElementsEventHandler logic.
 /// </summary>
 [ToolSafety(true, false)]
-public class FindUntaggedElementsTool : ICortexTool
+public class FindUntaggedElementsTool : IRiveTTTool
 {
     public string Name => "find_untagged_elements";
     public string Category => "Elements";
@@ -33,11 +33,11 @@ public class FindUntaggedElementsTool : ICortexTool
         BuiltInCategory.OST_StructuralFraming
     };
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No active document in session");
 
         // ── Parse inputs ───────────────────────────────────────────────────
@@ -65,7 +65,7 @@ public class FindUntaggedElementsTool : ICortexTool
             }
 
             if (targetView == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No active view available and no viewId was provided");
 
             // ── Parse categories ───────────────────────────────────────────
@@ -81,7 +81,7 @@ public class FindUntaggedElementsTool : ICortexTool
                         builtInCategories.Add(bic.Value);
                 }
                 if (builtInCategories.Count == 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "None of the provided categories could be resolved",
                         suggestion: "Use OST_* codes like OST_Walls, or English friendly names like Walls, Doors");
             }
@@ -163,7 +163,7 @@ public class FindUntaggedElementsTool : ICortexTool
             bool isTruncated = allUntagged.Count > limit;
             var returnedElements = isTruncated ? allUntagged.Take(limit).ToList() : allUntagged;
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 viewId = targetView.Id.Value,
                 viewName = targetView.Name,
@@ -175,7 +175,7 @@ public class FindUntaggedElementsTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to find untagged elements: {ex.Message}");
         }
     }

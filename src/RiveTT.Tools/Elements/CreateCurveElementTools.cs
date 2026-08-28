@@ -113,7 +113,7 @@ internal static class CurveInput
 
 /// <summary>Draws detail lines (view-owned 2D lines) in a specific view.</summary>
 [ToolSafety(false, false)]
-public sealed class CreateDetailLineTool : ICortexTool
+public sealed class CreateDetailLineTool : IRiveTTTool
 {
     public string Name => "create_detail_line";
     public string Category => "Elements";
@@ -124,31 +124,31 @@ public sealed class CreateDetailLineTool : ICortexTool
         "Draws 2D detail lines in a view (OST_Lines, view-owned). Path is [{x,y,z}, ...] in mm. " +
         "Detail lines belong to one view only; use create_model_line for 3D model lines.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
         var viewId = input["viewId"]?.Value<long>() ?? 0;
         var lineStyleName = input["lineStyleName"]?.Value<string>();
 
         if (!CurveInput.TryReadPolyline(input["path"], out var lines, out _, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, pathError);
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, pathError);
 
         var view = CurveInput.ResolveView(doc, viewId);
         if (view == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 viewId > 0 ? $"View {viewId} not found" : "No active view");
 
         if (view.ViewType == ViewType.ThreeD)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Detail lines cannot be drawn in a 3D view",
                 suggestion: "Target a plan, section, elevation, drafting or detail view, or use create_model_line.");
 
         if (dryRun)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"DryRun: {lines.Count} detail line(s) would be drawn in view '{view.Name}'.",
                 segmentCount = lines.Count,
@@ -174,10 +174,10 @@ public sealed class CreateDetailLineTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Created {created.Count} detail line(s) in view '{view.Name}'.",
                 createdElementIds = created,
@@ -188,7 +188,7 @@ public sealed class CreateDetailLineTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to create detail lines: {exception.Message}");
         }
     }
@@ -206,7 +206,7 @@ public sealed class CreateDetailLineTool : ICortexTool
 
 /// <summary>Draws model lines (3D lines visible in every view) on a horizontal sketch plane.</summary>
 [ToolSafety(false, false)]
-public sealed class CreateModelLineTool : ICortexTool
+public sealed class CreateModelLineTool : IRiveTTTool
 {
     public string Name => "create_model_line";
     public string Category => "Elements";
@@ -217,27 +217,27 @@ public sealed class CreateModelLineTool : ICortexTool
         "Draws 3D model lines (OST_Lines) on a horizontal sketch plane at the given elevation. " +
         "Path is [{x,y,z}, ...] in mm; z of the first point sets the plane elevation.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
         var lineStyleName = input["lineStyleName"]?.Value<string>();
 
         if (!CurveInput.TryReadPolyline(input["path"], out var lines, out var origin, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, pathError);
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, pathError);
 
         var elevationFt = origin!.Z;
         if (lines.Any(line => Math.Abs(line.GetEndPoint(0).Z - elevationFt) > 1e-6 ||
                               Math.Abs(line.GetEndPoint(1).Z - elevationFt) > 1e-6))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "All points must share the same z: model lines are created on one horizontal sketch plane.",
                 suggestion: "Split the path into one call per elevation.");
 
         if (dryRun)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"DryRun: {lines.Count} model line(s) would be created at z={elevationFt * MmPerFoot:F0} mm.",
                 segmentCount = lines.Count,
@@ -263,10 +263,10 @@ public sealed class CreateModelLineTool : ICortexTool
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Created {created.Count} model line(s) at z={elevationFt * MmPerFoot:F0} mm.",
                 createdElementIds = created,
@@ -277,7 +277,7 @@ public sealed class CreateModelLineTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to create model lines: {exception.Message}");
         }
     }
@@ -288,7 +288,7 @@ public sealed class CreateModelLineTool : ICortexTool
 /// a physical wall.
 /// </summary>
 [ToolSafety(false, false)]
-public sealed class CreateRoomSeparationLineTool : ICortexTool
+public sealed class CreateRoomSeparationLineTool : IRiveTTTool
 {
     public string Name => "create_room_separation_line";
     public string Category => "Elements";
@@ -299,21 +299,21 @@ public sealed class CreateRoomSeparationLineTool : ICortexTool
         "Draws room separation lines (OST_RoomSeparationLines) in a plan view, to split or bound rooms " +
         "without a physical wall. Path is [{x,y,z}, ...] in mm; z sets the sketch plane elevation.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
         var viewId = input["viewId"]?.Value<long>() ?? 0;
 
         if (!CurveInput.TryReadPolyline(input["path"], out var lines, out var origin, out var pathError))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, pathError);
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, pathError);
 
         var view = CurveInput.ResolveView(doc, viewId);
         if (view is not ViewPlan plan)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 viewId > 0
                     ? $"View {viewId} is not a plan view; room separation lines are plan-only."
                     : "The active view is not a plan view; room separation lines are plan-only.",
@@ -321,7 +321,7 @@ public sealed class CreateRoomSeparationLineTool : ICortexTool
 
         var elevationFt = origin!.Z;
         if (dryRun)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"DryRun: {lines.Count} room separation line(s) would be drawn in plan '{plan.Name}'.",
                 segmentCount = lines.Count,
@@ -347,10 +347,10 @@ public sealed class CreateRoomSeparationLineTool : ICortexTool
                 .ToList();
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Created {created.Count} room separation line(s) in plan '{plan.Name}'. " +
                           "Rooms re-compute their boundaries on the next regeneration.",
@@ -361,7 +361,7 @@ public sealed class CreateRoomSeparationLineTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to create room separation lines: {exception.Message}");
         }
     }
@@ -372,7 +372,7 @@ public sealed class CreateRoomSeparationLineTool : ICortexTool
 /// created before create_sheet honored titleBlockId.
 /// </summary>
 [ToolSafety(false, false)]
-public sealed class PlaceTitleBlockTool : ICortexTool
+public sealed class PlaceTitleBlockTool : IRiveTTTool
 {
     public string Name => "place_title_block";
     public string Category => "Project";
@@ -383,11 +383,11 @@ public sealed class PlaceTitleBlockTool : ICortexTool
         "Places a title block instance on an existing sheet. Use it to repair a sheet created without " +
         "a title block; call with no titleBlockId to list the title blocks available in the document.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var sheetId = input["sheetId"]?.Value<long>() ?? 0;
         var titleBlockId = input["titleBlockId"]?.Value<long>()
@@ -396,23 +396,23 @@ public sealed class PlaceTitleBlockTool : ICortexTool
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (sheetId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "sheetId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheetId is required");
 
         var sheet = doc.GetElement(new ElementId(sheetId)) as ViewSheet;
         if (sheet == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Element {sheetId} is not a sheet (ViewSheet)");
 
         var available = Project.CreateSheetTool.ListTitleBlocks(doc);
         if (titleBlockId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "titleBlockId is required",
                 suggestion: "Pick one of the ids listed in availableTitleBlocks.",
                 context: new Dictionary<string, object> { ["availableTitleBlocks"] = available });
 
         var symbol = doc.GetElement(new ElementId(titleBlockId)) as FamilySymbol;
         if (symbol == null || symbol.Category?.Id != new ElementId(BuiltInCategory.OST_TitleBlocks))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"titleBlockId {titleBlockId} is not an OST_TitleBlocks family type",
                 context: new Dictionary<string, object> { ["availableTitleBlocks"] = available });
 
@@ -422,7 +422,7 @@ public sealed class PlaceTitleBlockTool : ICortexTool
             .ToList();
 
         if (dryRun)
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = existing.Count > 0
                     ? $"DryRun: sheet '{sheet.SheetNumber} - {sheet.Name}' already carries {existing.Count} title block instance(s); a second one would be added."
@@ -447,10 +447,10 @@ public sealed class PlaceTitleBlockTool : ICortexTool
             var instance = doc.Create.NewFamilyInstance(XYZ.Zero, symbol, sheet);
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 message = $"Placed '{symbol.FamilyName} / {symbol.Name}' on sheet '{sheet.SheetNumber} - {sheet.Name}'.",
                 sheetId = ToolHelpers.GetElementIdValue(sheet.Id),
@@ -460,7 +460,7 @@ public sealed class PlaceTitleBlockTool : ICortexTool
         }
         catch (Exception exception)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to place title block: {exception.Message}");
         }
     }

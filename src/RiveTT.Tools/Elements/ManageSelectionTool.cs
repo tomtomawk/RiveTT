@@ -21,7 +21,7 @@ namespace RiveTT.Tools.Elements;
 /// selectInView applies to load only. dryRun applies to delete only.
 /// </summary>
 [ToolSafety(false, true)]
-public class ManageSelectionTool : ICortexTool
+public class ManageSelectionTool : IRiveTTTool
 {
     public string Name => "manage_selection";
     public string Category => "Elements";
@@ -35,11 +35,11 @@ public class ManageSelectionTool : ICortexTool
         + "only here. Use capture_selection instead for a temporary session-scoped token — this "
         + "tool always persists into the document.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var action = (input["action"]?.Value<string>() ?? "").ToLowerInvariant();
         return action switch
@@ -48,7 +48,7 @@ public class ManageSelectionTool : ICortexTool
             "load" => Load(doc, input, requireName: true),
             "list" => Load(doc, input, requireName: false),
             "delete" => Delete(doc, input),
-            _ => CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unsupported action: '{action}'", suggestion: "Use: save | load | list | delete")
         };
     }
@@ -59,11 +59,11 @@ public class ManageSelectionTool : ICortexTool
             .Cast<SelectionFilterElement>()
             .FirstOrDefault(sf => sf.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
-    private static CortexResult<object> Save(Document doc, JObject input)
+    private static RiveTTResult<object> Save(Document doc, JObject input)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required for action=save");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required for action=save");
 
         var elementIds = input["elementIds"]?.ToObject<List<long>>();
         var overwrite = input["overwrite"]?.Value<bool>() ?? false;
@@ -80,7 +80,7 @@ public class ManageSelectionTool : ICortexTool
                 var uidoc = new Autodesk.Revit.UI.UIDocument(doc);
                 ids = uidoc.Selection.GetElementIds();
                 if (ids.Count == 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "No elements selected and no elementIds provided");
             }
 
@@ -93,7 +93,7 @@ public class ManageSelectionTool : ICortexTool
             if (existing != null)
             {
                 if (!overwrite)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"Selection '{name}' already exists. Set overwrite=true to replace.");
                 doc.Delete(existing.Id);
             }
@@ -102,11 +102,11 @@ public class ManageSelectionTool : ICortexTool
             filter.SetElementIds(ids);
 
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 selectionName = name,
                 elementCount = ids.Count,
@@ -115,15 +115,15 @@ public class ManageSelectionTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to save selection: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to save selection: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> Load(Document doc, JObject input, bool requireName)
+    private static RiveTTResult<object> Load(Document doc, JObject input, bool requireName)
     {
         var name = input["name"]?.Value<string>();
         if (requireName && string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required for action=load");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required for action=load");
 
         var selectInView = input["selectInView"]?.Value<bool>() ?? true;
 
@@ -143,7 +143,7 @@ public class ManageSelectionTool : ICortexTool
                     elementCount = sf.GetElementIds().Count
                 }).ToList();
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     selectionCount = selections.Count,
                     selections
@@ -154,7 +154,7 @@ public class ManageSelectionTool : ICortexTool
                 sf.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
             if (filter == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Selection '{name}' not found",
                     suggestion: "Call manage_selection(action: \"list\") to see the saved selections.");
 
@@ -168,7 +168,7 @@ public class ManageSelectionTool : ICortexTool
 
             var ids = elementIds.Select(ToolHelpers.GetElementIdValue).ToList();
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 selectionName = name,
                 elementCount = ids.Count,
@@ -178,21 +178,21 @@ public class ManageSelectionTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to load selection: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to load selection: {ex.Message}");
         }
     }
 
-    private static CortexResult<object> Delete(Document doc, JObject input)
+    private static RiveTTResult<object> Delete(Document doc, JObject input)
     {
         var name = input["name"]?.Value<string>();
         if (string.IsNullOrEmpty(name))
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "name is required for action=delete");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required for action=delete");
 
         try
         {
             var filter = FindByName(doc, name);
             if (filter == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                     $"Selection '{name}' not found",
                     suggestion: "Call manage_selection(action: \"list\") to see the saved selections.");
 
@@ -218,11 +218,11 @@ public class ManageSelectionTool : ICortexTool
             tx.Start();
             doc.Delete(filter.Id);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 deletedSelection = name,
                 success = true
@@ -230,7 +230,7 @@ public class ManageSelectionTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown, $"Failed to delete selection: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to delete selection: {ex.Message}");
         }
     }
 }

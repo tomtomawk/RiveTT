@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// Creates a floor from boundary points or a room boundary.
 /// </summary>
 [ToolSafety(false, false)]
-public class CreateFloorTool : ICortexTool
+public class CreateFloorTool : IRiveTTTool
 {
     public string Name => "create_floor";
     public string Category => "Elements";
@@ -24,11 +24,11 @@ public class CreateFloorTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Creates an architectural floor (category: Floors) from boundary points or a room boundary, optionally with holes (inner loops). For structural foundation slabs use create_surface_based_element with category OST_StructuralFoundation. If a floorTypeName is not provided, defaults to the first architectural floor type (OST_Floors) in the project.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var boundaryPoints = input["boundaryPoints"] as JArray;
         var roomId = input["roomId"]?.Value<long>() ?? 0;
@@ -55,7 +55,7 @@ public class CreateFloorTool : ICortexTool
                 .OfCategory(BuiltInCategory.OST_Floors).Cast<FloorType>().FirstOrDefault();
 
             if (floorType == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No floor types available");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "No floor types available");
 
             // Build curve loop
             CurveLoop loop;
@@ -63,11 +63,11 @@ public class CreateFloorTool : ICortexTool
             {
                 var room = doc.GetElement(new ElementId(roomId)) as Room;
                 if (room == null)
-                    return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, $"Room {roomId} not found");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"Room {roomId} not found");
 
                 var segments = room.GetBoundarySegments(new SpatialElementBoundaryOptions());
                 if (segments == null || segments.Count == 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "Room has no boundary");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "Room has no boundary");
 
                 loop = new CurveLoop();
                 foreach (var seg in segments[0])
@@ -86,7 +86,7 @@ public class CreateFloorTool : ICortexTool
             }
             else
             {
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "Provide boundaryPoints (min 3) or roomId");
             }
 
@@ -109,7 +109,7 @@ public class CreateFloorTool : ICortexTool
                 .OrderBy(l => l.Elevation).FirstOrDefault();
 
             if (level == null)
-                return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound, "No levels found");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "No levels found");
 
             var warnings = new List<string>();
             if (floorTypeWarning != null) warnings.Add(floorTypeWarning);
@@ -164,7 +164,7 @@ public class CreateFloorTool : ICortexTool
                     // A self-intersecting loop has no meaningful area; the rest still stands.
                 }
 
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     dryRun = true,
                     message = $"DryRun: a floor of type '{floorType.Name}' would be created on level "
@@ -184,11 +184,11 @@ public class CreateFloorTool : ICortexTool
             tx.Start();
             var floor = Floor.Create(doc, loops, floorType.Id, level.Id);
             if (tx.Commit() != TransactionStatus.Committed)
-                return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 floorId = ToolHelpers.GetElementIdValue(floor.Id),
                 floorTypeName = floorType.Name,
@@ -199,7 +199,7 @@ public class CreateFloorTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to create floor: {ex.Message}",
                 suggestion: "Run with dryRun=true to see the resolved type, level and boundary area "
                           + "before committing. A boundary must be a closed, non-self-intersecting "

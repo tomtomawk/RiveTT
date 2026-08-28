@@ -18,7 +18,7 @@ namespace RiveTT.Tools.Elements;
 /// shape of operation from a plain grid-line insert or a read.
 /// </summary>
 [ToolSafety(false, false)]
-public class AddCurtainMullionsTool : ICortexTool
+public class AddCurtainMullionsTool : IRiveTTTool
 {
     public string Name => "add_curtain_mullions";
     public string Category => "Elements";
@@ -28,31 +28,31 @@ public class AddCurtainMullionsTool : ICortexTool
         "Adds mullions to an existing curtain wall/system's grid lines. hostElementId and "
         + "mullionTypeId are required; applies to every ungridded segment unless gridLineIds narrows it.";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
 
         var hostIdLong = input["hostElementId"]?.Value<long?>() ?? 0;
         if (hostIdLong <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "hostElementId is required");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "hostElementId is required");
 
         var host = doc.GetElement(ToolHelpers.ToElementId(hostIdLong));
         var grid = CurtainGridAccess.GetCurtainGrid(host);
         if (grid == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"hostElementId {hostIdLong} has no curtain grid (not a curtain wall/system/roof, or its type has no automatic grid)");
 
         var mullionTypeIdLong = input["mullionTypeId"]?.Value<long?>() ?? 0;
         if (mullionTypeIdLong <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "mullionTypeId is required",
                 suggestion: "List OST_CurtainWallMullions types with list_system_types(category: \"OST_CurtainWallMullions\").");
 
         var mullionType = doc.GetElement(ToolHelpers.ToElementId(mullionTypeIdLong)) as MullionType;
         if (mullionType == null)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, $"{mullionTypeIdLong} is not a MullionType");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{mullionTypeIdLong} is not a MullionType");
 
         var explicitIds = input["gridLineIds"]?.ToObject<List<long>>();
         var targetLineIds = explicitIds != null && explicitIds.Count > 0
@@ -92,10 +92,10 @@ public class AddCurtainMullionsTool : ICortexTool
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
-            return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
 
         var info = CurtainGridAccess.DescribeGrid(grid);
-        return CortexResult<object>.Ok(new { addedSegmentCount = addedCount, warnings, gridInfo = info.Data });
+        return RiveTTResult<object>.Ok(new { addedSegmentCount = addedCount, warnings, gridInfo = info.Data });
     }
 }

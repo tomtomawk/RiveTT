@@ -8,26 +8,26 @@ using Xunit;
 
 namespace RiveTT.Tests.Router;
 
-public class CortexRouterExceptionTests
+public class RiveTTRouterExceptionTests
 {
-    private class ThrowingTool : ICortexTool
+    private class ThrowingTool : IRiveTTTool
     {
         public string Name => "throwing_tool";
         public string Category => "Test";
         public string Description => "Throws for exception-capture tests.";
         public bool RequiresDocument => false;
         public bool IsDynamic => false;
-        public CortexResult<object> Execute(JObject input, CortexSession session)
+        public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
             => throw new System.InvalidOperationException("kaboom");
     }
 
-    private static CortexRouter CreateRouterWith(ICortexTool tool, AuditLogger audit)
+    private static RiveTTRouter CreateRouterWith(IRiveTTTool tool, AuditLogger audit)
     {
-        var session = new CortexSession(new SessionStore());
-        var router = new CortexRouter(session, new FakeAnalyzer(), audit);
-        var field = typeof(CortexRouter).GetField("_tools",
+        var session = new RiveTTSession(new SessionStore());
+        var router = new RiveTTRouter(session, new FakeAnalyzer(), audit);
+        var field = typeof(RiveTTRouter).GetField("_tools",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        var tools = (System.Collections.Generic.Dictionary<string, ICortexTool>)field.GetValue(router)!;
+        var tools = (System.Collections.Generic.Dictionary<string, IRiveTTTool>)field.GetValue(router)!;
         tools[tool.Name] = tool;
         return router;
     }
@@ -44,7 +44,7 @@ public class CortexRouterExceptionTests
             var result = router.Route("throwing_tool", new JObject());
 
             Assert.False(result.Success);
-            Assert.Equal(CortexErrorCode.Unknown, result.Error!.Code);
+            Assert.Equal(RiveTTErrorCode.Unknown, result.Error!.Code);
             Assert.Contains("Unhandled exception", result.Error.Message);
 
             var audit = System.IO.File.ReadAllText(auditPath);

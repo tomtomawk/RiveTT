@@ -13,7 +13,7 @@ namespace RiveTT.Tools.IFC;
 /// Reloads an existing IFC link, optionally from a new IFC file path.
 /// </summary>
 [ToolSafety(false, true)]
-public class IfcReloadLinkTool : ICortexTool
+public class IfcReloadLinkTool : IRiveTTTool
 {
     public string Name => "ifc_reload_link";
     public string Category => "IFC";
@@ -21,21 +21,21 @@ public class IfcReloadLinkTool : ICortexTool
     public bool IsDynamic => false;
     public string Description => "Reload an existing IFC link, optionally from a new IFC file path";
 
-    public CortexResult<object> Execute(JObject input, CortexSession session)
+    public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var (doc, error) = ToolHelpers.RequireDocument(session);
         if (error != null) return error;
 
         var linkTypeId = input["linkTypeId"]?.Value<long>() ?? 0;
         if (linkTypeId <= 0)
-            return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "linkTypeId is required",
                 suggestion: "Provide the RevitLinkType element ID of the IFC link");
 
         var elementId = ToolHelpers.ToElementId(linkTypeId);
         var linkType = doc!.GetElement(elementId) as RevitLinkType;
         if (linkType == null)
-            return CortexResult<object>.Fail(CortexErrorCode.ElementNotFound,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"RevitLinkType {linkTypeId} not found");
 
         var currentRvtPath = "";
@@ -56,13 +56,13 @@ public class IfcReloadLinkTool : ICortexTool
             // is a standard BIM workflow and the confirmation dialog shows the path.
             // The derived .RVT cache is written next to this path, so it is covered too.
             if (!PathSafety.TryResolveSafe(newIfcFilePath, out var safeIfcPath, out var pathError, allowUnc: true))
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     pathError,
                     suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, temp, or a network share");
             newIfcFilePath = safeIfcPath;
 
             if (!File.Exists(newIfcFilePath))
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"New IFC file not found: {newIfcFilePath}");
         }
 
@@ -71,7 +71,7 @@ public class IfcReloadLinkTool : ICortexTool
             : $"Reload IFC link '{linkType.Name}' from '{Path.GetFileName(newIfcFilePath)}'";
 
         if (!session.RequestConfirmation("reload IFC link", 1, description))
-            return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         try
         {
@@ -88,7 +88,7 @@ public class IfcReloadLinkTool : ICortexTool
                     tx.Start();
                     RevitLinkType.CreateFromIFC(doc!, newIfcFilePath, revitFilePath, recreateLink, options);
                     if (tx.Commit() != TransactionStatus.Committed)
-                        return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                             $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                             suggestion: "Fix the reported model errors and retry.");
                 }
@@ -97,11 +97,11 @@ public class IfcReloadLinkTool : ICortexTool
             {
                 var result = linkType.Reload();
                 if (result.LoadResult != LinkLoadResultType.LinkLoaded)
-                    return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Reload failed with status: {result.LoadResult}");
             }
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 linkTypeId,
                 name = linkType.Name,
@@ -111,7 +111,7 @@ public class IfcReloadLinkTool : ICortexTool
         }
         catch (Exception ex)
         {
-            return CortexResult<object>.Fail(CortexErrorCode.Unknown,
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to reload IFC link: {ex.Message}");
         }
     }

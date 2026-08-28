@@ -3,12 +3,12 @@ using Xunit;
 
 namespace RiveTT.Tests.Interop
 {
-    public class CortexElementRefTests
+    public class RiveTTElementRefTests
     {
         [Fact]
         public void HoldsCrossAppIdentityFields()
         {
-            var elementRef = new CortexElementRef
+            var elementRef = new RiveTTElementRef
             {
                 SourceApp = "Revit",
                 SourceFile = "Architectural.rvt",

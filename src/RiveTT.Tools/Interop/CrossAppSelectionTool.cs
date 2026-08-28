@@ -17,12 +17,12 @@ namespace RiveTT.Tools.Interop
     /// </summary>
     internal static class CrossAppSelectionRevitDispatch
     {
-        internal static CortexResult<object> ExecuteExport(object docObj)
+        internal static RiveTTResult<object> ExecuteExport(object docObj)
         {
             var doc = (Document)docObj;
             var uiDoc = new UIDocument(doc);
             var output = SelectionExporter.Export(uiDoc);
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 side = "revit",
                 exportedCount = output.Refs.Count,
@@ -31,24 +31,24 @@ namespace RiveTT.Tools.Interop
             });
         }
 
-        internal static CortexResult<object> ExecuteImport(object docObj, JObject input, CortexSession session)
+        internal static RiveTTResult<object> ExecuteImport(object docObj, JObject input, RiveTTSession session)
         {
             var doc = (Document)docObj;
             var refsToken = input["refs"] as JArray;
             if (refsToken == null || refsToken.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "refs is required and cannot be empty",
-                    suggestion: "Pass refs=[CortexElementRef, ...] from the export side.");
+                    suggestion: "Pass refs=[RiveTTElementRef, ...] from the export side.");
 
-            var refs = new System.Collections.Generic.List<CortexElementRef>();
+            var refs = new System.Collections.Generic.List<RiveTTElementRef>();
             foreach (var t in refsToken)
             {
-                var r = t.ToObject<CortexElementRef>();
+                var r = t.ToObject<RiveTTElementRef>();
                 if (r != null) refs.Add(r);
             }
             if (refs.Count == 0)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
-                    "no parseable CortexElementRef in refs");
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                    "no parseable RiveTTElementRef in refs");
 
             var resolver = HostLinkResolver.Build(doc);
 
@@ -85,7 +85,7 @@ namespace RiveTT.Tools.Interop
 
             if (hostIds.Count == 0 && linkedTargets.Count == 0)
             {
-                return CortexResult<object>.Ok(new
+                return RiveTTResult<object>.Ok(new
                 {
                     side = "revit",
                     requested = refs.Count,
@@ -116,7 +116,7 @@ namespace RiveTT.Tools.Interop
             // activeDocument is already set by the outer Execute path.
             var innerResult = inner.Execute(innerInput, session);
 
-            return CortexResult<object>.Ok(new
+            return RiveTTResult<object>.Ok(new
             {
                 side = "revit",
                 requested = refs.Count,
@@ -137,31 +137,31 @@ namespace RiveTT.Tools.Interop
 
     /// <summary>
     /// Symmetric Revit↔Navis selection bridge. mode=export emits
-    /// CortexElementRefs from the current Revit selection (host + linked).
-    /// mode=import consumes CortexElementRefs and selects/isolates them by
+    /// RiveTTElementRefs from the current Revit selection (host + linked).
+    /// mode=import consumes RiveTTElementRefs and selects/isolates them by
     /// composing show_cross_model_elements (no source changes there).
     /// </summary>
     [ToolSafety(false, false)]
-    public class CrossAppSelectionTool : ICortexTool
+    public class CrossAppSelectionTool : IRiveTTTool
     {
         public string Name => "sync_navisworks_selection";
         public string Category => "Interop";
         public bool RequiresDocument => true;
         public bool IsDynamic => true;
         public string Description =>
-            "Symmetric Revit↔Navis selection bridge. mode=export → emit CortexElementRefs from current Revit selection (host + linked). mode=import → consume CortexElementRefs and select/isolate them, automatically resolving each ref to host or linked Revit element via sourceFile basename match. Resolution priority: revitUniqueId → ifcGuid → revitElementId.";
+            "Symmetric Revit↔Navis selection bridge. mode=export → emit RiveTTElementRefs from current Revit selection (host + linked). mode=import → consume RiveTTElementRefs and select/isolate them, automatically resolving each ref to host or linked Revit element via sourceFile basename match. Resolution priority: revitUniqueId → ifcGuid → revitElementId.";
 
-        public CortexResult<object> Execute(JObject input, CortexSession session)
+        public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
         {
             var mode = input["mode"]?.ToString();
             if (string.IsNullOrWhiteSpace(mode))
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "mode is required",
                     suggestion: "Pass mode=\"export\" or mode=\"import\".");
 
             var modeLower = mode!.ToLowerInvariant();
             if (modeLower != "export" && modeLower != "import")
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown mode '{mode}'",
                     suggestion: "Pass mode=\"export\" or mode=\"import\".");
 
@@ -171,14 +171,14 @@ namespace RiveTT.Tools.Interop
             {
                 var refsToken = input["refs"] as JArray;
                 if (refsToken == null || refsToken.Count == 0)
-                    return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         "refs is required and cannot be empty",
-                        suggestion: "Pass refs=[CortexElementRef, ...] from the export side.");
+                        suggestion: "Pass refs=[RiveTTElementRef, ...] from the export side.");
             }
 
             var docObj = session.Store.Get<object>("activeDocument");
             if (docObj == null)
-                return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "No active Revit document in session");
 
             // Dispatch to RevitAPI-dependent helpers. These methods are in a separate
