@@ -48,6 +48,7 @@ public class BuildScriptEncodingTests
     public static TheoryData<string, string> Scripts => new()
     {
         { "builder", "build.ps1" },
+        { "builder", "New-SigningCertificate.ps1" },
         { "src/resources", "register-mcp.ps1" },
     };
 

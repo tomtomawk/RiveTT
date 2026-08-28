@@ -37,3 +37,10 @@ docs/check_*.py
 /*.jpg
 .publish-smoke/
 
+
+# Code-signing material. New-SigningCertificate.ps1 writes outside the repository
+# on purpose, so nothing should ever match these -- they are here as a backstop,
+# because a private key committed once is a private key to revoke.
+*.pfx
+*.p12
+*.cer

@@ -44,6 +44,29 @@ AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
 VersionInfoVersion={#AppVersion}
 
+; Version resource fields, and they are not decoration: a Windows executable carrying
+; no company, product or description is one of the cheapest signals a heuristic
+; antivirus has, and this installer writes into two other products' configuration
+; files -- a shape that is already scored as suspicious. Filling these in costs
+; nothing and removes one reason to be flagged.
+VersionInfoCompany={#AppPublisher}
+VersionInfoProductName={#AppName}
+VersionInfoProductVersion={#AppVersion}
+VersionInfoDescription=Installation de {#AppName} pour Autodesk Revit
+
+; Code signing, defined only when builder\build.ps1 passed /DSign together with the
+; matching /Srivett=<command line>. Declaring SignTool= unconditionally would fail
+; every build made without a certificate -- ISCC rejects a SignTool name it was given
+; no command for -- and that is the normal case for a developer running the tests.
+;
+; SignedUninstaller matters as much as the setup itself: the uninstaller is written
+; out at install time, and an unsigned one is what the user meets months later, from
+; "Installed apps", with no context to judge it by.
+#ifdef Sign
+SignTool=rivett
+SignedUninstaller=yes
+#endif
+
 ; The whole point. "lowest" means the installer runs as the invoking user and Windows
 ; never shows a UAC prompt. Any attempt to write outside the user profile would simply
 ; fail rather than silently escalate.

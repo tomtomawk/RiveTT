@@ -54,6 +54,25 @@
     failure and must not produce a shippable installer. This switch exists for the one
     case it is legitimate -- a known-flaky test blocking an urgent build -- and it says
     so in the output rather than hiding it behind a warning nobody reads.
+
+.PARAMETER CertificateThumbprint
+    Authenticode certificate to sign with, by thumbprint, looked up in the current
+    user's certificate store. Defaults to $env:RIVETT_SIGN_THUMBPRINT. With neither
+    set the build produces UNSIGNED binaries and says so -- signing is opt-in because
+    a developer without the certificate must still be able to build.
+
+    Create one with builder\New-SigningCertificate.ps1. Nothing here is specific to a
+    self-signed certificate: a CA-issued one has a thumbprint too, so moving to a real
+    certificate later changes this parameter's VALUE and nothing else.
+
+.PARAMETER TimestampUrl
+    RFC 3161 timestamp server. Countersigning is what keeps a signature valid after the
+    certificate expires; without it every binary shipped becomes untrusted on the
+    expiry date, retroactively. Signing falls back to no timestamp with a warning when
+    the server is unreachable, rather than failing a build over an offline machine.
+
+.PARAMETER SkipSigning
+    Build without signing even when a thumbprint is available.
 #>
 [CmdletBinding()]
 param(
@@ -64,7 +83,10 @@ param(
     [string[]] $RevitVersion = @('2026', '2027'),
     [switch] $SkipTests,
     [switch] $SkipInstaller,
-    [switch] $AllowTestFailures
+    [switch] $AllowTestFailures,
+    [string] $CertificateThumbprint = $env:RIVETT_SIGN_THUMBPRINT,
+    [string] $TimestampUrl = 'http://timestamp.digicert.com',
+    [switch] $SkipSigning
 )
 
 $ErrorActionPreference = 'Stop'
@@ -109,6 +131,164 @@ function Invoke-Dotnet {
 
     if ($LASTEXITCODE -ne 0) {
         if ($WarnOnly) { Write-Warning $FailureMessage } else { throw $FailureMessage }
+    }
+}
+
+function Resolve-SignTool {
+    <#
+        signtool.exe ships with the Windows SDK and is versioned by SDK build, so there
+        is no stable path to hardcode. The newest one wins: older SDK builds predate
+        /fd, and a signature with no explicit file digest defaults to SHA1, which
+        current Windows rejects outright.
+
+        Sorted on the PARENT-OF-PARENT directory name (the SDK version, 10.0.22621.0)
+        rather than the full path, because sorting full paths puts x64 and arm64 of
+        different SDK versions in an order that has nothing to do with age.
+    #>
+    $kits = @(
+        "${env:ProgramFiles(x86)}\Windows Kits\10\bin",
+        "$env:ProgramFiles\Windows Kits\10\bin"
+    ) | Where-Object { Test-Path $_ }
+
+    $candidate = $kits |
+        ForEach-Object { Get-ChildItem -Path $_ -Filter 'signtool.exe' -Recurse -File -ErrorAction SilentlyContinue } |
+        Where-Object { $_.DirectoryName -match '\\x64$' } |
+        Sort-Object { [version]($_.Directory.Parent.Name) } -Descending |
+        Select-Object -First 1
+
+    if ($candidate) { return $candidate.FullName }
+
+    $onPath = Get-Command 'signtool.exe' -ErrorAction SilentlyContinue
+    if ($onPath) { return $onPath.Source }
+    return $null
+}
+
+function Invoke-SignTool {
+    <#
+        One signtool invocation over a batch of files. Returns $true on success.
+
+        The timestamp is attempted first and dropped on failure rather than aborting:
+        an unreachable RFC 3161 server is a network condition, not a build defect, and
+        a signature without a countersignature is still a valid signature -- it just
+        stops being one when the certificate expires. The warning says so, because that
+        is a fact about a build that has already been produced.
+
+        stderr handling mirrors Invoke-Dotnet: PowerShell 5.1 wraps a native command's
+        stderr in a terminating ErrorRecord under $ErrorActionPreference = 'Stop', and
+        signtool prints its progress there even when it succeeds.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string] $SignTool,
+        [Parameter(Mandatory = $true)][string] $Thumbprint,
+        [Parameter(Mandatory = $true)][string[]] $Paths,
+        [string] $Timestamp
+    )
+
+    $arguments = @('sign', '/sha1', $Thumbprint, '/fd', 'sha256')
+    if ($Timestamp) { $arguments += @('/tr', $Timestamp, '/td', 'sha256') }
+    $arguments += $Paths
+
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $SignTool @arguments | Out-Null } finally { $ErrorActionPreference = $previous }
+
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Invoke-SignPayload {
+    <#
+        Signs the binaries RiveTT itself produces, in builder\staging\, BEFORE ISCC
+        compresses them into the installer. Signing the setup alone would leave every
+        file it drops on the workstation unsigned -- and an antivirus scanning
+        %APPDATA% after the install looks at those, not at the installer that is by
+        then long gone.
+
+        Third-party DLLs are deliberately left alone. They arrive already signed by
+        their own publishers and signtool would REPLACE that signature, which turns a
+        certificate the world trusts into one only this agency does.
+
+        register-mcp.ps1 is signed too, through Set-AuthenticodeSignature. The
+        installer runs it with -ExecutionPolicy Bypass so it does not need to be, but
+        it is installed on the workstation and a user reading or re-running it under an
+        AllSigned policy should not be told it is untrusted.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string] $Thumbprint,
+        [Parameter(Mandatory = $true)][string] $StagingRoot,
+        [string] $Timestamp
+    )
+
+    $certificate = Get-ChildItem -Path "Cert:\CurrentUser\My\$Thumbprint" -ErrorAction SilentlyContinue
+    if (-not $certificate) {
+        throw ("Certificat $Thumbprint introuvable dans Cert:\CurrentUser\My. " +
+               "Creez-en un avec .\builder\New-SigningCertificate.ps1, ou corrigez " +
+               "RIVETT_SIGN_THUMBPRINT.")
+    }
+    if ($certificate.NotAfter -lt (Get-Date)) {
+        throw "Le certificat $Thumbprint a expire le $($certificate.NotAfter.ToString('yyyy-MM-dd'))."
+    }
+
+    $signTool = Resolve-SignTool
+    if (-not $signTool) {
+        throw ("signtool.exe introuvable : installez le SDK Windows 10/11 " +
+               "(winget install Microsoft.WindowsSDK), ou relancez avec -SkipSigning.")
+    }
+
+    # Only what this project builds: RiveTT.*.dll and RiveTT.*.exe, wherever they
+    # landed in staging (server\, 2026\plugin\, 2027\plugin\).
+    $binaries = Get-ChildItem -Path $StagingRoot -Recurse -File |
+        Where-Object { $_.Name -like 'RiveTT.*' -and $_.Extension -in @('.dll', '.exe') } |
+        Select-Object -ExpandProperty FullName
+
+    if (-not $binaries) { throw "Aucun binaire RiveTT a signer dans $StagingRoot." }
+
+    $signed = Invoke-SignTool -SignTool $signTool -Thumbprint $Thumbprint `
+                              -Paths $binaries -Timestamp $Timestamp
+    $timestamped = $signed
+    if (-not $signed -and $Timestamp) {
+        Write-Warning ("Horodatage impossible ($Timestamp injoignable) : signature sans " +
+                       "horodatage. Ces binaires deviendront non approuves a l'expiration " +
+                       "du certificat, le $($certificate.NotAfter.ToString('yyyy-MM-dd')).")
+        $signed = Invoke-SignTool -SignTool $signTool -Thumbprint $Thumbprint -Paths $binaries
+        $timestamped = $false
+    }
+    if (-not $signed) { throw "signtool a echoue (code $LASTEXITCODE)." }
+
+    $script = Join-Path $StagingRoot 'register-mcp.ps1'
+    if (Test-Path $script) {
+        $signature = if ($timestamped) {
+            Set-AuthenticodeSignature -FilePath $script -Certificate $certificate `
+                                      -HashAlgorithm SHA256 -TimestampServer $Timestamp
+        } else {
+            Set-AuthenticodeSignature -FilePath $script -Certificate $certificate `
+                                      -HashAlgorithm SHA256
+        }
+        # 'Valid' is NOT the bar to hold this to, and insisting on it broke the first
+        # signed build. Set-AuthenticodeSignature reports the result of VERIFYING what
+        # it just wrote, on this machine, against this machine's trust stores -- and a
+        # self-signed certificate is untrusted on the build machine by design, so it
+        # comes back UnknownError ("chain terminated in an untrusted root") over a
+        # signature that was applied perfectly well. A CA-issued certificate will
+        # return Valid here; both must pass.
+        #
+        # What actually distinguishes the two is SignerCertificate: null when nothing
+        # was written (NotSigned, HashMismatch), populated when it was.
+        $applied = $signature.SignerCertificate -and
+                   ($signature.Status -in @('Valid', 'UnknownError'))
+        if (-not $applied) {
+            throw ("Signature de register-mcp.ps1 en echec ($($signature.Status)) : " +
+                   $signature.StatusMessage)
+        }
+    }
+
+    $subject = $certificate.Subject
+    Write-Host "$($binaries.Count) binaires signes ($subject)." -ForegroundColor Green
+
+    # Returned so the caller can hand ISCC the same tool, certificate and timestamp:
+    # the setup and its uninstaller must carry the same signature as their payload.
+    return [pscustomobject]@{
+        SignTool  = $signTool
+        Timestamp = if ($timestamped) { $Timestamp } else { '' }
     }
 }
 
@@ -215,6 +395,29 @@ try {
         Measure-Object -Property Length -Sum).Sum / 1MB, 1)
     Write-Host "Charge utile prete dans builder\staging\ ($sizeMb Mo)." -ForegroundColor Green
 
+    # --- Signature ---
+    # Runs before the -SkipInstaller exit: a payload staged for inspection should be
+    # the same bytes that would have been packaged, signatures included.
+    $signing = $null
+    if ($SkipSigning) {
+        Write-Warning 'Signature ignoree (-SkipSigning) : binaires et installateur non signes.'
+    }
+    elseif (-not $CertificateThumbprint) {
+        # A warning, not an error. Someone building to run the tests has no certificate
+        # and does not need one; someone building a RELEASE does, and this is where they
+        # find out -- before the installer is handed to anyone.
+        Write-Warning ("Aucun certificat : binaires et installateur NON SIGNES. Windows " +
+                       "affichera un avertissement d'editeur inconnu a l'installation, et " +
+                       "les antivirus heuristiques signaleront le paquet. Pour une " +
+                       "diffusion, creez un certificat (.\builder\New-SigningCertificate.ps1) " +
+                       "puis definissez RIVETT_SIGN_THUMBPRINT.")
+    }
+    else {
+        Write-Host 'Signature des binaires...' -ForegroundColor Cyan
+        $signing = Invoke-SignPayload -Thumbprint $CertificateThumbprint `
+                                      -StagingRoot $stagingRoot -Timestamp $TimestampUrl
+    }
+
     # --- Installer ---
     if ($SkipInstaller) {
         Write-Host "Installateur ignore (-SkipInstaller) : dist\ n'est pas cree." -ForegroundColor Yellow
@@ -251,7 +454,26 @@ try {
     }
 
     Write-Host "Compilation de l'installateur..." -ForegroundColor Cyan
-    & $iscc "/DAppVersion=$version" "/O$distRoot" $issPath
+
+    # The setup and its uninstaller are signed by ISCC itself, not afterwards, and that
+    # ordering is forced: the uninstaller is generated INSIDE the compiled setup, so
+    # once dist\ exists it can no longer be reached. Hence /S, which hands Inno the
+    # command line to run per file, paired with /DSign so the .iss only declares
+    # SignTool= when one was actually supplied -- a SignTool name with no matching /S
+    # is a compile error, and that would break every build made without a certificate.
+    #
+    # $q and $f are INNO placeholders (quote, filename), not PowerShell variables, so
+    # they are built in single-quoted strings and must stay that way.
+    $isccArguments = @("/DAppVersion=$version", "/O$distRoot")
+    if ($signing) {
+        $signCommand = '$q' + $signing.SignTool + '$q sign /sha1 ' + $CertificateThumbprint + ' /fd sha256'
+        if ($signing.Timestamp) { $signCommand += ' /tr ' + $signing.Timestamp + ' /td sha256' }
+        $signCommand += ' $f'
+        $isccArguments += @('/DSign', "/Srivett=$signCommand")
+    }
+    $isccArguments += $issPath
+
+    & $iscc @isccArguments
     if ($LASTEXITCODE -ne 0) { throw "ISCC a echoue (code $LASTEXITCODE)." }
 
     $setup = Join-Path $distRoot "RiveTT-Setup-$version.exe"
@@ -259,6 +481,11 @@ try {
         $setupMb = [math]::Round((Get-Item $setup).Length / 1MB, 1)
         Write-Host "Installateur pret : $setup ($setupMb Mo)" -ForegroundColor Green
         Write-Host 'Aucune elevation administrateur requise a son execution.'
+        if ($signing) {
+            Write-Host 'Signe, desinstalleur compris.'
+        } else {
+            Write-Host 'NON SIGNE.' -ForegroundColor Yellow
+        }
         # Said at the END, where it is read. A warning printed 200 lines earlier,
         # between two dotnet builds, is a warning nobody sees.
         if ($script:shippedOverFailingTests) {
