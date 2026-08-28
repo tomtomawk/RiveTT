@@ -41,8 +41,22 @@ version :
 - **reconnecter le serveur MCP** dans le client si `RiveTT.Server` tournait.
 
 Puis ouvrir un projet et attendre quelques secondes que sa session soit publiée.
-Vérifier la version active avec `get_server_capabilities`
-(`execution.serverVersion`).
+
+**Vérifier que la mise à jour est complète.** RiveTT est en deux morceaux installés
+à deux endroits : le plugin dans Revit, le serveur MCP dans
+`%LOCALAPPDATA%\RiveTT\server`. Une installation faite pendant que le client MCP
+tourne peut poser le plugin sans remplacer le serveur, verrouillé par le processus
+en cours. N'importe quel appel le dit :
+
+    execution.pluginVersion      version du plugin, côté Revit
+    execution.mcpServerVersion   version du serveur MCP
+    execution.versionMismatch    présent uniquement si les deux diffèrent
+
+Si `versionMismatch` apparaît, la session est bancale : les noms d'outils et les
+paramètres publiés sont ceux du **serveur**, pas ceux du plugin — un outil renommé
+entre les deux répond « not found », un paramètre ajouté entre les deux est ignoré
+en silence. Relancer l'installateur, puis **redémarrer le client MCP** : redémarrer
+Revit ne change rien, le serveur est un autre processus.
 
 ## Le verrou d'écriture
 
@@ -208,12 +222,14 @@ dégroupage/regroupage ne sait faire.
 
 ### Réponses et pagination
 
-Chaque succès contient `execution.connector`, `serverVersion`, `revitVersion`,
-`mode`, `toolReadOnly`, `toolDestructive`, `writesAllowed` et `cached`. Un
-aperçu d'écriture contient toujours `dryRun:true` et `mutated:false`.
+Chaque succès contient `execution.connector`, `pluginVersion`, `mcpServerVersion`,
+`revitVersion`, `mode`, `toolReadOnly`, `toolDestructive`, `writesAllowed` et
+`cached`, plus `versionMismatch` quand les deux versions diffèrent. Un aperçu
+d'écriture contient toujours `dryRun:true` et `mutated:false`.
 
-`toolReadOnly` classe **l'outil qui répond**, ce n'est pas un état de session :
-RiveTT n'a pas de mode lecture seule, `writesAllowed` vaut toujours `true`.
+`toolReadOnly` classe **l'outil qui répond**, ce n'est pas un état de session.
+L'état de session, c'est `writesAllowed` : il vaut **`false` au démarrage de chaque
+session Revit** et seul le bouton *Écriture* du ruban le passe à `true`.
 `cached: true` signale une réponse servie par le cache. Tout cache est vidé
 après `save_document`/`save_as_document`.
 

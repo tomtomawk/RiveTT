@@ -153,7 +153,12 @@ public sealed class RevitConnectionManager
         try
         {
             using var bridge = new RevitPipeBridge(commandTimeoutSeconds);
-            return await bridge.SendCommandAsync(method, parameters, cancellationToken, publicToolName).ConfigureAwait(false);
+            var response = await bridge.SendCommandAsync(method, parameters, cancellationToken, publicToolName)
+                .ConfigureAwait(false);
+            // Single choke point for every tool, which is why the version stamp goes
+            // here: the server and the plugin are installed separately and can end up
+            // mismatched, and no individual tool is in a position to notice.
+            return ConnectorVersions.Stamp(response);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -167,7 +172,8 @@ public sealed class RevitConnectionManager
             // which reads as "the tool is broken" and sent past sessions hunting
             // through paths, caches and document state for a problem that was a dead
             // pipe or a timeout.
-            return TransportError.Describe(method, exception, commandTimeoutSeconds);
+            return ConnectorVersions.Stamp(
+                TransportError.Describe(method, exception, commandTimeoutSeconds));
         }
         finally
         {

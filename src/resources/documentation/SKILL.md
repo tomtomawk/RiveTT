@@ -28,15 +28,21 @@ separate AI copy to drift out of step.
    `writesAllowed: false`, stop and ask for the unlock — no tool, and no
    `dryRun`, gets past it. `execution.cached: true` means the answer came from
    the cache.
-7. Parameter names resolve in English or in the document language. A name that
+7. `execution.versionMismatch` in any response means the MCP server and the Revit
+    plugin are different versions. Stop and report it: the tool names and
+    parameters you can see are the SERVER's, so a renamed tool answers "not found"
+    and a newer parameter is silently dropped. The fix is to re-run the installer
+    and restart the MCP client — restarting Revit does nothing, the server is a
+    separate process.
+8. Parameter names resolve in English or in the document language. A name that
    resolves to nothing comes back in `unresolvedParameterNames` (or
    `skippedFields[].reason`), never as an empty value — treat an empty column
    without such a report as real data.
-8. Numeric parameter values carry `unit` and `internalValue`. Never read a bare
+9. Numeric parameter values carry `unit` and `internalValue`. Never read a bare
    number as project units.
-9. Prefer `categoryBic` (`OST_*`) over the localized category label: Revit FR
+10. Prefer `categoryBic` (`OST_*`) over the localized category label: Revit FR
    names the viewport category "Fenêtres ", like windows.
-10. System types (walls, floors, railings, stairs, title blocks) are not
+11. System types (walls, floors, railings, stairs, title blocks) are not
     loadable families: enumerate with `list_system_types`, duplicate with
     `duplicate_system_type`.
 

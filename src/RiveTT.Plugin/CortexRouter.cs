@@ -144,6 +144,16 @@ public class CortexRouter
             IsReadOnlyTool(tool.Name), destructive: false, declared: false);
     }
 
+    /// <summary>
+    /// Version of THIS assembly, the Revit-side half of the connector. It used to be
+    /// reported as execution.serverVersion, which named the wrong binary: the MCP
+    /// server is a separate exe with its own install path and its own version, and a
+    /// half-applied update leaves the two apart. The server stamps its own as
+    /// execution.mcpServerVersion and flags the disagreement.
+    /// </summary>
+    internal static string PluginVersion { get; } =
+        typeof(CortexRouter).Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
+
     public CortexResult<object> Route(string toolName, JObject input, string? publicToolName = null)
     {
         // The name to show the caller: several agent-facing MCP tools route
@@ -154,9 +164,22 @@ public class CortexRouter
         var displayName = string.IsNullOrEmpty(publicToolName) ? toolName : publicToolName;
 
         if (!_tools.TryGetValue(toolName, out var tool))
+            // pluginVersion travels with this particular failure on purpose. An MCP
+            // server older than the plugin publishes tool names this router no longer
+            // knows, and "not found" is the only symptom -- so the two versions must be
+            // readable right here, where the server stamps its own alongside them.
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput,
                 $"Tool '{displayName}' not found",
-                suggestion: $"Available tools: {string.Join(", ", GetAvailableToolNames())}");
+                suggestion: "If the MCP server and the plugin report different versions in " +
+                            "this error's context, that is the cause: the server is publishing " +
+                            "the tool surface of ITS version. Otherwise, available tools: " +
+                            string.Join(", ", GetAvailableToolNames()),
+                context: new Dictionary<string, object>
+                {
+                    ["stage"] = "routing",
+                    ["pluginVersion"] = PluginVersion,
+                    ["modelChanged"] = false
+                });
 
         // The ribbon write lock, checked before everything else: a locked session
         // must answer the same whether or not a document is open, and the refusal
@@ -348,7 +371,7 @@ public class CortexRouter
         obj["execution"] = new JObject
         {
             ["connector"] = "RiveTT",
-            ["serverVersion"] = typeof(CortexRouter).Assembly.GetName().Version?.ToString() ?? "0.0.0.0",
+            ["pluginVersion"] = PluginVersion,
             ["revitVersion"] = GetActiveRevitVersion(),
             ["mode"] = "automatic",
             // toolReadOnly classifies THIS tool. It was named "readOnly", which read

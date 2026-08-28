@@ -67,6 +67,15 @@ sheet with no frame, silently, and no presentation sheet could be produced at
 all. `ServerRuntimeParameterContractTests` now fails the build on that class of
 mismatch — do not add a waiver to it without a reason in the table.
 
+The same two-sidedness applies to the BINARIES, not just the JSON. The server and
+the plugin ship as separate files to separate destinations, so a user can end up
+running a mixed pair — it happened on 2026-08-28, when an install landed the 0.4.0
+plugin but could not replace the running 0.2.0 server, which went on publishing
+pre-0.3.0 tool names. Each half now reports its own version
+(`execution.pluginVersion`, `execution.mcpServerVersion`) and the server flags the
+disagreement as `execution.versionMismatch`. Do not collapse them back into one
+field: a single version read from either half cannot detect this.
+
 When you add or rename a parameter:
 
 - add it on both sides in the same change, or accept the old name as an alias

@@ -35,10 +35,16 @@ Pour la signature d'un outil : l'attribut `[McpServerTool]` correspondant dans
 
 ## Contrat de réponse
 
-Tout succès porte `execution.{connector, serverVersion, revitVersion, mode,
-toolReadOnly, toolDestructive, writesAllowed, cached}`. `toolReadOnly` classe
-l'outil, pas la session. Les anciens noms `readOnly`/`destructive` n'existent
-plus.
+Tout succès porte `execution.{connector, pluginVersion, mcpServerVersion,
+revitVersion, mode, toolReadOnly, toolDestructive, writesAllowed, cached}`.
+`toolReadOnly` classe l'outil, pas la session ; `writesAllowed` est le verrou de
+session. Les anciens noms `readOnly`/`destructive` n'existent plus, et
+`serverVersion` non plus : il était lu sur le plugin, ce qui rendait invisible une
+mise à jour appliquée à moitié.
+
+Les deux moitiés sont installées séparément. Quand leurs versions diffèrent, la
+réponse porte en plus `execution.versionMismatch` — et sur un outil introuvable, la
+même information arrive dans `error.context`.
 
 ## Mise à jour
 

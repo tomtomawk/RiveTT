@@ -14,7 +14,10 @@ builder.Services
         options.ServerInfo = new()
         {
             Name = "RiveTT",
-            Version = "0.4.0"
+            // Read from the assembly, not typed here: a literal is a second place to
+            // forget when Directory.Build.props moves, and this number is what an MCP
+            // client shows the user as "the connector version".
+            Version = ConnectorVersions.McpServer
         };
         options.ServerInstructions =
             "RiveTT connects automatically to the active Revit session (2026.5+ or 2027) through a local Windows named pipe. " +

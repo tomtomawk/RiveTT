@@ -1,9 +1,14 @@
 <Project>
   <!--
-    Single source of truth for the connector version. It surfaces to callers as
-    execution.serverVersion (read from the plugin assembly) and as the MCP
-    ServerInfo version in src/RiveTT.Server/Program.cs — keep that literal
-    in step when bumping this.
+    Single source of truth for the connector version, for BOTH halves: the Revit
+    plugin reports it as execution.pluginVersion and the MCP server as
+    execution.mcpServerVersion and as its MCP ServerInfo version. Both read their
+    own assembly, so there is no literal left to keep in step — there used to be
+    one in src/RiveTT.Server/Program.cs.
+
+    The two are installed to different places (%APPDATA%\Autodesk\Revit\Addins\...
+    and %LOCALAPPDATA%\RiveTT\server), so an update can land one without the other.
+    When the two versions disagree the response carries execution.versionMismatch.
   -->
   <PropertyGroup>
     <Version>0.4.0</Version>

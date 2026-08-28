@@ -29,7 +29,12 @@ transactions et sont consignées dans `%LOCALAPPDATA%\RiveTT\audit.jsonl`.
 - `execution.toolReadOnly` classe l'outil, pas la session ;
   `execution.writesAllowed` donne l'état du verrou d'écriture du ruban — faux au
   démarrage de chaque session Revit, et aucun outil ne peut le lever ;
-  `execution.cached` signale une réponse issue du cache.
+  `execution.cached` signale une réponse issue du cache ;
+- `execution.pluginVersion` et `execution.mcpServerVersion` donnent les versions des
+  **deux** moitiés, installées séparément (plugin dans Revit, serveur dans
+  `%LOCALAPPDATA%\RiveTT\server`). Quand elles diffèrent, `execution.versionMismatch`
+  le dit : la surface d'outils publiée est alors celle du serveur, pas celle du
+  plugin.
 
 ## Documentation
 
