@@ -95,11 +95,16 @@ Le connecteur se charge avec Revit et ne demande aucune autorisation par appel. 
 interrupteur, la seule limite entre un agent connecté et la maquette serait son propre
 jugement. D'où le panneau **Compléments → RiveTT** :
 
-| Bouton | Effet |
-|---|---|
-| **Lecture seule** (cadenas orange) | Tout outil susceptible de modifier la maquette est refusé avec `PermissionDenied`, **avant exécution** : la maquette n'est pas touchée. Les outils de lecture répondent normalement |
-| **Écriture** (cadenas vert ouvert) | Les outils d'écriture redeviennent exécutables. Chaque appel reste transactionnel et journalisé |
-| **État** (pastille bleue) | Versions, état du canal nommé, mode courant et son origine, document actif, nombre d'outils publiés, accès au journal d'audit |
+| Bouton | Icône | Effet |
+|---|---|---|
+| **Lecture seule** | bouton-poussoir **bleu, relevé** | Tout outil susceptible de modifier la maquette est refusé avec `PermissionDenied`, **avant exécution** : la maquette n'est pas touchée. Les outils de lecture répondent normalement |
+| **Écriture** | bouton-poussoir **orange, enfoncé** | Les outils d'écriture redeviennent exécutables. Chaque appel reste transactionnel et journalisé |
+| **État** | pastille bleue d'information | Versions, état du canal nommé, mode courant et son origine, document actif, nombre d'outils publiés, accès au journal d'audit |
+
+Les deux premiers forment une **paire à bascule** : l'un des deux est toujours
+enfoncé, et c'est *Lecture seule* à chaque démarrage de Revit. Pour connaître l'état
+courant, il suffit donc de regarder lequel l'est — pas besoin d'interroger le
+connecteur.
 
 Trois propriétés à retenir :
 
