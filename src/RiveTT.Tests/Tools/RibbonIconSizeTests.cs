@@ -3,6 +3,8 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -11,9 +13,9 @@ namespace RiveTT.Tests.Tools;
 /// <summary>
 /// Every ribbon icon must be exactly the size its filename claims.
 ///
-/// lock-32.png shipped at 128x128 and lock-16.png at 64x64 — four times nominal —
-/// while status-*.png, the only pair the generator actually produced, was correct.
-/// The buttons then showed no icon in Revit and nothing failed: CortexRibbon.LoadIcon
+/// The rivet artwork shipped at 128x128 and 64x64 — four times nominal — while
+/// status-*.png, the only pair the generator actually produced, was correct.
+/// The buttons then showed no icon in Revit and nothing failed: RiveTTRibbon.LoadIcon
 /// finds the resource, decodes it, assigns it, and returns without complaint. A
 /// wrong-sized icon is invisible, not broken, which is why it survived review.
 ///
@@ -80,7 +82,7 @@ public class RibbonIconSizeTests
     [Fact]
     public void EveryRibbonButtonHasBothSizes()
     {
-        // CortexRibbon.Button asks for "<role>-32.png" and "<role>-16.png" for every
+        // RiveTTRibbon.Button asks for "<role>-32.png" and "<role>-16.png" for every
         // button. A missing one is silently skipped by the `if (large != null)` guard.
         var dir = ResourcesDir();
         var roles = Directory.GetFiles(dir, "*.png", SearchOption.TopDirectoryOnly)
@@ -100,16 +102,71 @@ public class RibbonIconSizeTests
         }
     }
 
+    /// <summary>Manifest resource names of an assembly, read from the PE metadata.</summary>
+    private static List<string> ManifestResourceNames(string assemblyPath)
+    {
+        using var stream = File.OpenRead(assemblyPath);
+        using var pe = new PEReader(stream);
+        var reader = pe.GetMetadataReader();
+        return reader.ManifestResources
+            .Select(handle => reader.GetString(reader.GetManifestResource(handle).Name))
+            .ToList();
+    }
+
+    [Fact]
+    public void EveryRibbonIconIsEmbeddedUnderTheNameTheRibbonAsksFor()
+    {
+        // LoadIcon resolves by NAME SUFFIX against the assembly manifest, and MSBuild
+        // derives that name from the file path rather than copying it: a character it
+        // dislikes becomes an underscore, the suffix stops matching, and the button
+        // shows nothing at all. Silent, exactly like the wrong-size case above — the
+        // icon is missing, not broken, so nothing fails.
+        //
+        // Worth pinning since the roles were renamed from lock/unlock to
+        // rivet-libre/rivet-pose: that put hyphens inside a role name for the first
+        // time, and hyphens are precisely what a name-mangling step would take.
+        var dll = Path.Combine(AppContext.BaseDirectory, "RiveTT.Plugin.dll");
+        Assert.True(File.Exists(dll), $"RiveTT.Plugin.dll absent de la sortie de test : {dll}");
+
+        var embedded = ManifestResourceNames(dll);
+        Assert.NotEmpty(embedded);
+
+        var dir = ResourcesDir();
+        var roles = Directory.GetFiles(dir, "*.png", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFileName)
+            .Where(n => n is not null)
+            .Select(n => Regex.Replace(n!, @"-\d+\.png$", ""))
+            .Distinct()
+            .ToList();
+
+        var missing = new List<string>();
+        foreach (var role in roles)
+        {
+            foreach (var size in new[] { 16, 32 })
+            {
+                var asked = $"{role}-{size}.png";
+                if (!embedded.Any(name => name.EndsWith(asked, StringComparison.Ordinal)))
+                    missing.Add(asked);
+            }
+        }
+
+        Assert.True(missing.Count == 0,
+            "Ces icones sont sur le disque mais aucune ressource embarquee ne finit par "
+            + "leur nom, donc le ruban les cherchera en vain : "
+            + string.Join(", ", missing)
+            + ". Ressources presentes : " + string.Join(", ", embedded));
+    }
+
     [Fact]
     public void HandAuthoredArtworkKeepsItsHighResolutionSource()
     {
-        // The lock/unlock artwork is resampled by tools\make-ribbon-icons.ps1. Losing
-        // the originals would mean the nominal-size PNGs become the only copy, and the
+        // The rivet artwork is resampled by tools\make-ribbon-icons.ps1. Losing the
+        // originals would mean the nominal-size PNGs become the only copy, and the
         // next regeneration would upscale 32x32 art.
         var source = Path.Combine(ResourcesDir(), "source");
         Assert.True(Directory.Exists(source), "Resources\\source\\ is missing.");
 
-        foreach (var art in new[] { "lock", "unlock" })
+        foreach (var art in new[] { "rivet-libre", "rivet-pose" })
         {
             var path = Path.Combine(source, $"{art}.png");
             Assert.True(File.Exists(path), $"High-resolution source missing: {art}.png");

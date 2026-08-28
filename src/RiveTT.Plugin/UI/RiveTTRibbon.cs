@@ -17,14 +17,14 @@ namespace RiveTT.Plugin.UI;
 /// Revit whatever this panel does, and a failure to build the panel must not
 /// stop it.
 /// </summary>
-internal static class CortexRibbon
+internal static class RiveTTRibbon
 {
     private const string PanelName = "RiveTT";
 
     public static void Build(UIControlledApplication application)
     {
         var panel = application.CreateRibbonPanel(Tab.AddIns, PanelName);
-        var assemblyPath = typeof(CortexRibbon).Assembly.Location;
+        var assemblyPath = typeof(RiveTTRibbon).Assembly.Location;
 
         // A radio group, not two independent buttons: the two modes are exclusive
         // and the ribbon then shows which one is current without us tracking it.
@@ -33,7 +33,7 @@ internal static class CortexRibbon
 
         var locked = group.AddItem(Button(new ToggleButtonData(
             "RiveTT_Lock", "Lecture seule", assemblyPath,
-            typeof(LockWritesCommand).FullName), "lock"));
+            typeof(LockWritesCommand).FullName), "rivet-libre"));
         locked.ToolTip = "Refuser toute écriture dans le modèle";
         locked.LongDescription =
             "Les outils de lecture continuent de répondre. Tout outil susceptible de " +
@@ -42,7 +42,7 @@ internal static class CortexRibbon
 
         var writable = group.AddItem(Button(new ToggleButtonData(
             "RiveTT_Write", "Écriture", assemblyPath,
-            typeof(AllowWritesCommand).FullName), "unlock"));
+            typeof(AllowWritesCommand).FullName), "rivet-pose"));
         writable.ToolTip = "Autoriser le connecteur à modifier le modèle";
         writable.LongDescription =
             "Les outils d'écriture deviennent exécutables. Chaque appel reste " +
@@ -89,7 +89,7 @@ internal static class CortexRibbon
     {
         try
         {
-            var assembly = typeof(CortexRibbon).Assembly;
+            var assembly = typeof(RiveTTRibbon).Assembly;
             var resource = assembly.GetManifestResourceNames()
                 .FirstOrDefault(name => name.EndsWith("." + fileName, StringComparison.OrdinalIgnoreCase));
             if (resource == null)

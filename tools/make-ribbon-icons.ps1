@@ -4,12 +4,13 @@
 #
 #   .\tools\make-ribbon-icons.ps1
 #
-# The status icon is drawn here. The lock and unlock icons are hand-authored
-# artwork, kept at high resolution under Resources\source\ and RESAMPLED here.
+# The status icon is drawn here. The two rivet icons -- rivet-libre and rivet-pose,
+# the ribbon's read-only and write states -- are hand-authored artwork, kept at high
+# resolution under Resources\source\ and RESAMPLED here.
 #
 # That split is the whole point of this script owning all six files. It used to
 # disclaim the hand-authored pair -- "this script does not touch them" -- and they
-# drifted: lock-32.png was committed at 128x128 and lock-16.png at 64x64, four
+# drifted: the 32px rivet was committed at 128x128 and the 16px one at 64x64, four
 # times their nominal size, under names that said otherwise. status-*.png, the
 # only pair this script generated, was the only pair at the right size. Nothing
 # failed loudly; the buttons simply had no visible icon.
@@ -49,7 +50,7 @@ function Save-Bitmap($ctx, [string] $name) {
 }
 
 # Status: a filled disc carrying a white "i". Recognisable as information at both
-# sizes, and it does not compete with the lock/unlock artwork for meaning.
+# sizes, and it does not compete with the rivet artwork for meaning.
 function Draw-Status($ctx, $colour) {
     $s = [double] $ctx.Size
     $g = $ctx.Graphics
@@ -101,7 +102,7 @@ foreach ($size in $sizes) {
     Save-Bitmap $ctx "status-$size.png"
 }
 
-foreach ($art in 'lock', 'unlock') {
+foreach ($art in 'rivet-libre', 'rivet-pose') {
     $sourcePath = Join-Path $srcDir "$art.png"
     if (-not (Test-Path -LiteralPath $sourcePath)) {
         throw "Artwork source introuvable : $sourcePath"

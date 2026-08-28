@@ -72,7 +72,7 @@ public sealed class RiveTTApp : IExternalApplication
             // the courtesy.
             try
             {
-                CortexRibbon.Build(application);
+                RiveTTRibbon.Build(application);
             }
             catch (Exception ribbonException)
             {
