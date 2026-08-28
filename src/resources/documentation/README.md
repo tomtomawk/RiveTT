@@ -97,9 +97,12 @@ jugement. D'où le panneau **Compléments → RiveTT** :
 
 | Bouton | Icône | Effet |
 |---|---|---|
-| **Lecture seule** | bouton-poussoir **bleu, relevé** | Tout outil susceptible de modifier la maquette est refusé avec `PermissionDenied`, **avant exécution** : la maquette n'est pas touchée. Les outils de lecture répondent normalement |
-| **Écriture** | bouton-poussoir **orange, enfoncé** | Les outils d'écriture redeviennent exécutables. Chaque appel reste transactionnel et journalisé |
+| **Lecture seule** | **rivet bleu**, dressé au-dessus de deux plaques encore libres | Tout outil susceptible de modifier la maquette est refusé avec `PermissionDenied`, **avant exécution** : la maquette n'est pas touchée. Les outils de lecture répondent normalement |
+| **Écriture** | **rivet orange**, posé, les deux plaques assemblées | Les outils d'écriture redeviennent exécutables. Chaque appel reste transactionnel et journalisé |
 | **État** | pastille bleue d'information | Versions, état du canal nommé, mode courant et son origine, document actif, nombre d'outils publiés, accès au journal d'audit |
+
+Le rivet est celui du nom : froid et libre, rien n'est assemblé ; chaud et posé, la
+liaison est faite. C'est le moyen le plus simple de lire l'état d'un coup d'œil.
 
 Les deux premiers forment une **paire à bascule** : l'un des deux est toujours
 enfoncé, et c'est *Lecture seule* à chaque démarrage de Revit. Pour connaître l'état
