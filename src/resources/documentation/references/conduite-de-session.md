@@ -2,7 +2,7 @@
 
 **Portée :** ouvrir une session sur un modèle, et choisir à chaque demande l'outil
 le moins coûteux qui la résout.
-**Sources :** `inventaire-des-outils.md`, `../USER_GUIDE.md`.
+**Sources :** `inventaire-des-outils.md`, `../README.md`.
 **Vérifié le :** 2026-08-28
 
 ## Ouvrir la session

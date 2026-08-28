@@ -1,13 +1,15 @@
-# Codex CLI agent metadata for the 'rivett' skill.
-# Mirror of SKILL.md frontmatter. Used only when the skill is installed
-# in $CODEX_HOME/skills/. Claude Code reads SKILL.md directly.
+# Metadonnees Codex CLI pour le skill 'rivett'.
+# Miroir du frontmatter de SKILL.md : les deux doivent rester en phase.
+# Utilise uniquement quand le skill est installe dans $CODEX_HOME/skills/.
+# Claude Code lit SKILL.md directement.
 
 name: rivett
 description: |
-  Use when working with RiveTT operations, Revit 2026.5+ or 2027
-  model automation, MCP tool workflows, or C# development. Routes Codex
-  to safe writes, send_code_to_revit escalation, IFC, tool development,
-  audit security, and .NET 10 build/test checks.
+  A utiliser pour toute operation RiveTT — automatisation d'une maquette
+  Revit 2026.5+ ou 2027, workflows d'outils MCP, developpement du plugin ou
+  du serveur C#. Couvre les ecritures sures, l'escalade vers
+  send_code_to_revit, l'IFC, la creation d'outils, l'audit de securite et
+  les controles de build .NET 10.
 
 references_dir: references
 entrypoint: SKILL.md

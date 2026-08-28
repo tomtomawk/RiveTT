@@ -46,10 +46,8 @@ installée sous `%LOCALAPPDATA%\RiveTT\documentation`
 
 | Document | Quand |
 |---|---|
-| [README.md](src/resources/documentation/README.md) | Point d'entrée du dossier |
-| [USER_GUIDE.md](src/resources/documentation/USER_GUIDE.md) | Installation, verrou d'écriture, gestes courants |
-| [SECURITY.md](src/resources/documentation/SECURITY.md) | Ce que le connecteur s'autorise, et ce qui l'en empêche |
-| [SKILL.md](src/resources/documentation/SKILL.md) | Routeur pour l'agent : quelles références charger, et les règles permanentes |
+| [README.md](src/resources/documentation/README.md) | **Le guide.** Installation, verrou d'écriture, sécurité, gestes courants, contrat de réponse |
+| [SKILL.md](src/resources/documentation/SKILL.md) | Routeur pour l'agent : les règles permanentes, et quelle référence charger |
 | [references/](src/resources/documentation/references/) | Le détail, opération par opération |
 
 Un seul jeu de fichiers, lu par l'humain **et** par l'agent. Il n'y a pas une
@@ -117,6 +115,38 @@ retenir :
     builder\staging\documentation\  copie de src\resources\documentation
 
     dist\RiveTT-Setup-<version>.exe
+
+### Signer les binaires
+
+Non signé, l'installateur déclenche « éditeur inconnu » à chaque exécution et se
+fait signaler par les antivirus heuristiques. La signature est **facultative** :
+sans certificat le build passe et avertit, pour qu'un développeur puisse compiler
+et lancer les tests sans rien mettre en place.
+
+```powershell
+# une fois : créer le certificat, dans le magasin de l'utilisateur
+.\builder\New-SigningCertificate.ps1 -Subject 'Nom Prenom'
+
+# une fois : mémoriser son empreinte pour tous les builds à venir
+[Environment]::SetEnvironmentVariable('RIVETT_SIGN_THUMBPRINT', '<empreinte>', 'User')
+
+# ensuite, rien de plus : build.ps1 signe binaires, installateur et désinstalleur
+.\builder\build.ps1
+.\builder\build.ps1 -SkipSigning       # forcer un build non signé
+```
+
+Le certificat produit est **auto-signé**, et sa portée est exactement celle-là :
+
+- il ne vaut rien tant que le certificat public (`.cer`, écrit hors du dépôt) n'a
+  pas été déployé par GPO dans *Autorités de certification racines de confiance*
+  **et** dans *Éditeurs approuvés* de chaque poste ;
+- une fois déployé, l'avertissement disparaît sur les postes de l'agence, et sur
+  eux seuls. Pour une diffusion externe il faut un certificat d'une véritable
+  autorité — [SignPath Foundation](https://signpath.org/) est gratuit pour les
+  projets open source, ce qu'est RiveTT.
+
+Le passage à ce certificat-là ne changera rien d'autre : `build.ps1` signe par
+empreinte, et un certificat émis par une autorité en a une aussi.
 
 Inno Setup lit `builder\staging\` et écrit `dist\`. **Tout ce qui se trouve dans
 `dist\` est publiable tel quel** — rien d'autre n'y va, et `-SkipInstaller` ne le

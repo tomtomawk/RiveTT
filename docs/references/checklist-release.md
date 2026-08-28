@@ -59,7 +59,7 @@ to uninstall.
   file as Windows-1252 and multi-byte characters decode into curly quotes, which it
   honours as string delimiters — that silently stripped `$LASTEXITCODE` out of a
   guard. `BuildScriptEncodingTests` fails the suite if the BOM goes missing.
-- `src/resources/documentation/USER_GUIDE.md` reflects changed user-facing tools,
+- `src/resources/documentation/README.md` reflects changed user-facing tools,
   and `python tools/audit-tool-surface.py` has been re-run so
   `src/resources/documentation/references/inventaire-des-outils.md` matches the
   surface being shipped. Both are installed on the workstation.

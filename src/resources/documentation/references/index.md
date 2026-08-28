@@ -2,7 +2,7 @@
 
 Source canonique commune : l'opérateur humain et l'agent lisent les mêmes fichiers.
 `../SKILL.md` indique à l'agent lesquels charger selon la demande ; ce tableau sert à
-les retrouver à la main.
+les retrouver à la main. Le guide complet est dans `../README.md`.
 
 | Document | Ce qu'il couvre |
 |---|---|

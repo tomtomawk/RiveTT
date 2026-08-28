@@ -2,7 +2,7 @@
 
 **Portée :** modifier le modèle — le verrou, la prévisualisation, les paramètres,
 et le cas où un script devient légitime.
-**Sources :** `../SECURITY.md`, `src/RiveTT.Core/Security/CodeSandbox.cs`.
+**Sources :** `../README.md`, `src/RiveTT.Core/Security/CodeSandbox.cs`.
 **Vérifié le :** 2026-08-28
 
 ## Le verrou d'écriture passe avant tout

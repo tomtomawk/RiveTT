@@ -1,74 +1,77 @@
 ---
 name: rivett
-description: Use when working with RiveTT operations, Revit 2026.5+ or 2027 model automation, MCP tool workflows, or the C# plugin/server. Covers safe writes, send_code_to_revit escalation, IFC, tool development, audit security, and .NET 10 build checks.
+description: À utiliser pour toute opération RiveTT — automatisation d'une maquette Revit 2026.5+ ou 2027, workflows d'outils MCP, développement du plugin ou du serveur C#. Couvre les écritures sûres, l'escalade vers send_code_to_revit, l'IFC, la création d'outils, l'audit de sécurité et les contrôles de build .NET 10.
 ---
 
-# RiveTT skill router
+# Routeur RiveTT
 
-Load only the references needed for the current task. They sit in `references/`,
-next to this file, and are the same documents a human operator reads — there is no
-separate AI copy to drift out of step.
+Ne charger que les références utiles à la demande en cours. Elles sont dans
+`references/`, à côté de ce fichier, et ce sont **les mêmes documents que lit
+l'opérateur humain** : il n'existe pas de copie séparée pour l'IA qui pourrait
+diverger.
 
-## Always-on rules
+## Règles permanentes
 
-1. For Revit model work, read `references/conduite-de-session.md` first.
-2. For writes, read `references/ecritures.md`; preview with `dryRun: true`
-   whenever the tool supports it, and never assume the write lock is open.
-3. `send_code_to_revit` is a last resort; read the escalation section of
-   `references/ecritures.md` before proposing it.
-4. C# development targets Revit 2026.5+ and 2027, .NET 10, and x64 only. A single
-   build runs against ONE Revit version: the plugin is rebuilt per target, not
-   multi-targeted.
-5. Keep named-pipe isolation, audit logging, structured errors, and the Roslyn
-   sandbox intact.
-6. `execution.toolReadOnly` classifies the tool that answered — it is NOT a
-   session lock. `execution.writesAllowed` IS the session lock: every Revit
-   session starts read-only, and only a human unlocks it from the RiveTT
-   ribbon panel (Add-Ins tab). On `PermissionDenied` with
-   `writesAllowed: false`, stop and ask for the unlock — no tool, and no
-   `dryRun`, gets past it. `execution.cached: true` means the answer came from
-   the cache.
-7. `execution.versionMismatch` in any response means RiveTT is only half updated:
-    the command list you can see is the older half's, so a renamed tool answers
-    "not found" and a newer parameter is silently dropped. Stop and tell the user,
-    in their terms: fully quit the AI application they are using with Revit (quit
-    the app, not just the window), re-run the installer, reopen it. Restarting Revit
-    does not help. Skip the plugin-versus-server explanation unless they ask.
-8. Parameter names resolve in English or in the document language. A name that
-   resolves to nothing comes back in `unresolvedParameterNames` (or
-   `skippedFields[].reason`), never as an empty value — treat an empty column
-   without such a report as real data.
-9. Numeric parameter values carry `unit` and `internalValue`. Never read a bare
-   number as project units.
-10. Prefer `categoryBic` (`OST_*`) over the localized category label: Revit FR
-   names the viewport category "Fenêtres ", like windows.
-11. System types (walls, floors, railings, stairs, title blocks) are not
-    loadable families: enumerate with `list_system_types`, duplicate with
-    `duplicate_system_type`.
+1. Pour toute intervention sur une maquette, lire d'abord
+   `references/conduite-de-session.md`.
+2. Pour toute écriture, lire `references/ecritures.md` ; prévisualiser avec
+   `dryRun: true` dès que l'outil le propose, et ne jamais supposer le verrou ouvert.
+3. `send_code_to_revit` est un dernier recours : lire la section « Escalader » de
+   `references/ecritures.md` avant de le proposer.
+4. Le développement C# cible Revit 2026.5+ et 2027, .NET 10, x64 uniquement. Une
+   compilation donnée tourne contre **une** version de Revit : le plugin est rebâti
+   par cible, il n'est pas multi-cible.
+5. Ne pas toucher à l'isolation par canal nommé, au journal d'audit, aux erreurs
+   structurées ni au bac à sable Roslyn.
+6. `execution.toolReadOnly` classe **l'outil qui a répondu**, ce n'est pas un verrou de
+   session. Le verrou de session, c'est `execution.writesAllowed` : chaque session
+   Revit démarre en lecture seule, et seul un humain la déverrouille depuis le panneau
+   RiveTT du ruban (onglet Compléments). Sur un `PermissionDenied` avec
+   `writesAllowed: false`, s'arrêter et demander le déverrouillage — aucun outil, et
+   aucun `dryRun`, ne passe outre. `execution.cached: true` signale une réponse de
+   cache.
+7. `execution.versionMismatch` signifie que RiveTT n'est mis à jour qu'à moitié : la
+   liste de commandes visible est celle de la moitié la plus ancienne, donc un outil
+   renommé répond « not found » et un paramètre récent est ignoré en silence.
+   S'arrêter et le dire à l'utilisateur **dans ses termes** : quitter complètement
+   l'application d'IA utilisée avec Revit — quitter, pas seulement fermer la fenêtre —
+   relancer l'installateur, la rouvrir. Redémarrer Revit ne sert à rien. Ne pas
+   expliquer la séparation plugin/serveur si on ne le demande pas.
+8. Les noms de paramètres se résolvent en anglais **ou** dans la langue du document. Un
+   nom non résolu revient dans `unresolvedParameterNames` (ou `skippedFields[].reason`),
+   jamais sous forme de valeur vide : une colonne vide **sans** ce signalement est une
+   vraie donnée vide.
+9. Les valeurs numériques portent `unit` et `internalValue`. Ne jamais lire un nombre
+   nu comme s'il était dans les unités du projet.
+10. Préférer `categoryBic` (`OST_*`) au libellé localisé : Revit FR nomme la catégorie
+    des vues portées « Fenêtres », comme les fenêtres.
+11. Les types système — murs, sols, garde-corps, escaliers, cartouches — ne sont pas
+    des familles chargeables : les énumérer avec `list_system_types`, les dupliquer
+    avec `duplicate_system_type`.
 
-## Routing
+## Routage
 
-| Request | References |
+| Demande | Référence |
 |---|---|
-| Opening a session, finding elements, picking a tool | `conduite-de-session.md` |
-| Any write: parameters, creation, deletion, scripts | `ecritures.md` |
-| Health, warnings, clashes, views, annotations | `production.md` |
+| Ouvrir une session, trouver des éléments, choisir un outil | `conduite-de-session.md` |
+| Toute écriture : paramètres, création, suppression, scripts | `ecritures.md` |
+| Santé du modèle, avertissements, conflits, vues, annotations | `production.md` |
 | IFC | `workflows-ifc.md` |
-| Which tool exists, and does it have a known defect | `inventaire-des-outils.md` |
-| Exact signature of a tool | `signatures-des-outils.md` |
+| Quels outils existent, et lesquels ont un défaut connu | `inventaire-des-outils.md` |
+| Signature exacte d'un outil | `signatures-des-outils.md` |
 
-Most requests need one file. `conduite-de-session.md` first on a model you have not
-touched this session, then the one that matches the task.
+La plupart des demandes tiennent dans un seul fichier. `conduite-de-session.md`
+d'abord sur une maquette qu'on n'a pas encore touchée cette session, puis celui qui
+correspond à la tâche.
 
-`references/index.md` lists all of them. `references/inventaire-des-outils.md` is
-generated from the code and is the only exhaustive tool list — do not rely on a
-hand-maintained one, and do not rely on the removed generated schema catalog.
+`references/index.md` les liste tous. `references/inventaire-des-outils.md` est généré
+depuis le code : c'est la seule liste d'outils exhaustive, et aucune liste tenue à la
+main ne doit lui être préférée.
 
-## Working on RiveTT itself
+## Travailler sur RiveTT lui-même
 
-Writing a C# tool, changing the response contract, or producing a release is
-repository work, not workstation work: those references are NOT installed with the
-product. In a clone of the repository they are under `docs/references/` —
-`nouvel-outil.md`, `contrats-et-erreurs.md`,
-`outils-dynamiques-et-capacites.md`, `securite-et-audit.md`,
-`checklist-release.md` — and `AGENTS.md` at the root comes first.
+Écrire un outil C#, changer le contrat de réponse ou produire une release relève du
+dépôt, pas du poste de travail : ces références **ne sont pas installées**. Dans un
+clone, elles sont sous `docs/references/` — `nouvel-outil.md`,
+`contrats-et-erreurs.md`, `outils-dynamiques-et-capacites.md`, `securite-et-audit.md`,
+`checklist-release.md` — et `AGENTS.md` à la racine se lit en premier.
