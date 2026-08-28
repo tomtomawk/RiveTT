@@ -203,6 +203,14 @@ try {
     New-Item -ItemType Directory -Path $docsOut -Force | Out-Null
     Copy-Item (Join-Path $docsSource '*') $docsOut -Recurse -Force
 
+    # The MCP registration helper: product content like the documentation, not a build
+    # tool, so it lives under src\resources and travels through staging like the rest.
+    $registerScript = Join-Path $root 'src\resources\register-mcp.ps1'
+    if (-not (Test-Path $registerScript)) {
+        throw "Script d'enregistrement MCP introuvable : $registerScript."
+    }
+    Copy-Item $registerScript $stagingRoot -Force
+
     $sizeMb = [math]::Round((Get-ChildItem $stagingRoot -Recurse -File |
         Measure-Object -Property Length -Sum).Sum / 1MB, 1)
     Write-Host "Charge utile prete dans builder\staging\ ($sizeMb Mo)." -ForegroundColor Green

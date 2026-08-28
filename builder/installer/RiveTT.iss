@@ -127,13 +127,37 @@ Source: "..\staging\documentation\*"; DestDir: "{app}\documentation"; \
 Source: "..\staging\documentation\*"; DestDir: "{code:CodexSkillDir}"; \
     Flags: ignoreversion recursesubdirs; Tasks: codexskill
 
+; Registers the MCP server in a client's own configuration. Installed whatever the
+; tasks below, because the uninstaller runs it too -- leaving a client pointing at a
+; deleted executable is its own small failure.
+Source: "..\staging\register-mcp.ps1"; DestDir: "{app}"; Flags: ignoreversion
+
 [Tasks]
-; Unchecked on purpose. Copying the skill into the Codex home directory changes the
-; configuration of a product this installer does not own; the user has to ask for
-; it. The documentation under {app}\documentation is installed either way.
+; All three are unchecked on purpose: each one writes into the configuration of a
+; product this installer does not own. Ticking them is the user asking for it.
+;
+; The two registration tasks replace the manual step the finish page used to end on
+; ("declare the server in your client, with this path"), which every user had to do
+; by hand and which nothing verified.
+Name: "mcpclaude"; \
+    Description: "Déclarer RiveTT dans Claude Desktop"; \
+    Flags: unchecked
+Name: "mcpcodex"; \
+    Description: "Déclarer RiveTT dans Codex (application de bureau OpenAI)"; \
+    Flags: unchecked
 Name: "codexskill"; \
     Description: "Activer le skill RiveTT dans Codex CLI (dossier personnel des skills)"; \
     Flags: unchecked
+
+[UninstallRun]
+; Only for the clients this install actually registered. A client the user wired up
+; by hand is theirs, and removing an entry we never wrote would be a surprise.
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\register-mcp.ps1"" -Client Claude -Remove"; \
+    RunOnceId: "unregisterclaude"; Flags: runhidden waituntilterminated; Tasks: mcpclaude
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
+    Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\register-mcp.ps1"" -Client Codex -Remove"; \
+    RunOnceId: "unregistercodex"; Flags: runhidden waituntilterminated; Tasks: mcpcodex
 
 [UninstallDelete]
 ; Copies parked by the locked-file rename below, the documentation, and the local
@@ -187,6 +211,7 @@ end;
 var
   Detected2026, Detected2027: Boolean;
   Found2026Version, Found2027Version: String;
+  McpReport: String;           { one line per client the finish page has to report on }
   Stale2026: Boolean;          { Revit 2026 present but older than 2026.5 }
   ForcedYears: String;         { /REVIT=2026,2027 — for unattended IT deployment }
 
@@ -394,12 +419,58 @@ begin
   end;
 end;
 
+{ Runs the registration helper for one client and turns its exit code into the line
+  the finish page will show. Driven from code rather than a plain Run entry for one
+  reason: a Run entry discards the exit code, and a registration that silently did
+  nothing is the exact failure this installer spent a version learning to catch. }
+function RegisterMcpClient(ClientName, DisplayName: String): String;
+var
+  Code: Integer;
+  Params: String;
+begin
+  Params := '-NoProfile -ExecutionPolicy Bypass -File "'
+          + ExpandConstant('{app}\register-mcp.ps1') + '" -Client ' + ClientName
+          + ' -ServerPath "' + ExpandConstant('{app}\server\RiveTT.Server.exe') + '"';
+
+  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Params,
+              '', SW_HIDE, ewWaitUntilTerminated, Code) then
+  begin
+    Result := '  • ' + DisplayName + ' : PowerShell n''a pas pu être lancé.';
+    Exit;
+  end;
+
+  if Code = 0 then
+    Result := '  • ' + DisplayName + ' : déclaré.'
+  else if Code = 3 then
+    Result := '  • ' + DisplayName + ' : application non trouvée sur ce poste, rien fait.'
+  else
+    Result := '  • ' + DisplayName + ' : ÉCHEC, configuration inchangée. Détail dans '
+            + ExpandConstant('{localappdata}\RiveTT\register-mcp-') + ClientName + '.log';
+end;
+
+procedure RegisterSelectedMcpClients();
+begin
+  McpReport := '';
+  if WizardIsTaskSelected('mcpclaude') then
+    McpReport := McpReport + RegisterMcpClient('Claude', 'Claude Desktop') + #13#10;
+  if WizardIsTaskSelected('mcpcodex') then
+    McpReport := McpReport + RegisterMcpClient('Codex', 'Codex') + #13#10;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Stamp, AddinRoot: String;
   Years: TArrayOfString;
   I: Integer;
 begin
+  { Registration runs AFTER the files are in place: the helper checks that the server
+    executable it is about to point a client at actually exists. }
+  if CurStep = ssPostInstall then
+  begin
+    RegisterSelectedMcpClients();
+    Exit;
+  end;
+
   if CurStep <> ssInstall then
     Exit;
 
@@ -443,6 +514,18 @@ begin
     Result := IntToStr(Major) + '.' + IntToStr(Minor) + '.' + IntToStr(Rev);
 end;
 
+{ Either the installer declared RiveTT in the clients the user ticked -- and then it
+  says what happened to each one -- or nobody was ticked and the manual path is still
+  what the user needs. Printing both would leave them guessing which applies. }
+function McpSection(): String;
+begin
+  if McpReport <> '' then
+    Result := 'Déclaration du serveur MCP :' + #13#10 + McpReport
+  else
+    Result := 'Déclarez le serveur MCP dans votre application d''IA, avec ce chemin :'
+            + #13#10 + ExpandConstant('{app}\server\RiveTT.Server.exe') + #13#10;
+end;
+
 procedure CurPageChanged(CurPageID: Integer);
 var
   Summary, ServerFound: String;
@@ -482,8 +565,7 @@ begin
     + 'Redémarrez Revit : la connexion par pipe local démarre automatiquement, sans'
     + ' port TCP. Chaque session s''ouvre en LECTURE SEULE — pressez Écriture dans le'
     + ' panneau RiveTT (onglet Compléments) pour autoriser les modifications.' + #13#10#13#10
-    + 'Déclarez ensuite le serveur MCP dans votre client, avec le chemin :' + #13#10
-    + ExpandConstant('{app}\server\RiveTT.Server.exe') + #13#10#13#10
+    + McpSection() + #13#10
     + 'Documentation (guide, sécurité, IFC, références) :' + #13#10
     + ExpandConstant('{app}\documentation');
 end;

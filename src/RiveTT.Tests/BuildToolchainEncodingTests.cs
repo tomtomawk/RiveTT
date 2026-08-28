@@ -40,34 +40,49 @@ internal static class RepositoryFile
 /// </summary>
 public class BuildScriptEncodingTests
 {
-    private static readonly string[] ScriptPath = { "builder", "build.ps1" };
-
-    [Fact]
-    public void BuildScript_StartsWithUtf8Bom()
+    /// <summary>
+    /// Every PowerShell script this project ships or runs. register-mcp.ps1 is installed
+    /// on the workstation and edits another product's configuration file — a mis-decoded
+    /// string there is worse than a broken build, because it lands on someone's machine.
+    /// </summary>
+    public static TheoryData<string, string> Scripts => new()
     {
-        var bytes = RepositoryFile.Bytes(ScriptPath);
-        Assert.True(bytes.Length >= 3, "builder/build.ps1 est vide ou tronque");
+        { "builder", "build.ps1" },
+        { "src/resources", "register-mcp.ps1" },
+    };
+
+    private static string[] Parts(string directory, string file) =>
+        directory.Split('/').Append(file).ToArray();
+
+    [Theory]
+    [MemberData(nameof(Scripts))]
+    public void Script_StartsWithUtf8Bom(string directory, string file)
+    {
+        var bytes = RepositoryFile.Bytes(Parts(directory, file));
+        Assert.True(bytes.Length >= 3, $"{directory}/{file} est vide ou tronque");
         Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, bytes.Take(3).ToArray());
     }
 
-    [Fact]
-    public void BuildScript_IsValidUtf8()
+    [Theory]
+    [MemberData(nameof(Scripts))]
+    public void Script_IsValidUtf8(string directory, string file)
     {
         // A strict decoder: re-encoding a mojibake'd file would succeed silently, so the
         // point is to reject byte sequences that are not UTF-8 at all.
         var strict = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false,
                                       throwOnInvalidBytes: true);
-        var bytes = RepositoryFile.Bytes(ScriptPath);
+        var bytes = RepositoryFile.Bytes(Parts(directory, file));
         strict.GetString(bytes, 3, bytes.Length - 3);
     }
 
-    [Fact]
-    public void BuildScript_HasNoCurlyQuotes()
+    [Theory]
+    [MemberData(nameof(Scripts))]
+    public void Script_HasNoCurlyQuotes(string directory, string file)
     {
         // The specific characters PowerShell treats as string delimiters, and the ones a
         // CP1252 round-trip produces. Their presence means the file has already been
         // damaged by an editor, whatever the BOM says.
-        var text = File.ReadAllText(RepositoryFile.Path(ScriptPath));
+        var text = File.ReadAllText(RepositoryFile.Path(Parts(directory, file)));
         foreach (var quote in new[] { '‘', '’', '“', '”' })
         {
             Assert.DoesNotContain(quote.ToString(), text);
