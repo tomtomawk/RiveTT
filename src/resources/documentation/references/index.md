@@ -9,7 +9,7 @@ les retrouver à la main.
 | `conduite-de-session.md` | Ouvrir une session, lire une réponse, choisir l'outil le moins coûteux, documents et groupes |
 | `ecritures.md` | Verrou d'écriture, `dryRun`, paramètres, escalade vers `send_code_to_revit` |
 | `production.md` | Contrôle de santé, conflits, vues et annotations |
-| `workflows-ifc.md` | L'ordre des opérations IFC — le détail est dans `../IFC.md` |
+| `workflows-ifc.md` | Lier, reconstruire en natif, exporter de l'IFC |
 | `signatures-des-outils.md` | Où trouver la signature exacte d'un outil |
 | `inventaire-des-outils.md` | **Généré.** Tous les outils publiés, leur nature, leur `dryRun`, leurs défauts connus |
 

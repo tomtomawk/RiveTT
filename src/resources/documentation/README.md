@@ -12,7 +12,7 @@ opération de deux façons différentes.
 | Document | Quand |
 |---|---|
 | [USER_GUIDE.md](USER_GUIDE.md) | Installation, verrou d'écriture, gestes courants |
-| [IFC.md](IFC.md) | Export, liaison, reconstruction d'IFC en éléments natifs |
+| [references/workflows-ifc.md](references/workflows-ifc.md) | Lier, reconstruire, exporter de l'IFC |
 | [SECURITY.md](SECURITY.md) | Ce que le connecteur s'autorise, et ce qui l'en empêche |
 | [references/](references/) | Le détail, opération par opération |
 | [references/inventaire-des-outils.md](references/inventaire-des-outils.md) | Tous les outils publiés, leur nature, leurs défauts connus |

@@ -48,7 +48,6 @@ installée sous `%LOCALAPPDATA%\RiveTT\documentation`
 |---|---|
 | [README.md](src/resources/documentation/README.md) | Point d'entrée du dossier |
 | [USER_GUIDE.md](src/resources/documentation/USER_GUIDE.md) | Installation, verrou d'écriture, gestes courants |
-| [IFC.md](src/resources/documentation/IFC.md) | Export, liaison, reconstruction d'IFC en éléments natifs |
 | [SECURITY.md](src/resources/documentation/SECURITY.md) | Ce que le connecteur s'autorise, et ce qui l'en empêche |
 | [SKILL.md](src/resources/documentation/SKILL.md) | Routeur pour l'agent : quelles références charger, et les règles permanentes |
 | [references/](src/resources/documentation/references/) | Le détail, opération par opération |

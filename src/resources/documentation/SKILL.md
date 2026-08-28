@@ -53,7 +53,7 @@ separate AI copy to drift out of step.
 | Opening a session, finding elements, picking a tool | `conduite-de-session.md` |
 | Any write: parameters, creation, deletion, scripts | `ecritures.md` |
 | Health, warnings, clashes, views, annotations | `production.md` |
-| IFC | `workflows-ifc.md`, then `../IFC.md` for the detail |
+| IFC | `workflows-ifc.md` |
 | Which tool exists, and does it have a known defect | `inventaire-des-outils.md` |
 | Exact signature of a tool | `signatures-des-outils.md` |
 
