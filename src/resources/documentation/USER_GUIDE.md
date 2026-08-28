@@ -115,10 +115,9 @@ classement `toolReadOnly` déjà publié dans chaque réponse.
 - Ne recourir à `send_code_to_revit` que lorsqu'aucun outil dédié ne couvre
   l'opération.
 
-Seuls certains outils exposent `dryRun`. Les mutateurs acier
-`set_steel_connection_default_order`, `set_steel_solid_cut_face_splitting` et
-`set_steel_fabrication_unique_id` n'ont pas de prévisualisation ; limiter leur
-portée et vérifier leur résultat immédiatement.
+Tous les outils d'écriture n'exposent pas `dryRun` : l'inventaire
+(`references/inventaire-des-outils.md`) donne la colonne exacte. Pour ceux qui n'en
+ont pas, limiter la portée de l'appel et vérifier le résultat immédiatement après.
 
 ## Outils spécifiques au fork
 

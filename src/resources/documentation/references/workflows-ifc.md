@@ -1,43 +1,49 @@
 # Workflows IFC
 
-**Portée :** liaison, reconstruction et export IFC. `dryRun` obligatoire avant
-toute reconstruction.
-**Sources :** `../IFC.md`.
-**Vérifié le :** 2026-05-25
+**Portée :** l'ordre des opérations IFC — liaison, reconstruction en éléments natifs,
+export. Le détail outil par outil est dans `../IFC.md`.
+**Sources :** les 20 outils `ifc_*`, `inventaire-des-outils.md`.
+**Vérifié le :** 2026-08-28
 
-## Decision rules
+## Toujours commencer par les capacités
 
-### Verifica capacità
+`ifc_get_capabilities` en premier appel IFC de la session : il dit quelles versions
+IFC sont prises en charge et si le module `revit-ifc` est présent. Importer un IFC
+lourd sans l'avoir demandé, c'est découvrir l'incompatibilité après l'attente.
 
-Prima di qualsiasi operazione IFC: `ifc_get_capabilities`. Mostra versioni IFC supportate e se `revit-ifc` plugin è installato.
+## Reconstruire en éléments natifs
 
-### Sequenza canonica rebuild
+La séquence, dans cet ordre :
 
-1. `ifc_open_or_import` oppure `ifc_link`
-2. `ifc_analyze_rebuildability` con `compact: true`
-3. `ifc_list_rebuild_candidates` con `compact: true` (filtrato per categoria)
-4. Per categoria: `ifc_rebuild_walls` / `ifc_rebuild_floors` / `ifc_rebuild_roofs` / `ifc_rebuild_openings` / `ifc_rebuild_structural_members` / `ifc_rebuild_family_instances`
-5. `ifc_compare_original_vs_rebuilt` per verifica.
-6. `ifc_tag_unreconstructable_elements` per gli elementi non ricostruibili.
+1. `ifc_open_or_import` ou `ifc_link` ;
+2. `ifc_analyze_rebuildability` avec `compact: true` — ce qui est reconstructible ;
+3. `ifc_list_rebuild_candidates` avec `compact: true`, filtré par catégorie ;
+4. la reconstruction, **une catégorie à la fois** :
+   `ifc_rebuild_walls` · `ifc_rebuild_floors` · `ifc_rebuild_roofs` ·
+   `ifc_rebuild_openings` · `ifc_rebuild_structural_members` ·
+   `ifc_rebuild_family_instances` ;
+5. `ifc_compare_original_vs_rebuilt` pour vérifier ;
+6. `ifc_tag_unreconstructable_elements` pour marquer ce qui n'a pas pu l'être.
 
-### Export
+Avant une reconstruction coûteuse, `ifc_validate_request` valide la demande sans
+l'exécuter.
 
-- Basic: `ifc_export_basic`
-- Con configurazione: `ifc_get_export_configuration` → `ifc_export_with_configuration`
+`ifc_set_family_mapping_file` charge une correspondance de familles sur mesure avant
+la reconstruction — à faire en amont de l'étape 4, pas après.
 
-### Mapping famiglie
+## Exporter
 
-`ifc_set_family_mapping_file` consente di caricare un mapping custom prima del rebuild.
+| Besoin | Outils |
+|---|---|
+| Export simple | `ifc_export_basic` |
+| Export avec configuration | `ifc_get_export_configuration` puis `ifc_export_with_configuration` |
 
-## Required checks
+`ifc_list_export_configurations` énumère les configurations disponibles dans le
+projet.
 
-- [ ] `ifc_get_capabilities` chiamato come prima call IFC della sessione.
-- [ ] Rebuild eseguito categoria per categoria, non in blocco.
-- [ ] `ifc_validate_request` chiamato prima di rebuild costosi.
-- [ ] `compact: true` per i tool di analisi (rebuildability, candidates).
+## À éviter
 
-## Avoid
-
-- Non tentare rebuild senza prima `ifc_analyze_rebuildability`.
-- Non chiamare rebuild su tutte le categorie in parallelo.
-- Non importare IFC pesanti senza verificare prima le capacità.
+- Reconstruire sans avoir lancé `ifc_analyze_rebuildability`.
+- Reconstruire toutes les catégories en une fois, ou en parallèle.
+- Importer un IFC lourd sans avoir vérifié les capacités.
+- Omettre `compact: true` sur les outils d'analyse : leurs réponses sont volumineuses.

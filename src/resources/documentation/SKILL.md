@@ -11,11 +11,11 @@ separate AI copy to drift out of step.
 
 ## Always-on rules
 
-1. For Revit model work, read `references/session-et-locale.md` first.
-2. For writes, read `references/operations-destructives.md`; preview with
-   `dryRun: true` whenever the tool supports it.
-3. `send_code_to_revit` is a last resort; read
-   `references/escalade-send-code-to-revit.md` before proposing it.
+1. For Revit model work, read `references/conduite-de-session.md` first.
+2. For writes, read `references/ecritures.md`; preview with `dryRun: true`
+   whenever the tool supports it, and never assume the write lock is open.
+3. `send_code_to_revit` is a last resort; read the escalation section of
+   `references/ecritures.md` before proposing it.
 4. C# development targets Revit 2026.5+ and 2027, .NET 10, and x64 only. A single
    build runs against ONE Revit version: the plugin is rebuilt per target, not
    multi-targeted.
@@ -50,14 +50,15 @@ separate AI copy to drift out of step.
 
 | Request | References |
 |---|---|
-| Session/model discovery | `session-et-locale.md`, `choix-des-outils.md` |
-| Parameter changes | `session-et-locale.md`, `operations-destructives.md`, `parametres.md` |
-| Health, warnings, clashes | `session-et-locale.md`, `sante-du-modele.md` |
-| Views and annotations | `session-et-locale.md`, `vues-et-annotations.md` |
-| IFC | `session-et-locale.md`, `workflows-ifc.md` |
-| Script escalation | `escalade-send-code-to-revit.md` |
+| Opening a session, finding elements, picking a tool | `conduite-de-session.md` |
+| Any write: parameters, creation, deletion, scripts | `ecritures.md` |
+| Health, warnings, clashes, views, annotations | `production.md` |
+| IFC | `workflows-ifc.md`, then `../IFC.md` for the detail |
 | Which tool exists, and does it have a known defect | `inventaire-des-outils.md` |
 | Exact signature of a tool | `signatures-des-outils.md` |
+
+Most requests need one file. `conduite-de-session.md` first on a model you have not
+touched this session, then the one that matches the task.
 
 `references/index.md` lists all of them. `references/inventaire-des-outils.md` is
 generated from the code and is the only exhaustive tool list — do not rely on a
