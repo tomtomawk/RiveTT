@@ -123,6 +123,15 @@ Inno Setup lit `builder\staging\` et écrit `dist\`. **Tout ce qui se trouve dan
 `dist\` est publiable tel quel** — rien d'autre n'y va, et `-SkipInstaller` ne le
 crée même pas.
 
+Un test en échec **arrête** le build : la suite se signale en *Skip* propre là où
+Revit manque, donc un échec est un vrai échec. `-AllowTestFailures` passe outre et le
+rappelle à la fin, à côté du chemin de l'installateur.
+
+L'installateur refuse de démarrer si `RiveTT.Server.exe` tourne encore — un client MCP
+ouvert verrouille le fichier, et une installation qui échoue là laisse le plugin à
+jour et le serveur à l'ancienne version. Il vérifie aussi, en fin de parcours, que le
+serveur porte bien la version installée, et le dit franchement sinon.
+
 Le serveur ne référence pas l'API Revit : il est compilé une fois et partagé. Il est
 **autonome** (~38 Mo) et n'exige aucun runtime .NET installé — c'était la seule pièce
 qui aurait imposé des droits administrateur.

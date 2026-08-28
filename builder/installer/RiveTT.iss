@@ -65,6 +65,12 @@ ArchitecturesInstallIn64BitMode=x64compatible
 OutputBaseFilename=RiveTT-Setup-{#AppVersion}
 Compression=lzma2/max
 SolidCompression=yes
+
+; A failed install must leave evidence. The 2026-08-28 half-install -- plugin
+; replaced, locked server skipped, uninstall entry never rewritten -- had to be
+; reconstructed from file timestamps because no log existed. The log lands in the
+; user TEMP directory as "Setup Log <date> #nnn.txt"; the finish page prints its path.
+SetupLogging=yes
 ; Both Revit targets ship the same ~21 MB of third-party dependencies. Solid
 ; compression is what keeps the package from being twice the size for no reason.
 
@@ -162,6 +168,20 @@ begin
   if Home = '' then
     Home := AddBackslash(GetEnv('USERPROFILE')) + '.codex';
   Result := AddBackslash(Home) + 'skills\rivett';
+end;
+
+{ Asking the OS for the process list rather than guessing a window class name: Revit's
+  main window class is undocumented and has changed between releases, so a wrong guess
+  would silently never fire. `find` exits 0 when it matches, 1 when it does not. }
+function ProcessIsRunning(ExeName: String): Boolean;
+var
+  Code: Integer;
+begin
+  Result := False;
+  if Exec(ExpandConstant('{cmd}'),
+          '/C tasklist /FI "IMAGENAME eq ' + ExeName + '" /NH | find /I "' + ExeName + '"',
+          '', SW_HIDE, ewWaitUntilTerminated, Code) then
+    Result := (Code = 0);
 end;
 
 var
@@ -262,6 +282,35 @@ begin
     Result := False;
 end;
 
+{ The MCP server is a separate exe that the MCP client launches and keeps running for
+  the whole session. Windows allows RENAMING a running exe, which is what
+  ParkLockedFiles relies on -- but that only helps if the install reaches the copy
+  step at all. On 2026-08-28 it did not: the plugin landed, the server did not, and a
+  0.2.0 server went on publishing pre-0.3.0 tool names to a 0.4.0 plugin. Every
+  renamed tool answered not found, the others worked, and nothing named the cause.
+
+  Asking up front costs one dialog and removes the entire failure mode. Defaulting to
+  No, because continuing is the choice that can go wrong. }
+function ServerIsFree(): Boolean;
+begin
+  Result := True;
+  if not ProcessIsRunning('RiveTT.Server.exe') then
+    Exit;
+
+  Result := MsgBox('Le serveur MCP RiveTT est en cours d''exécution : votre client MCP'
+                 + ' (Claude Desktop, Codex...) l''a lancé et le garde ouvert.'
+                 + #13#10#13#10
+                 + 'Tant qu''il tourne, son fichier peut résister au remplacement. Une'
+                 + ' installation qui échoue à cet endroit laisse le plugin à jour et le'
+                 + ' serveur à l''ancienne version : les deux moitiés ne se comprennent'
+                 + ' plus, et les outils renommés entre les deux répondent « not found ».'
+                 + #13#10#13#10
+                 + 'Fermez votre client MCP, puis relancez cet installateur.'
+                 + #13#10#13#10
+                 + 'Continuer quand même ?',
+                 mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
+end;
+
 function InitializeSetup(): Boolean;
 var
   Message: String;
@@ -272,9 +321,14 @@ begin
   Detected2026 := RevitIsSupported('2026', Found2026Version, Stale2026);
   Detected2027 := RevitIsSupported('2027', Found2027Version, Ignored);
 
-  Result := True;
+  { The installable case exits here, and the only thing that can still stop it is a
+    running MCP server. Everything below is the not-installable case, which always
+    ends on Result := False. }
   if Detected2026 or Detected2027 or (ForcedYears <> '') then
+  begin
+    Result := ServerIsFree();
     Exit;
+  end;
 
   { Nothing installable. Say which case it is — "no Revit found" and "your Revit is
     too old" call for completely different actions. }
@@ -375,12 +429,45 @@ begin
 end;
 
 { Closing report: which Revit versions were served, and the one manual step left. }
+{ Reads the version actually present at the destination, not the one this installer
+  meant to write. That distinction is the whole point: an install can end with the
+  plugin replaced and the server untouched, and it used to finish green either way. }
+function InstalledServerVersion(): String;
+var
+  Major, Minor, Rev, Build: Word;
+begin
+  Result := '';
+  if GetVersionComponents(ExpandConstant('{app}\server\RiveTT.Server.exe'),
+                          Major, Minor, Rev, Build) then
+    Result := IntToStr(Major) + '.' + IntToStr(Minor) + '.' + IntToStr(Rev);
+end;
+
 procedure CurPageChanged(CurPageID: Integer);
 var
-  Summary: String;
+  Summary, ServerFound: String;
 begin
   if CurPageID <> wpFinished then
     Exit;
+
+  { The check comes first and replaces the whole page when it fails: a green summary
+    listing the Revit versions served would be a lie if the server half is stale. }
+  ServerFound := InstalledServerVersion();
+  if ServerFound <> '{#AppVersion}' then
+  begin
+    if ServerFound = '' then
+      ServerFound := 'aucun fichier lisible';
+    WizardForm.FinishedLabel.Caption :=
+        'ATTENTION : le serveur MCP n''a PAS été mis à jour.' + #13#10#13#10
+      + 'Attendu : {#AppVersion}   —   présent : ' + ServerFound + #13#10#13#10
+      + 'Le plugin Revit est bien en {#AppVersion}, mais pas le serveur. Les deux'
+      + ' moitiés ne se comprennent plus : le serveur publie la surface d''outils de SA'
+      + ' version, donc un outil renommé entre les deux répond « not found » et un'
+      + ' paramètre ajouté entre les deux est ignoré en silence.' + #13#10#13#10
+      + 'La cause habituelle est un client MCP resté ouvert, qui verrouille'
+      + ' RiveTT.Server.exe. Fermez-le, puis relancez cet installateur.' + #13#10#13#10
+      + 'Journal détaillé : ' + ExpandConstant('{log}');
+    Exit;
+  end;
 
   Summary := '';
   if WantsRevit('2026') then
@@ -397,20 +484,6 @@ begin
     + ExpandConstant('{app}\server\RiveTT.Server.exe') + #13#10#13#10
     + 'Documentation (guide, sécurité, IFC, références) :' + #13#10
     + ExpandConstant('{app}\documentation');
-end;
-
-{ Asking the OS for the process list rather than guessing a window class name: Revit's
-  main window class is undocumented and has changed between releases, so a wrong guess
-  would silently never fire. `find` exits 0 when it matches, 1 when it does not. }
-function ProcessIsRunning(ExeName: String): Boolean;
-var
-  Code: Integer;
-begin
-  Result := False;
-  if Exec(ExpandConstant('{cmd}'),
-          '/C tasklist /FI "IMAGENAME eq ' + ExeName + '" /NH | find /I "' + ExeName + '"',
-          '', SW_HIDE, ewWaitUntilTerminated, Code) then
-    Result := (Code = 0);
 end;
 
 { Revit holds the plugin DLLs open; removing them while it runs would leave a partial

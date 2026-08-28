@@ -34,6 +34,11 @@ under Program Files, and installing that is the one thing that would demand admi
 `dist/` at all; `-RevitVersion 2027` builds a single target (the resulting
 installer then serves that target only).
 
+A failing test STOPS the build. It used to warn and package anyway, from a time when
+13 tests could not pass off a Revit workstation; they report a clean Skip now, so a
+red run is a real failure and the installer it would have produced is not shippable.
+`-AllowTestFailures` overrides that, and says so again next to the installer path.
+
 ## Install
 
     .\dist\RiveTT-Setup-<version>.exe

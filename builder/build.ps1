@@ -47,6 +47,13 @@
 .PARAMETER SkipInstaller
     Build the payload into builder\staging\ but do not invoke Inno Setup. dist\ is then
     not created at all: with no installer there is nothing publishable to put in it.
+
+.PARAMETER AllowTestFailures
+    Package anyway when the test run fails. Off by default: the Revit-typed tests now
+    report a clean Skip where Revit is absent, so a non-zero exit code is a real
+    failure and must not produce a shippable installer. This switch exists for the one
+    case it is legitimate -- a known-flaky test blocking an urgent build -- and it says
+    so in the output rather than hiding it behind a warning nobody reads.
 #>
 [CmdletBinding()]
 param(
@@ -56,7 +63,8 @@ param(
     [ValidateSet('2026', '2027')]
     [string[]] $RevitVersion = @('2026', '2027'),
     [switch] $SkipTests,
-    [switch] $SkipInstaller
+    [switch] $SkipInstaller,
+    [switch] $AllowTestFailures
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,6 +112,10 @@ function Invoke-Dotnet {
     }
 }
 
+# Set by the test step when -AllowTestFailures let a red run through, read at the very
+# end so the caveat lands next to the installer path instead of scrolling away.
+$script:shippedOverFailingTests = $false
+
 Push-Location $root
 try {
     Write-Host "RiveTT $version - cibles : $($RevitVersion -join ', ')" -ForegroundColor Cyan
@@ -143,15 +155,21 @@ try {
         ) -FailureMessage "Echec du build Plugin pour Revit $target."
 
         if (-not $SkipTests) {
-            # WarnOnly: a packaging run on a machine without Revit must not stop on an
-            # environmental gap. Since the suite now reports a clean Skip for the
-            # Revit-typed tests instead of failing, a non-zero code here is a real
-            # failure -- read the output before shipping what this run produced.
+            # A failing test stops the build. It used to warn and package anyway, from a
+            # time when 13 tests could not pass off a Revit workstation; since they
+            # report a clean Skip instead, a non-zero code is a real failure and an
+            # installer built over it is not shippable.
+            $testFailure = "Tests en echec pour Revit $target. Corrigez avant de " +
+                           "packager, ou relancez avec -AllowTestFailures si vous " +
+                           "assumez de diffuser ce build."
             Invoke-Dotnet -Arguments @(
                 'test', '.\src\RiveTT.Tests\RiveTT.Tests.csproj',
                 '-c', $configuration, $versionArg, '--nologo'
-            ) -FailureMessage ("Tests en echec pour Revit $target : relisez la sortie " +
-                               "avant de diffuser l'installateur produit par ce build.") -WarnOnly
+            ) -FailureMessage $testFailure -WarnOnly:$AllowTestFailures
+
+            if ($AllowTestFailures -and $LASTEXITCODE -ne 0) {
+                $script:shippedOverFailingTests = $true
+            }
         }
 
         $pluginBuild = Join-Path $root 'src\RiveTT.Plugin\bin\Release\net10.0-windows'
@@ -233,6 +251,13 @@ try {
         $setupMb = [math]::Round((Get-Item $setup).Length / 1MB, 1)
         Write-Host "Installateur pret : $setup ($setupMb Mo)" -ForegroundColor Green
         Write-Host 'Aucune elevation administrateur requise a son execution.'
+        # Said at the END, where it is read. A warning printed 200 lines earlier,
+        # between two dotnet builds, is a warning nobody sees.
+        if ($script:shippedOverFailingTests) {
+            Write-Warning ("Cet installateur a ete produit AVEC des tests en echec " +
+                           "(-AllowTestFailures). Ne le diffusez pas sans savoir " +
+                           "lesquels et pourquoi.")
+        }
     }
 }
 finally { Pop-Location }

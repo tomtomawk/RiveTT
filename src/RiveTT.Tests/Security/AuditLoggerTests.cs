@@ -158,10 +158,33 @@ public class AuditLoggerTests : IDisposable
         // PLAN_CORRECTION.md). Hold an exclusive lock briefly, as a concurrent
         // writer would, and confirm the retry recovers instead of dropping
         // the entry silently.
+        //
+        // The release runs on a DEDICATED thread that is confirmed running before Log is
+        // called, not on Task.Run. On the thread pool this test failed intermittently
+        // during builderuild.ps1 and passed every time in isolation: the packaging run
+        // fires dotnet test straight after two dotnet builds, the pool is saturated, and
+        // the release task did not start for longer than the logger's whole retry budget
+        // (25ms + 50ms before it gives up). The lock was still held at the third attempt
+        // and the entry was dropped — a red build over a green logger.
         var lockHandle = new FileStream(_tempPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        _ = Task.Run(() => { Thread.Sleep(40); lockHandle.Dispose(); });
+        using var releaserRunning = new ManualResetEventSlim(false);
+
+        // 30ms: long enough that the first attempt reliably hits the lock, short enough to
+        // leave the retry budget most of its margin. The window is what makes this test a
+        // timing test at all; the dedicated thread is what stops the schedule from being
+        // the variable.
+        var releaser = new Thread(() =>
+        {
+            releaserRunning.Set();
+            Thread.Sleep(30);
+            lockHandle.Dispose();
+        }) { IsBackground = true, Name = "audit-lock-releaser" };
+
+        releaser.Start();
+        releaserRunning.Wait();
 
         _logger.Log("locked_tool", "x", true);
+        releaser.Join();
 
         var content = File.ReadAllText(_tempPath);
         Assert.Contains("locked_tool", content);

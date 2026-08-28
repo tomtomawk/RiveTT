@@ -148,7 +148,8 @@ Consequences for anything you add here:
     .\builder\build.ps1
 
 The last command builds every Revit target, gathers the payload into
-`builder/staging/` and compiles the per-user installer into `dist/`. Installation
+`builder/staging/` and compiles the per-user installer into `dist/`. A failing test
+stops it; `-AllowTestFailures` is the deliberate override and is reported at the end. Installation
 is through `dist/RiveTT-Setup-<version>.exe`, which requests `asInvoker` and never
 prompts for elevation. After touching the tool surface, re-run
 `python tools/audit-tool-surface.py`: its output is installed on the workstation.
