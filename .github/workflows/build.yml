@@ -53,10 +53,12 @@ jobs:
         shell: pwsh
         run: |
           python tools/audit-tool-surface.py
-          $diff = git status --porcelain src/resources/documentation/references/inventaire-des-outils.md
-          if ($diff) {
+          # `git diff`, not `git status`: status trusts its stat cache and reports a file
+          # rewritten with identical content as modified. diff compares the content through
+          # the .gitattributes filters, which is the question being asked.
+          git --no-pager diff --exit-code -- src/resources/documentation/references/inventaire-des-outils.md
+          if ($LASTEXITCODE -ne 0) {
             Write-Host '::error::inventaire-des-outils.md is stale. Run: python tools/audit-tool-surface.py'
-            git --no-pager diff -- src/resources/documentation/references/inventaire-des-outils.md
             exit 1
           }
 

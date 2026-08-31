@@ -630,7 +630,13 @@ def emit(rows):
         add("| %s | `%s` | %s |" % (cell(name), cell(api), cell(why)))
     add("")
 
-    io.open(OUT, "w", encoding="utf-8", newline="\n").write("\n".join(out))
+    # CRLF, parce que .gitattributes declare `* text=auto eol=crlf` : c'est ce que git
+    # pose dans l'arbre de travail a l'extraction. Ecrire en LF rendait ce fichier
+    # different de sa propre version extraite sur un poste neuf -- et le controle de CI
+    # « regenerer ne produit aucun diff » echouait sur la fin de ligne, pas sur le
+    # contenu (mesures identiques des deux cotes : 198 outils, 139 ecritures, 66 sans
+    # dryRun). Git normalise en LF a la validation, donc le blob ne change pas.
+    io.open(OUT, "w", encoding="utf-8", newline="\r\n").write("\n".join(out))
     return {"total": total, "writes": writes, "off": off, "noDry": len(no_dry),
             "noDryArchi": len(no_dry_archi), "generic": len(generic),
             "confirmed": len(confirmed), "signals": len(signals)}
