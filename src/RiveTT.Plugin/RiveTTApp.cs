@@ -76,8 +76,18 @@ public sealed class RiveTTApp : IExternalApplication
             }
             catch (Exception ribbonException)
             {
+                // Trace.WriteLine goes to OutputDebugString, invisible inside Revit without
+                // a debugger — and this particular failure is the one that must NOT be
+                // silent: the ribbon carries the write lock, so without it the session is
+                // read-only for good and no tool can say why. Same remedy as AuditLogger's
+                // sibling error file: somewhere a human can read without a debugger.
                 System.Diagnostics.Trace.WriteLine(
                     $"[RiveTT] Ribbon panel not created: {ribbonException.Message}");
+                RiveTTEnvironment.Current.ReportStartupFailure(
+                    "ribbon", ribbonException,
+                    "The RiveTT panel could not be created, so the Écriture button does not "
+                    + "exist and this Revit session stays READ-ONLY. Read tools still work. "
+                    + "Restart Revit; if it persists, reinstall RiveTT.");
             }
 
             application.ControlledApplication.DocumentOpened += OnDocumentOpened;

@@ -44,6 +44,10 @@ public class ServerRuntimeParameterContractTests
     private static readonly Regex KeyRead =
         new(@"\w+\s*\[\s*""([A-Za-z0-9_]+)""\s*\]", RegexOptions.Compiled);
 
+    /// <summary>A helper type whose reads count for the tools that call it by name.</summary>
+    private static readonly Regex HelperTypes =
+        new(@"(?:static\s+)?class\s+(\w+)", RegexOptions.Compiled);
+
     /// <summary>Helper-style read: Apply(input, "key", ...).</summary>
     private static readonly Regex HelperKeyRead =
         new(@"input\s*,\s*""([A-Za-z0-9_]+)""", RegexOptions.Compiled);
@@ -82,7 +86,8 @@ public class ServerRuntimeParameterContractTests
         // ── runtime side: which keys each tool's source reads, plus shared helpers
         var readsByFile = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         var fileByToolName = new Dictionary<string, string>(StringComparer.Ordinal);
-        var helperReads = new HashSet<string>(StringComparer.Ordinal);
+        var helperReadsByType = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var sourceByFile = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var file in CsFiles("RiveTT.Tools"))
         {
@@ -93,19 +98,28 @@ public class ServerRuntimeParameterContractTests
                 StringComparer.Ordinal);
 
             readsByFile[file] = reads;
+            sourceByFile[file] = source;
 
             var toolNames = RuntimeToolName.Matches(source).Select(m => m.Groups[1].Value).ToList();
             foreach (var name in toolNames)
                 fileByToolName[name] = file;
 
             // A file with no IRiveTTTool is a shared helper (ElementScopeResolver,
-            // TransactionFailureHandling, CurveSpecHelpers...) and its reads count
-            // for every tool that delegates to it.
+            // TransactionFailureHandling, CurveSpecHelpers...). Its reads count for the
+            // tools that DELEGATE to it — keyed by type name, not merged into one global
+            // set. The union-of-everything version meant a key read by any single helper
+            // counted as read by all 198 tools, which is how ten "signals" in the
+            // generated inventory ended up unresolvable by construction.
             var fileName = Path.GetFileName(file);
             if (toolNames.Count == 0 || fileName.Contains("Helper") ||
                 fileName.Contains("Resolver") || fileName.Contains("Handling"))
             {
-                helperReads.UnionWith(reads);
+                foreach (var type in HelperTypes.Matches(source).Select(m => m.Groups[1].Value))
+                {
+                    if (!helperReadsByType.TryGetValue(type, out var set))
+                        helperReadsByType[type] = set = new HashSet<string>(StringComparer.Ordinal);
+                    set.UnionWith(reads);
+                }
             }
         }
 
@@ -140,13 +154,21 @@ public class ServerRuntimeParameterContractTests
                     .ToList();
                 if (targets.Count == 0) targets.Add(toolName);
 
-                var allowed = new HashSet<string>(helperReads, StringComparer.Ordinal);
+                var allowed = new HashSet<string>(StringComparer.Ordinal);
                 var resolvedAny = false;
                 foreach (var target in targets)
                 {
                     if (!fileByToolName.TryGetValue(target, out var targetFile)) continue;
                     resolvedAny = true;
                     allowed.UnionWith(readsByFile[targetFile]);
+
+                    // Only the helpers this tool's source actually names.
+                    var targetSource = sourceByFile[targetFile];
+                    foreach (var (helperType, helperKeys) in helperReadsByType)
+                    {
+                        if (targetSource.Contains(helperType + ".", StringComparison.Ordinal))
+                            allowed.UnionWith(helperKeys);
+                    }
                 }
 
                 // No runtime counterpart at all is the job of ToolCatalogParitySourceTests.
