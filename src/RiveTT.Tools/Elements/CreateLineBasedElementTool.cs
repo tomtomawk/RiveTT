@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// Creates one or more line-based elements (walls, beams, structural framing, etc.).
 /// Mirrors the fork's CreateLineElementEventHandler logic.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class CreateLineBasedElementTool : IRiveTTTool
 {
     public string Name => "create_line_based_element";

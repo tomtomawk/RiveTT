@@ -21,7 +21,7 @@ namespace RiveTT.Tools.Elements;
 /// ramp type required and enforced, and with the near-zero max riser height a ramp
 /// implies instead of stair-sized risers.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class CreateRampTool : IRiveTTTool
 {
 

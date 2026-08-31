@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Parameters;
 /// Adds a prefix and/or suffix to a parameter value on matching elements.
 /// Supports dry-run preview mode.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class AddPrefixSuffixTool : IRiveTTTool
 {
     public string Name => "batch_rename_affix";

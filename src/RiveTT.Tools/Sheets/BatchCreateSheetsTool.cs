@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Sheets;
 /// <summary>
 /// Creates multiple sheets at once with title blocks and optional view placement.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class BatchCreateSheetsTool : IRiveTTTool
 {
     public string Name => "batch_create_sheets";

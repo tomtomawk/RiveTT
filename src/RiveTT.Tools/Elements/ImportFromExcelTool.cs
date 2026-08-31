@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// Imports data from Excel (.xlsx) into Revit element parameters.
 /// Requires an ElementId column to match elements.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ImportFromExcelTool : IRiveTTTool
 {
     public string Name => "import_from_excel";

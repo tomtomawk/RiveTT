@@ -10,7 +10,7 @@ using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Elements;
 
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public sealed class ManageModelGroupsTool : IRiveTTTool
 {
     public string Name => "manage_model_groups";

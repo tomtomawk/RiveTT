@@ -11,7 +11,7 @@ using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Elements;
 
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class SetElementParametersTool : IRiveTTTool
 {
     public string Name => "set_element_parameters";

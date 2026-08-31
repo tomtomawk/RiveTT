@@ -30,7 +30,7 @@ namespace RiveTT.Tools.Elements;
 /// without opening it) without the much larger surface of arbitrary family
 /// editing.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public sealed class EditFamilyTool : IRiveTTTool
 {
     public string Name => "edit_family";

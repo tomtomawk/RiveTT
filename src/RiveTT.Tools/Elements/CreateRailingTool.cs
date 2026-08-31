@@ -13,7 +13,7 @@ using static RiveTT.Tools.Utilities.LengthUnits;
 namespace RiveTT.Tools.Elements;
 
 /// <summary>Creates an independent guardrail from a horizontal, connected path.</summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class CreateRailingTool : IRiveTTTool
 {
 

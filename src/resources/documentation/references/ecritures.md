@@ -20,7 +20,11 @@ RiveTT est en mode automatique permanent et n'ouvre aucune boîte d'autorisation
 sûreté vient donc d'ailleurs : prévisualisation explicite, entrées étroites,
 transactions Revit, erreurs structurées, vérification après coup.
 
-1. Si l'outil accepte `dryRun`, l'appeler d'abord avec `dryRun: true`.
+1. Si l'outil accepte `dryRun`, l'appeler d'abord avec `dryRun: true`. Ce que l'outil
+   accepte se lit dans `execution.supportsDryRun` d'une réponse précédente, ou dans
+   `get_server_capabilities`. Un `dryRun` demandé à un outil qui n'en a pas revient en
+   `InvalidInput` sans avoir rien exécuté : le refus n'est pas un échec de l'appel,
+   c'est la réponse « cet outil applique, il ne prévisualise pas ».
 2. Résumer les comptes et les avertissements importants — ne pas déverser la liste.
 3. N'exécuter avec `dryRun: false` que si la demande autorise l'écriture **et** que
    l'aperçu correspond à la portée voulue.

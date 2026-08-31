@@ -70,7 +70,9 @@ public sealed class RoadmapImplementationTests
         {
             var source = ReadSource("RiveTT.Tools", parts);
             Assert.Contains("ToolHelpers.GetDryRun(input)", source);
-            Assert.Contains("[ToolSafety(false, true)]", source);
+            // Reading dryRun is half of preview-first; DECLARING it is the other half,
+            // or the router refuses the preview these tools are perfectly able to give.
+            Assert.Contains("[ToolSafety(false, true, supportsDryRun: true)]", source);
         }
     }
 

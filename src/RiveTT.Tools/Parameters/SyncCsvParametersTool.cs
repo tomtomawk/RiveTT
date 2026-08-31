@@ -11,7 +11,7 @@ using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Parameters;
 
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public sealed class SyncCsvParametersTool : IRiveTTTool
 {
     public string Name => "sync_csv_parameters";

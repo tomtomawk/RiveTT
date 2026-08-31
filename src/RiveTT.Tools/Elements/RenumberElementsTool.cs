@@ -17,7 +17,7 @@ namespace RiveTT.Tools.Elements;
 /// Supports Rooms, Doors, Windows, Parking, or a custom parameterName.
 /// Mirrors the fork's RenumberElementsEventHandler logic.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class RenumberElementsTool : IRiveTTTool
 {
     public string Name => "renumber_elements";

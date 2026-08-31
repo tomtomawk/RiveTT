@@ -17,7 +17,10 @@ Ce que le script sait detecter, et la confiance qu'on peut lui accorder :
   * cle imbriquee annoncee dans une description ([{number, name, viewIds}]) et
     introuvable. Ces cles echappent au test de contrat, qui ne voit que les
     parametres de premier niveau ;
-  * outil d'ecriture sans dryRun, alors que le contrat annonce dryRunDefault ;
+  * outil d'ecriture sans dryRun : il applique sans prevoir. Ce n'est plus un
+    mensonge du contrat (le routeur refuse desormais dryRun sur ces outils-la
+    au lieu de les executer en tamponnant mutated:false), mais cela reste une
+    ecriture sans filet ;
   * [ToolSafety] absent ou en desaccord avec le prefixe du nom. Depuis le verrou
     d'ecriture du ruban, ce classement est une frontiere de permission ;
   * geometrie par boite englobante, position de fenetre codee en dur, erreur
@@ -136,13 +139,22 @@ def load_runtime():
             if not named:
                 continue
             attrs = cls.group(1) or ""
-            pair = re.search(r'\[ToolSafety\((true|false)\s*,\s*(true|false)\)\]', attrs)
-            single = re.search(r'\[ToolSafety\((true|false)\)\]', attrs)
+            # Le 3e argument (supportsDryRun) est optionnel : sans le `[^)]*`, les 56
+            # outils qui le portent ne matchaient plus du tout et repassaient en
+            # "classement deduit du prefixe" -- une regression silencieuse de
+            # l'inventaire, pas une erreur visible.
+            pair = re.search(r'\[ToolSafety\((true|false)\s*,\s*(true|false)[^)]*\)\]', attrs)
+            single = re.search(r'\[ToolSafety\((true|false)\s*\)\]', attrs)
             category = re.search(r'public string Category => "([^"]+)"', block)
             tools[named.group(1)] = {
                 "file": os.path.relpath(path, ROOT).replace("\\", "/"),
                 "category": category.group(1) if category else "",
-                "hasDryRun": "dryRun" in block,
+                # La DECLARATION fait foi, pas la mention du mot dans le code : c'est
+                # elle que le routeur consulte, et un outil qui lit dryRun sans le
+                # declarer se voit refuser la prevoyance qu'il sait pourtant donner.
+                # DryRunDeclarationSourceTests verrouille les deux sens.
+                "hasDryRun": "supportsDryRun: true" in attrs,
+                "readsDryRun": "dryRun" in block,
                 "safetyDeclared": bool(pair or single),
                 "readOnly": (pair.group(1) == "true") if pair else
                             ((single.group(1) == "true") if single else None),
@@ -504,8 +516,9 @@ def emit(rows):
     add("| Outils publiés | **%d** |" % total)
     add("| Dont écriture | **%d** (%.0f %%) — c'est la part que le verrou du ruban gouverne |"
         % (writes, writes / total * 100))
-    add("| Écritures sans `dryRun` | **%d**, alors que le contrat annonce "
-        "`dryRunDefault: true` |" % len(no_dry))
+    add("| Écritures sans `dryRun` | **%d** sur %d — `execution.supportsDryRun` le dit "
+        "par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les "
+        "exécuter |" % (len(no_dry), writes))
     add("| Défauts critiques et majeurs corrigés | **%d**, gardés par "
         "`ConfirmedDefectFixSourceTests` |" % len(FIXED))
     add("| Lacunes API comblées depuis le relevé précédent | **%d** sur 19 |" % len(COVERED))

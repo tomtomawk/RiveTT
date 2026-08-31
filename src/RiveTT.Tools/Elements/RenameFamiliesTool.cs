@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Elements;
 /// <summary>
 /// Renames loaded families with find/replace, prefix, or suffix.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class RenameFamiliesTool : IRiveTTTool
 {
     public string Name => "rename_families";

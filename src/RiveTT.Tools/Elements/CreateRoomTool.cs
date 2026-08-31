@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Elements;
 /// <summary>
 /// Creates a room at the specified location point inside enclosed walls.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class CreateRoomTool : IRiveTTTool
 {
     public string Name => "create_room";

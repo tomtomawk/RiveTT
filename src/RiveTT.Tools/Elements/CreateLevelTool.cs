@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Elements;
 /// <summary>
 /// Creates a new level at the specified elevation, optionally with floor/ceiling plan views.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class CreateLevelTool : IRiveTTTool
 {
     public string Name => "create_level";

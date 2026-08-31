@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Elements;
 /// Supports color, transparency, shininess, smoothness, class, category,
 /// and identity parameters (description, manufacturer, model, URL, etc.).
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class SetMaterialPropertiesTool : IRiveTTTool
 {
     public string Name => "set_material_properties";

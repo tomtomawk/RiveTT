@@ -18,7 +18,7 @@ namespace RiveTT.Tools.Project;
 /// strips it from every compound structure and paint that referenced it, which is why the
 /// preview probes the real cascade instead of only naming the material.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class DeleteMaterialTool : IRiveTTTool
 {
     public string Name => "delete_material";

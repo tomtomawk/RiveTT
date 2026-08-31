@@ -16,7 +16,7 @@ namespace RiveTT.Tools.IFC;
 /// Places family instances (doors, windows) from IFC-imported DirectShapes.
 /// Uses bounding box center for placement and tries to find matching family symbols.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class IfcRebuildFamilyInstancesTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_family_instances";

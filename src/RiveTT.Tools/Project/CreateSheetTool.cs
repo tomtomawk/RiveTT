@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Project;
 /// <summary>
 /// Creates a new sheet with optional title block and numbering.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class CreateSheetTool : IRiveTTTool
 {
     public string Name => "create_sheet";

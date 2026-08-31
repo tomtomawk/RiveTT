@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Parameters;
 /// <summary>
 /// Lists, creates, deletes, or modifies project parameters.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ManageProjectParametersTool : IRiveTTTool
 {
     public string Name => "manage_project_parameters";

@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Parameters;
 /// <summary>
 /// Clears parameter values on elements by category, view, or selection scope.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ClearParameterValuesTool : IRiveTTTool
 {
     public string Name => "clear_parameter_values";

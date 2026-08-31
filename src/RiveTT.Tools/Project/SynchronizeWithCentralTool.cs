@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 /// dryRun:false explicitly to actually push. There is no separate "are you sure" layer
 /// beyond that: the write lock and dryRun default are the confirmation.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class SynchronizeWithCentralTool : IRiveTTTool
 {
     public string Name => "synchronize_with_central";

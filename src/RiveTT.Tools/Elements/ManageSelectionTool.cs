@@ -20,7 +20,7 @@ namespace RiveTT.Tools.Elements;
 /// list. elementIds/overwrite apply to save only (elementIds absent = current UI selection).
 /// selectInView applies to load only. dryRun applies to delete only.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ManageSelectionTool : IRiveTTTool
 {
     public string Name => "manage_selection";

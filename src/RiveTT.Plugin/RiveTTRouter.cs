@@ -54,16 +54,19 @@ public class RiveTTRouter
 
     private sealed class ToolSafetyRegistration
     {
-        public ToolSafetyRegistration(bool readOnly, bool destructive, bool declared)
+        public ToolSafetyRegistration(bool readOnly, bool destructive, bool declared,
+            bool supportsDryRun = false)
         {
             ReadOnly = readOnly;
             Destructive = destructive;
             Declared = declared;
+            SupportsDryRun = supportsDryRun;
         }
 
         public bool ReadOnly { get; }
         public bool Destructive { get; }
         public bool Declared { get; }
+        public bool SupportsDryRun { get; }
     }
 
     public RiveTTRouter(RiveTTSession session, IDocumentAnalyzer analyzer,
@@ -109,6 +112,13 @@ public class RiveTTRouter
         var safety = ResolveToolSafety(tool, toolType);
         _toolSafety[tool.Name] = safety;
 
+        // Published on the session so get_server_capabilities can report a COUNTED
+        // figure. It used to answer dryRunDefault: true for the whole surface, which
+        // is the statement that sent agents to ask a preview from tools that have
+        // none. RiveTT.Tools cannot see the router, so the fact travels through the
+        // session, recomputed on each registration (195 of them, at startup).
+        _session.DryRunCoverage = ComputeDryRunCoverage();
+
         var prefixReadOnly = IsReadOnlyTool(tool.Name);
         if (safety.Declared && safety.ReadOnly != prefixReadOnly)
         {
@@ -129,7 +139,8 @@ public class RiveTTRouter
         if (aware != null)
         {
             var info = aware.GetToolSafety();
-            return new ToolSafetyRegistration(info.ReadOnly, info.Destructive, declared: true);
+            return new ToolSafetyRegistration(info.ReadOnly, info.Destructive, declared: true,
+                supportsDryRun: info.SupportsDryRun);
         }
 
         var attribute = (ToolSafetyAttribute?)Attribute.GetCustomAttribute(
@@ -137,7 +148,8 @@ public class RiveTTRouter
         if (attribute != null)
         {
             return new ToolSafetyRegistration(
-                attribute.ReadOnly, attribute.Destructive, declared: true);
+                attribute.ReadOnly, attribute.Destructive, declared: true,
+                supportsDryRun: attribute.SupportsDryRun);
         }
 
         return new ToolSafetyRegistration(
@@ -212,6 +224,35 @@ public class RiveTTRouter
             return refusal;
         }
 
+        // A preview the tool cannot give must be refused, never silently executed.
+        // EnrichResult used to stamp dryRun:true / mutated:false from the CALLER's
+        // request, so the 79 write tools that never read dryRun ran normally and
+        // still answered "nothing was modified" — right after modifying the model.
+        // Refusing here costs the caller one round trip; the alternative cost a
+        // model change nobody was told about.
+        if (input["dryRun"]?.Value<bool>() == true
+            && !IsToolReadOnly(toolName) && !SupportsDryRun(toolName))
+        {
+            var unsupported = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"'{displayName}' does not support dryRun: it cannot preview, only apply.",
+                suggestion: "Re-issue the call without dryRun to apply the change, once you " +
+                            "have confirmed the target with a read tool. Do not read this as " +
+                            "'nothing happened': nothing was executed at all.",
+                context: new Dictionary<string, object>
+                {
+                    ["stage"] = "contract",
+                    ["supportsDryRun"] = false,
+                    ["toolReadOnly"] = false,
+                    ["modelChanged"] = false
+                });
+
+            _auditLogger.LogWithPerf(toolName, BuildInputSummary(toolName, input),
+                success: false, errorCode: RiveTTErrorCode.InvalidInput,
+                elementsAffected: 0, durationMs: 0, responseBytes: 0,
+                errorMessage: unsupported.Error?.Message);
+            return unsupported;
+        }
+
         if (tool.RequiresDocument && _session.Store.Get<object>("activeDocument") == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No document open in Revit",
@@ -239,16 +280,20 @@ public class RiveTTRouter
                 // A cached answer must say so. A 0 ms reply carrying the pre-Save-As
                 // project path was indistinguishable from a fresh read of stale state.
                 var cached = MarkCached(cachedResult);
+                // MarkCached already produced the payload as a JObject; handing it to the
+                // audit helpers saves them rebuilding the same tree twice more, which on
+                // a cache hit would be most of the work the cache exists to avoid.
+                var cachedData = cached.Data as JObject;
                 stopwatch.Stop();
                 _auditLogger.LogWithPerf(toolName, BuildInputSummary(toolName, input),
                     cached.Success, cached.Error?.Code,
-                    elementsAffected: EstimateElementsAffected(cached),
+                    elementsAffected: EstimateElementsAffected(cached, cachedData),
                     durationMs: stopwatch.ElapsedMilliseconds,
                     // The entry's stored estimate: re-serializing the result on every
                     // hit would defeat the point of caching it.
                     responseBytes: cachedBytes,
                     errorMessage: cached.Error?.Message,
-                    outputSummary: BuildOutputSummary(cached));
+                    outputSummary: BuildOutputSummary(cached, cachedData));
                 return cached;
             }
         }
@@ -289,10 +334,13 @@ public class RiveTTRouter
             _session.Cache.InvalidateAll();
         }
 
-        result = EnrichResult(toolName, input, result);
-        // One serialization serves both the audit byte count and the cache entry's
-        // estimate — Set used to re-serialize the same result a second time.
-        var responseBytes = EstimateResponseBytes(result);
+        // enrichedData is the payload as a JObject, produced once. It used to be rebuilt
+        // from result.Data four times per call — EnrichResult, EstimateResponseBytes,
+        // EstimateElementsAffected and BuildOutputSummary each ran JToken.FromObject or a
+        // full serialization over the same object. On an export_elements_data answer of a
+        // few MB that is four full passes to return one.
+        result = EnrichResult(toolName, input, result, out var enrichedData);
+        var responseBytes = EstimateResponseBytes(result, enrichedData);
 
         // Only cache successful results. Failures must always re-execute so a
         // transient error doesn't get stuck in the cache.
@@ -320,20 +368,27 @@ public class RiveTTRouter
         }
 
         _auditLogger.LogWithPerf(toolName, inputSummary, result.Success,
-            result.Error?.Code, elementsAffected: EstimateElementsAffected(result),
+            result.Error?.Code, elementsAffected: EstimateElementsAffected(result, enrichedData),
             durationMs: stopwatch.ElapsedMilliseconds,
             responseBytes: responseBytes,
             codeSnippet: codeSnippet,
             codeHash: codeHash,
             errorMessage: result.Error?.Message,
-            outputSummary: BuildOutputSummary(result));
+            outputSummary: BuildOutputSummary(result, enrichedData));
 
         return result;
     }
 
+    /// <summary>
+    /// Adds the execution contract to a successful payload, and normalizes a transaction
+    /// failure. <paramref name="enrichedData"/> receives the payload as a JObject — the
+    /// single materialization the audit and cache paths then reuse instead of rebuilding
+    /// it from <c>result.Data</c> each in turn. Null on a failure, which carries no payload.
+    /// </summary>
     private RiveTTResult<object> EnrichResult(
-        string toolName, JObject input, RiveTTResult<object> result)
+        string toolName, JObject input, RiveTTResult<object> result, out JObject? enrichedData)
     {
+        enrichedData = null;
         if (!result.Success)
         {
             if (result.Error?.Code != RiveTTErrorCode.TransactionFailed)
@@ -360,19 +415,33 @@ public class RiveTTRouter
             : JToken.FromObject(result.Data);
         var obj = data as JObject ?? new JObject { ["value"] = data };
         var isReadOnly = IsToolReadOnly(toolName);
+        var supportsDryRun = SupportsDryRun(toolName);
         var dryRun = input["dryRun"]?.Value<bool>() == true;
 
-        if (dryRun && !isReadOnly)
+        // Only a tool that actually READS dryRun may be credited with a preview. The
+        // condition used to be `dryRun && !isReadOnly`, which asserted mutated:false
+        // on the caller's word alone — Route now refuses that case outright, and this
+        // second condition keeps the claim tied to the tool's declared behavior.
+        if (dryRun && !isReadOnly && supportsDryRun)
         {
             obj["dryRun"] = true;
             obj["mutated"] = false;
         }
 
+        enrichedData = obj;
         obj["execution"] = new JObject
         {
             ["connector"] = "RiveTT",
             ["pluginVersion"] = PluginVersion,
             ["revitVersion"] = GetActiveRevitVersion(),
+            // WHICH Revit, and which file. The MCP server picks the most recently started
+            // session (RevitSessionDiscovery.FindPreferredPipe) without saying so, and no
+            // tool lists the alternatives. With a project and a family open in two
+            // instances -- an ordinary afternoon -- an agent can write into the one it did
+            // not mean and nothing in the answer would show it. These two fields make the
+            // target visible on every single response instead of only when asked.
+            ["revitProcessId"] = Process.GetCurrentProcess().Id,
+            ["documentTitle"] = GetActiveDocumentTitle(),
             ["mode"] = "automatic",
             // toolReadOnly classifies THIS tool. It was named "readOnly", which read
             // as a server-wide lock and made callers believe writes were forbidden.
@@ -380,6 +449,11 @@ public class RiveTTRouter
             // when it is false, every tool with toolReadOnly=false is refused.
             ["toolReadOnly"] = isReadOnly,
             ["toolDestructive"] = IsToolDestructive(toolName),
+            // Per-tool, because there is no server-wide answer: 56 of the 135 write
+            // tools preview, the rest apply straight away. get_server_capabilities
+            // used to publish a blanket dryRunDefault:true, which is what told an
+            // agent to expect a preview from a tool that has never had one.
+            ["supportsDryRun"] = supportsDryRun,
             ["writesAllowed"] = _session.WriteAccess.WritesAllowed,
             ["cached"] = false
         };
@@ -398,6 +472,24 @@ public class RiveTTRouter
         {
             return (_session.Store.Get<object>("activeDocument") as Autodesk.Revit.DB.Document)
                 ?.Application?.VersionNumber ?? "unknown";
+        }
+        catch
+        {
+            return "unknown";
+        }
+    }
+
+    /// <summary>
+    /// Title of the document this session is working on, so a caller can see it changed
+    /// target. Returns "none" with no document open, "unknown" if Revit refuses the read
+    /// (a document mid-close): both are answers, and neither may throw out of the router.
+    /// </summary>
+    private string GetActiveDocumentTitle()
+    {
+        try
+        {
+            var document = _session.Store.Get<object>("activeDocument") as Autodesk.Revit.DB.Document;
+            return document == null ? "none" : document.Title;
         }
         catch
         {
@@ -430,12 +522,12 @@ public class RiveTTRouter
         }
     }
 
-    private static int EstimateElementsAffected(RiveTTResult<object> result)
+    private static int EstimateElementsAffected(RiveTTResult<object> result, JObject? enriched)
     {
         if (!result.Success || result.Data == null) return 0;
         try
         {
-            var data = JToken.FromObject(result.Data);
+            JToken data = enriched ?? JToken.FromObject(result.Data);
             foreach (var key in new[]
                      {
                          "modified", "modifiedCount", "successCount", "createdCount",
@@ -458,7 +550,7 @@ public class RiveTTRouter
         return 0;
     }
 
-    private static string BuildOutputSummary(RiveTTResult<object> result)
+    private static string BuildOutputSummary(RiveTTResult<object> result, JObject? enriched)
     {
         if (!result.Success)
             return $"error={result.Error?.Code}; rolledBack={result.Error?.Context?.ContainsKey("rolledBack") == true}";
@@ -466,7 +558,7 @@ public class RiveTTRouter
 
         try
         {
-            var data = JToken.FromObject(result.Data);
+            JToken data = enriched ?? JToken.FromObject(result.Data);
             if (data is not JObject obj) return FormatValue("result", data);
             var parts = new List<string>();
             foreach (var prop in obj.Properties())
@@ -480,10 +572,17 @@ public class RiveTTRouter
         catch { return "(unserializable)"; }
     }
 
-    private static long EstimateResponseBytes(RiveTTResult<object> result)
+    /// <summary>
+    /// Size of the response on the wire. Measures the already-built payload when there is
+    /// one; a full re-serialization of the whole result was the largest of the four passes
+    /// this used to make over the same data.
+    /// </summary>
+    private static long EstimateResponseBytes(RiveTTResult<object> result, JObject? enriched)
     {
         try
         {
+            if (enriched != null)
+                return Encoding.UTF8.GetByteCount(enriched.ToString(Formatting.None));
             var json = Newtonsoft.Json.JsonConvert.SerializeObject(result);
             return Encoding.UTF8.GetByteCount(json);
         }
@@ -570,6 +669,33 @@ public class RiveTTRouter
     public bool IsToolDestructive(string toolName)
     {
         return _toolSafety.TryGetValue(toolName, out var safety) && safety.Destructive;
+    }
+
+    /// <summary>
+    /// Whether the tool actually reads <c>dryRun</c> and returns a preview. Defaults to
+    /// false for an unregistered name: refusing a preview nobody promised is safe, while
+    /// assuming one is exactly the failure this replaced.
+    /// </summary>
+    public bool SupportsDryRun(string toolName)
+    {
+        return _toolSafety.TryGetValue(toolName, out var safety) && safety.SupportsDryRun;
+    }
+
+    /// <summary>
+    /// Write tools that preview, over write tools in total. Published on the session so
+    /// <c>get_server_capabilities</c> reports a counted figure, not an asserted one.
+    /// </summary>
+    public (int Previewing, int Writing) ComputeDryRunCoverage()
+    {
+        var writing = 0;
+        var previewing = 0;
+        foreach (var name in _tools.Keys)
+        {
+            if (IsToolReadOnly(name)) continue;
+            writing++;
+            if (SupportsDryRun(name)) previewing++;
+        }
+        return (previewing, writing);
     }
 
     private static string BuildInputSummary(string toolName, JObject input)

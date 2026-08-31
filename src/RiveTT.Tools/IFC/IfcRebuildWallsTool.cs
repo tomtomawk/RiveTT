@@ -15,7 +15,7 @@ namespace RiveTT.Tools.IFC;
 /// Reconstructs walls from IFC-imported DirectShape elements using Wall.Create.
 /// Extracts wall profile (base line + height + thickness) and finds matching WallType.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class IfcRebuildWallsTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_walls";

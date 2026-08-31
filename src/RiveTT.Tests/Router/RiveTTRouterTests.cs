@@ -87,7 +87,7 @@ public class RiveTTRouterTests
         var router = CreateRouter(out _);
         router.RegisterTool(new FakeTool { Name = "write_fake" });
 
-        var result = router.Route("write_fake", new JObject { ["dryRun"] = true });
+        var result = router.Route("write_fake", new JObject());
 
         Assert.True(result.Success);
         var data = Assert.IsType<JObject>(result.Data);
@@ -97,7 +97,12 @@ public class RiveTTRouterTests
         // active document's Application.VersionNumber (2026 or 2027), not a literal.
         Assert.Equal("unknown", data["execution"]!["revitVersion"]!.Value<string>());
         Assert.Equal("automatic", data["execution"]!["mode"]!.Value<string>());
-        Assert.False(data["mutated"]!.Value<bool>());
+        // Part of the contract since the dryRun gate: an agent reads this to know
+        // whether asking for a preview will be honoured or refused. DryRunGateTests
+        // owns the stamping behavior itself.
+        Assert.False(data["execution"]!["supportsDryRun"]!.Value<bool>());
+        // This call asked for no preview, so nothing may claim one.
+        Assert.Null(data["mutated"]);
     }
 
     [Fact]

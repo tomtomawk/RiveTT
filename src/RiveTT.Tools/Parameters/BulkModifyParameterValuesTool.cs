@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Parameters;
 /// <summary>
 /// Bulk set, prefix, suffix, find/replace, or clear parameter values on elements.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class BulkModifyParameterValuesTool : IRiveTTTool
 {
     public string Name => "batch_modify_parameter_values";

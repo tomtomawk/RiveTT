@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Project;
 /// Walls, Floors, Roofs, Ceilings.
 /// Supports adding, removing, and modifying layers.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class SetCompoundStructureTool : IRiveTTTool
 {
     public string Name => "set_compound_structure";

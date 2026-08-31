@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Annotations;
 /// <summary>
 /// Finds and removes tags that have empty text or reference deleted/invalid elements.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class WipeEmptyTagsTool : IRiveTTTool
 {
     public string Name => "delete_empty_tags";

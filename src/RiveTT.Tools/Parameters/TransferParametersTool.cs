@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Parameters;
 /// <summary>
 /// Copies parameter values from a source element to target elements.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class TransferParametersTool : IRiveTTTool
 {
     public string Name => "transfer_parameters";

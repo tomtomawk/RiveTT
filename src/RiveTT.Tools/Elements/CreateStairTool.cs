@@ -27,7 +27,7 @@ namespace RiveTT.Tools.Elements;
 /// created in transactions INSIDE the scope, and the scope is committed with a
 /// failure preprocessor so a warning cannot open a modal dialog.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class CreateStairTool : IRiveTTTool
 {
 

@@ -34,7 +34,7 @@ namespace RiveTT.Tools.Elements;
 /// divergent, which Autodesk reports as crash-prone on large models. delete_element
 /// therefore refuses a multi-instance group member unless the caller opts in.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public sealed class EditGroupMembersTool : IRiveTTTool
 {
     public string Name => "edit_group_members";

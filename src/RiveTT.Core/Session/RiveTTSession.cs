@@ -28,6 +28,19 @@ public class RiveTTSession
     public WriteAccessPolicy WriteAccess { get; } = new WriteAccessPolicy();
 
     /// <summary>
+    /// How many write tools can preview, out of how many write tools exist. Set once by
+    /// the router as it registers the catalogue, and read by get_server_capabilities so
+    /// the figure it publishes is COUNTED. It used to publish dryRunDefault: true for the
+    /// whole surface — which is what told agents to expect a preview from tools that have
+    /// never had one.
+    ///
+    /// A session property and not a Store entry, for the same reason as
+    /// <see cref="WriteAccess"/>: it describes the tool catalogue of this Revit session,
+    /// and <see cref="Reinitialize"/> clears the Store on every document boundary.
+    /// </summary>
+    public (int Previewing, int Writing) DryRunCoverage { get; set; }
+
+    /// <summary>
     /// Tool-result cache. Always non-null. Plugin wires invalidation to Revit
     /// document events; in tests a default cache is created automatically.
     /// </summary>

@@ -16,7 +16,7 @@ namespace RiveTT.Tools.IFC;
 /// Reconstructs structural columns and beams from IFC-imported DirectShape elements.
 /// Columns use point-based NewFamilyInstance; beams use curve-based NewFamilyInstance.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class IfcRebuildStructuralMembersTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_structural_members";

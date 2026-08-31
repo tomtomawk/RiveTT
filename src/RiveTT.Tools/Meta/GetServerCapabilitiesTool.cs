@@ -57,9 +57,26 @@ public sealed class GetServerCapabilitiesTool : IRiveTTTool
                 toolDestructive = "the tool can delete or overwrite model data",
                 writesAllowed = "session-wide state of the ribbon write lock; when false, " +
                                 "every tool with toolReadOnly=false is refused",
+                supportsDryRun = "this tool reads dryRun and can preview; when false, passing " +
+                                 "dryRun=true is refused rather than executed",
                 cached = "the response was served from the tool result cache"
             },
-            dryRunDefault = true,
+            // NOT a blanket "dryRunDefault: true" any more. That single boolean claimed a
+            // preview for all 135 write tools while only 56 read the flag, and the router
+            // stamped mutated:false on the caller's word — so an agent was told nothing
+            // had changed right after a tool changed the model. The router now refuses
+            // dryRun on a tool that cannot honour it, and this reports what is actually
+            // covered. Read execution.supportsDryRun on the tool you are about to call.
+            dryRun = new
+            {
+                perTool = "execution.supportsDryRun on every response; there is no server-wide default",
+                previewingWriteTools = session.DryRunCoverage.Previewing,
+                writeTools = session.DryRunCoverage.Writing,
+                whenSupported = "dryRun defaults to true on destructive tools: the preview is what runs unless dryRun=false",
+                whenUnsupported = "dryRun=true is REFUSED with InvalidInput before execution — the tool is never run, "
+                                + "and the model is untouched. Re-issue without dryRun to apply.",
+                notAnExemption = "dryRun never lifts the ribbon write lock: a write tool stays refused while the session is read-only"
+            },
             unitPolicy = new
             {
                 inputs = "lengths in mm, angles in degrees",

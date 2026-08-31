@@ -15,7 +15,7 @@ namespace RiveTT.Tools.IFC;
 /// Reconstructs roofs from IFC-imported DirectShape elements using NewFootPrintRoof.
 /// Extracts the bottom face footprint for the roof profile.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class IfcRebuildRoofsTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_roofs";

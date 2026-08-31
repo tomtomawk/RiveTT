@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Elements;
 /// <summary>
 /// Batch renames elements (views, sheets, levels, grids, rooms, system types) using find/replace, prefix, or suffix.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class BatchRenameTool : IRiveTTTool
 {
     public string Name => "batch_rename";

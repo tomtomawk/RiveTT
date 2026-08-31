@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Views;
 /// <summary>
 /// Lists or deletes views that are not placed on any sheet.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ManageUnplacedViewsTool : IRiveTTTool
 {
     public string Name => "manage_unplaced_views";

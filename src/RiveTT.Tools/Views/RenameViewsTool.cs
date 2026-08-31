@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Views;
 /// <summary>
 /// Renames views using find/replace, prefix, or suffix with optional view type filtering.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class RenameViewsTool : IRiveTTTool
 {
     public string Name => "rename_views";

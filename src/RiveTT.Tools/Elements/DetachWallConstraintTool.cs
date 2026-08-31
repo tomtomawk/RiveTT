@@ -11,7 +11,7 @@ using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public sealed class DetachWallConstraintTool : IRiveTTTool
 {
     public string Name => "detach_wall_constraint";

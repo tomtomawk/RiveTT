@@ -11,7 +11,7 @@ using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Project;
 
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public sealed class DuplicateStoreyTool : IRiveTTTool
 {
     public string Name => "duplicate_storey";

@@ -16,7 +16,7 @@ namespace RiveTT.Tools.IFC;
 /// Uses Document.Create.NewOpening for rectangular wall openings and
 /// curve-based floor/roof openings.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class IfcRebuildOpeningsTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_openings";

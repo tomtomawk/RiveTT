@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Project;
 /// Deletes a Revit schedule by ID or name. Defaults to dryRun=true — see DeletionPreview
 /// for why the old RequestConfirmation call was not a safety net.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class DeleteScheduleTool : IRiveTTTool
 {
     public string Name => "delete_schedule";

@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Project;
 /// <summary>
 /// Finds and removes unused families, types, and materials.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class PurgeUnusedTool : IRiveTTTool
 {
     public string Name => "purge_unused";

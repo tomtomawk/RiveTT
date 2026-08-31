@@ -15,7 +15,7 @@ namespace RiveTT.Tools.IFC;
 /// Reconstructs floors from IFC-imported DirectShape elements using Floor.Create.
 /// Extracts the bottom face footprint as a CurveLoop for the floor profile.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class IfcRebuildFloorsTool : IRiveTTTool
 {
     public string Name => "ifc_rebuild_floors";

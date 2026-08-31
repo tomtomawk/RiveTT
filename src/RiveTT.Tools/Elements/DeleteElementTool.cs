@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Elements;
 /// Defaults to dryRun=true for safety — preview what would be deleted before committing.
 /// Mirrors the fork's DeleteElementEventHandler logic.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class DeleteElementTool : IRiveTTTool
 {
     public string Name => "delete_element";

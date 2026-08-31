@@ -10,7 +10,7 @@ using static RiveTT.Tools.Utilities.LengthUnits;
 namespace RiveTT.Tools.Elements;
 
 /// <summary>Uses Revit 2027's native hosted-wall API for lining and façade walls.</summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class SetWallHostTool : IRiveTTTool
 {
 

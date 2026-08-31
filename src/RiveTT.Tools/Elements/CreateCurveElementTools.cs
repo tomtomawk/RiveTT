@@ -112,7 +112,7 @@ internal static class CurveInput
 }
 
 /// <summary>Draws detail lines (view-owned 2D lines) in a specific view.</summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class CreateDetailLineTool : IRiveTTTool
 {
     public string Name => "create_detail_line";
@@ -205,7 +205,7 @@ public sealed class CreateDetailLineTool : IRiveTTTool
 }
 
 /// <summary>Draws model lines (3D lines visible in every view) on a horizontal sketch plane.</summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class CreateModelLineTool : IRiveTTTool
 {
     public string Name => "create_model_line";
@@ -287,7 +287,7 @@ public sealed class CreateModelLineTool : IRiveTTTool
 /// Draws room separation lines — the correct way to split a room without building
 /// a physical wall.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class CreateRoomSeparationLineTool : IRiveTTTool
 {
     public string Name => "create_room_separation_line";
@@ -371,7 +371,7 @@ public sealed class CreateRoomSeparationLineTool : IRiveTTTool
 /// Places a title block instance on an existing sheet — the repair path for sheets
 /// created before create_sheet honored titleBlockId.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class PlaceTitleBlockTool : IRiveTTTool
 {
     public string Name => "place_title_block";

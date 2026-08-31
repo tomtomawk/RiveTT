@@ -21,7 +21,7 @@ namespace RiveTT.Tools.Elements;
 /// Scripts are persisted to %LOCALAPPDATA%/RiveTT/scripts/ and cleaned up at Revit shutdown
 /// unless marked as reusable.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class SendCodeToRevitTool : IRiveTTTool
 {
     // Must stay in lockstep with RiveTTApp.CleanupTempScripts, which deletes
