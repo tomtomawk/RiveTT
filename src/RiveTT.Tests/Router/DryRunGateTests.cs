@@ -21,6 +21,12 @@ namespace RiveTT.Tests.Router;
 ///
 /// The property pinned here: a preview is a claim about what the TOOL did, never about
 /// what the caller asked for. A tool that cannot preview is refused, not executed.
+///
+/// The refusal tests are plain [Fact]: Route answers before reaching any Revit type. The
+/// SUCCESS tests are [RequiresRevitDbApiFact], because EnrichResult reads the active
+/// document's Application.VersionNumber and that loads Autodesk.Revit.DB — absent on a
+/// machine without Revit, where they would fail instead of skipping. Reproduce that
+/// machine locally with REVIT_INSTALL_DIR pointed at an empty directory.
 /// </summary>
 public class DryRunGateTests
 {
@@ -101,7 +107,7 @@ public class DryRunGateTests
         Assert.Contains("create_grid", result.Error!.Message);
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void DryRun_OnToolThatPreviews_RunsAndIsStamped()
     {
         var tool = new PreviewingWriteTool();
@@ -117,7 +123,7 @@ public class DryRunGateTests
         Assert.True(data["execution"]!["supportsDryRun"]!.Value<bool>());
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void WriteWithoutDryRun_IsNeverStampedAsAPreview()
     {
         var tool = new ApplyOnlyWriteTool();
@@ -133,7 +139,7 @@ public class DryRunGateTests
         Assert.False(data["execution"]!["supportsDryRun"]!.Value<bool>());
     }
 
-    [Fact]
+    [RequiresRevitDbApiFact]
     public void DryRun_OnAReadTool_IsIgnoredNotRefused()
     {
         // A read tool cannot mutate, so a caller passing dryRun defensively everywhere
