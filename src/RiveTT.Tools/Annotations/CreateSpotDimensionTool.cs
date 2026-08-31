@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Annotations;
 /// element's geometry) — the "cote de niveau" missing from create_dimensions, which
 /// only builds linear dimensions.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class CreateSpotDimensionTool : IRiveTTTool
 {
     public string Name => "create_spot_dimension";
@@ -62,6 +62,7 @@ public class CreateSpotDimensionTool : IRiveTTTool
         var bend = ParseOptionalXYZ(input["bend"]) ?? origin + view.UpDirection * (200.0 / MmPerFoot);
         var end = ParseOptionalXYZ(input["end"]) ?? bend + view.RightDirection * (300.0 / MmPerFoot);
 
+        var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Create Spot Dimension");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -78,16 +79,30 @@ public class CreateSpotDimensionTool : IRiveTTTool
                     "SpotDimension.Create returned null");
             }
 
+            // Built BEFORE the rollback: afterwards the elements this describes no longer
+            // exist and reading a name off one throws. Captured verbatim from the real
+            // return, so the preview cannot drift from what applying actually reports.
+            var previewPayload = new
+            {
+                spotDimensionId = ToolHelpers.GetElementIdValue(spot.Id),
+                viewId = ToolHelpers.GetElementIdValue(view.Id)
+            };
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                    + "untouched; what follows is what Revit produced.",
+                    previewPayload);
+            }
+
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return RiveTTResult<object>.Ok(new
-            {
-                spotDimensionId = ToolHelpers.GetElementIdValue(spot.Id),
-                viewId = ToolHelpers.GetElementIdValue(view.Id)
-            });
+return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {

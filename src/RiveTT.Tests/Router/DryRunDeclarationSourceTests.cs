@@ -128,11 +128,12 @@ public class DryRunDeclarationSourceTests
         // A regex that silently stops matching would make every test above vacuous.
         var all = Tools().ToList();
         Assert.True(all.Count > 150, $"Only {all.Count} tools found in {ToolsRoot} — the scan is broken.");
-        Assert.Contains(all, t => t.Class == "DeleteElementTool" && t.Declares && t.Reads);
-        // A tool on each side, so neither branch of the scan can silently stop matching.
-        // CreateGridTool sat here until it gained a preview; if this one gains one too,
-        // move the anchor rather than deleting it.
-        Assert.Contains(all, t => t.Class == "AlignViewportsTool" && !t.Declares && !t.Reads);
+        // Both kinds must be seen, or one branch of the scan could stop matching unnoticed.
+        // Named anchors rotted twice as tools gained previews; the invariant is that neither
+        // set is empty, not that a particular tool is in one of them.
+        Assert.Contains(all, t => t.Declares && t.Reads);
+        Assert.Contains(all, t => !t.Declares && !t.Reads);
+        Assert.Contains(all, t => t.ReadOnly);
     }
 
     [Fact]

@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Annotations;
 /// <summary>
 /// Creates one or more text notes in the active or specified view.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class CreateTextNoteTool : IRiveTTTool
 {
     public string Name => "create_text_note";
@@ -39,6 +39,7 @@ public class CreateTextNoteTool : IRiveTTTool
         var createdIds = new List<long>();
         var warnings = new List<string>();
 
+        var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Create Text Notes");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -67,7 +68,9 @@ public class CreateTextNoteTool : IRiveTTTool
                     warnings.Add($"Failed to create text note: {ex.Message}");
                 }
             }
-            if (tx.Commit() != TransactionStatus.Committed)
+            // dryRun keeps the transaction OPEN so the payload below can still read the
+            // elements it describes; the rollback happens just before returning.
+            if (!dryRun && tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
@@ -76,6 +79,20 @@ public class CreateTextNoteTool : IRiveTTTool
         {
             if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
             throw;
+        }
+
+        if (dryRun)
+        {
+            ChangePreview.Rollback(tx);
+            return ChangePreview.Probed(
+                "DryRun: the operation ran inside a transaction and was rolled back. The "
+                + "model is untouched; what follows is what Revit produced.",
+                new
+        {
+            createdCount = createdIds.Count,
+            createdTextNoteIds = createdIds,
+            warnings
+        });
         }
 
         return RiveTTResult<object>.Ok(new

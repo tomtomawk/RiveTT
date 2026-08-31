@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Annotations;
 /// Colors elements by parameter value and optionally creates a drafting legend view.
 /// Supports auto, gradient, and custom color schemes.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class CreateColorLegendTool : IRiveTTTool
 {
     public string Name => "create_color_legend";
@@ -76,6 +76,7 @@ public class CreateColorLegendTool : IRiveTTTool
 
             // Apply overrides
             int coloredCount = 0;
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Create Color Legend");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -110,7 +111,9 @@ public class CreateColorLegendTool : IRiveTTTool
                 if (createLegendView)
                     legendViewId = CreateLegend(doc, legendTitle, colorMap, groups);
 
-                if (tx.Commit() != TransactionStatus.Committed)
+                // dryRun keeps the transaction OPEN so the payload below can still read the
+                // elements it describes; the rollback happens just before returning.
+                if (!dryRun && tx.Commit() != TransactionStatus.Committed)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
@@ -121,6 +124,21 @@ public class CreateColorLegendTool : IRiveTTTool
                     color = $"#{kvp.Value.Red:X2}{kvp.Value.Green:X2}{kvp.Value.Blue:X2}",
                     elementCount = groups.ContainsKey(kvp.Key) ? groups[kvp.Key].Count : 0
                 }).ToList();
+
+                if (dryRun)
+                {
+                    ChangePreview.Rollback(tx);
+                    return ChangePreview.Probed(
+                        "DryRun: the operation ran inside a transaction and was rolled back. The "
+                        + "model is untouched; what follows is what Revit produced.",
+                        new
+                {
+                    coloredElementCount = coloredCount,
+                    groupCount = colorMap.Count,
+                    colorEntries,
+                    legendViewId
+                });
+                }
 
                 return RiveTTResult<object>.Ok(new
                 {

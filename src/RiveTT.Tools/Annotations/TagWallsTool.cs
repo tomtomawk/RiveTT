@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Annotations;
 /// <summary>
 /// Tags all walls in the current view at their midpoint.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class TagWallsTool : IRiveTTTool
 {
     public string Name => "tag_walls";
@@ -75,6 +75,7 @@ public class TagWallsTool : IRiveTTTool
             int taggedCount = 0;
             var warnings = new List<string>();
 
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Tag Walls");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -105,17 +106,31 @@ public class TagWallsTool : IRiveTTTool
                 }
             }
 
+            // Built BEFORE the rollback: afterwards the elements this describes no longer
+            // exist and reading a name off one throws. Captured verbatim from the real
+            // return, so the preview cannot drift from what applying actually reports.
+            var previewPayload = new
+            {
+                taggedCount,
+                totalWalls = walls.Count,
+                warnings
+            };
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                    + "untouched; what follows is what Revit produced.",
+                    previewPayload);
+            }
+
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return RiveTTResult<object>.Ok(new
-            {
-                taggedCount,
-                totalWalls = walls.Count,
-                warnings
-            });
+return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {

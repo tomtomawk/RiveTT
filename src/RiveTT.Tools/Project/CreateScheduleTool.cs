@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Project;
 /// <summary>
 /// Creates a schedule view with specified category, fields, filters, and sort options.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class CreateScheduleTool : IRiveTTTool
 {
     public string Name => "create_schedule";
@@ -56,6 +56,7 @@ public class CreateScheduleTool : IRiveTTTool
                     suggestion: "Pass a valid categoryName (e.g. OST_Walls) or a localized category display name.");
             }
 
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Create Schedule");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -160,12 +161,10 @@ public class CreateScheduleTool : IRiveTTTool
                 }
             }
 
-            if (tx.Commit() != TransactionStatus.Committed)
-                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
-                    suggestion: "Fix the reported model errors and retry.");
-
-            return RiveTTResult<object>.Ok(new
+            // Built BEFORE the rollback: afterwards the elements this describes no longer
+            // exist and reading a name off one throws. Captured verbatim from the real
+            // return, so the preview cannot drift from what applying actually reports.
+            var previewPayload = new
             {
                 scheduleId = ToolHelpers.GetElementIdValue(schedule.Id),
                 scheduleName = schedule.Name,
@@ -177,7 +176,23 @@ public class CreateScheduleTool : IRiveTTTool
                 // Include the full schedulable name list only when at least one field was
                 // skipped — keeps the response compact on the happy path.
                 schedulableFieldNames = skippedFields.Count > 0 ? schedulableNames : null
-            });
+            };
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                    + "untouched; what follows is what Revit produced.",
+                    previewPayload);
+            }
+
+            if (tx.Commit() != TransactionStatus.Committed)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
+
+return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {

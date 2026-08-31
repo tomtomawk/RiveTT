@@ -31,10 +31,12 @@ public static class LinkTools
         RevitConnectionManager revit,
         [Description("Link instance element ID")] long instanceId,
         [Description("Alignment mode: origin | shared | base. Default: origin")] string? alignMode = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["instanceId"] = instanceId };
         if (alignMode != null) p["alignMode"] = alignMode;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("align_link_to_host", p, ct);
         return result.ToString();
     }
@@ -169,6 +171,7 @@ public static class LinkTools
         [Description("Y value in mm")] double? y = null,
         [Description("Z value in mm")] double? z = null,
         [Description("Mode: delta | absolute. Default: delta")] string? mode = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["instanceId"] = instanceId };
@@ -176,6 +179,7 @@ public static class LinkTools
         if (y != null) p["y"] = y;
         if (z != null) p["z"] = z;
         if (mode != null) p["mode"] = mode;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("move_link_instance", p, ct);
         return result.ToString();
     }
@@ -185,10 +189,12 @@ public static class LinkTools
         RevitConnectionManager revit,
         [Description("Link instance element IDs")] long[] instanceIds,
         [Description("true to pin, false to unpin. Default: true")] bool pin = true,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["instanceIds"] = new JArray(instanceIds.Cast<object>().ToArray()) };
         p["pin"] = pin;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("pin_unpin_link_instance", p, ct);
         return result.ToString();
     }

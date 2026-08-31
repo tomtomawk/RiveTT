@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Views;
 /// <summary>
 /// Places a view on a sheet at the specified position.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class PlaceViewportTool : IRiveTTTool
 {
     public string Name => "place_viewport";
@@ -119,6 +119,7 @@ public class PlaceViewportTool : IRiveTTTool
 
             var position = new XYZ(posXMm / MmPerFoot, posYMm / MmPerFoot, 0);
 
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Place Viewport");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -143,7 +144,9 @@ public class PlaceViewportTool : IRiveTTTool
                     viewport.ChangeTypeId(vpType.Id);
             }
 
-            if (tx.Commit() != TransactionStatus.Committed)
+            // dryRun keeps the transaction OPEN so the payload below can still read the
+            // elements it describes; the rollback happens just before returning.
+            if (!dryRun && tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
@@ -191,6 +194,42 @@ public class PlaceViewportTool : IRiveTTTool
                     "the viewport metres wide (crop it: paper size = crop size / view scale), and the sheet " +
                     "origin is not the frame corner, so compute positions from frameOutlineMm below, not " +
                     "from the sheet size.");
+            }
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The "
+                    + "model is untouched; what follows is what Revit produced.",
+                    new
+            {
+                viewportId = ToolHelpers.GetElementIdValue(viewport.Id),
+                sheetNumber = sheet.SheetNumber,
+                viewName = view.Name,
+                rotation = viewport.Rotation.ToString(),
+                centredOnSheet = centreOnSheet,
+                centreMm = new { x = Math.Round(posXMm, 1), y = Math.Round(posYMm, 1) },
+                sheetSizeMm = new { width = Math.Round(sheetWidthMm, 1), height = Math.Round(sheetHeightMm, 1) },
+                // Where the printable frame actually is, in sheet coordinates. Use
+                // this to compute positions: it is NOT [0,0]..[width,height]. `source`
+                // says whether it was measured on the title block or fell back.
+                frameOutlineMm = SheetFrame.Describe(frame),
+                viewportOutlineMm = haveOutline
+                    ? new
+                    {
+                        minX = Math.Round(outMinX, 1), minY = Math.Round(outMinY, 1),
+                        maxX = Math.Round(outMaxX, 1), maxY = Math.Round(outMaxY, 1),
+                        widthMm = Math.Round(outMaxX - outMinX, 1),
+                        heightMm = Math.Round(outMaxY - outMinY, 1)
+                    }
+                    : null,
+                viewScale = view.Scale,
+                cropActive = view.CropBoxActive,
+                // Null rather than false when there was nothing to measure against.
+                fitsOnSheet = (haveOutline && frame.IsKnown) ? fits : (bool?)null,
+                warnings
+            });
             }
 
             return RiveTTResult<object>.Ok(new

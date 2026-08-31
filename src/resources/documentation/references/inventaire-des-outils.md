@@ -26,7 +26,7 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 |---|---|
 | Outils publiés | **198** |
 | Dont écriture | **139** (70 %) — c'est la part que le verrou du ruban gouverne |
-| Écritures sans `dryRun` | **66** sur 139 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
+| Écritures sans `dryRun` | **36** sur 139 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
 | Défauts critiques et majeurs corrigés | **8**, gardés par `ConfirmedDefectFixSourceTests` |
 | Lacunes API comblées depuis le relevé précédent | **16** sur 19 |
 | Erreurs génériques `Failed: …` sans suggestion | **128** |
@@ -132,21 +132,21 @@ documentation.
 | `get_selected_elements` | lecture | — | 5 | Get currently selected elements in Revit. | **mineur** — erreur générique sans suggestion |
 | `import_from_excel` | écriture destructif | oui | 5 | Import parameter values from an Excel file into Revit elements. | **mineur** — erreur générique sans suggestion |
 | `manage_area_plans` | écriture | — | 5 | Builds regulatory area surfaces (SHAB/SU/SDP): area schemes, area plan views, area boundary lines, and Area elements. action=list_schemes\|duplicate_sc… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `modify_element` | écriture | — | 5 | Move, rotate, mirror, or copy elements. Vectors are {"x":mm,"y":mm,"z":mm} JSON objects. move needs translation; rotate needs rotationCenter + rotatio… | **mineur** — pas de dryRun |
 | `create_wall` → `create_line_based_element` | écriture | oui | 5 | Create one native Revit wall. wallTypeId and baseLevelId are required. Set topLevelId to constrain the wall to a level; topOffset is in mm and may be… | — |
 | `export_elements_data` | lecture | — | 5 | Export element data as JSON or CSV, by category and/or by explicit elementIds. Parameter names may be given in English or in the document language (Ma… | — |
 | `get_element_parameters` | lecture | — | 5 | Get parameters of elements by Revit element ID. Numeric values come back in PROJECT display units with an explicit unit plus the Revit internal value… | — |
 | `manage_model_groups` | écriture destructif | oui | 5 | Inventory model groups, duplicate a group type and optionally swap selected instances, or ungroup selected model groups. Write actions preview by defa… | — |
+| `modify_element` | écriture | oui | 5 | Move, rotate, mirror, or copy elements. Vectors are {"x":mm,"y":mm,"z":mm} JSON objects. move needs translation; rotate needs rotationCenter + rotatio… | — |
 | `renumber_elements` | écriture destructif | oui | 5 | Renumber rooms/doors/windows by location or name. Writes into the specified parameter; supports prefix/suffix and start/increment. | — |
 | `set_element_parameters` | écriture destructif | oui | 5 | Set parameter values on one or more elements. Pass requests as a JSON-encoded array string. Supports parameterName by display name and builtInParamete… | — |
-| `color_elements` | écriture | — | 4 | Color a view's elements of a category by grouping them on a parameter value, or reset (clear) those color overrides. action=color\|reset. Pass viewId t… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
+| `color_elements` | écriture | oui | 4 | Color a view's elements of a category by grouping them on a parameter value, or reset (clear) those color overrides. action=color\|reset. Pass viewId t… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
 | `duplicate_family_type` | écriture | — | 4 | Duplicate a loadable family type with a new name and optional parameter overrides. | **signal** — clé imbriquée annoncée, absente du runtime : paramName |
 | `add_curtain_grid_line` | écriture | — | 4 | Adds a grid line to an existing curtain wall/system's grid (create the wall itself with create_line_based_element and a curtain wall type). hostElemen… | **mineur** — pas de dryRun |
 | `add_curtain_mullions` | écriture | — | 4 | Adds mullions to an existing curtain wall/system's grid lines. hostElementId and mullionTypeId are required; applies to every ungridded segment unless… | **mineur** — pas de dryRun |
 | `capture_selection` | lecture | — | 4 | Capture explicit element IDs or the current Revit selection as a reusable temporary token. Tokens expire and are scoped to the active document session… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `create_array` | écriture | — | 4 | Create a linear or radial array. Default builds a real associative Revit ArrayElement (editable count); set associative=false for loose copies. linear… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_detail_line` | écriture | oui | 4 | Draw 2D detail lines in a view (view-owned, not visible in other views). path is a JSON array [{x,y,z}, ...] in mm; consecutive points become segments… | **mineur** — erreur générique sans suggestion |
-| `create_filled_region` | écriture | — | 4 | Create a filled region in a view from a closed boundary, optionally with holes (inner loops). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_filled_region` | écriture | oui | 4 | Create a filled region in a view from a closed boundary, optionally with holes (inner loops). | **mineur** — erreur générique sans suggestion |
 | `create_model_line` | écriture | oui | 4 | Draw 3D model lines on a horizontal sketch plane. path is a JSON array [{x,y,z}, ...] in mm; all points must share the same z, which sets the plane el… | **mineur** — erreur générique sans suggestion |
 | `create_opening` | écriture | — | 4 | Cuts an opening or a vertical shaft. openingType=shaft\|host\|wall. shaft: baseLevelId+topLevelId+curves (closed loop, mm) — a vertical shaft through ev… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_point_based_element` | écriture | oui | 4 | Create point-based elements. Pass [{category, locationPoint:{x,y,z}, typeId?, levelId?, baseLevel?, hostWallId?, facingFlipped?, handFlipped?, rotatio… | **mineur** — géométrie par boîte englobante |
@@ -163,14 +163,14 @@ documentation.
 | `manage_selection` | écriture destructif | oui | 4 | CRUD on named saved selections (SelectionFilterElement). action=save\|load\|list\|delete. name is required for save/load/delete (ignored for list). save:… | **mineur** — erreur générique sans suggestion |
 | `manage_view_display` | écriture | — | 4 | Select, highlight, isolate, hide, or zoom to elements in the active view. Actions: select, selectionbox, setcolor, settransparency, hide, temphide, is… | **mineur** — pas de dryRun |
 | `measure_between_elements` | lecture | — | 4 | Measure distance between two elements or two points in mm. Provide either elementId1/elementId2, or point1/point2 (as JSON arrays [x,y,z]). | **mineur** — géométrie par boîte englobante |
-| `set_element_phase` | écriture | — | 4 | Assign created/demolished phase to elements. Pass a JSON array of requests: [{elementId, createdPhaseId?, demolishedPhaseId?}]. The older names phaseC… | **mineur** — pas de dryRun |
-| `set_element_workset` | écriture | — | 4 | Move elements to a different workset. Pass a JSON array of requests: [{elementId, worksetName}]. Worksets are resolved by name only. | **mineur** — pas de dryRun |
 | `set_material_properties` | écriture destructif | oui | 4 | Set identity, appearance, product info, and asset assignments on Revit materials. Each request is a FLAT object keyed by materialId plus any of: name,… | **mineur** — erreur générique sans suggestion |
 | `change_element_type` | écriture destructif | oui | 4 | Change the type of one or more elements to a target type specified by ID or name. | — |
 | `create_line_based_element` | écriture | oui | 4 | Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, heig… | — |
 | `get_curtain_grid_info` | lecture | — | 4 | Reads an existing curtain wall/system grid: U/V grid line ids, panel ids, mullion ids. hostElementId is the curtain wall or curtain system element. | — |
 | `get_room_openings` | lecture | — | 4 | Get doors/windows adjacent to rooms with dimensions. Filter by roomIds, roomNumbers, or levelName. | — |
 | `match_element_properties` | écriture destructif | oui | 4 | Copy parameter values from one source element to one or more target elements. | — |
+| `set_element_phase` | écriture | oui | 4 | Assign created/demolished phase to elements. Pass a JSON array of requests: [{elementId, createdPhaseId?, demolishedPhaseId?}]. The older names phaseC… | — |
+| `set_element_workset` | écriture | oui | 4 | Move elements to a different workset. Pass a JSON array of requests: [{elementId, worksetName}]. Worksets are resolved by name only. | — |
 | `edit_family` | écriture destructif | oui | 3 | Edits a loaded family's type parameters in the background - no window opens. Pass familyId or familyName, and changes as JSON: [{typeName, parameters:… | **mineur** — erreur générique sans suggestion |
 | `rename_families` | écriture destructif | oui | 3 | Rename loaded families (and optionally their types) with find/replace, prefix, or suffix operations. | **mineur** — erreur générique sans suggestion |
 | `detach_wall_constraint` | écriture destructif | oui | 2 | Preview or detach wall top-level constraints or Revit 2027 top/base attachments. Grouped walls are reported and skipped instead of rolling back unrela… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
@@ -185,7 +185,7 @@ documentation.
 | `batch_export` | lecture | — | 5 | Export views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats. | **mineur** — classé lecture seule et écrit sur le disque. Volontaire (le modèle n'est pas touché) mais à arbitrer : le verrou n'empêche pas cet écrit. |
 | `check_model_health` | lecture | — | 5 | Run a model health check and return a health score. | **mineur** — erreur générique sans suggestion |
 | `create_revision` | écriture | — | 5 | List, create, update, or assign revisions to sheets, and draw revision clouds. action=list\|create\|set\|add_to_sheets\|create_cloud. 'set' updates an exi… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `create_schedule` | écriture | — | 5 | Create a new schedule view in Revit. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_schedule` | écriture | oui | 5 | Create a new schedule view in Revit. | **mineur** — erreur générique sans suggestion |
 | `create_sheet` | écriture | oui | 5 | Create a sheet, with a title block. Pass titleBlockId (an OST_TitleBlocks family type id, from list_system_types or list_family_types) or a family/typ… | **mineur** — erreur générique sans suggestion |
 | `export_schedule` | écriture | — | 5 | Export a schedule as JSON, or write it to a CSV/TSV file. Without exportPath the data comes back inline; with exportPath the file is written using del… | **mineur** — pas de dryRun ; classement déclaré (écriture) différent du préfixe du nom |
 | `get_current_view_info` | lecture | — | 5 | Get information about the currently active view in Revit. | **mineur** — erreur générique sans suggestion |
@@ -207,11 +207,11 @@ documentation.
 | `count_lines_per_view` | lecture | — | 4 | Count detail lines per view (single document pass, safe on any model size) plus a project-wide model line count. Model lines have no owner view, so th… | **mineur** — erreur générique sans suggestion |
 | `create_key_schedule` | écriture | — | 4 | Creates a key schedule (ViewSchedule.CreateKeySchedule) — a reusable finish/typology key table (room finish keys, dwelling-unit typologies), different… | **mineur** — pas de dryRun |
 | `create_material` | écriture | — | 4 | Create a new material in the Revit project. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `create_preset_schedule` | écriture | — | 4 | Create a schedule from a predefined template. preset = door_by_room \| window_by_room \| room_finish \| material_takeoff \| sheet_list \| view_list. materi… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_preset_schedule` | écriture | oui | 4 | Create a schedule from a predefined template. preset = door_by_room \| window_by_room \| room_finish \| material_takeoff \| sheet_list \| view_list. materi… | **mineur** — erreur générique sans suggestion |
 | `delete_material` | écriture destructif | oui | 4 | Delete a material from the project by ID or name. Previews by default: the dry run names the material and reports the deletion cascade. Set dryRun=fal… | **mineur** — erreur générique sans suggestion |
 | `delete_schedule` | écriture destructif | oui | 4 | Delete a schedule by ID or name. Previews by default: the dry run names the schedule and reports the cascade, including the viewports that placed it o… | **mineur** — erreur générique sans suggestion |
 | `duplicate_material` | écriture | — | 4 | Duplicate an existing material with a new name. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `duplicate_schedule` | écriture | — | 4 | Duplicate a schedule with a new name | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `duplicate_schedule` | écriture | oui | 4 | Duplicate a schedule with a new name | **mineur** — erreur générique sans suggestion |
 | `duplicate_system_type` | écriture destructif | oui | 4 | Duplicate, rename, or delete a system type (wall, floor, roof, ceiling). action=duplicate\|rename\|delete. | **mineur** — erreur générique sans suggestion |
 | `get_compound_structure` | lecture | — | 4 | Get wall/floor/roof/ceiling layer structure by type ID or name. | **mineur** — erreur générique sans suggestion |
 | `get_material_quantities` | lecture | — | 4 | Calculate material area and volume across elements, optionally filtered by category or restricted to the current selection. | **mineur** — erreur générique sans suggestion |
@@ -219,12 +219,12 @@ documentation.
 | `list_shared_parameters` | lecture | — | 4 | List all project parameters with their bindings and categories, optionally filtered by category. | **mineur** — erreur générique sans suggestion |
 | `manage_additional_settings` | écriture | — | 4 | Manage Additional Settings (Manage tab): line styles, line weights, line patterns, fill patterns, halftone/underlay. | **mineur** — pas de dryRun |
 | `manage_phase_filters` | écriture | — | 4 | List, set, or create Revit Phase Filters. Actions: list \| set \| create. The 'set' action changes one presentation (New \| Demolished \| Existing \| Tempo… | **mineur** — pas de dryRun |
-| `manage_project_units` | écriture | — | 4 | Get or set project units (length, area, volume, angle, etc.). Actions: get, set, list_valid_units. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `manage_project_units` | écriture | oui | 4 | Get or set project units (length, area, volume, angle, etc.). Actions: get, set, list_valid_units. | **mineur** — erreur générique sans suggestion |
 | `manage_sheet_sets` | écriture | — | 4 | List, create, or delete named view/sheet sets (ViewSheetSet), so batch_export/printing can reuse a saved list instead of one passed on every call. act… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `manage_worksets` | écriture destructif | oui | 4 | Create, rename, delete, or set the active workset (workshared models only). To LIST worksets use list_worksets. | **mineur** — erreur générique sans suggestion |
 | `modify_schedule` | écriture destructif | oui | 4 | Modify schedule fields, sorting, filters, or rename the schedule. Supported actions: add_field, remove_field, set_sorting, clear_sorting, set_filter,… | **mineur** — erreur générique sans suggestion |
 | `set_compound_structure` | écriture destructif | oui | 4 | Modify compound structure on a wall/floor/roof/ceiling type. action=replace\|add\|remove\|modify\|set_wrapping. set_wrapping sets openingWrapping (none\|ex… | **mineur** — erreur générique sans suggestion |
-| `set_project_info` | écriture | — | 4 | Set editable Project Information fields. Only the fields you pass are changed; others are left untouched. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `set_project_info` | écriture | oui | 4 | Set editable Project Information fields. Only the fields you pass are changed; others are left untouched. | **mineur** — erreur générique sans suggestion |
 | `detect_clashes` | lecture | — | 4 | Detect clashes between two element categories. Uses true solid-geometry intersection by default (fewer false positives than bounding boxes). | — |
 | `list_design_options` | lecture | — | 4 | Lists existing design option sets and their options, and (with elementId) reports which option an element belongs to. Creating a design option set/opt… | — |
 | `export_shared_parameter_file` | lecture | — | 3 | Export shared parameter file contents | **mineur** — erreur générique sans suggestion |
@@ -261,15 +261,15 @@ documentation.
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
 | `apply_view_template` | écriture | — | 5 | List, apply, or remove view templates from views. action=list\|apply\|remove. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `create_view` | écriture | — | 5 | Create a new view in Revit: floor plan, ceiling plan, section, elevation, drafting, callout, or 3D view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_view` | écriture | oui | 5 | Create a new view in Revit: floor plan, ceiling plan, section, elevation, drafting, callout, or 3D view. | **mineur** — erreur générique sans suggestion |
 | `create_view_filter` | écriture | — | 5 | Create, apply, or list parameter-based view filters. action=create\|apply\|list. A filter carries one rule (parameterName/filterRule/filterValue) or sev… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `duplicate_view` | écriture | — | 5 | Duplicate an existing view in Revit. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `duplicate_view` | écriture | oui | 5 | Duplicate an existing view in Revit. | **mineur** — erreur générique sans suggestion |
 | `manage_view_templates` | écriture destructif | oui | 5 | List, duplicate, delete, or rename view templates. action=list\|duplicate\|delete\|rename. | **mineur** — erreur générique sans suggestion |
-| `override_graphics` | écriture | — | 5 | Override element graphics in a view (colors, transparency, halftone, line weight). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `place_viewport` | écriture | — | 5 | Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. Th… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `batch_modify_view_range` | écriture | — | 4 | Modify view range offsets (top, cut plane, bottom, view depth) for multiple views. Offsets are in mm. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `create_section_box_from_selection` | écriture | — | 4 | Create a 3D section box from selected elements | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
-| `create_views_from_rooms` | écriture | — | 4 | Create callout, section, or elevation views from rooms with a naming pattern. | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
+| `override_graphics` | écriture | oui | 5 | Override element graphics in a view (colors, transparency, halftone, line weight). | **mineur** — erreur générique sans suggestion |
+| `place_viewport` | écriture | oui | 5 | Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. Th… | **mineur** — erreur générique sans suggestion |
+| `batch_modify_view_range` | écriture | oui | 4 | Modify view range offsets (top, cut plane, bottom, view depth) for multiple views. Offsets are in mm. | **mineur** — erreur générique sans suggestion |
+| `create_section_box_from_selection` | écriture | oui | 4 | Create a 3D section box from selected elements | **mineur** — géométrie par boîte englobante ; erreur générique sans suggestion |
+| `create_views_from_rooms` | écriture | oui | 4 | Create callout, section, or elevation views from rooms with a naming pattern. | **mineur** — géométrie par boîte englobante ; erreur générique sans suggestion |
 | `manage_scope_boxes` | écriture | — | 4 | Inventory, rename, move, or assign-to-views existing scope boxes (OST_VolumeOfInterest). The Revit API has no method to create one from scratch — draw… | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
 | `manage_unplaced_views` | écriture destructif | oui | 4 | List or delete views that are not placed on any sheet | **mineur** — erreur générique sans suggestion |
 | `rename_views` | écriture destructif | oui | 3 | Batch rename views using find/replace, prefix, or suffix operations. | **mineur** — erreur générique sans suggestion |
@@ -281,27 +281,27 @@ documentation.
 | `add_linked_file` | écriture | — | 5 | Adds a new Revit linked file from a file path and optionally places an instance at the given position. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `get_link_transform` | lecture | — | 4 | Returns the full transform of a linked file instance. | **mineur** — erreur générique sans suggestion |
 | `list_linked_file_instances` | lecture | — | 4 | Lists all linked Revit files grouped by type, with transforms and load status. | **mineur** — erreur générique sans suggestion |
-| `align_link_to_host` | écriture | — | 2 | Aligns a link instance to the host project's internal origin, shared coordinates, or project base point. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `align_link_to_host` | écriture | oui | 2 | Aligns a link instance to the host project's internal origin, shared coordinates, or project base point. | **mineur** — erreur générique sans suggestion |
 | `get_selected_linked_elements` | lecture | — | 2 | Returns info about currently selected link instances. | **mineur** — erreur générique sans suggestion |
 | `highlight_linked_element` | écriture | — | 2 | Highlights an element inside a linked model with an optional section box. | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
 | `list_coordination_models` | lecture | — | 2 | Read-only listing of Autodesk Revit Coordination Models with type metadata and optional instances. | **mineur** — erreur générique sans suggestion |
-| `move_link_instance` | écriture | — | 2 | Moves a linked file instance. mode=delta applies (x,y,z) as an offset; mode=absolute places the origin at (x,y,z). Values are in mm. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `pin_unpin_link_instance` | écriture | — | 2 | Pins or unpins linked file instances. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `move_link_instance` | écriture | oui | 2 | Moves a linked file instance. mode=delta applies (x,y,z) as an offset; mode=absolute places the origin at (x,y,z). Values are in mm. | **mineur** — erreur générique sans suggestion |
+| `pin_unpin_link_instance` | écriture | oui | 2 | Pins or unpins linked file instances. | **mineur** — erreur générique sans suggestion |
 | `show_cross_model_elements` | écriture | — | 2 | Select host elements plus elements in linked Revit models. Two strategies for visibility: (a) default — create red DirectShape markers in the host doc… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 
 ### Annotations — 9 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
-| `tag_rooms` | écriture | — | 5 | Tag rooms in a view. Pass viewId to target a specific view; without it the active view is used. Nothing in this surface can activate a view, so viewId… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
-| `create_dimensions` | écriture | — | 5 | Create dimension annotations in a view. Pass a JSON array of dimension specs. Element mode: [{viewId, elementIds:[...], linePoint:{x,y,z}, dimensionSt… | **mineur** — pas de dryRun |
-| `create_text_note` | écriture | — | 5 | Create text notes in a view. Pass a JSON array: [{text, position:{x,y,z}, viewId?, textNoteTypeId?, width?, horizontalAlignment?, verticalAlignment?,… | **mineur** — pas de dryRun |
-| `create_color_legend` | écriture | — | 4 | Color elements by parameter value and optionally create a legend view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `create_spot_dimension` | écriture | — | 4 | Create a spot elevation annotation (a level/coordinate callout) at a point on an element's geometry. create_dimensions only builds linear dimensions;… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `tag_rooms` | écriture | oui | 5 | Tag rooms in a view. Pass viewId to target a specific view; without it the active view is used. Nothing in this surface can activate a view, so viewId… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
+| `create_dimensions` | écriture | oui | 5 | Create dimension annotations in a view. Pass a JSON array of dimension specs. Element mode: [{viewId, elementIds:[...], linePoint:{x,y,z}, dimensionSt… | — |
+| `create_text_note` | écriture | oui | 5 | Create text notes in a view. Pass a JSON array: [{text, position:{x,y,z}, viewId?, textNoteTypeId?, width?, horizontalAlignment?, verticalAlignment?,… | — |
+| `create_color_legend` | écriture | oui | 4 | Color elements by parameter value and optionally create a legend view. | **mineur** — erreur générique sans suggestion |
+| `create_spot_dimension` | écriture | oui | 4 | Create a spot elevation annotation (a level/coordinate callout) at a point on an element's geometry. create_dimensions only builds linear dimensions;… | **mineur** — erreur générique sans suggestion |
 | `delete_empty_tags` | écriture destructif | oui | 4 | Find and remove empty or orphaned tags | **mineur** — erreur générique sans suggestion |
 | `import_table` | écriture | — | 4 | Import a CSV/TSV file as a formatted table in a drafting or legend view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `manage_images` | écriture | — | 4 | Imports a raster/PDF file as an image and places it in a view (survey scan, surveyor underlay). action=list\|place. place needs filePath (bmp/jpg/jpeg/… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `tag_walls` | écriture | — | 4 | Tag walls at their midpoints in the active view. Operates on the active view only. Tags all walls by default, or a subset via wallIds. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `tag_walls` | écriture | oui | 4 | Tag walls at their midpoints in the active view. Operates on the active view only. Tags all walls by default, or a subset via wallIds. | **mineur** — erreur générique sans suggestion |
 
 ### Parameters — 8 outils
 
@@ -333,10 +333,10 @@ documentation.
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
 | `batch_create_sheets` | écriture | oui | 5 | Create multiple sheets with title blocks and optional view placement. sheets is a JSON array: [{number, name, titleBlockName?, viewIds?}]. Each sheet'… | **mineur** — erreur générique sans suggestion |
-| `align_viewports` | écriture | — | 4 | Align viewports across sheets. 'placement' matches box centers; 'model' matches the box outline min-corner so equal-scale views of the same region lin… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `align_viewports` | écriture | oui | 4 | Align viewports across sheets. 'placement' matches box centers; 'model' matches the box outline min-corner so equal-scale views of the same region lin… | **mineur** — erreur générique sans suggestion |
 | `create_placeholder_sheets` | écriture destructif | oui | 4 | Create, list, convert, or delete placeholder sheets. action=create\|list\|convert\|delete. | **mineur** — erreur générique sans suggestion |
-| `duplicate_sheet_with_content` | écriture | — | 4 | Duplicate a sheet including annotations and detail items | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `duplicate_sheet_with_views` | écriture | — | 4 | Duplicate a sheet N times with configurable view duplication options. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `duplicate_sheet_with_content` | écriture | oui | 4 | Duplicate a sheet including annotations and detail items | **mineur** — erreur générique sans suggestion |
+| `duplicate_sheet_with_views` | écriture | oui | 4 | Duplicate a sheet N times with configurable view duplication options. | **mineur** — erreur générique sans suggestion |
 
 ### Meta — 4 outils
 
@@ -354,7 +354,7 @@ documentation.
 | `show_clashes` | écriture | — | 4 | Detect clashes between two categories and create a 3D section-boxed view for visual review. Uses the same true solid-geometry intersection as detect_c… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `workflow_data_roundtrip` | lecture | — | 4 | Export parameters to Excel for external editing, then re-import once the file has been saved. | **mineur** — même cas que `batch_export` : écrit un .xlsx en mode lecture seule. |
 | `workflow_model_audit` | lecture | — | 4 | Run a complete model audit workflow. | **mineur** — classement déclaré (lecture) différent du préfixe du nom ; erreur générique sans suggestion |
-| `workflow_room_documentation` | écriture | — | 4 | Auto-generate callout views (and optionally sections) for every room on a level. | **mineur** — pas de dryRun ; géométrie par boîte englobante ; erreur générique sans suggestion |
+| `workflow_room_documentation` | écriture | oui | 4 | Auto-generate callout views (and optionally sections) for every room on a level. | **mineur** — géométrie par boîte englobante ; erreur générique sans suggestion |
 
 ### Architecture — 2 outils
 

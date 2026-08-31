@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Project;
 /// Writes editable Project Information fields (name, number, address, author,
 /// organization, status, client, etc.). Write counterpart of <c>get_project_info</c>.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class SetProjectInfoTool : IRiveTTTool
 {
     public string Name => "set_project_info";
@@ -40,6 +40,7 @@ public class SetProjectInfoTool : IRiveTTTool
 
         try
         {
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Set Project Info");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -66,6 +67,24 @@ public class SetProjectInfoTool : IRiveTTTool
                 }
             }
 
+            // Built BEFORE the rollback: afterwards the elements this describes no longer
+            // exist and reading a name off one throws. Captured verbatim from the real
+            // return, so the preview cannot drift from what applying actually reports.
+            var previewPayload = new
+            {
+                message = $"Updated {changed.Count} field(s)",
+                changedFields = changed
+            };
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                    + "untouched; what follows is what Revit produced.",
+                    previewPayload);
+            }
+
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
@@ -76,11 +95,7 @@ public class SetProjectInfoTool : IRiveTTTool
                     "No recognized fields provided",
                     suggestion: "Provide at least one of: projectName, projectNumber, projectAddress, buildingName, author, organizationName, organizationDescription, issueDate, status, clientName");
 
-            return RiveTTResult<object>.Ok(new
-            {
-                message = $"Updated {changed.Count} field(s)",
-                changedFields = changed
-            });
+return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {

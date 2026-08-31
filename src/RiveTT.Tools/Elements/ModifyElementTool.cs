@@ -11,7 +11,7 @@ using static RiveTT.Tools.Utilities.LengthUnits;
 
 namespace RiveTT.Tools.Elements;
 
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class ModifyElementTool : IRiveTTTool
 {
     public string Name => "modify_element";
@@ -56,6 +56,7 @@ public class ModifyElementTool : IRiveTTTool
         {
             ICollection<ElementId>? newElementIds = null;
 
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, $"RiveTT: Modify Elements - {action}");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -82,7 +83,9 @@ public class ModifyElementTool : IRiveTTTool
                             suggestion: "Supported actions: move, rotate, mirror, copy");
                 }
 
-                if (tx.Commit() != TransactionStatus.Committed)
+                // dryRun keeps the transaction OPEN so the payload below can still read the
+                // elements it describes; the rollback happens just before returning.
+                if (!dryRun && tx.Commit() != TransactionStatus.Committed)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                         suggestion: "Fix the reported model errors and retry.");
@@ -95,6 +98,15 @@ public class ModifyElementTool : IRiveTTTool
             }
 
             var resultData = BuildResult(action, revitIds.Count, newElementIds);
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The "
+                    + "model is untouched; what follows is what Revit produced.",
+                    resultData);
+            }
+
             return RiveTTResult<object>.Ok(resultData);
         }
         catch (ArgumentException ex)

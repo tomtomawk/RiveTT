@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Views;
 /// <summary>
 /// Sets or resets graphic overrides (color, transparency, halftone, line weight) for elements in a view.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class OverrideGraphicsTool : IRiveTTTool
 {
     public string Name => "override_graphics";
@@ -55,6 +55,7 @@ public class OverrideGraphicsTool : IRiveTTTool
             if (!session.RequestConfirmation("modify graphics for", elementIds.Count))
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Override Graphics");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -108,11 +109,26 @@ public class OverrideGraphicsTool : IRiveTTTool
                 }
             }
 
+            // Built BEFORE the rollback: afterwards the elements this describes no longer
+            // exist and reading a name off one throws. Captured verbatim from the real
+            // return, so the preview cannot drift from what applying actually reports.
+            var previewPayload = new { action, modifiedCount = modified, viewName = view.Name };
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                    + "untouched; what follows is what Revit produced.",
+                    previewPayload);
+            }
+
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return RiveTTResult<object>.Ok(new { action, modifiedCount = modified, viewName = view.Name });
+
+return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {

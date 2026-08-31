@@ -15,7 +15,7 @@ namespace RiveTT.Tools.Elements;
 /// IsDynamic = true — only available when the document is workshared.
 /// Mirrors the fork's SetElementWorksetEventHandler logic.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class SetElementWorksetTool : IRiveTTTool
 {
     public string Name => "set_element_workset";
@@ -47,6 +47,7 @@ public class SetElementWorksetTool : IRiveTTTool
         if (!session.RequestConfirmation("change workset for", requests.Count))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
+        var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Set Element Workset");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -110,7 +111,9 @@ public class SetElementWorksetTool : IRiveTTTool
                 successCount++;
             }
 
-            if (tx.Commit() != TransactionStatus.Committed)
+            // dryRun keeps the transaction OPEN so the payload below can still read the
+            // elements it describes; the rollback happens just before returning.
+            if (!dryRun && tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
@@ -120,6 +123,21 @@ public class SetElementWorksetTool : IRiveTTTool
             if (tx.GetStatus() == TransactionStatus.Started)
                 tx.RollBack();
             throw;
+        }
+
+        if (dryRun)
+        {
+            ChangePreview.Rollback(tx);
+            return ChangePreview.Probed(
+                "DryRun: the operation ran inside a transaction and was rolled back. The "
+                + "model is untouched; what follows is what Revit produced.",
+                new
+        {
+            message = $"Moved {successCount}/{requests.Count} element(s) to target workset successfully",
+            successCount,
+            failCount,
+            results
+        });
         }
 
         return RiveTTResult<object>.Ok(new

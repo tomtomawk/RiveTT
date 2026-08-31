@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Annotations;
 /// <summary>
 /// Creates one or more dimension annotations between points or element references.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class CreateDimensionsTool : IRiveTTTool
 {
     public string Name => "create_dimensions";
@@ -39,6 +39,7 @@ public class CreateDimensionsTool : IRiveTTTool
         var createdIds = new List<long>();
         var warnings = new List<string>();
 
+        var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Create Dimensions");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -56,7 +57,9 @@ public class CreateDimensionsTool : IRiveTTTool
                     warnings.Add($"Failed to create dimension: {ex.Message}");
                 }
             }
-            if (tx.Commit() != TransactionStatus.Committed)
+            // dryRun keeps the transaction OPEN so the payload below can still read the
+            // elements it describes; the rollback happens just before returning.
+            if (!dryRun && tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
@@ -65,6 +68,20 @@ public class CreateDimensionsTool : IRiveTTTool
         {
             if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
             throw;
+        }
+
+        if (dryRun)
+        {
+            ChangePreview.Rollback(tx);
+            return ChangePreview.Probed(
+                "DryRun: the operation ran inside a transaction and was rolled back. The "
+                + "model is untouched; what follows is what Revit produced.",
+                new
+        {
+            createdCount = createdIds.Count,
+            createdDimensionIds = createdIds,
+            warnings
+        });
         }
 
         return RiveTTResult<object>.Ok(new

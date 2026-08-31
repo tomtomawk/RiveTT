@@ -12,7 +12,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// <summary>
 /// Moves a linked file instance by a delta offset or to an absolute position (in mm).
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class MoveLinkInstanceTool : IRiveTTTool
 {
     public string Name => "move_link_instance";
@@ -66,17 +66,40 @@ public class MoveLinkInstanceTool : IRiveTTTool
                 translation = new XYZ(x / MmPerFoot, y / MmPerFoot, z / MmPerFoot);
             }
 
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Move Link Instance");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
             ElementTransformUtils.MoveElement(doc, linkInstance.Id, translation);
-            if (tx.Commit() != TransactionStatus.Committed)
+            // dryRun keeps the transaction OPEN so the payload below can still read the
+            // elements it describes; the rollback happens just before returning.
+            if (!dryRun && tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
             // Read new position
             var newTransform = linkInstance.GetTotalTransform();
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The "
+                    + "model is untouched; what follows is what Revit produced.",
+                    new
+            {
+                instanceId,
+                name = linkInstance.Name,
+                mode,
+                newOrigin = new
+                {
+                    x = Math.Round(newTransform.Origin.X * MmPerFoot, 1),
+                    y = Math.Round(newTransform.Origin.Y * MmPerFoot, 1),
+                    z = Math.Round(newTransform.Origin.Z * MmPerFoot, 1)
+                }
+            });
+            }
+
             return RiveTTResult<object>.Ok(new
             {
                 instanceId,

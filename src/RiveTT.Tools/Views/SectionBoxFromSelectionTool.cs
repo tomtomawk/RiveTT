@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Views;
 /// <summary>
 /// Creates a 3D section box from selected elements' combined bounding box.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class SectionBoxFromSelectionTool : IRiveTTTool
 {
     public string Name => "create_section_box_from_selection";
@@ -64,6 +64,7 @@ public class SectionBoxFromSelectionTool : IRiveTTTool
                 Max = new XYZ(maxPt.X + offset, maxPt.Y + offset, maxPt.Z + offset)
             };
 
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Section Box From Selection");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -92,17 +93,31 @@ public class SectionBoxFromSelectionTool : IRiveTTTool
                     suggestion: "Open or create a 3D view, or pass duplicateView=true");
 
             targetView.SetSectionBox(sectionBox);
+            // Built BEFORE the rollback: afterwards the elements this describes no longer
+            // exist and reading a name off one throws. Captured verbatim from the real
+            // return, so the preview cannot drift from what applying actually reports.
+            var previewPayload = new
+            {
+                viewId = ToolHelpers.GetElementIdValue(targetView.Id),
+                viewName = targetView.Name,
+                elementCount = elementIds.Count
+            };
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                    + "untouched; what follows is what Revit produced.",
+                    previewPayload);
+            }
+
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
 
-            return RiveTTResult<object>.Ok(new
-            {
-                viewId = ToolHelpers.GetElementIdValue(targetView.Id),
-                viewName = targetView.Name,
-                elementCount = elementIds.Count
-            });
+return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {

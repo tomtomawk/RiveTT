@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Views;
 /// <summary>
 /// Duplicates one or more views with optional naming prefix/suffix.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class DuplicateViewTool : IRiveTTTool
 {
     public string Name => "duplicate_view";
@@ -48,6 +48,7 @@ public class DuplicateViewTool : IRiveTTTool
         try
         {
             var results = new List<object>();
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Duplicate Views");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -75,11 +76,26 @@ public class DuplicateViewTool : IRiveTTTool
                 }
             }
 
+            // Built BEFORE the rollback: afterwards the elements this describes no longer
+            // exist and reading a name off one throws. Captured verbatim from the real
+            // return, so the preview cannot drift from what applying actually reports.
+            var previewPayload = new { duplicatedCount = results.Count, views = results };
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                    + "untouched; what follows is what Revit produced.",
+                    previewPayload);
+            }
+
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return RiveTTResult<object>.Ok(new { duplicatedCount = results.Count, views = results });
+
+return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {

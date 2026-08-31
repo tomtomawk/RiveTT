@@ -316,6 +316,7 @@ public static class ElementTools
     public static async Task<string> SectionBoxFromSelection(
         RevitConnectionManager revit,
         [Description("Element IDs to create section box from. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -325,6 +326,7 @@ public static class ElementTools
                 return JsonArrayParam.InvalidArrayResult("create_section_box_from_selection", "elementIds", elementIds);
             p["elementIds"] = elementIdsArray;
         }
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_section_box_from_selection", p, ct);
         return result.ToString();
     }
@@ -333,9 +335,11 @@ public static class ElementTools
     public static async Task<string> SetElementPhase(
         RevitConnectionManager revit,
         [Description("JSON array of requests: [{elementId, createdPhaseId?, demolishedPhaseId?}]")] string requests,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["requests"] = JArray.Parse(requests) };
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("set_element_phase", p, ct);
         return result.ToString();
     }
@@ -344,9 +348,11 @@ public static class ElementTools
     public static async Task<string> SetElementWorkset(
         RevitConnectionManager revit,
         [Description("JSON array of requests: [{elementId, worksetName}]")] string requests,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["requests"] = JArray.Parse(requests) };
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("set_element_workset", p, ct);
         return result.ToString();
     }
@@ -479,6 +485,7 @@ public static class ElementTools
         [Description("Mirror plane origin {x,y,z} in mm (JSON object)")] string? mirrorPlaneOrigin = null,
         [Description("Mirror plane normal {x,y,z} unit vector (JSON object)")] string? mirrorPlaneNormal = null,
         [Description("Copy offset {x,y,z} in mm for copy (JSON object)")] string? copyOffset = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -493,6 +500,7 @@ public static class ElementTools
         if (mirrorPlaneOrigin != null) p["mirrorPlaneOrigin"] = JToken.Parse(mirrorPlaneOrigin);
         if (mirrorPlaneNormal != null) p["mirrorPlaneNormal"] = JToken.Parse(mirrorPlaneNormal);
         if (copyOffset != null) p["copyOffset"] = JToken.Parse(copyOffset);
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("modify_element", p, ct);
         return result.ToString();
     }

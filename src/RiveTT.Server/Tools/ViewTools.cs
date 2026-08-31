@@ -30,6 +30,7 @@ public static class ViewTools
         [Description("REQUIRED for viewType=Callout: element ID of the parent view the callout is cut from")] long? parentViewId = null,
         [Description("REQUIRED for viewType=Callout: callout rectangle min corner as JSON {\"x\":mm,\"y\":mm} in the parent view's own coordinates (model XY for a plan). Requires calloutMax")] string? calloutMin = null,
         [Description("REQUIRED for viewType=Callout: callout rectangle max corner as JSON {\"x\":mm,\"y\":mm}. Requires calloutMin")] string? calloutMax = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["viewType"] = viewType };
@@ -55,6 +56,7 @@ public static class ViewTools
         if (parentViewId != null) p["parentViewId"] = parentViewId;
         if (calloutMin != null) p["calloutMin"] = JObject.Parse(calloutMin);
         if (calloutMax != null) p["calloutMax"] = JObject.Parse(calloutMax);
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_view", p, ct);
         return result.ToString();
     }
@@ -64,10 +66,12 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Element ID of the view to duplicate")] long viewId,
         [Description("Duplicate option: Duplicate, AsDependent, WithDetailing")] string? duplicateOption = "Duplicate",
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["viewIds"] = new JArray(viewId) };
         if (duplicateOption != null) p["duplicateOption"] = duplicateOption;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("duplicate_view", p, ct);
         return result.ToString();
     }
@@ -179,6 +183,7 @@ public static class ViewTools
         [Description("Transparency 0-100")] int? transparency = null,
         [Description("Apply halftone Pass \"true\" or \"false\"; omit to leave unchanged.")] string? isHalftone = null,
         [Description("Projection line weight 1-16")] int? projectionLineWeight = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
@@ -195,6 +200,7 @@ public static class ViewTools
             p["isHalftone"] = isHalftoneFlag;
         }
         if (projectionLineWeight != null) p["projectionLineWeight"] = projectionLineWeight;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("override_graphics", p, ct);
         return result.ToString();
     }
@@ -232,6 +238,7 @@ public static class ViewTools
         [Description("Y coordinate for viewport center, in mm")] double? positionY = null,
         [Description("Rotation: none | clockwise | counterclockwise. Default: none")] string? rotation = null,
         [Description("Viewport type (ElementType) id to apply")] long? viewportTypeId = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -243,6 +250,7 @@ public static class ViewTools
         if (positionY != null) p["positionY"] = positionY;
         if (rotation != null) p["rotation"] = rotation;
         if (viewportTypeId != null) p["viewportTypeId"] = viewportTypeId;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("place_viewport", p, ct);
         return result.ToString();
     }
@@ -254,6 +262,7 @@ public static class ViewTools
         [Description("Category to schedule (e.g. Walls, Doors, Rooms)")] string category,
         [Description("Parameter fields to include in the schedule. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? fields = null,
         [Description("Schedule type: regular | material_takeoff | key_schedule | sheet_list | view_list. Default: regular")] string? scheduleType = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -268,6 +277,7 @@ public static class ViewTools
             p["fields"] = fieldsArray;
         }
         if (scheduleType != null) p["scheduleType"] = scheduleType;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_schedule", p, ct);
         return result.ToString();
     }
@@ -312,11 +322,13 @@ public static class ViewTools
         // Read by the runtime and never published, which made material_takeoff
         // unreachable through MCP however it was called.
         [Description("Category for material_takeoff, e.g. OST_Walls (ignored by the other presets)")] string? categoryName = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["preset"] = preset };
         if (name != null) p["name"] = name;
         if (categoryName != null) p["categoryName"] = categoryName;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_preset_schedule", p, ct);
         return result.ToString();
     }
@@ -350,6 +362,7 @@ public static class ViewTools
         [Description("Reference viewport element ID")] long sourceViewportId,
         [Description("Viewport IDs to align to the reference")] long[] targetViewportIds,
         [Description("Alignment mode: placement | model. Default: placement")] string? alignMode = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -358,6 +371,7 @@ public static class ViewTools
             ["targetViewportIds"] = new JArray(targetViewportIds.Cast<object>().ToArray()),
         };
         if (alignMode != null) p["alignMode"] = alignMode;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("align_viewports", p, ct);
         return result.ToString();
     }
@@ -393,6 +407,7 @@ public static class ViewTools
         [Description("Cut plane offset in mm")] double? cutPlaneOffset = null,
         [Description("Bottom offset in mm")] double? bottomOffset = null,
         [Description("View depth offset in mm")] double? viewDepthOffset = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["viewIds"] = new JArray(viewIds.Cast<object>().ToArray()) };
@@ -400,6 +415,7 @@ public static class ViewTools
         if (cutPlaneOffset != null) p["cutPlaneOffset"] = cutPlaneOffset;
         if (bottomOffset != null) p["bottomOffset"] = bottomOffset;
         if (viewDepthOffset != null) p["viewDepthOffset"] = viewDepthOffset;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("batch_modify_view_range", p, ct);
         return result.ToString();
     }
@@ -412,6 +428,7 @@ public static class ViewTools
         [Description("Boundary offset in mm. Default: 500")] double? offset = null,
         [Description("View scale denominator (e.g. 50 for 1:50). Default: 50")] int? scale = null,
         [Description("Naming pattern with {RoomNumber} and {RoomName} placeholders. Default: '{RoomNumber} - {RoomName}'")] string? namingPattern = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["roomIds"] = new JArray(roomIds.Cast<object>().ToArray()) };
@@ -419,6 +436,7 @@ public static class ViewTools
         if (offset != null) p["offset"] = offset;
         if (scale != null) p["scale"] = scale;
         if (namingPattern != null) p["namingPattern"] = namingPattern;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_views_from_rooms", p, ct);
         return result.ToString();
     }
@@ -548,6 +566,7 @@ public static class ViewTools
         [Description("Copy source sheet revisions. Default: false")] bool copyRevisions = false,
         [Description("Prefix applied to generated sheet numbers")] string? sheetNumberPrefix = null,
         [Description("Suffix applied to generated sheet numbers")] string? sheetNumberSuffix = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["sheetId"] = sheetId };
@@ -560,6 +579,7 @@ public static class ViewTools
         p["copyRevisions"] = copyRevisions;
         if (sheetNumberPrefix != null) p["sheetNumberPrefix"] = sheetNumberPrefix;
         if (sheetNumberSuffix != null) p["sheetNumberSuffix"] = sheetNumberSuffix;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("duplicate_sheet_with_content", p, ct);
         return result.ToString();
     }
@@ -574,6 +594,7 @@ public static class ViewTools
         [Description("Keep schedules on the new sheets. Default: true")] bool keepSchedules = true,
         [Description("Prefix applied to new sheet numbers")] string? newSheetNumberPrefix = null,
         [Description("View duplicate option: Duplicate | DuplicateWithDetailing | DuplicateAsDependent. Default: DuplicateWithDetailing")] string? viewDuplicateOption = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["sheetId"] = sheetId };
@@ -583,6 +604,7 @@ public static class ViewTools
         p["keepSchedules"] = keepSchedules;
         if (newSheetNumberPrefix != null) p["newSheetNumberPrefix"] = newSheetNumberPrefix;
         if (viewDuplicateOption != null) p["viewDuplicateOption"] = viewDuplicateOption;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("duplicate_sheet_with_views", p, ct);
         return result.ToString();
     }
@@ -609,9 +631,11 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Schedule element ID to duplicate")] long scheduleId,
         [Description("Name for the duplicated schedule")] string newName,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["scheduleId"] = scheduleId, ["newName"] = newName };
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("duplicate_schedule", p, ct);
         return result.ToString();
     }

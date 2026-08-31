@@ -16,7 +16,7 @@ namespace RiveTT.Tools.Elements;
 /// Color strategies: customColors array → gradient (blue→red) → random.
 /// Mirrors the fork's ColorSplashEventHandler logic.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class ColorElementsTool : IRiveTTTool
 {
     public string Name => "color_elements";
@@ -148,6 +148,7 @@ public class ColorElementsTool : IRiveTTTool
             var solidFillId = FindSolidFillPatternId(doc);
 
             // Apply overrides inside a transaction
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Color Elements");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -184,12 +185,10 @@ public class ColorElementsTool : IRiveTTTool
                     });
                 }
 
-                if (tx.Commit() != TransactionStatus.Committed)
-                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
-                        suggestion: "Fix the reported model errors and retry.");
-
-                return RiveTTResult<object>.Ok(new
+                // Built BEFORE the rollback: afterwards the elements this describes no longer
+                // exist and reading a name off one throws. Captured verbatim from the real
+                // return, so the preview cannot drift from what applying actually reports.
+                var previewPayload = new
                 {
                     message = $"Colored {elements.Count} element(s) across {groups.Count} group(s)",
                     totalElements = elements.Count,
@@ -197,7 +196,23 @@ public class ColorElementsTool : IRiveTTTool
                     results = coloringResults,
                     unresolvedParameterNames,
                     parameterSuggestions
-                });
+                };
+
+                if (dryRun)
+                {
+                    ChangePreview.Rollback(tx);
+                    return ChangePreview.Probed(
+                        "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                        + "untouched; what follows is what Revit produced.",
+                        previewPayload);
+                }
+
+                if (tx.Commit() != TransactionStatus.Committed)
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                        $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                        suggestion: "Fix the reported model errors and retry.");
+
+return RiveTTResult<object>.Ok(previewPayload);
             }
             catch
             {

@@ -55,6 +55,7 @@ public static class MetaTools
         [Description("Issue date")] string? issueDate = null,
         [Description("Project status")] string? status = null,
         [Description("Client name (Owner)")] string? clientName = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -68,6 +69,7 @@ public static class MetaTools
         if (issueDate != null) p["issueDate"] = issueDate;
         if (status != null) p["status"] = status;
         if (clientName != null) p["clientName"] = clientName;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("set_project_info", p, ct);
         return result.ToString();
     }

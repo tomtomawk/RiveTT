@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Sheets;
 /// Duplicates a sheet including all annotations and detail items.
 /// Views can optionally be duplicated with detailing.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class DuplicateSheetWithContentTool : IRiveTTTool
 {
     public string Name => "duplicate_sheet_with_content";
@@ -75,6 +75,7 @@ public class DuplicateSheetWithContentTool : IRiveTTTool
 
             var results = new List<object>();
 
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Duplicate Sheet With Content");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -149,11 +150,26 @@ public class DuplicateSheetWithContentTool : IRiveTTTool
                 });
             }
 
+            // Built BEFORE the rollback: afterwards the elements this describes no longer
+            // exist and reading a name off one throws. Captured verbatim from the real
+            // return, so the preview cannot drift from what applying actually reports.
+            var previewPayload = new { duplicatedCount = results.Count, sheets = results };
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                    + "untouched; what follows is what Revit produced.",
+                    previewPayload);
+            }
+
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
-            return RiveTTResult<object>.Ok(new { duplicatedCount = results.Count, sheets = results });
+
+return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {

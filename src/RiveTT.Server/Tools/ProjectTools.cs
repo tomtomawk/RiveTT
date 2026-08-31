@@ -450,6 +450,7 @@ public static class ProjectTools
         [Description("Use leader on tags. Default: false")] bool useLeader = false,
         [Description("Room IDs to tag (optional; tags all rooms in view when omitted). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? roomIds = null,
         [Description("View to tag in. Omit to use the currently active view.")] long? viewId = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -461,6 +462,7 @@ public static class ProjectTools
                 return JsonArrayParam.InvalidArrayResult("tag_rooms", "roomIds", roomIds);
             p["roomIds"] = roomIdsArray;
         }
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("tag_rooms", p, ct);
         return result.ToString();
     }
@@ -472,6 +474,7 @@ public static class ProjectTools
         [Description("Tag orientation: horizontal | vertical. Default: horizontal")] string? orientation = null,
         [Description("Tag type (FamilySymbol) element ID. Default: first available wall tag type")] long? tagTypeId = null,
         [Description("JSON array of wall element IDs to tag. Omit to tag all walls in the view")] System.Text.Json.JsonElement? wallIds = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -484,6 +487,7 @@ public static class ProjectTools
                 return JsonArrayParam.InvalidArrayResult("tag_walls", "wallIds", wallIds);
             p["wallIds"] = wallIdsArray;
         }
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("tag_walls", p, ct);
         return result.ToString();
     }
@@ -612,11 +616,13 @@ public static class ProjectTools
         [Description("Level name to document")] string levelName,
         [Description("Also create sections per room. Default: true")] bool createSections = true,
         [Description("Boundary offset in mm. Default: 300")] double? offset = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["levelName"] = levelName };
         p["createSections"] = createSections;
         if (offset != null) p["offset"] = offset;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("workflow_room_documentation", p, ct);
         return result.ToString();
     }
@@ -700,12 +706,14 @@ public static class ProjectTools
         [Description("Spec type for set/list_valid_units: length, area, volume, angle, slope, number, currency, mass, force, speed, temperature")] string? specType = null,
         [Description("Unit to set (e.g. meters, millimeters, feet, inches, degrees)")] string? unit = null,
         [Description("Optional display accuracy (e.g. 0.01)")] double? accuracy = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["action"] = action };
         if (specType != null) p["specType"] = specType;
         if (unit     != null) p["unit"]     = unit;
         if (accuracy != null) p["accuracy"] = accuracy;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("manage_project_units", p, ct);
         return result.ToString();
     }

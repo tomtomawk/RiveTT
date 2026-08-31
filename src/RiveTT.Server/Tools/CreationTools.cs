@@ -195,9 +195,11 @@ public static class CreationTools
     public static async Task<string> CreateDimensions(
         RevitConnectionManager revit,
         [Description("JSON array of dimension specs. Element mode uses elementIds; point-to-point uses startPoint+endPoint. Both accept dimensionStyleId")] string dimensions,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["dimensions"] = JArray.Parse(dimensions) };
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_dimensions", p, ct);
         return result.ToString();
     }
@@ -211,6 +213,7 @@ public static class CreationTools
         [Description("Elbow point as JSON {x,y,z} in mm. Default: derived from the view's up direction")] string? bend = null,
         [Description("Leader end point as JSON {x,y,z} in mm. Default: derived from the view's right direction")] string? end = null,
         [Description("Show a leader line. Default: true")] bool hasLeader = true,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -222,6 +225,7 @@ public static class CreationTools
         if (viewId != null) p["viewId"] = viewId;
         if (bend != null) p["bend"] = JObject.Parse(bend);
         if (end != null) p["end"] = JObject.Parse(end);
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_spot_dimension", p, ct);
         return result.ToString();
     }
@@ -235,6 +239,7 @@ public static class CreationTools
         [Description("Use a blue→red gradient across groups. Default: false (random colors)")] bool useGradient = false,
         [Description("Optional explicit colors as JSON array [{r,g,b}, ...], cycled across groups")] System.Text.Json.JsonElement? customColors = null,
         [Description("View to apply the overrides in. Omit to use the currently active view.")] long? viewId = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["categoryName"] = categoryName };
@@ -248,6 +253,7 @@ public static class CreationTools
                 return JsonArrayParam.InvalidArrayResult("color_elements", "customColors", customColors);
             p["customColors"] = customColorsArray;
         }
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("color_elements", p, ct);
         return result.ToString();
     }
@@ -357,6 +363,7 @@ public static class CreationTools
         [Description("Create a legend view for the scheme. Default: true")] bool createLegendView = true,
         [Description("Legend title. Default: 'Color Legend'")] string? legendTitle = null,
         [Description("Target view ID (optional; uses active view when omitted)")] long? targetViewId = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["parameterName"] = parameterName };
@@ -376,6 +383,7 @@ public static class CreationTools
         p["createLegendView"] = createLegendView;
         if (legendTitle != null) p["legendTitle"] = legendTitle;
         if (targetViewId != null) p["targetViewId"] = targetViewId;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_color_legend", p, ct);
         return result.ToString();
     }
@@ -387,6 +395,7 @@ public static class CreationTools
         [Description("View ID to host the region (optional; uses active view when omitted)")] long? viewId = null,
         [Description("Filled region type name")] string? filledRegionTypeName = null,
         [Description("JSON array of holes, each a [{x,y}] inner loop, e.g. [[{x,y},{x,y},{x,y}]]")] System.Text.Json.JsonElement? holes = null,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["boundaryPoints"] = JArray.Parse(boundaryPoints) };
@@ -398,6 +407,7 @@ public static class CreationTools
                 return JsonArrayParam.InvalidArrayResult("create_filled_region", "holes", holes);
             p["holes"] = holesArray;
         }
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_filled_region", p, ct);
         return result.ToString();
     }
@@ -433,9 +443,11 @@ public static class CreationTools
     public static async Task<string> CreateTextNote(
         RevitConnectionManager revit,
         [Description("JSON array of text note specs: [{text, position:{x,y,z}, viewId?, width?, horizontalAlignment?, verticalAlignment?, rotation?, leader?}]")] string textNotes,
+        [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["textNotes"] = JArray.Parse(textNotes) };
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_text_note", p, ct);
         return result.ToString();
     }

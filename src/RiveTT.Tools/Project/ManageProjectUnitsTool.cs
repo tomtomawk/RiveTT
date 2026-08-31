@@ -13,7 +13,7 @@ namespace RiveTT.Tools.Project;
 /// <summary>
 /// Gets or sets project units (length, area, volume, angle, slope, etc.).
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class ManageProjectUnitsTool : IRiveTTTool
 {
     public string Name => "manage_project_units";
@@ -136,22 +136,37 @@ public class ManageProjectUnitsTool : IRiveTTTool
         if (!session.RequestConfirmation("set project units", 1, $"{specType} -> {unit}"))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
+        var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Set Project Units");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
         doc.SetUnits(units);
-        if (tx.Commit() != TransactionStatus.Committed)
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
-                suggestion: "Fix the reported model errors and retry.");
-
-        return RiveTTResult<object>.Ok(new
+        // Built BEFORE the rollback: afterwards the elements this describes no longer
+        // exist and reading a name off one throws. Captured verbatim from the real
+        // return, so the preview cannot drift from what applying actually reports.
+        var previewPayload = new
         {
             action      = "set",
             specType,
             displayUnit = LabelUtils.GetLabelForUnit(unitTypeId),
             unitTypeId  = unitTypeId.TypeId
-        });
+        };
+
+        if (dryRun)
+        {
+            ChangePreview.Rollback(tx);
+            return ChangePreview.Probed(
+                "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                + "untouched; what follows is what Revit produced.",
+                previewPayload);
+        }
+
+        if (tx.Commit() != TransactionStatus.Committed)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
+
+return RiveTTResult<object>.Ok(previewPayload);
     }
 
     private static RiveTTResult<object> ListValidUnits(Document doc, JObject input)

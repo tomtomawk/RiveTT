@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Views;
 /// <summary>
 /// Creates a new view (floor plan, ceiling plan, section, elevation, 3D).
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class CreateViewTool : IRiveTTTool
 {
     public string Name => "create_view";
@@ -38,6 +38,7 @@ public class CreateViewTool : IRiveTTTool
 
         try
         {
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Create View");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -120,18 +121,32 @@ public class CreateViewTool : IRiveTTTool
             // Optional view template by id or name
             ApplyViewTemplate(doc, createdView, input);
 
-            if (tx.Commit() != TransactionStatus.Committed)
-                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
-                    suggestion: "Fix the reported model errors and retry.");
-
-            return RiveTTResult<object>.Ok(new
+            // Built BEFORE the rollback: afterwards the elements this describes no longer
+            // exist and reading a name off one throws. Captured verbatim from the real
+            // return, so the preview cannot drift from what applying actually reports.
+            var previewPayload = new
             {
                 viewId = ToolHelpers.GetElementIdValue(createdView.Id),
                 viewName = createdView.Name,
                 viewType = createdView.ViewType.ToString(),
                 scale = createdView.Scale
-            });
+            };
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                    + "untouched; what follows is what Revit produced.",
+                    previewPayload);
+            }
+
+            if (tx.Commit() != TransactionStatus.Committed)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
+
+return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {

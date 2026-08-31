@@ -13,7 +13,7 @@ namespace RiveTT.Tools.LinkedFiles;
 /// <summary>
 /// Pins or unpins one or more link instances.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class PinUnpinLinkInstanceTool : IRiveTTTool
 {
     public string Name => "pin_unpin_link_instance";
@@ -43,6 +43,7 @@ public class PinUnpinLinkInstanceTool : IRiveTTTool
             var results = new List<object>();
             int successCount = 0;
 
+            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, $"RiveTT: {(pin ? "Pin" : "Unpin")} Link Instance");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
@@ -62,16 +63,31 @@ public class PinUnpinLinkInstanceTool : IRiveTTTool
                 successCount++;
             }
 
-            if (tx.Commit() != TransactionStatus.Committed)
-                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
-                    suggestion: "Fix the reported model errors and retry.");
-            return RiveTTResult<object>.Ok(new
+            // Built BEFORE the rollback: afterwards the elements this describes no longer
+            // exist and reading a name off one throws. Captured verbatim from the real
+            // return, so the preview cannot drift from what applying actually reports.
+            var previewPayload = new
             {
                 message = $"{(pin ? "Pinned" : "Unpinned")} {successCount}/{instanceIds.Count} instance(s)",
                 action,
                 results
-            });
+            };
+
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
+                    + "untouched; what follows is what Revit produced.",
+                    previewPayload);
+            }
+
+            if (tx.Commit() != TransactionStatus.Committed)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                    suggestion: "Fix the reported model errors and retry.");
+
+return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {
