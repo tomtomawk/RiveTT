@@ -141,7 +141,11 @@ public sealed class DetachWallConstraintTool : IRiveTTTool
             if (tx?.GetStatus() == TransactionStatus.Started) tx.RollBack();
             tx?.Dispose();
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to detach wall constraints: {ex.Message}");
+                $"detach_wall_constraint could not detach wall constraints: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 }

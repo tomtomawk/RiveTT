@@ -167,7 +167,12 @@ public class AuditFamiliesTool : IRiveTTTool
         }
         catch (Exception ex)
         {
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
+                $"audit_families could not complete: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 }

@@ -94,7 +94,8 @@ public class DuplicateFamilyTypeTool : IRiveTTTool
                 {
                     tx.RollBack();
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                        "Duplicate returned null — the type could not be created");
+                        "Duplicate returned null — the type could not be created",
+                        suggestion: "Revit refuses the duplicate when the new name is already taken in the family, or when the source type is the only one left and the family forbids it. List the existing types with get_available_family_types and pick a free name.");
                 }
 
                 // Apply parameter overrides if provided
@@ -153,7 +154,11 @@ public class DuplicateFamilyTypeTool : IRiveTTTool
         catch (Exception ex)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to duplicate family type: {ex.Message}");
+                $"duplicate_family_type could not duplicate family type: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 

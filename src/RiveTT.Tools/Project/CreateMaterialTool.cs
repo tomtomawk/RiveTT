@@ -54,7 +54,8 @@ public class CreateMaterialTool : IRiveTTTool
                 if (mat == null)
                 {
                     tx.RollBack();
-                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, "Material.Create returned invalid element");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, "Material.Create returned invalid element",
+                    suggestion: "Revit rejects a material name that already exists or contains a forbidden character. List the existing ones with get_materials and retry with a free name.");
                 }
 
                 if (!string.IsNullOrEmpty(materialClass))
@@ -97,7 +98,12 @@ public class CreateMaterialTool : IRiveTTTool
         }
         catch (Exception ex)
         {
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to create material: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
+                $"create_material could not create material: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 

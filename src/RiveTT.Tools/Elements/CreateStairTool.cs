@@ -284,7 +284,7 @@ public sealed class CreateStairTool : IRiveTTTool
         catch (Exception exception)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to create the stair: {exception.Message}",
+                $"create_stair could not create the stair: {exception.Message}",
                 suggestion: "A component stair needs two distinct levels, a run that fits in the model, and no " +
                             "other edit scope open. Check the run geometry and retry with dryRun first.");
         }

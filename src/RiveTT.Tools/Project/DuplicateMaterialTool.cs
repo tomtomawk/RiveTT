@@ -75,7 +75,8 @@ public class DuplicateMaterialTool : IRiveTTTool
                 if (newMat == null)
                 {
                     tx.RollBack();
-                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, "Failed to create duplicate material");
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, "Failed to create duplicate material",
+                    suggestion: "Revit refuses the duplicate when the new name is already taken. List the existing materials with get_materials and retry with a free name.");
                 }
 
                 // Copy basic properties
@@ -151,7 +152,12 @@ public class DuplicateMaterialTool : IRiveTTTool
         }
         catch (Exception ex)
         {
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to duplicate material: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
+                $"duplicate_material could not duplicate material: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 }

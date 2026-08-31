@@ -207,7 +207,7 @@ public sealed class CreateRampTool : IRiveTTTool
         catch (Exception exception)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to create the ramp: {exception.Message}",
+                $"create_ramp could not create the ramp: {exception.Message}",
                 suggestion: "A component ramp needs two distinct levels, an OST_Ramps type, a run that fits the " +
                             "model, and no other edit scope open. Check the run geometry and retry with dryRun first.");
         }

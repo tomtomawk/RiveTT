@@ -50,7 +50,11 @@ public class ManageProjectParametersTool : IRiveTTTool
         catch (Exception ex)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to manage project parameters: {ex.Message}");
+                $"manage_project_parameters could not manage project parameters: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 
@@ -197,7 +201,7 @@ public class ManageProjectParametersTool : IRiveTTTool
             // Turn any unhandled Revit/IO/COM exception into a structured failure
             // with the real message, instead of a generic "An error occurred invoking".
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to create project parameter '{parameterName}': {ex.Message}",
+                $"manage_project_parameters could not create project parameter '{parameterName}': {ex.Message}",
                 suggestion: "If another add-in is interfering with the shared parameter file, close it and retry, or create the parameter from a shared parameter file via add_shared_parameter.");
         }
         finally

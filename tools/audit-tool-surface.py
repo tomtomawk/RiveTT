@@ -417,8 +417,16 @@ def analyse(server, runtime, corpus):
                 flags.append(("mineur", "position de fenêtre codée en dur"))
             if "get_BoundingBox(" in block and "Solid" not in block and name != "detect_clashes":
                 flags.append(("mineur", "géométrie par boîte englobante"))
-            if re.search(r'RiveTTErrorCode\.Unknown,\s*\$"Failed', block):
-                flags.append(("mineur", "erreur générique sans suggestion"))
+            # La regle mesurait « le message commence par Failed », pas « il n'y a pas de
+            # suggestion » : elle continuait donc a signaler des sites deja corriges, et
+            # aurait laisse passer un message bien redige mais sans issue. Un fourre-tout
+            # sans suggestion, c'est un appelant qui lit le texte de Revit sans savoir quoi
+            # en faire.
+            for catchall in re.finditer(r'RiveTTErrorCode\.Unknown\s*,', block):
+                call = block[catchall.end(): catchall.end() + 700].split(");")[0]
+                if "suggestion:" not in call:
+                    flags.append(("mineur", "erreur générique sans suggestion"))
+                    break
 
         row = {
             "name": name,

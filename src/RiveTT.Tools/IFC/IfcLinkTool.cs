@@ -118,7 +118,7 @@ public class IfcLinkTool : IRiveTTTool
         catch (Exception ex)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to link IFC file: {ex.Message}",
+                $"ifc_link could not link IFC file: {ex.Message}",
                 suggestion: "Ensure the IFC file is valid and Revit can access the path");
         }
     }

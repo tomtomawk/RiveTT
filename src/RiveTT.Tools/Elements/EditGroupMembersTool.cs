@@ -196,7 +196,11 @@ public sealed class EditGroupMembersTool : IRiveTTTool
             catch (Exception exception)
             {
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                    $"Failed to exclude the member(s): {exception.Message}");
+                    $"edit_group_members could not exclude the member(s): {exception.Message}",
+                    suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                        + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                        + "call if it covered many elements. The full call, its duration and this error are "
+                        + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
             }
 
             var remaining = (doc.GetElement(ToolHelpers.ToElementId(groupId)) as Group)?
@@ -343,7 +347,7 @@ public sealed class EditGroupMembersTool : IRiveTTTool
         catch (Exception exception)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to edit the group members: {exception.Message}",
+                $"edit_group_members could not edit the group members: {exception.Message}",
                 suggestion: "Check that no member is pinned or attached to another group, and that the group " +
                             "instance is not in a design option that forbids the change.");
         }

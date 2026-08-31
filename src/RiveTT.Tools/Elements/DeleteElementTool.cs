@@ -297,7 +297,7 @@ public class DeleteElementTool : IRiveTTTool
             // elementIds cannot be deleted") with no indication of which element or
             // why. Name the likely cause so the caller is not left guessing.
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to delete elements: {ex.Message}",
+                $"delete_element could not delete elements: {ex.Message}",
                 suggestion: ex is ArgumentException
                     ? "Revit refuses this deletion. Common causes: the element is the last sheet/view of its " +
                       "kind, it is pinned, it is referenced by another element (a viewport, a dimension, a " +

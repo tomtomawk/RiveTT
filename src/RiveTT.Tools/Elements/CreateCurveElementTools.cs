@@ -189,7 +189,11 @@ public sealed class CreateDetailLineTool : IRiveTTTool
         catch (Exception exception)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to create detail lines: {exception.Message}");
+                $"create_detail_line could not create detail lines: {exception.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 
@@ -278,7 +282,11 @@ public sealed class CreateModelLineTool : IRiveTTTool
         catch (Exception exception)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to create model lines: {exception.Message}");
+                $"create_model_line could not create model lines: {exception.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 }
@@ -362,7 +370,11 @@ public sealed class CreateRoomSeparationLineTool : IRiveTTTool
         catch (Exception exception)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to create room separation lines: {exception.Message}");
+                $"create_room_separation_line could not create room separation lines: {exception.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 }
@@ -461,7 +473,11 @@ public sealed class PlaceTitleBlockTool : IRiveTTTool
         catch (Exception exception)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to place title block: {exception.Message}");
+                $"place_title_block could not place title block: {exception.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 }

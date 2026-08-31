@@ -200,7 +200,7 @@ public class CreateFloorTool : IRiveTTTool
         catch (Exception ex)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to create floor: {ex.Message}",
+                $"create_floor could not create floor: {ex.Message}",
                 suggestion: "Run with dryRun=true to see the resolved type, level and boundary area "
                           + "before committing. A boundary must be a closed, non-self-intersecting "
                           + "loop of at least 3 points, in millimetres.");

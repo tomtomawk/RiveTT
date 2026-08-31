@@ -138,7 +138,12 @@ return RiveTTResult<object>.Ok(previewPayload);
         }
         catch (Exception ex)
         {
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {FormatException(ex)}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
+                $"create_views_from_rooms could not complete: {FormatException(ex)}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 

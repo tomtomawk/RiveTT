@@ -99,7 +99,8 @@ public class ImportTableTool : IRiveTTTool
 
                 if (viewFamilyType == null)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                        $"No {viewType} view family type available");
+                        $"No {viewType} view family type available",
+                        suggestion: "This project template has no view family type of that kind. Duplicate an existing view of the wanted type, or import the table into a drafting view instead.");
 
                 View tableView;
                 if (viewType == "legend")
@@ -167,7 +168,11 @@ public class ImportTableTool : IRiveTTTool
         catch (Exception ex)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to import table: {ex.Message}");
+                $"import_table could not import table: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 }

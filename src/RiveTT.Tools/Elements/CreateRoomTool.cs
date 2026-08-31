@@ -201,7 +201,12 @@ public class CreateRoomTool : IRiveTTTool
         }
         catch (Exception ex)
         {
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to create room: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
+                $"create_room could not create room: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 

@@ -116,7 +116,8 @@ public sealed class EditFamilyTool : IRiveTTTool
             famDoc = doc.EditFamily(family);
             if (famDoc == null)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                    $"Document.EditFamily returned null for '{family.Name}'");
+                    $"Document.EditFamily returned null for '{family.Name}'",
+                    suggestion: "Revit returns nothing here for an in-place family or a system family: neither can be opened for editing. Only a loadable family (.rfa) can. Check the family kind with get_available_family_types.");
 
             var manager = famDoc.FamilyManager;
             var results = new List<object>();
@@ -170,7 +171,8 @@ public sealed class EditFamilyTool : IRiveTTTool
             if (!anySucceeded)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                     "None of the requested type/parameter changes could be applied. Nothing was reloaded into the project.",
-                    context: new Dictionary<string, object> { ["results"] = results });
+                    context: new Dictionary<string, object> { ["results"] = results },
+                    suggestion: "Every requested change was rejected, so the family was left alone rather than reloaded half-changed. The per-change reasons are in the response; the usual cause is a parameter name that does not exist in that family, or a read-only one.");
 
             // Push the edited family document back into the project it came
             // from — no file path involved, and nothing is left open on screen.
@@ -190,7 +192,12 @@ public sealed class EditFamilyTool : IRiveTTTool
         }
         catch (Exception exception)
         {
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed to edit the family: {exception.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
+                $"edit_family could not edit the family: {exception.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
         finally
         {

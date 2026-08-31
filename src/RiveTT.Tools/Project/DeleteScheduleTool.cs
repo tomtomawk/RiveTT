@@ -75,7 +75,7 @@ public class DeleteScheduleTool : IRiveTTTool
         catch (Exception ex)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to delete the schedule: {ex.Message}",
+                $"delete_schedule could not delete the schedule: {ex.Message}",
                 suggestion: "Run again with dryRun=true to see what the deletion would cascade to.");
         }
     }

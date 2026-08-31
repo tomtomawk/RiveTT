@@ -66,7 +66,8 @@ public class AddSharedParameterTool : IRiveTTTool
                 sharedParamFile = app.OpenSharedParameterFile();
                 if (sharedParamFile == null)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                        "Could not open or create shared parameter file");
+                        "Could not open or create shared parameter file",
+                        suggestion: "Revit needs a shared parameter file to be configured and writable. Point it at one in Revit (Manage > Shared Parameters), or check that the current file is not read-only or on an unreachable share.");
             }
 
             // Find or create group
@@ -162,7 +163,11 @@ public class AddSharedParameterTool : IRiveTTTool
         catch (Exception ex)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to add shared parameter: {ex.Message}");
+                $"add_shared_parameter could not add shared parameter: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
         finally
         {

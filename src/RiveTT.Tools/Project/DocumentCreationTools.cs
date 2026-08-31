@@ -188,7 +188,8 @@ public sealed class CreateDocumentTool : IRiveTTTool
             created = application.NewProjectDocument(resolvedTemplate);
             if (created == null)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                    $"Revit returned no document for template '{resolvedTemplate}'");
+                    $"Revit returned no document for template '{resolvedTemplate}'",
+                    suggestion: "The template exists but Revit would not open it: it is usually a template from a newer Revit version, or a corrupted .rte. Try another templatePath, or the default template by omitting the parameter.");
 
             created.SaveAs(targetPath, new SaveAsOptions { OverwriteExistingFile = overwrite });
 

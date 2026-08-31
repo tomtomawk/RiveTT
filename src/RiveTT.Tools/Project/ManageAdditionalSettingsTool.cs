@@ -56,7 +56,11 @@ public class ManageAdditionalSettingsTool : IRiveTTTool
         catch (Exception ex)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Additional settings operation failed: {ex.Message}");
+                $"Additional settings operation failed: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 
@@ -286,7 +290,8 @@ public class ManageAdditionalSettingsTool : IRiveTTTool
         var (settings, getMethod, setMethod, settingsType) = ResolveHalftoneApi(doc);
         if (settings == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                "Halftone/Underlay settings API is not available in this Revit version");
+                "Halftone/Underlay settings API is not available in this Revit version",
+                suggestion: "Nothing to retry: this setting has no public API in the Revit version this build targets. Change it in Revit (Manage > Additional Settings).");
 
         int halftonePercent    = GetIntProp(settings, settingsType!, "HalftonePercent");
         int underlayBrightness = GetIntProp(settings, settingsType!, "BackgroundPatternBrightness");
@@ -303,7 +308,8 @@ public class ManageAdditionalSettingsTool : IRiveTTTool
         var (settings, getMethod, setMethod, settingsType) = ResolveHalftoneApi(doc);
         if (settings == null || setMethod == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                "Halftone/Underlay settings API is not available in this Revit version");
+                "Halftone/Underlay settings API is not available in this Revit version",
+                suggestion: "Nothing to retry: this setting has no public API in the Revit version this build targets. Change it in Revit (Manage > Additional Settings).");
 
         var percent = input["halftonePercent"]?.Value<int?>();
         if (percent.HasValue)

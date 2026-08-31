@@ -47,7 +47,12 @@ public class ManageImagesTool : IRiveTTTool
         }
         catch (Exception ex)
         {
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
+                $"manage_images could not complete: {ex.Message}",
+                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
+                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
+                    + "call if it covered many elements. The full call, its duration and this error are "
+                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
     }
 
@@ -110,7 +115,7 @@ public class ManageImagesTool : IRiveTTTool
         {
             tx.RollBack();
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to import/place the image: {ex.Message}",
+                $"manage_images could not import/place the image: {ex.Message}",
                 suggestion: "Supported formats: bmp, jpg, jpeg, png, tif, and pdf (when PDF support is available). " +
                             "filePath must be reachable from the Revit process.");
         }

@@ -115,7 +115,7 @@ public class IfcOpenOrImportTool : IRiveTTTool
         catch (Exception ex)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"Failed to {actionStr} IFC file: {ex.Message}",
+                $"ifc_open_or_import could not {actionStr} IFC file: {ex.Message}",
                 suggestion: "Ensure the IFC file is valid and Revit supports this operation");
         }
     }

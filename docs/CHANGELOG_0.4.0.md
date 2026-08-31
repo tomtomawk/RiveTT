@@ -91,8 +91,35 @@ Un outil qui déclare `supportsDryRun` doit l'honorer sur **toutes** ses actions
 défaut revient par une branche : les huit actions d'écriture de `manage_global_parameters`
 passent par une garde centrale, et les quatre de `manage_links` sont couvertes une à une.
 
-Reste ouvert : **66 écritures sur 139**, toutes non destructives — des créations et des
-changements de réglage. Ordre de traitement : l'intérêt 5 (16 outils).
+Trente autres écritures ont suivi, sans qu'aucun aperçu soit écrit à la main : la charge
+utile de l'aperçu **est** celle du retour réel, capturée telle quelle, puis la transaction
+est annulée. Deux agencements selon la place du `return` — hissé au-dessus du commit
+quand il le suit immédiatement, sinon transaction laissée **ouverte** jusqu'à ce que la
+charge soit construite, puisqu'après l'annulation les éléments décrits n'existent plus.
+
+Reste ouvert : **36 écritures sur 139**, toutes non destructives. Elles se répartissent en
+douze dont l'effet sort de la transaction (export de fichier, ouverture de document — une
+annulation ne dés-écrit rien, il leur faut un aperçu `declared` écrit à la main) et
+vingt-quatre dont la forme résiste à la transformation automatique. Le contrat ne ment
+pas à leur sujet : `execution.supportsDryRun` vaut `false` et le routeur refuse `dryRun`.
+
+### Les erreurs génériques disaient à peine quel outil avait échoué — **mineur**
+
+`Failed: {ex.Message}` ne nomme ni l'outil ni la suite. Avec plusieurs appels dans une
+même réponse, un agent ne pouvait même pas savoir lequel avait produit l'erreur.
+
+**153 sites** réécrits : le message nomme l'outil (`create_view could not create view: …`),
+et la suggestion distingue un échec inattendu d'une entrée refusée, en pointant le journal
+d'audit. Les dix conditions **nommées** — « cette API n'existe pas dans cette version de
+Revit », « Material.Create a rendu un élément invalide » — ont reçu la réponse qui
+s'applique vraiment à elles : y coller la suggestion générique aurait été du remplissage,
+puisque réessayer n'y change rien.
+
+La règle d'audit mesurait par ailleurs autre chose que son libellé : elle cherchait un
+message commençant par `Failed`, pas l'absence de suggestion. Elle continuait donc de
+signaler des sites corrigés, et laissait passer les fourre-tout dont le message était bien
+rédigé mais sans issue — dix-huit de plus, trouvés une fois la règle alignée sur ce
+qu'elle prétend mesurer.
 
 ### `rename_views` et `manage_unplaced_views` ne pouvaient pas être appliqués — **majeur**
 
@@ -241,7 +268,7 @@ diffusion externe, une véritable autorité est nécessaire.
 | Sujet | État |
 |---|---|
 | 66 écritures sans `dryRun`, **aucune destructive** | 16 en intérêt 5 ; ce sont des créations et des réglages, le contrat ne ment plus |
-| 128 erreurs `Failed: …` sans suggestion | mineur systémique, corrigé au fil des passages |
+| Erreurs génériques sans suggestion | **0** — 153 sites nommés et pourvus d'une issue |
 | 131 outils cités dans aucun test | c'est l'objet du protocole de recette |
 | Session Revit choisie implicitement (la plus récente) | deux instances ouvertes : l'agent écrit dans l'une sans le dire |
 | 15 outils à géométrie par boîte englobante | listés dans l'inventaire |
