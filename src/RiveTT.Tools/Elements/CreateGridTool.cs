@@ -14,14 +14,17 @@ namespace RiveTT.Tools.Elements;
 /// <summary>
 /// Creates a grid system with specified counts, spacing, and labeling.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class CreateGridTool : IRiveTTTool
 {
     public string Name => "create_grid";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Creates a grid system, or renames/deletes an existing grid. Actions: create (default), rename, delete.";
+    public string Description =>
+        "Creates a grid system, or renames/deletes an existing grid. Actions: create (default), rename, delete. "
+        + "Previews by default: the dry run really creates the grids in a transaction, reports the names Revit "
+        + "assigned and the label conflicts it resolved, then rolls back. Set dryRun=false to apply.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -54,6 +57,8 @@ public class CreateGridTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "At least one of xCount or yCount must be > 0");
 
+        var dryRun = ToolHelpers.GetDryRun(input);
+
         try
         {
             var createdGrids = new List<object>();
@@ -83,7 +88,9 @@ public class CreateGridTool : IRiveTTTool
                     warnings.Add($"Grid label '{label}' already exists, auto-assigned '{grid.Name}'.");
                 else if (TrySetName(grid, label))
                     existingNames.Add(label);
-                createdGrids.Add(new { id = ToolHelpers.GetElementIdValue(grid.Id), axis = "X", name = grid.Name, requestedLabel = label, position = i * xSpacingMm });
+                createdGrids.Add(dryRun
+                    ? (object)new { axis = "X", name = grid.Name, requestedLabel = label, position = i * xSpacingMm }
+                    : new { id = ToolHelpers.GetElementIdValue(grid.Id), axis = "X", name = grid.Name, requestedLabel = label, position = i * xSpacingMm });
             }
 
             // Y grids (horizontal lines, labeled numerically by default)
@@ -99,7 +106,21 @@ public class CreateGridTool : IRiveTTTool
                     warnings.Add($"Grid label '{label}' already exists, auto-assigned '{grid.Name}'.");
                 else if (TrySetName(grid, label))
                     existingNames.Add(label);
-                createdGrids.Add(new { id = ToolHelpers.GetElementIdValue(grid.Id), axis = "Y", name = grid.Name, requestedLabel = label, position = i * ySpacingMm });
+                createdGrids.Add(dryRun
+                    ? (object)new { axis = "Y", name = grid.Name, requestedLabel = label, position = i * ySpacingMm }
+                    : new { id = ToolHelpers.GetElementIdValue(grid.Id), axis = "Y", name = grid.Name, requestedLabel = label, position = i * ySpacingMm });
+            }
+
+            // The grids exist at this point, named and de-conflicted by Revit itself. The
+            // rollback is what makes it a preview: the caller learns the labels it will
+            // really get -- including the ones Revit renamed -- without keeping them.
+            if (dryRun)
+            {
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    $"DryRun: would create {createdGrids.Count} grid(s)"
+                    + (warnings.Count > 0 ? $", with {warnings.Count} label conflict(s) resolved by Revit." : "."),
+                    new { createdCount = createdGrids.Count, grids = createdGrids, warnings });
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
@@ -158,10 +179,12 @@ public class CreateGridTool : IRiveTTTool
         if (clash != null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"A grid named '{newName}' already exists");
 
-        if (!session.RequestConfirmation("rename grid", 1, grid!.Name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+        var oldName = grid!.Name;
 
-        var oldName = grid.Name;
+        if (ToolHelpers.GetDryRun(input))
+            return ChangePreview.Declared(
+                $"DryRun: would rename the grid '{oldName}' to '{newName}'.",
+                new { action = "rename", gridId = ToolHelpers.GetElementIdValue(grid.Id), oldName, newName });
         using var tx = new Transaction(doc, "RiveTT: Rename Grid");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -179,10 +202,14 @@ public class CreateGridTool : IRiveTTTool
         var (grid, error) = ResolveGrid(doc, input);
         if (error != null) return error;
 
-        if (!session.RequestConfirmation("delete grid", 1, grid!.Name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
-
         var name = grid!.Name;
+
+        // Deleting a grid drags its dimensions and constraints with it; DeletionPreview
+        // probes the real cascade rather than naming the grid alone.
+        if (ToolHelpers.GetDryRun(input))
+            return DeletionPreview.Build(doc, grid.Id, $"Grid '{name}'",
+                new { action = "delete", gridId = ToolHelpers.GetElementIdValue(grid.Id), deletedGrid = name });
+
         using var tx = new Transaction(doc, "RiveTT: Delete Grid");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();

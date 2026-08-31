@@ -13,14 +13,17 @@ namespace RiveTT.Tools.Project;
 /// <summary>
 /// Analyzes and cleans up imported/linked CAD files in the model.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class CadLinkCleanupTool : IRiveTTTool
 {
     public string Name => "clean_cad_links";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Analyzes and cleans up imported/linked CAD files in the model.";
+    public string Description =>
+        "Analyzes and cleans up imported/linked CAD files in the model. action=list|delete. Delete previews by "
+        + "default: the dry run names every import and link it would remove, and probes the real deletion "
+        + "cascade. Set dryRun=false to apply.";
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -92,8 +95,25 @@ public class CadLinkCleanupTool : IRiveTTTool
 
             var targets = toDelete.ToList();
 
-            if (!session.RequestConfirmation("delete CAD imports/links", targets.Count))
-                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+            // A DWG import can carry hundreds of view-specific instances; naming them one by
+            // one is what stops "deletedCount: 312" from being the first time the caller
+            // learns the scope.
+            if (ToolHelpers.GetDryRun(input))
+                return DeletionPreview.Build(doc, targets.Select(i => i.Id).ToList(),
+                    $"{targets.Count} CAD import(s)/link(s)",
+                    new
+                    {
+                        action = "delete",
+                        wouldDeleteCount = targets.Count,
+                        items = targets.Take(100).Select(i => new
+                        {
+                            id = ToolHelpers.GetElementIdValue(i.Id),
+                            name = i.Name,
+                            type = i.IsLinked ? "link" : "import",
+                            viewSpecific = i.ViewSpecific,
+                            viewName = i.ViewName
+                        }).ToList()
+                    });
 
             using var tx = new Transaction(doc, "RiveTT: CAD Link Cleanup");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);

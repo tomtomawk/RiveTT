@@ -13,14 +13,17 @@ namespace RiveTT.Tools.Project;
 /// <summary>
 /// Modifies an existing schedule: add/remove fields, set/clear filters, set/clear sorting, rename, display options.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ModifyScheduleTool : IRiveTTTool
 {
     public string Name => "modify_schedule";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Modifies an existing schedule: add/remove fields, set/clear filters, set/clear sorting, rename, display options.";
+    public string Description =>
+        "Modifies an existing schedule: add/remove fields, set/clear filters, set/clear sorting, rename, display "
+        + "options. Previews by default: the dry run really applies the change in a transaction, reports the "
+        + "resulting field list and Revit own objections, then rolls back. Set dryRun=false to apply.";
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -64,8 +67,7 @@ public class ModifyScheduleTool : IRiveTTTool
                     suggestion: "Use: add_field, remove_field, set_sorting, clear_sorting, set_filter, clear_filter, rename");
             }
 
-            if (!session.RequestConfirmation("modify schedule", 1, schedule.Name))
-                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+            var dryRun = ToolHelpers.GetDryRun(input);
 
             using var tx = new Transaction(doc, "RiveTT: Modify Schedule");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -92,6 +94,27 @@ public class ModifyScheduleTool : IRiveTTTool
             {
                 if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, errMsg);
+            }
+
+            // The schedule really carries the change at this point, so the field list and the
+            // messages below are Revit answer, not a prediction of it. The rollback is what
+            // makes it a preview.
+            if (dryRun)
+            {
+                var fields = schedule.Definition.GetFieldOrder()
+                    .Select(id => schedule.Definition.GetField(id).GetName())
+                    .ToList();
+                ChangePreview.Rollback(tx);
+                return ChangePreview.Probed(
+                    $"DryRun: would apply '{normalizedAction}' to the schedule '{schedule.Name}'.",
+                    new
+                    {
+                        scheduleId = ToolHelpers.GetElementIdValue(schedule.Id),
+                        scheduleName = schedule.Name,
+                        action = normalizedAction,
+                        resultingFields = fields,
+                        detail = result
+                    });
             }
 
             if (tx.Commit() != TransactionStatus.Committed)

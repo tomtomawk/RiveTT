@@ -14,14 +14,17 @@ namespace RiveTT.Tools.Parameters;
 /// Lists, creates, reads, updates, or deletes global parameters in the project.
 /// Global parameters are project-level named values that can drive dimensions and constraints.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ManageGlobalParametersTool : IRiveTTTool
 {
     public string Name => "manage_global_parameters";
     public string Category => "Parameters";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Lists, creates, reads, updates, or deletes global parameters. Actions: list, get, create, set, delete.";
+    public string Description =>
+        "Lists, creates, reads, updates, or deletes global parameters. Actions: list, get, create, set, delete, "
+        + "rename, set_formula, move_up, move_down, sort. The write actions preview by default: delete in "
+        + "particular breaks every formula and dimension driven by the parameter. Set dryRun=false to apply.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -33,11 +36,20 @@ public class ManageGlobalParametersTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Global parameters are not supported in this document type (families not supported)");
 
-        var action = input["action"]?.Value<string>() ?? "list";
+        var action = (input["action"]?.Value<string>() ?? "list").ToLowerInvariant();
+
+        // Gated centrally rather than in each of the eight write branches. Honouring dryRun
+        // on some actions only is precisely the defect the router gate was added for, and a
+        // tool with eight branches is where that omission would happen.
+        if (WriteActions.Contains(action) && ToolHelpers.GetDryRun(input))
+        {
+            var preview = PreviewAction(doc, action, input);
+            if (preview != null) return preview;
+        }
 
         try
         {
-            return action.ToLowerInvariant() switch
+            return action switch
             {
                 "list"        => ListGlobalParameters(doc),
                 "get"         => GetGlobalParameter(doc, input),
@@ -59,6 +71,78 @@ public class ManageGlobalParametersTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
                 $"Failed to manage global parameters: {ex.Message}");
         }
+    }
+
+    /// <summary>Actions that modify the document; everything else is a read.</summary>
+    private static readonly HashSet<string> WriteActions = new(StringComparer.Ordinal)
+    {
+        "create", "set", "delete", "rename", "set_formula", "move_up", "move_down", "sort"
+    };
+
+    /// <summary>
+    /// The dryRun answer for a write action: what would change, and — for delete — what
+    /// else depends on the parameter. Returns null when the action cannot be resolved, so
+    /// the real path runs and produces its own precise error instead of a vague preview.
+    /// </summary>
+    private static RiveTTResult<object>? PreviewAction(Document doc, string action, JObject input)
+    {
+        var name = input["name"]?.Value<string>() ?? input["parameterName"]?.Value<string>();
+        var existingId = string.IsNullOrWhiteSpace(name)
+            ? ElementId.InvalidElementId
+            : GlobalParametersManager.FindByName(doc, name);
+        var existing = existingId == ElementId.InvalidElementId
+            ? null
+            : doc.GetElement(existingId) as GlobalParameter;
+
+        switch (action)
+        {
+            case "create":
+                if (string.IsNullOrWhiteSpace(name)) return null;
+                return ChangePreview.Declared(
+                    $"DryRun: would create the global parameter '{name}'.",
+                    new { action, name, alreadyExists = existing != null },
+                    blockers: existing != null
+                        ? new[] { $"A global parameter named '{name}' already exists" }
+                        : null);
+
+            case "delete":
+                if (existing == null) return null;
+                // A global parameter drives dimensions and other parameters through formulas;
+                // deleting it breaks them, and DeletionPreview reports what Revit would take.
+                return DeletionPreview.Build(doc, existing.Id, $"Global parameter '{existing.Name}'",
+                    new { action, name = existing.Name });
+
+            case "rename":
+                if (existing == null) return null;
+                return ChangePreview.Declared(
+                    $"DryRun: would rename the global parameter '{existing.Name}' to "
+                    + $"'{input["newName"]?.Value<string>()}'. Formulas referencing it by name follow the rename.",
+                    new { action, oldName = existing.Name, newName = input["newName"]?.Value<string>() });
+
+            case "set":
+            case "set_formula":
+                if (existing == null) return null;
+                return ChangePreview.Declared(
+                    $"DryRun: would change the global parameter '{existing.Name}'. Everything it drives "
+                    + "— dimensions, other parameters through formulas — changes with it.",
+                    new
+                    {
+                        action,
+                        name = existing.Name,
+                        newValue = input["value"]?.ToString(),
+                        newFormula = input["formula"]?.Value<string>()
+                    });
+
+            case "move_up":
+            case "move_down":
+            case "sort":
+                return ChangePreview.Declared(
+                    $"DryRun: would reorder the global parameters ({action}). Order affects evaluation "
+                    + "of formulas, not the values themselves.",
+                    new { action, name });
+        }
+
+        return null;
     }
 
     private static RiveTTResult<object> ListGlobalParameters(Document doc)
@@ -172,9 +256,6 @@ public class ManageGlobalParametersTool : IRiveTTTool
         if (gp == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"Global parameter '{name}' not found");
-
-        if (!session.RequestConfirmation("delete global parameter", 1))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Delete Global Parameter");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);

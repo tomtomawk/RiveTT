@@ -229,6 +229,7 @@ public static class ElementTools
         [Description("Target element IDs")] long[] targetElementIds,
         [Description("Parameter names to copy; if omitted, copies all writable parameters. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
         [Description("Also copy type-level parameters. Default: false")] bool includeTypeParameters = false,
+        [Description("Preview without changing the model. Default: true — the dry run reports which parameters would actually take on each target")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -243,6 +244,7 @@ public static class ElementTools
             p["parameterNames"] = parameterNamesArray;
         }
         p["includeTypeParameters"] = includeTypeParameters;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("match_element_properties", p, ct);
         return result.ToString();
     }

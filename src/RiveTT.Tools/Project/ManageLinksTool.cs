@@ -13,14 +13,18 @@ namespace RiveTT.Tools.Project;
 /// <summary>
 /// Lists, reloads, or unloads linked Revit/CAD/IFC files.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ManageLinksTool : IRiveTTTool
 {
     public string Name => "manage_links";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Lists, reloads, reloads-from-path, unloads, or removes linked Revit/CAD/IFC files. Actions: list, reload, reload_from, unload, remove.";
+    public string Description =>
+        "Lists, reloads, reloads-from-path, unloads, or removes linked Revit/CAD/IFC files. Actions: list, reload, "
+        + "reload_from, unload, remove. The write actions preview by default: reload and reload_from pull a file "
+        + "that may have changed under the model, and remove deletes the link type as well when nothing else "
+        + "references it. Set dryRun=false to apply.";
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -35,10 +39,10 @@ public class ManageLinksTool : IRiveTTTool
             return action.ToLowerInvariant() switch
             {
                 "list" => ListLinks(doc),
-                "reload" => ReloadLink(doc, linkId, session),
-                "reload_from" => ReloadLinkFrom(doc, linkId, input, session),
-                "unload" => UnloadLink(doc, linkId, session),
-                "remove" => RemoveLink(doc, linkId, session),
+                "reload" => ReloadLink(doc, linkId, input),
+                "reload_from" => ReloadLinkFrom(doc, linkId, input),
+                "unload" => UnloadLink(doc, linkId, input),
+                "remove" => RemoveLink(doc, linkId, input),
                 _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     $"Unknown action: {action}", suggestion: "Use: list, reload, reload_from, unload, remove")
             };
@@ -85,7 +89,7 @@ public class ManageLinksTool : IRiveTTTool
         return RiveTTResult<object>.Ok(new { linkCount = links.Count, links });
     }
 
-    private static RiveTTResult<object> ReloadLink(Document doc, long linkId, RiveTTSession session)
+    private static RiveTTResult<object> ReloadLink(Document doc, long linkId, JObject input)
     {
         if (linkId <= 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "linkId required for reload");
@@ -98,8 +102,18 @@ public class ManageLinksTool : IRiveTTTool
         if (linkType == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Link type not found");
 
-        if (!session.RequestConfirmation("reload link", 1, linkInstance.Name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+        if (ToolHelpers.GetDryRun(input))
+        {
+            var reference = linkType.GetExternalFileReference();
+            var currentPath = reference == null ? null
+                : ModelPathUtils.ConvertModelPathToUserVisiblePath(reference.GetAbsolutePath());
+            return ChangePreview.Declared(
+                $"DryRun: would reload the link '{linkInstance.Name}' from disk.",
+                new { linkId, name = linkInstance.Name, action = "reload", currentPath },
+                blockers: currentPath != null && !System.IO.File.Exists(currentPath)
+                    ? new[] { $"The linked file is not reachable: {currentPath}" }
+                    : null);
+        }
 
         using var tx = new Transaction(doc, "RiveTT: Reload Link");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -113,7 +127,7 @@ public class ManageLinksTool : IRiveTTTool
         return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded" });
     }
 
-    private static RiveTTResult<object> UnloadLink(Document doc, long linkId, RiveTTSession session)
+    private static RiveTTResult<object> UnloadLink(Document doc, long linkId, JObject input)
     {
         if (linkId <= 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "linkId required for unload");
@@ -126,8 +140,11 @@ public class ManageLinksTool : IRiveTTTool
         if (linkType == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Link type not found");
 
-        if (!session.RequestConfirmation("unload link", 1, linkInstance.Name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+        if (ToolHelpers.GetDryRun(input))
+            return ChangePreview.Declared(
+                $"DryRun: would unload the link '{linkInstance.Name}'. Its geometry disappears from "
+                + "every view until it is reloaded; the instance itself is kept.",
+                new { linkId, name = linkInstance.Name, action = "unload" });
 
         using var tx = new Transaction(doc, "RiveTT: Unload Link");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -141,7 +158,7 @@ public class ManageLinksTool : IRiveTTTool
         return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "unloaded" });
     }
 
-    private static RiveTTResult<object> ReloadLinkFrom(Document doc, long linkId, JObject input, RiveTTSession session)
+    private static RiveTTResult<object> ReloadLinkFrom(Document doc, long linkId, JObject input)
     {
         if (linkId <= 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "linkId required for reload_from");
@@ -168,8 +185,18 @@ public class ManageLinksTool : IRiveTTTool
         if (linkType == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Link type not found");
 
-        if (!session.RequestConfirmation("reload link from new path", 1, linkInstance.Name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+        if (ToolHelpers.GetDryRun(input))
+        {
+            var reference = linkType.GetExternalFileReference();
+            var currentPath = reference == null ? null
+                : ModelPathUtils.ConvertModelPathToUserVisiblePath(reference.GetAbsolutePath());
+            return ChangePreview.Declared(
+                $"DryRun: would repoint the link '{linkInstance.Name}' to '{newPath}'.",
+                new { linkId, name = linkInstance.Name, action = "reload_from", currentPath, newPath },
+                blockers: System.IO.File.Exists(newPath) || newPath.StartsWith(@"\\", StringComparison.Ordinal)
+                    ? null
+                    : new[] { $"No file at the new path: {newPath}" });
+        }
 
         var modelPath = ModelPathUtils.ConvertUserVisiblePathToModelPath(newPath);
 
@@ -185,7 +212,7 @@ public class ManageLinksTool : IRiveTTTool
         return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded_from", newPath });
     }
 
-    private static RiveTTResult<object> RemoveLink(Document doc, long linkId, RiveTTSession session)
+    private static RiveTTResult<object> RemoveLink(Document doc, long linkId, JObject input)
     {
         if (linkId <= 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "linkId required for remove");
@@ -196,11 +223,22 @@ public class ManageLinksTool : IRiveTTTool
 
         var name = element.Name;
 
-        if (!session.RequestConfirmation("remove link", 1, name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
-
         // Delete the link instance and, if no other instances reference the type, the type too.
         var typeId = element is RevitLinkInstance rli ? rli.GetTypeId() : ElementId.InvalidElementId;
+
+        // remove drags the link TYPE along when this was the last instance, and that is the
+        // part a caller does not expect. DeletionPreview probes the real cascade.
+        if (ToolHelpers.GetDryRun(input))
+        {
+            var wouldRemoveType = typeId != ElementId.InvalidElementId
+                && !new FilteredElementCollector(doc).OfClass(typeof(RevitLinkInstance))
+                    .Cast<RevitLinkInstance>().Any(i => i.Id != element.Id && i.GetTypeId() == typeId);
+            var probeIds = wouldRemoveType
+                ? new List<ElementId> { element.Id, typeId }
+                : new List<ElementId> { element.Id };
+            return DeletionPreview.Build(doc, probeIds, $"Link '{name}'",
+                new { linkId, name, action = "remove", typeWouldBeRemoved = wouldRemoveType });
+        }
 
         using var tx = new Transaction(doc, "RiveTT: Remove Link");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);

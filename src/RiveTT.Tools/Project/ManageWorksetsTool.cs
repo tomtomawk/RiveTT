@@ -14,14 +14,18 @@ namespace RiveTT.Tools.Project;
 /// Creates, renames, deletes, opens, closes, or sets the active workset.
 /// Write counterpart of <c>list_worksets</c>; only available for workshared documents.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ManageWorksetsTool : IRiveTTTool
 {
     public string Name => "manage_worksets";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => true;
-    public string Description => "Creates, renames, deletes, or sets the active workset (workshared models only). Actions: create, rename, delete, set_active. (Opening/closing worksets on a live document is a Revit UI operation with no API — not exposed.)";
+    public string Description =>
+        "Creates, renames, deletes, or sets the active workset (workshared models only). Actions: create, rename, "
+        + "delete, set_active. Previews by default: delete in particular reports WHICH workset the elements would "
+        + "be moved to, which is the part that cannot be undone by renaming afterwards. Set dryRun=false to apply. "
+        + "(Opening/closing worksets on a live document is a Revit UI operation with no API — not exposed.)";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -65,8 +69,10 @@ public class ManageWorksetsTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"A workset named '{name}' already exists");
 
-        if (!session.RequestConfirmation("create workset", 1, name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+        if (ToolHelpers.GetDryRun(input))
+            return ChangePreview.Declared(
+                $"DryRun: would create the workset '{name}'.",
+                new { action = "create", name });
 
         using var tx = new Transaction(doc, "RiveTT: Create Workset");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -98,10 +104,12 @@ public class ManageWorksetsTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"A workset named '{newName}' already exists");
 
-        if (!session.RequestConfirmation("rename workset", 1, workset!.Name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+        var oldName = workset!.Name;
 
-        var oldName = workset.Name;
+        if (ToolHelpers.GetDryRun(input))
+            return ChangePreview.Declared(
+                $"DryRun: would rename the workset '{oldName}' to '{newName}'.",
+                new { action = "rename", worksetId = workset.Id.IntegerValue, oldName, newName });
         using var tx = new Transaction(doc, "RiveTT: Rename Workset");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -123,9 +131,6 @@ public class ManageWorksetsTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "Only user worksets can be deleted");
 
-        if (!session.RequestConfirmation("delete workset", 1, workset.Name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
-
         // Elements on a deleted workset must move somewhere; default to another user workset.
         var fallback = new FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset)
             .FirstOrDefault(w => w.Id != workset.Id);
@@ -134,6 +139,26 @@ public class ManageWorksetsTool : IRiveTTTool
                 "Cannot delete the only user workset");
 
         var name = workset.Name;
+
+        // The destination workset is chosen HERE, not by the caller, and the move is not
+        // reversible by recreating the workset afterwards. Naming it before the fact is
+        // the whole point of previewing this action.
+        if (ToolHelpers.GetDryRun(input))
+        {
+            var affected = new FilteredElementCollector(doc)
+                .WherePasses(new ElementWorksetFilter(workset.Id, inverted: false))
+                .GetElementCount();
+            return ChangePreview.Declared(
+                $"DryRun: would delete the workset '{name}' and move its {affected} element(s) "
+                + $"to '{fallback.Name}'.",
+                new
+                {
+                    action = "delete",
+                    deletedWorkset = name,
+                    elementsMovedTo = fallback.Name,
+                    elementsAffected = affected
+                });
+        }
         using var tx = new Transaction(doc, "RiveTT: Delete Workset");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -156,6 +181,27 @@ public class ManageWorksetsTool : IRiveTTTool
     {
         var (workset, error) = ResolveWorkset(doc, input);
         if (error != null) return error;
+
+        // Not a model change, but it decides the workset of everything created next, so a
+        // caller previewing a sequence must be able to preview this step as well. And the
+        // tool declares supportsDryRun: honouring it on some actions only is the defect
+        // the router gate exists to prevent.
+        if (ToolHelpers.GetDryRun(input))
+        {
+            var currentId = doc.GetWorksetTable().GetActiveWorksetId();
+            var current = new FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset)
+                .FirstOrDefault(w => w.Id == currentId);
+            return ChangePreview.Declared(
+                $"DryRun: would make '{workset!.Name}' the active workset"
+                + (current != null ? $" instead of '{current.Name}'." : "."),
+                new
+                {
+                    action = "set_active",
+                    worksetId = workset.Id.IntegerValue,
+                    name = workset.Name,
+                    currentActiveWorkset = current?.Name
+                });
+        }
 
         doc.GetWorksetTable().SetActiveWorksetId(workset!.Id);
         return RiveTTResult<object>.Ok(new { action = "set_active", worksetId = workset.Id.IntegerValue, name = workset.Name });

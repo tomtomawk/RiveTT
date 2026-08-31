@@ -150,11 +150,13 @@ public static class LinkTools
         [Description("Action to perform: list | reload | reload_from | unload | remove")] string action = "list",
         [Description("Link element ID (required for reload/reload_from/unload/remove)")] long? linkId = null,
         [Description("New absolute path to reload the link from (required for reload_from)")] string? newPath = null,
+        [Description("Preview without changing the model. Default: true — remove reports whether the link TYPE goes with the instance")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["action"] = action };
         if (linkId != null) p["linkId"] = linkId;
         if (newPath != null) p["newPath"] = newPath;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("manage_links", p, ct);
         return result.ToString();
     }
@@ -198,6 +200,7 @@ public static class LinkTools
         [Description("Delete imported CAD instances. Default: false")] bool deleteImports = false,
         [Description("Delete linked CAD instances. Default: false")] bool deleteLinks = false,
         [Description("Specific element IDs to target (optional). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
+        [Description("Preview without changing the model. Default: true — the dry run names every import and link it would delete")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -210,6 +213,7 @@ public static class LinkTools
                 return JsonArrayParam.InvalidArrayResult("clean_cad_links", "elementIds", elementIds);
             p["elementIds"] = elementIdsArray;
         }
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("clean_cad_links", p, ct);
         return result.ToString();
     }

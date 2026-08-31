@@ -12,14 +12,17 @@ namespace RiveTT.Tools.IFC;
 /// <summary>
 /// Reloads an existing IFC link, optionally from a new IFC file path.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class IfcReloadLinkTool : IRiveTTTool
 {
     public string Name => "ifc_reload_link";
     public string Category => "IFC";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Reload an existing IFC link, optionally from a new IFC file path";
+    public string Description =>
+        "Reload an existing IFC link, optionally from a new IFC file path. Previews by default: reloading pulls "
+        + "a file that may have changed under the model, and reloading FROM a new path rewrites the derived .RVT "
+        + "cache next to it. Set dryRun=false to apply.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -70,8 +73,28 @@ public class IfcReloadLinkTool : IRiveTTTool
             ? $"Reload IFC link '{linkType.Name}'"
             : $"Reload IFC link '{linkType.Name}' from '{Path.GetFileName(newIfcFilePath)}'";
 
-        if (!session.RequestConfirmation("reload IFC link", 1, description))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+        // The reload reads a file from disk and rewrites a .RVT cache: not something a
+        // transaction rollback would undo, so the preview is declared, not probed.
+        if (ToolHelpers.GetDryRun(input))
+        {
+            var fromNewPath = !string.IsNullOrWhiteSpace(newIfcFilePath);
+            var cachePath = fromNewPath ? newIfcFilePath + ".RVT" : null;
+            return ChangePreview.Declared(
+                $"DryRun: would {description.Substring(0, 1).ToLowerInvariant()}{description.Substring(1)}.",
+                new
+                {
+                    linkTypeId,
+                    name = linkType.Name,
+                    action = fromNewPath ? "reload_from_new_path" : "reload",
+                    newIfcFilePath,
+                    derivedRvtCache = cachePath,
+                    derivedRvtCacheWouldBeOverwritten = cachePath != null && File.Exists(cachePath),
+                    recreateLink
+                },
+                blockers: fromNewPath && !File.Exists(newIfcFilePath!)
+                    ? new[] { $"No IFC file at the new path: {newIfcFilePath}" }
+                    : null);
+        }
 
         try
         {

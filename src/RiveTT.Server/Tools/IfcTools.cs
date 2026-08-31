@@ -50,11 +50,13 @@ public static class IfcTools
         [Description("Link TYPE element ID of the IFC link")] long linkTypeId,
         [Description("Optional new IFC file path (triggers a relink)")] string? newIfcFilePath = null,
         [Description("Recreate the link if needed. Default: true")] bool recreateLink = true,
+        [Description("Preview without changing the model. Default: true — reports the resolved file and whether its derived .RVT cache would be overwritten")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["linkTypeId"] = linkTypeId };
         if (newIfcFilePath != null) p["newIfcFilePath"] = newIfcFilePath;
         p["recreateLink"] = recreateLink;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("ifc_reload_link", p, ct);
         return result.ToString();
     }
@@ -67,6 +69,7 @@ public static class IfcTools
         [Description("Intent: reference | coordination | development. Default: reference")] string? intent = null,
         [Description("Force import even if a native RVT already exists. Default: false")] bool forceImport = false,
         [Description("Auto-join walls after import. Default: true")] bool autoJoin = true,
+        [Description("Preview without changing anything. Default: true — reports whether the ACTIVE DOCUMENT would change and where the derived .RVT cache goes")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["filePath"] = filePath };
@@ -74,6 +77,7 @@ public static class IfcTools
         if (intent != null) p["intent"] = intent;
         p["forceImport"] = forceImport;
         p["autoJoin"] = autoJoin;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("ifc_open_or_import", p, ct);
         return result.ToString();
     }
@@ -311,10 +315,12 @@ public static class IfcTools
         RevitConnectionManager revit,
         [Description("Element IDs to tag")] long[] elementIds,
         [Description("Tag value to write. Default: IFC_UNRECONSTRUCTABLE")] string? tagValue = null,
+        [Description("Preview without changing the model. Default: true — names the elements and the Comments value it would overwrite")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
         if (tagValue != null) p["tagValue"] = tagValue;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("ifc_tag_unreconstructable_elements", p, ct);
         return result.ToString();
     }

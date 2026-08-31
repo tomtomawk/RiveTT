@@ -334,6 +334,7 @@ public static class ParameterTools
         [Description("New name — required for 'rename'")] string? newName = null,
         [Description("Formula expression — required for 'set_formula'. Pass an empty string to clear the formula.")] string? formula = null,
         [Description("Sort order for 'sort': ascending (default) | descending")] string? order = null,
+        [Description("Preview without changing the model. Default: true — delete reports what the parameter drives")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["action"] = action };
@@ -343,6 +344,7 @@ public static class ParameterTools
         if (newName  != null) p["newName"]  = newName;
         if (formula  != null) p["formula"]  = formula;
         if (order    != null) p["order"]    = order;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("manage_global_parameters", p, ct);
         return result.ToString();
     }

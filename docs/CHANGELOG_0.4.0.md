@@ -65,9 +65,48 @@ Corrigé en trois temps :
 `DryRunDeclarationSourceTests` verrouille la correspondance déclaration ⇄ comportement
 dans les deux sens, par balayage de tout `RiveTT.Tools`.
 
-Reste ouvert : **80 écritures sur 139 n'ont toujours pas de prévisualisation**, dont 14
-classées destructives. Ce n'est plus un mensonge du contrat, mais reste une écriture sans
-filet. Ordre de traitement : les destructives, puis l'intérêt 5.
+Les **14 écritures destructives** qui n'avaient aucune prévisualisation en ont une :
+`create_grid`, `change_element_type`, `match_element_properties`, `manage_worksets`,
+`manage_links`, `manage_view_templates`, `clean_cad_links`, `create_placeholder_sheets`,
+`duplicate_system_type`, `manage_global_parameters`, `modify_schedule`,
+`ifc_open_or_import`, `ifc_reload_link`, `ifc_tag_unreconstructable_elements`. **Il ne
+reste aucune écriture destructive sans aperçu.**
+
+Elles ne devinent pas. `ChangePreview` généralise ce que `DeletionPreview` faisait déjà
+pour les suppressions : l'opération **s'exécute réellement** dans la transaction, puis
+elle est **annulée**. Ce qui revient est ce que Revit a fait, objections comprises, sur un
+modèle intact. Un aperçu écrit à la main est une seconde implémentation de l'outil, et
+c'est elle — pas l'opération — que l'appelant finit par croire.
+
+Deux limites, écrites dans la réponse plutôt que tues :
+
+- un aperçu par sonde ne publie **pas d'identifiants** : ceux alloués pendant la sonde
+  sont libérés par l'annulation, et l'appel réel en attribuera d'autres ;
+- quand l'effet porte sur un fichier ou un autre document (`ifc_open_or_import`,
+  `ifc_reload_link`, `manage_links` en reload), aucune annulation ne le déferait :
+  l'aperçu est alors `previewMethod: "declared"`, il rapporte la cible résolue et les
+  préconditions vérifiables, et une liste `blockers` vide ne veut pas dire « ça marchera ».
+
+Un outil qui déclare `supportsDryRun` doit l'honorer sur **toutes** ses actions, sinon le
+défaut revient par une branche : les huit actions d'écriture de `manage_global_parameters`
+passent par une garde centrale, et les quatre de `manage_links` sont couvertes une à une.
+
+Reste ouvert : **66 écritures sur 139**, toutes non destructives — des créations et des
+changements de réglage. Ordre de traitement : l'intérêt 5 (16 outils).
+
+### `rename_views` et `manage_unplaced_views` ne pouvaient pas être appliqués — **majeur**
+
+Les deux prévisualisent par défaut (`ToolHelpers.GetDryRun` vaut `true` sans argument), et
+leur façade MCP ne publiait pas `dryRun` du tout. Un appelant n'avait donc aucun moyen de
+passer à l'exécution : les deux outils ne savaient que prévisualiser, en silence.
+
+Trouvé par le test ajouté pour l'occasion,
+`PublishingDryRun_AndDeclaringIt_AgreeAcrossTheTwoHalves`, qui croise les deux moitiés
+dans les deux sens. `dryRun` figure parmi les `StructuralKeys` de
+`ServerRuntimeParameterContractTests`, qui ne pouvait donc pas le voir. Le même test a
+intercepté l'erreur symétrique pendant ce chantier : `modify_schedule` avait reçu `dryRun`
+côté façade avant que le runtime ne le déclare, ce qui aurait fait **refuser tous ses
+appels** par le routeur.
 
 ### `export_schedule` écrivait un fichier arbitraire depuis une session verrouillée — **majeur**
 
@@ -201,7 +240,7 @@ diffusion externe, une véritable autorité est nécessaire.
 
 | Sujet | État |
 |---|---|
-| 80 écritures sans `dryRun`, dont 14 destructives | le contrat ne ment plus, la prévisualisation reste à écrire |
+| 66 écritures sans `dryRun`, **aucune destructive** | 16 en intérêt 5 ; ce sont des créations et des réglages, le contrat ne ment plus |
 | 128 erreurs `Failed: …` sans suggestion | mineur systémique, corrigé au fil des passages |
 | 131 outils cités dans aucun test | c'est l'objet du protocole de recette |
 | Session Revit choisie implicitement (la plus récente) | deux instances ouvertes : l'agent écrit dans l'une sans le dire |

@@ -10,14 +10,17 @@ using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Elements;
 
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ChangeElementTypeTool : IRiveTTTool
 {
     public string Name => "change_element_type";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Change Element Type";
+    public string Description =>
+        "Change the type of existing elements to another type of a compatible category. Previews by default: "
+        + "the dry run really applies ChangeTypeId in a transaction, reports per element whether Revit accepted "
+        + "it and why not otherwise, then rolls back. Set dryRun=false to apply.";
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var elementIds = input["elementIds"]?.ToObject<long[]>();
@@ -52,9 +55,7 @@ public class ChangeElementTypeTool : IRiveTTTool
             var results = new List<object>();
             int successCount = 0;
             int failCount = 0;
-
-            if (!session.RequestConfirmation("change type for", elementIds.Length))
-                return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+            var dryRun = ToolHelpers.GetDryRun(input);
 
             using var tx = new Transaction(doc, "RiveTT: Change Element Type");
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -83,6 +84,28 @@ public class ChangeElementTypeTool : IRiveTTTool
                         results.Add(new { elementId = id, success = false, message = ex.Message });
                         failCount++;
                     }
+                }
+
+                var resolvedTypeForPreview = doc.GetElement(targetTypeElemId)?.Name ?? targetTypeName;
+
+                // ChangeTypeId is where Revit refuses an incompatible type, and it refuses per
+                // element. Running it for real and rolling back is the only preview that tells
+                // the caller WHICH elements it would reject, and with Revit's own reason.
+                if (dryRun)
+                {
+                    ChangePreview.Rollback(tx);
+                    return ChangePreview.Probed(
+                        $"DryRun: would change {successCount}/{elementIds.Length} element(s) to "
+                        + $"'{resolvedTypeForPreview}'"
+                        + (failCount > 0 ? $"; {failCount} would be refused." : "."),
+                        new
+                        {
+                            targetTypeName = resolvedTypeForPreview,
+                            requestedCount = elementIds.Length,
+                            wouldSucceedCount = successCount,
+                            wouldFailCount = failCount,
+                            results
+                        });
                 }
 
                 if (successCount > 0)

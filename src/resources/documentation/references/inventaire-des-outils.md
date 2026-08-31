@@ -26,7 +26,7 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 |---|---|
 | Outils publiés | **198** |
 | Dont écriture | **139** (70 %) — c'est la part que le verrou du ruban gouverne |
-| Écritures sans `dryRun` | **80** sur 139 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
+| Écritures sans `dryRun` | **66** sur 139 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
 | Défauts critiques et majeurs corrigés | **8**, gardés par `ConfirmedDefectFixSourceTests` |
 | Lacunes API comblées depuis le relevé précédent | **16** sur 19 |
 | Erreurs génériques `Failed: …` sans suggestion | **128** |
@@ -116,7 +116,7 @@ documentation.
 | `copy_elements` | écriture | — | 5 | Copy elements with optional mm offset. Can target a different view (sourceViewId+targetViewId) or another OPEN document (targetDocumentTitle). | **mineur** — pas de dryRun |
 | `create_door` → `create_point_based_element` | écriture | oui | 5 | Place a door family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give z… | **mineur** — géométrie par boîte englobante |
 | `create_floor` | écriture | oui | 5 | Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId. Previews by default: the dry run r… | **mineur** — erreur générique sans suggestion |
-| `create_grid` | écriture destructif | — | 5 | Create a grid system (X and/or Y grids by count + spacing), or rename/delete an existing grid. action=create\|rename\|delete. Spacing/extent values are… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_grid` | écriture destructif | oui | 5 | Create a grid system (X and/or Y grids by count + spacing), or rename/delete an existing grid. action=create\|rename\|delete. Spacing/extent values are… | **mineur** — erreur générique sans suggestion |
 | `create_level` | écriture destructif | oui | 5 | Create, edit, rename, or delete a level. action=create\|set\|rename\|delete. For set/rename/delete identify the level by levelId or name. | **mineur** — erreur générique sans suggestion |
 | `create_room` | écriture | oui | 5 | Create a room at a point on a level. x/y are plan coordinates in mm; the level sets the elevation. A point that is not inside a closed loop of room-bo… | **mineur** — erreur générique sans suggestion |
 | `create_room_separation_line` | écriture | oui | 5 | Draw room separation lines in a plan view to split or bound a room without building a physical wall. path is a JSON array [{x,y,z}, ...] in mm. This i… | **mineur** — erreur générique sans suggestion |
@@ -144,7 +144,6 @@ documentation.
 | `add_curtain_grid_line` | écriture | — | 4 | Adds a grid line to an existing curtain wall/system's grid (create the wall itself with create_line_based_element and a curtain wall type). hostElemen… | **mineur** — pas de dryRun |
 | `add_curtain_mullions` | écriture | — | 4 | Adds mullions to an existing curtain wall/system's grid lines. hostElementId and mullionTypeId are required; applies to every ungridded segment unless… | **mineur** — pas de dryRun |
 | `capture_selection` | lecture | — | 4 | Capture explicit element IDs or the current Revit selection as a reusable temporary token. Tokens expire and are scoped to the active document session… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
-| `change_element_type` | écriture destructif | — | 4 | Change the type of one or more elements to a target type specified by ID or name. | **mineur** — pas de dryRun |
 | `create_array` | écriture | — | 4 | Create a linear or radial array. Default builds a real associative Revit ArrayElement (editable count); set associative=false for loose copies. linear… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_detail_line` | écriture | oui | 4 | Draw 2D detail lines in a view (view-owned, not visible in other views). path is a JSON array [{x,y,z}, ...] in mm; consecutive points become segments… | **mineur** — erreur générique sans suggestion |
 | `create_filled_region` | écriture | — | 4 | Create a filled region in a view from a closed boundary, optionally with holes (inner loops). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
@@ -163,14 +162,15 @@ documentation.
 | `load_family` | écriture | — | 4 | Load a family into the Revit project, or reload one already there (e.g. after editing its .rfa outside Revit). Also lists loaded families or duplicate… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `manage_selection` | écriture destructif | oui | 4 | CRUD on named saved selections (SelectionFilterElement). action=save\|load\|list\|delete. name is required for save/load/delete (ignored for list). save:… | **mineur** — erreur générique sans suggestion |
 | `manage_view_display` | écriture | — | 4 | Select, highlight, isolate, hide, or zoom to elements in the active view. Actions: select, selectionbox, setcolor, settransparency, hide, temphide, is… | **mineur** — pas de dryRun |
-| `match_element_properties` | écriture destructif | — | 4 | Copy parameter values from one source element to one or more target elements. | **mineur** — pas de dryRun |
 | `measure_between_elements` | lecture | — | 4 | Measure distance between two elements or two points in mm. Provide either elementId1/elementId2, or point1/point2 (as JSON arrays [x,y,z]). | **mineur** — géométrie par boîte englobante |
 | `set_element_phase` | écriture | — | 4 | Assign created/demolished phase to elements. Pass a JSON array of requests: [{elementId, createdPhaseId?, demolishedPhaseId?}]. The older names phaseC… | **mineur** — pas de dryRun |
 | `set_element_workset` | écriture | — | 4 | Move elements to a different workset. Pass a JSON array of requests: [{elementId, worksetName}]. Worksets are resolved by name only. | **mineur** — pas de dryRun |
 | `set_material_properties` | écriture destructif | oui | 4 | Set identity, appearance, product info, and asset assignments on Revit materials. Each request is a FLAT object keyed by materialId plus any of: name,… | **mineur** — erreur générique sans suggestion |
+| `change_element_type` | écriture destructif | oui | 4 | Change the type of one or more elements to a target type specified by ID or name. | — |
 | `create_line_based_element` | écriture | oui | 4 | Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, heig… | — |
 | `get_curtain_grid_info` | lecture | — | 4 | Reads an existing curtain wall/system grid: U/V grid line ids, panel ids, mullion ids. hostElementId is the curtain wall or curtain system element. | — |
 | `get_room_openings` | lecture | — | 4 | Get doors/windows adjacent to rooms with dimensions. Filter by roomIds, roomNumbers, or levelName. | — |
+| `match_element_properties` | écriture destructif | oui | 4 | Copy parameter values from one source element to one or more target elements. | — |
 | `edit_family` | écriture destructif | oui | 3 | Edits a loaded family's type parameters in the background - no window opens. Pass familyId or familyName, and changes as JSON: [{typeName, parameters:… | **mineur** — erreur générique sans suggestion |
 | `rename_families` | écriture destructif | oui | 3 | Rename loaded families (and optionally their types) with find/replace, prefix, or suffix operations. | **mineur** — erreur générique sans suggestion |
 | `detach_wall_constraint` | écriture destructif | oui | 2 | Preview or detach wall top-level constraints or Revit 2027 top/base attachments. Grouped walls are reported and skipped instead of rolling back unrela… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
@@ -197,13 +197,13 @@ documentation.
 | `list_system_types` | lecture | — | 5 | List the system types of a category: walls, floors, ceilings, roofs, railings, stairs, ramps, viewports, text, dimensions, sheets, title blocks. Syste… | **mineur** — erreur générique sans suggestion |
 | `list_warnings` | lecture | — | 5 | Get model warnings from the active Revit document. | **mineur** — erreur générique sans suggestion |
 | `list_worksets` | lecture | — | 5 | List all worksets in the active Revit document. | **mineur** — erreur générique sans suggestion |
-| `manage_links` | écriture destructif | — | 5 | List, reload, reload-from-path, unload, or remove linked files. To add a NEW link use add_linked_file instead. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `manage_links` | écriture destructif | oui | 5 | List, reload, reload-from-path, unload, or remove linked files. To add a NEW link use add_linked_file instead. | **mineur** — erreur générique sans suggestion |
 | `place_title_block` | écriture | oui | 5 | Place a title block instance on an existing sheet. Use it to repair a sheet that has no frame. Call it without titleBlockId to get the list of title b… | **mineur** — erreur générique sans suggestion |
 | `purge_unused` | écriture destructif | oui | 5 | Purge unused families/types and materials, and optionally unreferenced view templates and view filters, from the project. | **mineur** — erreur générique sans suggestion |
 | `synchronize_with_central` | écriture destructif | oui | 5 | Synchronizes the local model with the workshared central file. AFFECTS THE WHOLE TEAM, not just this session, and cannot be undone from here. Requires… | — |
 | `analyze_model_statistics` | lecture | — | 4 | Analyze element counts by category in the active Revit document. | **mineur** — erreur générique sans suggestion |
 | `audit_families` | lecture | — | 4 | Audit families in the Revit project. Lists loadable (.rfa) families by default; set includeSystemFamilies=true to also list system-family types (wall/… | **mineur** — erreur générique sans suggestion |
-| `clean_cad_links` | écriture destructif | — | 4 | Analyze and clean up imported/linked CAD files. action=list\|delete. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `clean_cad_links` | écriture destructif | oui | 4 | Analyze and clean up imported/linked CAD files. action=list\|delete. | **mineur** — erreur générique sans suggestion |
 | `count_lines_per_view` | lecture | — | 4 | Count detail lines per view (single document pass, safe on any model size) plus a project-wide model line count. Model lines have no owner view, so th… | **mineur** — erreur générique sans suggestion |
 | `create_key_schedule` | écriture | — | 4 | Creates a key schedule (ViewSchedule.CreateKeySchedule) — a reusable finish/typology key table (room finish keys, dwelling-unit typologies), different… | **mineur** — pas de dryRun |
 | `create_material` | écriture | — | 4 | Create a new material in the Revit project. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
@@ -212,7 +212,7 @@ documentation.
 | `delete_schedule` | écriture destructif | oui | 4 | Delete a schedule by ID or name. Previews by default: the dry run names the schedule and reports the cascade, including the viewports that placed it o… | **mineur** — erreur générique sans suggestion |
 | `duplicate_material` | écriture | — | 4 | Duplicate an existing material with a new name. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `duplicate_schedule` | écriture | — | 4 | Duplicate a schedule with a new name | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `duplicate_system_type` | écriture destructif | — | 4 | Duplicate, rename, or delete a system type (wall, floor, roof, ceiling). action=duplicate\|rename\|delete. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `duplicate_system_type` | écriture destructif | oui | 4 | Duplicate, rename, or delete a system type (wall, floor, roof, ceiling). action=duplicate\|rename\|delete. | **mineur** — erreur générique sans suggestion |
 | `get_compound_structure` | lecture | — | 4 | Get wall/floor/roof/ceiling layer structure by type ID or name. | **mineur** — erreur générique sans suggestion |
 | `get_material_quantities` | lecture | — | 4 | Calculate material area and volume across elements, optionally filtered by category or restricted to the current selection. | **mineur** — erreur générique sans suggestion |
 | `list_phases` | lecture | — | 4 | List all project phases in the active Revit document. | **mineur** — erreur générique sans suggestion |
@@ -221,8 +221,8 @@ documentation.
 | `manage_phase_filters` | écriture | — | 4 | List, set, or create Revit Phase Filters. Actions: list \| set \| create. The 'set' action changes one presentation (New \| Demolished \| Existing \| Tempo… | **mineur** — pas de dryRun |
 | `manage_project_units` | écriture | — | 4 | Get or set project units (length, area, volume, angle, etc.). Actions: get, set, list_valid_units. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `manage_sheet_sets` | écriture | — | 4 | List, create, or delete named view/sheet sets (ViewSheetSet), so batch_export/printing can reuse a saved list instead of one passed on every call. act… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `manage_worksets` | écriture destructif | — | 4 | Create, rename, delete, or set the active workset (workshared models only). To LIST worksets use list_worksets. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `modify_schedule` | écriture destructif | — | 4 | Modify schedule fields, sorting, filters, or rename the schedule. Supported actions: add_field, remove_field, set_sorting, clear_sorting, set_filter,… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `manage_worksets` | écriture destructif | oui | 4 | Create, rename, delete, or set the active workset (workshared models only). To LIST worksets use list_worksets. | **mineur** — erreur générique sans suggestion |
+| `modify_schedule` | écriture destructif | oui | 4 | Modify schedule fields, sorting, filters, or rename the schedule. Supported actions: add_field, remove_field, set_sorting, clear_sorting, set_filter,… | **mineur** — erreur générique sans suggestion |
 | `set_compound_structure` | écriture destructif | oui | 4 | Modify compound structure on a wall/floor/roof/ceiling type. action=replace\|add\|remove\|modify\|set_wrapping. set_wrapping sets openingWrapping (none\|ex… | **mineur** — erreur générique sans suggestion |
 | `set_project_info` | écriture | — | 4 | Set editable Project Information fields. Only the fields you pass are changed; others are left untouched. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `detect_clashes` | lecture | — | 4 | Detect clashes between two element categories. Uses true solid-geometry intersection by default (fewer false positives than bounding boxes). | — |
@@ -239,12 +239,11 @@ documentation.
 | `ifc_link` | écriture | — | 4 | Link an IFC file into the active document (creates a .ifc.RVT sidecar file managed by Revit). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `ifc_compare_original_vs_rebuilt` | lecture | — | 3 | Compare volume/geometry between the original DirectShape and its native rebuild. | **mineur** — géométrie par boîte englobante |
 | `ifc_export_with_configuration` | écriture | — | 3 | Export using a named configuration (built-in or custom) with optional key/value overrides. | **mineur** — pas de dryRun ; classement déclaré (écriture) différent du préfixe du nom |
-| `ifc_open_or_import` | écriture destructif | — | 3 | Open or import an IFC file as a native Revit project (actions: open \| import). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `ifc_open_or_import` | écriture destructif | oui | 3 | Open or import an IFC file as a native Revit project (actions: open \| import). | **mineur** — erreur générique sans suggestion |
 | `ifc_rebuild_family_instances` | écriture | oui | 3 | Place family instances (doors, windows, furniture) from IFC DirectShapes. | **mineur** — géométrie par boîte englobante |
 | `ifc_rebuild_openings` | écriture | oui | 3 | Cut openings in rebuilt walls/floors based on IFC opening DirectShapes. | **mineur** — géométrie par boîte englobante |
-| `ifc_reload_link` | écriture destructif | — | 3 | Reload an existing IFC link, optionally from a new file. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `ifc_reload_link` | écriture destructif | oui | 3 | Reload an existing IFC link, optionally from a new file. | **mineur** — erreur générique sans suggestion |
 | `ifc_set_family_mapping_file` | écriture | — | 3 | Set the family mapping file used by subsequent IFC exports. | **mineur** — pas de dryRun |
-| `ifc_tag_unreconstructable_elements` | écriture destructif | — | 3 | Tag IFC DirectShapes that cannot be rebuilt by writing a marker parameter. | **mineur** — pas de dryRun |
 | `ifc_analyze_rebuildability` | lecture | — | 3 | Analyze IFC DirectShapes and score feasibility of rebuilding them as native Revit elements. | — |
 | `ifc_get_capabilities` | lecture | — | 3 | Detect IFC version support and revit-ifc add-in presence | — |
 | `ifc_get_export_configuration` | lecture | — | 3 | Get full details of a specific export configuration by name. | — |
@@ -254,6 +253,7 @@ documentation.
 | `ifc_rebuild_roofs` | écriture | oui | 3 | Rebuild native roofs from IFC DirectShapes. dryRun defaults to true. | — |
 | `ifc_rebuild_structural_members` | écriture | oui | 3 | Rebuild columns and beams from IFC DirectShapes. dryRun defaults to true. | — |
 | `ifc_rebuild_walls` | écriture | oui | 3 | Rebuild native walls from IFC DirectShapes. dryRun defaults to true. | — |
+| `ifc_tag_unreconstructable_elements` | écriture destructif | oui | 3 | Tag IFC DirectShapes that cannot be rebuilt by writing a marker parameter. | — |
 | `ifc_validate_request` | lecture | — | 3 | Validate IFC file path, extension, and schema version. | — |
 
 ### Views — 13 outils
@@ -264,7 +264,7 @@ documentation.
 | `create_view` | écriture | — | 5 | Create a new view in Revit: floor plan, ceiling plan, section, elevation, drafting, callout, or 3D view. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_view_filter` | écriture | — | 5 | Create, apply, or list parameter-based view filters. action=create\|apply\|list. A filter carries one rule (parameterName/filterRule/filterValue) or sev… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `duplicate_view` | écriture | — | 5 | Duplicate an existing view in Revit. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `manage_view_templates` | écriture destructif | — | 5 | List, duplicate, delete, or rename view templates. action=list\|duplicate\|delete\|rename. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `manage_view_templates` | écriture destructif | oui | 5 | List, duplicate, delete, or rename view templates. action=list\|duplicate\|delete\|rename. | **mineur** — erreur générique sans suggestion |
 | `override_graphics` | écriture | — | 5 | Override element graphics in a view (colors, transparency, halftone, line weight). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `place_viewport` | écriture | — | 5 | Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. Th… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `batch_modify_view_range` | écriture | — | 4 | Modify view range offsets (top, cut plane, bottom, view depth) for multiple views. Offsets are in mm. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
@@ -312,7 +312,7 @@ documentation.
 | `batch_rename_affix` | écriture destructif | oui | 4 | Add a prefix and/or suffix to parameter values across the model or a selection. Runs as a dry-run preview by default; set dryRun=false to apply the ch… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds, savedSelectionName, scope, selectionToken |
 | `clear_parameter_values` | écriture destructif | oui | 4 | Clear parameter values on elements by category or scope | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds, savedSelectionName, scope, selectionToken |
 | `add_shared_parameter` | écriture | — | 4 | Add a shared parameter to project categories. The data type of a newly created definition is honored (a typed shared parameter, not always Text). | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `manage_global_parameters` | écriture destructif | — | 4 | Manage global parameters (project-level named values). Actions: list \| get \| create \| set \| delete \| rename \| set_formula \| move_up \| move_down \| sort… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `manage_global_parameters` | écriture destructif | oui | 4 | Manage global parameters (project-level named values). Actions: list \| get \| create \| set \| delete \| rename \| set_formula \| move_up \| move_down \| sort… | **mineur** — erreur générique sans suggestion |
 | `transfer_parameters` | écriture destructif | oui | 4 | Copy parameter values from source element to one or more target elements. | **mineur** — erreur générique sans suggestion |
 | `sync_csv_parameters` | écriture destructif | oui | 2 | Synchronize parameter values from CSV data into Revit elements. | **signal** — clé imbriquée annoncée, absente du runtime : paramName1 |
 
@@ -334,7 +334,7 @@ documentation.
 |---|---|---|---:|---|---|
 | `batch_create_sheets` | écriture | oui | 5 | Create multiple sheets with title blocks and optional view placement. sheets is a JSON array: [{number, name, titleBlockName?, viewIds?}]. Each sheet'… | **mineur** — erreur générique sans suggestion |
 | `align_viewports` | écriture | — | 4 | Align viewports across sheets. 'placement' matches box centers; 'model' matches the box outline min-corner so equal-scale views of the same region lin… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
-| `create_placeholder_sheets` | écriture destructif | — | 4 | Create, list, convert, or delete placeholder sheets. action=create\|list\|convert\|delete. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
+| `create_placeholder_sheets` | écriture destructif | oui | 4 | Create, list, convert, or delete placeholder sheets. action=create\|list\|convert\|delete. | **mineur** — erreur générique sans suggestion |
 | `duplicate_sheet_with_content` | écriture | — | 4 | Duplicate a sheet including annotations and detail items | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `duplicate_sheet_with_views` | écriture | — | 4 | Duplicate a sheet N times with configurable view duplication options. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 

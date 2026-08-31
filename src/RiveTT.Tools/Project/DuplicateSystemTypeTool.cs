@@ -12,14 +12,17 @@ namespace RiveTT.Tools.Project;
 /// <summary>
 /// Duplicates a system family type (wall, floor, roof, ceiling) with a new name.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class DuplicateSystemTypeTool : IRiveTTTool
 {
     public string Name => "duplicate_system_type";
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Duplicates a system family type (wall, floor, roof, ceiling), or renames/deletes an existing type. Actions: duplicate (default), rename, delete.";
+    public string Description =>
+        "Duplicates a system family type (wall, floor, roof, ceiling), or renames/deletes an existing type. "
+        + "Actions: duplicate (default), rename, delete. Previews by default: delete reports how many ELEMENTS "
+        + "of that type Revit would take with it, which is what makes it destructive. Set dryRun=false to apply.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -90,6 +93,18 @@ public class DuplicateSystemTypeTool : IRiveTTTool
                 });
             }
 
+            if (ToolHelpers.GetDryRun(input))
+                return ChangePreview.Declared(
+                    $"DryRun: would duplicate the type '{sourceType.Name}' as '{newName}'.",
+                    new
+                    {
+                        action = "duplicate",
+                        sourceTypeName = sourceType.Name,
+                        typeCategory = sourceType.Category?.Name ?? "",
+                        newName,
+                        alreadyExisted = false
+                    });
+
             // Duplicate
             using (var tx = new Transaction(doc, "RiveTT: Duplicate System Type"))
             {
@@ -133,10 +148,13 @@ public class DuplicateSystemTypeTool : IRiveTTTool
         if (FindTypeByName(doc, newName!, type!.Category?.Name) != null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"A type named '{newName}' already exists");
 
-        if (!session.RequestConfirmation("rename type", 1, type.Name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
-
         var oldName = type.Name;
+
+        if (ToolHelpers.GetDryRun(input))
+            return ChangePreview.Declared(
+                $"DryRun: would rename the type '{oldName}' to '{newName}'. Every element of this type "
+                + "follows the rename; none is modified otherwise.",
+                new { action = "rename", typeId = ToolHelpers.GetElementIdValue(type.Id), oldName, newName });
         using var tx = new Transaction(doc, "RiveTT: Rename Type");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -154,10 +172,20 @@ public class DuplicateSystemTypeTool : IRiveTTTool
         var (type, error) = ResolveType(doc, input);
         if (error != null) return error;
 
-        if (!session.RequestConfirmation("delete type", 1, type!.Name))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
-
         var name = type!.Name;
+
+        // Deleting a type deletes every ELEMENT using it. DeletionPreview probes the real
+        // cascade, so the count is Revit own answer rather than an estimate.
+        if (ToolHelpers.GetDryRun(input))
+            return DeletionPreview.Build(doc, type.Id, $"Type '{name}'",
+                new
+                {
+                    action = "delete",
+                    typeId = ToolHelpers.GetElementIdValue(type.Id),
+                    deletedType = name,
+                    typeCategory = type.Category?.Name ?? ""
+                });
+
         using var tx = new Transaction(doc, "RiveTT: Delete Type");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();

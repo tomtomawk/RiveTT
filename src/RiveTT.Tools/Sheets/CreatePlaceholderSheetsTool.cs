@@ -13,14 +13,17 @@ namespace RiveTT.Tools.Sheets;
 /// <summary>
 /// Creates, lists, converts, or deletes placeholder sheets.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class CreatePlaceholderSheetsTool : IRiveTTTool
 {
     public string Name => "create_placeholder_sheets";
     public string Category => "Sheets";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Creates, lists, converts, or deletes placeholder sheets.";
+    public string Description =>
+        "Creates, lists, converts, or deletes placeholder sheets. The write actions preview by default. convert "
+        + "is the one to preview: it DELETES the placeholder and recreates a real sheet, so the sheet gets a new "
+        + "element id and anything referencing the old one stops resolving. Set dryRun=false to apply.";
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -54,6 +57,7 @@ public class CreatePlaceholderSheetsTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheets array is required for create");
 
         var results = new List<object>();
+        var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Create Placeholder Sheets");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -67,7 +71,17 @@ public class CreatePlaceholderSheetsTool : IRiveTTTool
             if (!string.IsNullOrEmpty(number)) sheet.SheetNumber = number;
             if (!string.IsNullOrEmpty(name)) sheet.Name = name;
 
-            results.Add(new { sheetId = ToolHelpers.GetElementIdValue(sheet.Id), number = sheet.SheetNumber, name = sheet.Name });
+            results.Add(dryRun
+                ? (object)new { number = sheet.SheetNumber, name = sheet.Name }
+                : new { sheetId = ToolHelpers.GetElementIdValue(sheet.Id), number = sheet.SheetNumber, name = sheet.Name });
+        }
+
+        if (dryRun)
+        {
+            ChangePreview.Rollback(tx);
+            return ChangePreview.Probed(
+                $"DryRun: would create {results.Count} placeholder sheet(s).",
+                new { createdCount = results.Count, sheets = results });
         }
 
         if (tx.Commit() != TransactionStatus.Committed)
@@ -97,9 +111,34 @@ public class CreatePlaceholderSheetsTool : IRiveTTTool
         if (sheetIds.Count == 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheetIds required for convert");
 
-        // H23: converting deletes the placeholder sheet and recreates a real one — confirm first.
-        if (!session.RequestConfirmation("convert (delete + recreate) placeholder sheets", sheetIds.Count))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+        // H23: converting DELETES the placeholder and recreates a real sheet. The element id
+        // changes, so anything holding the old one -- a saved selection, a sheet set, an
+        // agent note -- stops resolving. Say it before, not after.
+        if (ToolHelpers.GetDryRun(input))
+        {
+            var resolved = sheetIds
+                .Select(sid => doc.GetElement(new ElementId(sid)) as ViewSheet)
+                .Where(sheet => sheet != null)
+                .ToList();
+            return ChangePreview.Declared(
+                $"DryRun: would convert {resolved.Count(s => s!.IsPlaceholder)} placeholder sheet(s) into real "
+                + "sheets. Each is DELETED and recreated: the number and name are kept, the element id is NOT.",
+                new
+                {
+                    action = "convert",
+                    sheets = resolved.Select(s => new
+                    {
+                        id = ToolHelpers.GetElementIdValue(s!.Id),
+                        number = s.SheetNumber,
+                        name = s.Name,
+                        isPlaceholder = s.IsPlaceholder
+                    }).ToList(),
+                    idsWillChange = true
+                },
+                blockers: resolved.Where(s => !s!.IsPlaceholder)
+                    .Select(s => $"Sheet '{s!.SheetNumber}' is not a placeholder and would be skipped")
+                    .ToList());
+        }
 
         // Resolve title block
         ElementId tbId;
@@ -163,9 +202,25 @@ public class CreatePlaceholderSheetsTool : IRiveTTTool
         if (sheetIds.Count == 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheetIds required for delete");
 
-        // H23: confirm before permanently deleting sheets.
-        if (!session.RequestConfirmation("delete placeholder sheets", sheetIds.Count))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+        if (ToolHelpers.GetDryRun(input))
+        {
+            var resolved = sheetIds
+                .Select(sid => doc.GetElement(new ElementId(sid)) as ViewSheet)
+                .Where(sheet => sheet != null)
+                .ToList();
+            return DeletionPreview.Build(doc, resolved.Select(s => s!.Id).ToList(),
+                $"{resolved.Count} placeholder sheet(s)",
+                new
+                {
+                    action = "delete",
+                    sheets = resolved.Select(s => new
+                    {
+                        id = ToolHelpers.GetElementIdValue(s!.Id),
+                        number = s.SheetNumber,
+                        name = s.Name
+                    }).ToList()
+                });
+        }
 
         using var tx = new Transaction(doc, "RiveTT: Delete Placeholder Sheets");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);

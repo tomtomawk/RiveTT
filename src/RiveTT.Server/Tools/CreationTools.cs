@@ -140,6 +140,7 @@ public static class CreationTools
         [Description("Element IDs to change")] long[] elementIds,
         [Description("Target type element ID")] long? targetTypeId = null,
         [Description("Target type name")] string? targetTypeName = null,
+        [Description("Preview without changing the model. Default: true — the dry run reports which elements Revit would accept the new type on, and why not for the others")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -148,6 +149,7 @@ public static class CreationTools
         };
         if (targetTypeId != null) p["targetTypeId"] = targetTypeId;
         if (targetTypeName != null) p["targetTypeName"] = targetTypeName;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("change_element_type", p, ct);
         return result.ToString();
     }
@@ -165,6 +167,7 @@ public static class CreationTools
         [Description("Grid element id (for rename/delete)")] long? gridId = null,
         [Description("Grid name (identifies the target for rename/delete when gridId is omitted)")] string? name = null,
         [Description("New name (for rename)")] string? newName = null,
+        [Description("Preview without changing the model. Default: true — the dry run creates the grids in a transaction, reports the names Revit assigned, and rolls back")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -178,6 +181,7 @@ public static class CreationTools
         if (gridId != null) p["gridId"] = gridId;
         if (name != null) p["name"] = name;
         if (newName != null) p["newName"] = newName;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_grid", p, ct);
         return result.ToString();
     }

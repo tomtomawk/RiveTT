@@ -14,14 +14,17 @@ namespace RiveTT.Tools.IFC;
 /// Tags IFC-imported elements that cannot be rebuilt as native Revit elements.
 /// Sets a value in the Comments parameter to mark them for manual review.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class IfcTagUnreconstructableElementsTool : IRiveTTTool
 {
     public string Name => "ifc_tag_unreconstructable_elements";
     public string Category => "IFC";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Tag IFC elements that cannot be rebuilt, marking them for manual review";
+    public string Description =>
+        "Tag IFC elements that cannot be rebuilt, marking them for manual review. Previews by default: the dry "
+        + "run names the elements it would tag and the Comments value it would overwrite on each. Set "
+        + "dryRun=false to apply.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -58,9 +61,22 @@ public class IfcTagUnreconstructableElementsTool : IRiveTTTool
                 message = "No elements to tag",
             });
 
-        if (!session.RequestConfirmation("tag unreconstructable elements", targets.Count,
-            $"Set Comments to '{tagValue}' on {targets.Count} elements"))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+        // Comments is a user-visible field an architect may already be using for something
+        // else, and this overwrites it. Report what is there now, per element, before doing it.
+        if (ToolHelpers.GetDryRun(input))
+            return ChangePreview.Declared(
+                $"DryRun: would set Comments to '{tagValue}' on {targets.Count} element(s).",
+                new
+                {
+                    tagValue,
+                    wouldTagCount = targets.Count,
+                    elements = targets.Take(100).Select(ds => new
+                    {
+                        id = ToolHelpers.GetElementIdValue(ds.Id),
+                        name = ds.Name,
+                        currentComments = ds.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.AsString()
+                    }).ToList()
+                });
 
         int tagged = 0;
         var results = new List<object>();

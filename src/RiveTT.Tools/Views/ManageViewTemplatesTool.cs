@@ -13,14 +13,17 @@ namespace RiveTT.Tools.Views;
 /// <summary>
 /// Lists, duplicates, deletes, or renames view templates.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class ManageViewTemplatesTool : IRiveTTTool
 {
     public string Name => "manage_view_templates";
     public string Category => "Views";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Lists, duplicates, deletes, or renames view templates.";
+    public string Description =>
+        "Lists, duplicates, deletes, or renames view templates. The write actions preview by default: deleting a "
+        + "template silently unassigns it from every view that used it, which is the part the caller does not see "
+        + "coming. Set dryRun=false to apply.";
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -69,6 +72,7 @@ public class ManageViewTemplatesTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "templateIds required");
 
         var results = new List<object>();
+        var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Duplicate View Templates");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -97,6 +101,16 @@ public class ManageViewTemplatesTool : IRiveTTTool
             if (newView != null)
                 results.Add(new { originalId = tid, newId = ToolHelpers.GetElementIdValue(newId), newName = newView.Name });
         }
+        // Revit picks the copy's name itself ("Plan 1 copie 1"), and refuses some templates
+        // outright. Duplicating for real and rolling back reports both.
+        if (dryRun)
+        {
+            ChangePreview.Rollback(tx);
+            return ChangePreview.Probed(
+                $"DryRun: would duplicate {results.Count} view template(s).",
+                new { duplicatedCount = results.Count, templates = results });
+        }
+
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
@@ -107,8 +121,35 @@ public class ManageViewTemplatesTool : IRiveTTTool
     private static RiveTTResult<object> DeleteTemplate(Document doc, JObject input, RiveTTSession session)
     {
         var templateIds = input["templateIds"]?.ToObject<List<long>>() ?? new List<long>();
-        if (!session.RequestConfirmation("delete view template(s)", templateIds.Count))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
+
+        // A deleted template is dropped from every view that used it, and those views keep
+        // the graphics they had -- so nothing looks wrong afterwards, and the link is gone.
+        // Naming the affected views is the whole value of this preview.
+        if (ToolHelpers.GetDryRun(input))
+        {
+            var resolved = templateIds
+                .Select(tid => doc.GetElement(new ElementId(tid)) as View)
+                .Where(v => v != null && v!.IsTemplate)
+                .ToList();
+            var usedBy = new FilteredElementCollector(doc).OfClass(typeof(View)).Cast<View>()
+                .Where(v => !v.IsTemplate && resolved.Any(t => t!.Id == v.ViewTemplateId))
+                .Select(v => v.Name)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            return DeletionPreview.Build(doc, resolved.Select(v => v!.Id).ToList(),
+                $"{resolved.Count} view template(s)",
+                new
+                {
+                    action = "delete",
+                    templates = resolved.Select(v => new
+                    {
+                        id = ToolHelpers.GetElementIdValue(v!.Id), name = v.Name
+                    }).ToList(),
+                    viewsThatWouldLoseTheirTemplate = usedBy.Count,
+                    viewNames = usedBy.Take(50).ToList()
+                });
+        }
+
         using var tx = new Transaction(doc, "RiveTT: Delete View Templates");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
@@ -135,6 +176,11 @@ public class ManageViewTemplatesTool : IRiveTTTool
         var template = doc.GetElement(new ElementId(templateId)) as View;
         if (template == null || !template.IsTemplate)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "View template not found");
+
+        if (ToolHelpers.GetDryRun(input))
+            return ChangePreview.Declared(
+                $"DryRun: would rename the view template '{template.Name}' to '{newName}'.",
+                new { oldName = template.Name, newName, templateId });
 
         using var tx = new Transaction(doc, "RiveTT: Rename View Template");
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);

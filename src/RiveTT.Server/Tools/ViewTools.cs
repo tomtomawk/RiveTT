@@ -329,6 +329,7 @@ public static class ViewTools
         [Description("Suffix to add (for addSuffix operation)")] string? suffix = null,
         [Description("Text to find (for findReplace operation)")] string? findText = null,
         [Description("Replacement text (for findReplace operation)")] string? replaceText = null,
+        [Description("Preview without changing the model. Default: true — the dry run lists the old and new names. NOTE: this parameter was missing from the published surface, so the tool could only ever preview")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["operation"] = operation };
@@ -336,6 +337,7 @@ public static class ViewTools
         if (suffix != null) p["suffix"] = suffix;
         if (findText != null) p["findText"] = findText;
         if (replaceText != null) p["replaceText"] = replaceText;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("rename_views", p, ct);
         return result.ToString();
     }
@@ -451,9 +453,11 @@ public static class ViewTools
     public static async Task<string> ManageUnplacedViews(
         RevitConnectionManager revit,
         [Description("Action to perform: list or delete")] string action = "list",
+        [Description("Preview without changing the model. Default: true — the dry run lists the views it would act on. NOTE: this parameter was missing from the published surface, so the tool could only ever preview")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["action"] = action };
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("manage_unplaced_views", p, ct);
         return result.ToString();
     }
@@ -466,6 +470,7 @@ public static class ViewTools
         [Description("Template IDs (for duplicate/delete). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? templateIds = null,
         [Description("Template ID (for rename)")] long? templateId = null,
         [Description("New name (for rename or duplicate)")] string? newName = null,
+        [Description("Preview without changing the model. Default: true — delete names the views that would lose their template")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -479,6 +484,7 @@ public static class ViewTools
         }
         if (templateId != null) p["templateId"] = templateId;
         if (newName != null) p["newName"] = newName;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("manage_view_templates", p, ct);
         return result.ToString();
     }
@@ -506,6 +512,7 @@ public static class ViewTools
         [Description("JSON array of sheet specs for create: [{number, name}]")] System.Text.Json.JsonElement? sheets = null,
         [Description("Sheet IDs (for convert/delete). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? sheetIds = null,
         [Description("Title block type element ID (for convert)")] long? titleBlockId = null,
+        [Description("Preview without changing the model. Default: true — convert reports that the sheet ids change")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -523,6 +530,7 @@ public static class ViewTools
             p["sheetIds"] = sheetIdsArray;
         }
         if (titleBlockId != null) p["titleBlockId"] = titleBlockId;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_placeholder_sheets", p, ct);
         return result.ToString();
     }

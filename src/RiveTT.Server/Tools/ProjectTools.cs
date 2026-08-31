@@ -45,12 +45,14 @@ public static class ProjectTools
         [Description("Workset name (for create; also resolves the target for rename/delete/set_active if worksetId is omitted)")] string? name = null,
         [Description("Workset id (int) identifying the target for rename/delete/set_active")] int? worksetId = null,
         [Description("New name (for rename)")] string? newName = null,
+        [Description("Preview without changing the model. Default: true — delete reports which workset the elements would be moved to")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["action"] = action };
         if (name != null) p["name"] = name;
         if (worksetId != null) p["worksetId"] = worksetId;
         if (newName != null) p["newName"] = newName;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("manage_worksets", p, ct);
         return result.ToString();
     }
@@ -369,6 +371,7 @@ public static class ProjectTools
         [Description("Action: duplicate | rename | delete. Default: duplicate")] string? action = null,
         [Description("Source/target type name (alternative to sourceTypeId)")] string? sourceTypeName = null,
         [Description("Category to disambiguate the type name (e.g. Walls)")] string? category = null,
+        [Description("Preview without changing the model. Default: true — delete reports how many elements of the type Revit would take with it")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -377,6 +380,7 @@ public static class ProjectTools
         if (newName != null) p["newName"] = newName;
         if (sourceTypeName != null) p["sourceTypeName"] = sourceTypeName;
         if (category != null) p["category"] = category;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("duplicate_system_type", p, ct);
         return result.ToString();
     }
@@ -529,6 +533,7 @@ public static class ProjectTools
         [Description("Filter operator for set_filter: equal | not_equal | greater | less | contains | begins_with | ends_with | has_value | is_empty. Default: equal")] string? filterType = null,
         [Description("Filter value for set_filter (string or number). Omit for has_value/is_empty")] string? filterValue = null,
         [Description("New schedule name (for rename action)")] string? newName = null,
+        [Description("Preview without changing the model. Default: true — the dry run reports the fields, filters and sorts that would change")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -551,6 +556,7 @@ public static class ProjectTools
         if (filterType != null) p["filterType"] = filterType;
         if (filterValue != null) p["filterValue"] = filterValue;
         if (newName != null) p["newName"] = newName;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("modify_schedule", p, ct);
         return result.ToString();
     }

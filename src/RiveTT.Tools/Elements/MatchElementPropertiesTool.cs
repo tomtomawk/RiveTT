@@ -15,14 +15,19 @@ namespace RiveTT.Tools.Elements;
 /// Matches parameters by name, respects read-only state, and handles all StorageTypes.
 /// Mirrors the fork's MatchElementPropertiesEventHandler.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public class MatchElementPropertiesTool : IRiveTTTool
 {
     public string Name => "match_element_properties";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Copies parameter values from a source element to one or more target elements. Matches parameters by name, respects read-only state, and handles all StorageTypes. Mirrors the fork's MatchElementPropertiesEventHandler.";
+    public string Description =>
+        "Copies parameter values from a source element to one or more target elements. Matches parameters by "
+        + "name, respects read-only state, and handles all StorageTypes. Previews by default: the dry run really "
+        + "writes the values in a transaction, reports per target which parameters took and which were refused, "
+        + "then rolls back. Set dryRun=false to apply.";
+
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var sourceElementId = input["sourceElementId"]?.Value<long?>();
@@ -55,6 +60,8 @@ public class MatchElementPropertiesTool : IRiveTTTool
         if (sourceValues.Count == 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No matching parameters found on source element");
+
+        var dryRun = ToolHelpers.GetDryRun(input);
 
         try
         {
@@ -114,6 +121,25 @@ public class MatchElementPropertiesTool : IRiveTTTool
                         parametersCopied  = copiedCount,
                         parameters        = paramsCopied
                     });
+                }
+
+                // Which parameters actually take is decided by Revit per target, not by the
+                // name list: a read-only parameter, a type mismatch or a constraint refuses
+                // silently. Writing for real and rolling back is what tells the caller the
+                // true count instead of the requested one.
+                if (dryRun)
+                {
+                    ChangePreview.Rollback(tx);
+                    return ChangePreview.Probed(
+                        $"DryRun: would copy {totalCopied} parameter value(s) across "
+                        + $"{targetElementIds.Length} element(s).",
+                        new
+                        {
+                            sourceElementId = sourceElementId.Value,
+                            totalCopied,
+                            targetCount = targetElementIds.Length,
+                            results
+                        });
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
