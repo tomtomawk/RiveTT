@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -6,10 +7,21 @@ using RiveTT.Core.Results;
 namespace RiveTT.Core.Security;
 
 /// <summary>
-/// Second-generation sandbox. Strips comments and string literals BEFORE pattern matching
-/// to eliminate false positives from documentation and avoid comment-based evasion.
-/// Also blocks reflection-based bypasses (Type.GetType, Activator.CreateInstance,
-/// MethodInfo.Invoke) that the substring-only V1 missed.
+/// Regex filter over the C# source of send_code_to_revit. Strips comments and string
+/// literals BEFORE matching, decodes identifier escapes, and blocks reflection-based
+/// detours (Type.GetType, Activator.CreateInstance, MethodInfo.Invoke) that the
+/// substring-only V1 missed.
+///
+/// WHAT THIS IS NOT: a security boundary. It matches text, so the space of equivalent
+/// rewritings is not closed by construction, and the Revit API it deliberately allows
+/// writes to disk (Document.SaveAs, the exports) and destroys model data
+/// (Document.Delete) on its own. No pattern list can forbid that without forbidding
+/// the tool itself.
+///
+/// It catches the mistake and the obvious reach. The actual boundaries, in order: the
+/// ribbon write lock, this tool's dryRun-by-default, and the audit entry carrying the
+/// code and its SHA-256. Do not document it as more than that - an operator who
+/// believes the snippet is contained will run one they have not read.
 /// </summary>
 public static class CodeSandboxV2
 {
@@ -71,6 +83,14 @@ public static class CodeSandboxV2
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
 
+        // C# allows \uXXXX escapes INSIDE identifiers. Write the I of System.IO as
+        // \u0049 and the i of File as \u0069 and the compiler still reads
+        // System.IO.File, while the patterns below match neither "System.IO" nor
+        // "File.". Decoding first makes every pattern see what the compiler sees. This
+        // closes the demonstrated form; it does not make the matcher complete - see the
+        // class comment on what this filter is and is not.
+        code = DecodeIdentifierEscapes(code);
+
         var cleaned = StripCommentsAndStrings(code);
         // Collapse whitespace around member-access dots so a prohibited namespace cannot be
         // smuggled past the substring check as "System . IO" or "System.\n  IO" (C2 hardening).
@@ -106,6 +126,61 @@ public static class CodeSandboxV2
             $"Code contains prohibited operations: {string.Join(", ", violations)}",
             suggestion: "send_code_to_revit is restricted to Revit API operations. "
                 + "File I/O, network, process spawning, registry, and reflection bypasses are not allowed.");
+    }
+
+    /// <summary>
+    /// Decodes <c>\uXXXX</c> and <c>\UXXXXXXXX</c> to the characters they denote, so an
+    /// identifier whose letters were written as escapes is matched as the plain word.
+    ///
+    /// Applied to the WHOLE source, string literals included. That is deliberate and it
+    /// is the safe direction: inside a literal the escape already meant that character,
+    /// so decoding changes nothing semantically, and literals are blanked out by
+    /// <see cref="StripCommentsAndStrings"/> before matching anyway. The one visible
+    /// effect is on <see cref="ReflectionWithArgumentPatterns"/>, which reads the
+    /// original text — and there, seeing the decoded form is exactly what is wanted.
+    ///
+    /// Escapes are decoded to a single character, so offsets shift; nothing downstream
+    /// reports a source position, only the matched text.
+    /// </summary>
+    public static string DecodeIdentifierEscapes(string code)
+    {
+        if (code.IndexOf('\\') < 0) return code;
+
+        var sb = new StringBuilder(code.Length);
+        for (var i = 0; i < code.Length; i++)
+        {
+            if (code[i] == '\\' && i + 1 < code.Length &&
+                (code[i + 1] == 'u' || code[i + 1] == 'U'))
+            {
+                var digits = code[i + 1] == 'u' ? 4 : 8;
+                if (i + 2 + digits <= code.Length &&
+                    TryParseHex(code.AsSpan(i + 2, digits), out var codePoint) &&
+                    codePoint <= 0x10FFFF)
+                {
+                    sb.Append(char.ConvertFromUtf32((int)codePoint));
+                    i += 1 + digits;
+                    continue;
+                }
+            }
+            sb.Append(code[i]);
+        }
+        return sb.ToString();
+    }
+
+    private static bool TryParseHex(ReadOnlySpan<char> span, out uint value)
+    {
+        value = 0;
+        foreach (var c in span)
+        {
+            uint digit;
+            if (c >= '0' && c <= '9') digit = (uint)(c - '0');
+            else if (c >= 'a' && c <= 'f') digit = (uint)(c - 'a' + 10);
+            else if (c >= 'A' && c <= 'F') digit = (uint)(c - 'A' + 10);
+            else return false;
+            value = (value << 4) | digit;
+        }
+        // Surrogate halves are not valid on their own for ConvertFromUtf32.
+        return value < 0xD800 || value > 0xDFFF;
     }
 
     /// <summary>
