@@ -23,10 +23,40 @@ sans avoir vu l'appel se dérouler, revérifie par des outils de **lecture** ind
 et tranche. Un désaccord n'est pas un incident : c'est le résultat le plus utile que ce
 protocole produise.
 
+## Étape 0 — l'installateur lui-même
+
+Le reste de ce protocole suppose une installation saine. Cette étape-là vérifie qu'on
+peut le supposer, et elle passe **avant** tout le reste.
+
+Elle existe parce que le 28/08 l'installation s'est appliquée à moitié : le plugin 0.4.0
+posé, le serveur 0.2.0 encore en mémoire, publiant des noms d'outils antérieurs à 0.3.0.
+Chaque outil renommé répondait « not found », les autres marchaient, et rien ne nommait la
+cause. C'est le défaut le plus coûteux du produit à ce jour, et le seul que la suite de
+tests ne peut pas voir : il vit dans l'installateur, pas dans le code.
+
+Sur une machine où une version **antérieure** est déjà installée — sinon il n'y a rien à
+écraser et le scénario ne se produit pas.
+
+| # | Situation | Attendu |
+|---|---|---|
+| 0.1 | Client MCP **ouvert**, lancer l'installateur | La boîte « RiveTT est actuellement utilisé par une application d'IA » s'affiche, bouton par défaut sur **Non** |
+| 0.2 | Répondre **Non** | L'installateur s'arrête. Vérifier qu'aucun fichier n'a bougé : version du plugin et du serveur inchangées |
+| 0.3 | Relancer, client toujours ouvert, répondre **Oui** | L'installation se poursuit **et la page finale doit afficher « ATTENTION : la mise à jour est incomplète »**, avec `serveur attendu en <v>, trouvé en <ancienne>`. Une page finale verte ici est un **défaut critique** : c'est le silence de 2026-08-28 qui revient |
+| 0.4 | Fermer le client, relancer l'installateur | Page finale verte, les versions de Revit servies listées |
+| 0.5 | Revit **ouvert** pendant une mise à jour | L'installation aboutit ; les DLL verrouillées sont parquées en `.old-<horodatage>` dans le dossier add-in. Revit garde l'ancien code jusqu'à son redémarrage — c'est voulu, le vérifier plutôt que le supposer |
+| 0.6 | Désinstaller avec Revit **ouvert** | Refusé. Contrairement à une mise à jour, aucun fichier neuf ne vient prendre la place de l'ancien |
+| 0.7 | Après un redémarrage de Revit, `get_server_capabilities` | `pluginVersion` == `mcpServerVersion`, **pas** de `versionMismatch` |
+| 0.8 | Installateur lancé sans droits administrateur | Aucune invite UAC. Le manifeste est `asInvoker` ; une élévation demandée est une régression, pas un détail |
+
+0.3 est le cas qui compte. Les autres confirment que rien ne s'est cassé autour.
+
+Consigner le résultat de chacun : une installation « qui a marché » sans ces huit lignes
+ne dit pas laquelle des huit protections a réellement joué.
+
 ## Préalables
 
-1. `.\builder\build.ps1` est passé, `dist\RiveTT-Setup-<version>.exe` installé, Revit
-   redémarré. Vérifier `execution.pluginVersion` et `execution.mcpServerVersion` :
+1. L'étape 0 est passée. `dist\RiveTT-Setup-<version>.exe` installé, Revit redémarré.
+   Vérifier `execution.pluginVersion` et `execution.mcpServerVersion` :
    s'ils diffèrent, arrêter — la recette porterait sur deux moitiés dépareillées.
 2. **Une seule instance de Revit ouverte.** Le serveur se connecte à la session la plus
    récemment démarrée sans le dire ; deux instances rendent la recette illisible.
@@ -128,6 +158,11 @@ dernières. Personne ne réécrit la colonne de l'autre.
 
 Maquette : <chemin>  ·  Revit <version>  ·  plugin <x> / serveur <y>
 Opérateur : <modèle/agent>  ·  Auditeur : <modèle/agent>
+
+## Étape 0 — installateur
+
+| # | Situation | Attendu | Observé | Verdict |
+|---|---|---|---|---|
 
 ## Désaccords
 

@@ -158,10 +158,19 @@ Un test en échec **arrête** le build : la suite se signale en *Skip* propre l�
 Revit manque, donc un échec est un vrai échec. `-AllowTestFailures` passe outre et le
 rappelle à la fin, à côté du chemin de l'installateur.
 
-L'installateur refuse de démarrer si `RiveTT.Server.exe` tourne encore — un client MCP
-ouvert verrouille le fichier, et une installation qui échoue là laisse le plugin à
-jour et le serveur à l'ancienne version. Il vérifie aussi, en fin de parcours, que le
-serveur porte bien la version installée, et le dit franchement sinon.
+Un client MCP ouvert verrouille `RiveTT.Server.exe`, et une installation qui échoue là
+laisse le plugin à jour et le serveur à l'ancienne version. L'installateur **avertit**
+quand il détecte ce processus — bouton par défaut sur *Non* — mais il laisse passer
+outre : c'est un avertissement, pas une interdiction.
+
+Le garde-fou qui ne se contourne pas vient après. En fin de parcours l'installateur relit
+la version du serveur réellement écrit sur le disque et, si elle ne correspond pas à celle
+qu'il devait poser, il **remplace** la page finale par un avertissement de mise à jour
+incomplète, avec la marche à suivre et les deux numéros. Un succès affiché est donc un
+succès vérifié.
+
+Les deux comportements se testent : voir *Étape 0* de
+[docs/references/protocole-de-recette.md](docs/references/protocole-de-recette.md).
 
 Le serveur ne référence pas l'API Revit : il est compilé une fois et partagé. Il est
 **autonome** (~38 Mo) et n'exige aucun runtime .NET installé — c'était la seule pièce
