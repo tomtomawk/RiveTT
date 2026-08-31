@@ -60,6 +60,8 @@ qui les empêche de décrire la même opération de deux façons.
 |---|---|
 | [AGENTS.md](AGENTS.md) | **À lire en premier.** Architecture, contrat à deux faces, verrou d'écriture. Les agents de code le chargent automatiquement comme instructions projet |
 | [docs/references/](docs/references/) | Créer un outil C#, contrats et erreurs, sécurité interne, checklist de release |
+| [docs/references/protocole-de-recette.md](docs/references/protocole-de-recette.md) | Recette sur maquette réelle, à deux agents : ce que `dotnet test` ne peut pas prouver |
+| [docs/CHANGELOG_0.4.0.md](docs/CHANGELOG_0.4.0.md) | Verrou d'écriture, contrat `dryRun`, défauts de l'audit du 31/08, ce qui reste ouvert |
 | [docs/CHANGELOG_0.3.0.md](docs/CHANGELOG_0.3.0.md) | Défauts corrigés, renommage et consolidation de la surface, ce qui reste à vérifier sur maquette |
 
 **Référence commune**

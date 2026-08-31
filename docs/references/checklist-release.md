@@ -1,5 +1,25 @@
 # Checklist de build et de release
 
+## Version
+
+`Directory.Build.props` porte la version des DEUX moitiés — le plugin la rapporte en
+`execution.pluginVersion`, le serveur en `execution.mcpServerVersion` et comme version
+MCP `ServerInfo`. Les deux la lisent depuis leur propre assembly : il n'y a aucun
+littéral à tenir en phase.
+
+Pour une release :
+
+1. bump `Version` / `AssemblyVersion` / `FileVersion` dans `Directory.Build.props` ;
+2. `docs/CHANGELOG_<version>.md` — un fichier par version, jamais écrasé. Ce qui a
+   changé, et ce qui reste ouvert : la table « Ce qui reste ouvert » du 0.4.0 est le
+   modèle ;
+3. tag `v<version>` sur le commit de release. Attention : les tags `v1.0.x` du dépôt
+   sont **hérités du fork RevitCortex** et ne suivent pas cette numérotation. Ne pas
+   s'en servir comme référence de version ;
+4. fusionner dans `main`. Un `dev/<version>` en avance de dix-sept commits sur `main`
+   est arrivé une fois : la branche de release et la branche par défaut divergent
+   silencieusement.
+
 ## Pre-commit
 
     dotnet test src/RiveTT.Tests/RiveTT.Tests.csproj -c Release
@@ -7,6 +27,10 @@
 
 Confirm that the complete test tree is compiled; do not disable default
 `Compile` items to obtain a green build.
+
+`.github/workflows/build.yml` runs both of these on every push, for BOTH Revit targets,
+and fails if regenerating the tool inventory produces a diff. It does not replace the
+local run — it catches what a local run on one target cannot.
 
 ## Package
 
@@ -64,5 +88,12 @@ to uninstall.
   `src/resources/documentation/references/inventaire-des-outils.md` matches the
   surface being shipped. Both are installed on the workstation.
 - `send_code_to_revit` sandbox tests pass.
+- `python tools/audit-tool-surface.py` leaves no diff.
+- Every write tool that reads `dryRun` declares `supportsDryRun: true`, and no tool
+  declares it without reading it — `DryRunDeclarationSourceTests` covers both, by
+  scanning; there is no list to update.
+- A live pass against a real model, per `docs/references/protocole-de-recette.md`, with
+  its report in `docs/recettes/`. This is the only check that exercises geometry,
+  transactions and Revit's own error messages.
 - No references to the removed TCP, TypeScript, licensing, telemetry, updater,
   Power BI, or multi-version deployment stacks remain in active code.

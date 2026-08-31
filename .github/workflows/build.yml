@@ -1,0 +1,69 @@
+name: build
+
+# The suite has been green on the maintainer's workstation and nowhere else. It is
+# designed to run without Revit — RevitApiBootstrap finds no install on a runner, and
+# every Revit-typed test reports a clean Skip through [RequiresRevitDbApiFact] /
+# [RequiresRevitApiFact] — so a red run here is a real failure, never a missing Revit.
+#
+# What this canNOT check, and no runner ever will: geometry, transactions and Revit
+# error messages. Those still have to be exercised against a real model, in both target
+# versions when the change touches anything behind REVIT2027_OR_GREATER, and the outcome
+# recorded in the commit or pull request. See docs/references/protocole-de-recette.md.
+
+on:
+  push:
+    branches: [main, 'dev/**', 'fix/**', 'bugfix/**']
+  pull_request:
+    branches: [main, 'dev/**']
+  workflow_dispatch:
+
+jobs:
+  test:
+    # Windows, not ubuntu: the plugin and the tools target net10.0-windows and the
+    # test project references them.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the .NET SDK pinned by global.json
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore RiveTT.sln
+
+      # Both Revit targets, because the version gates are compile-time: code behind
+      # #if REVIT2027_OR_GREATER never reaches the compiler in a 2026 build, so a 2027-only
+      # build proves nothing about the 2026 half. This is the check no one runs by hand.
+      - name: Build (Revit 2027 target)
+        run: dotnet build RiveTT.sln -c Release --no-restore -p:RevitVersion=2027
+
+      - name: Build (Revit 2026 target)
+        run: dotnet build RiveTT.sln -c Release -p:RevitVersion=2026
+
+      - name: Test
+        run: dotnet test src/RiveTT.Tests/RiveTT.Tests.csproj -c Release --logger "trx;LogFileName=results.trx"
+
+      # The inventory is installed on the workstation and is generated, never edited by
+      # hand. If regenerating it produces a diff, the shipped document does not describe
+      # the shipped surface — the failure mode that left sixteen capabilities undocumented.
+      - name: The generated tool inventory matches the code
+        shell: pwsh
+        run: |
+          python tools/audit-tool-surface.py
+          $diff = git status --porcelain src/resources/documentation/references/inventaire-des-outils.md
+          if ($diff) {
+            Write-Host '::error::inventaire-des-outils.md is stale. Run: python tools/audit-tool-surface.py'
+            git --no-pager diff -- src/resources/documentation/references/inventaire-des-outils.md
+            exit 1
+          }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/results.trx'
+          if-no-files-found: warn

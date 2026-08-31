@@ -157,8 +157,20 @@ vérifie le bac à sable et rapporte ce qui serait exécuté, sans rien exécute
 sur disque. Il n'existe aucune boîte de confirmation dans Revit — la prévisualisation
 est la seule étape de relecture.
 
-`CodeSandbox` bloque les accès fichiers et réseau, la création de processus, le
-registre, l'interop native et l'émission dynamique.
+`CodeSandbox` refuse les accès fichiers et réseau, la création de processus, le
+registre, l'interop native et les détours par la réflexion.
+
+**Ce n'est pas une frontière de sécurité**, et il ne faut pas s'en servir comme telle.
+C'est un filtre par motifs sur le texte du code : il arrête l'erreur et le geste
+évident, pas quelqu'un qui cherche à passer. Surtout, l'API Revit qu'il autorise par
+construction écrit elle-même sur disque (`Document.SaveAs`, les exports) et supprime
+des éléments (`Document.Delete`) — aucun filtre ne peut l'interdire sans interdire
+l'outil.
+
+Ce qui protège réellement, dans l'ordre : le **verrou d'écriture** du ruban, le
+`dryRun` par défaut de cet outil, et le **journal d'audit**, qui conserve le code et
+son empreinte SHA-256. Relire le script avant de le lancer reste l'étape que rien ne
+remplace.
 
 ### Données locales
 
@@ -176,9 +188,11 @@ sans le dire.
 - Valider les éléments créés ou modifiés avec un outil de lecture.
 - Ne recourir à `send_code_to_revit` que lorsqu'aucun outil dédié ne couvre l'opération.
 
-Tous les outils d'écriture n'exposent pas `dryRun` : l'inventaire
-(`references/inventaire-des-outils.md`) donne la colonne exacte. Pour ceux qui n'en ont
-pas, limiter la portée de l'appel et vérifier le résultat immédiatement après.
+Tous les outils d'écriture n'exposent pas `dryRun` — 56 sur 135. Nul besoin de le
+deviner ni d'ouvrir l'inventaire : `execution.supportsDryRun` le dit dans chaque
+réponse, et un `dryRun` demandé à un outil qui n'en a pas est refusé, jamais exécuté
+en silence. Pour ceux qui n'en ont pas, limiter la portée de l'appel et vérifier le
+résultat immédiatement après.
 
 ---
 
@@ -288,9 +302,23 @@ dégroupage/regroupage ne sait faire.
 ### Réponses et pagination
 
 Chaque succès contient `execution.connector`, `pluginVersion`, `mcpServerVersion`,
-`revitVersion`, `mode`, `toolReadOnly`, `toolDestructive`, `writesAllowed` et `cached`,
-plus `versionMismatch` quand les deux versions diffèrent. Un aperçu d'écriture contient
-toujours `dryRun: true` et `mutated: false`.
+`revitVersion`, `revitProcessId`, `documentTitle`, `mode`, `toolReadOnly`,
+`toolDestructive`, `supportsDryRun`, `writesAllowed` et `cached`, plus `versionMismatch`
+quand les deux versions diffèrent.
+
+`revitProcessId` et `documentTitle` disent **dans quel Revit et dans quel fichier**
+l'appel a eu lieu. Avec deux instances de Revit ouvertes, le serveur se connecte à la
+plus récemment démarrée : c'est un choix implicite, et ces deux champs sont ce qui le
+rend visible. Les surveiller sur une session longue — s'ils changent, la cible a
+changé.
+Un aperçu d'écriture contient toujours `dryRun: true` et `mutated: false`.
+
+`supportsDryRun` dit si **cet outil-là** sait prévisualiser. Quand il vaut `false`,
+passer `dryRun: true` est **refusé** avec `InvalidInput`, avant exécution : l'outil
+n'est pas lancé du tout et la maquette n'est pas touchée. C'est délibéré. Le routeur
+tamponnait auparavant `mutated: false` sur la seule foi de la demande du client, si
+bien qu'un outil sans `dryRun` écrivait dans la maquette et répondait malgré tout que
+rien n'avait changé.
 
 `toolReadOnly` classe **l'outil qui répond**, ce n'est pas un état de session. L'état de
 session, c'est `writesAllowed` : il vaut **`false` au démarrage de chaque session
