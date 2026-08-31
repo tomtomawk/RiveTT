@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,13 +8,20 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Project;
 
 /// <summary>
 /// Exports a schedule view to CSV/TSV format or returns data as structured JSON.
 /// </summary>
-[ToolSafety(true, false)]
+// NOT read-only. It reads the model, but it WRITES a file to a path the caller chooses,
+// and readOnly:true meant the ribbon write lock never saw it: a locked session could
+// still overwrite any file the user can write to. Same defect as
+// ifc_set_family_mapping_file, which was reclassified for the same reason. Reading a
+// schedule without exportPath is still available -- the lock refuses the whole tool, so
+// unlock to export to a file.
+[ToolSafety(false, false)]
 public class ExportScheduleTool : IRiveTTTool
 {
     public string Name => "export_schedule";
@@ -41,6 +48,23 @@ public class ExportScheduleTool : IRiveTTTool
                             _ => "Tab"
                         };
         var includeHeaders = input["includeHeaders"]?.Value<bool>() ?? true;
+        var overwrite = input["overwrite"]?.Value<bool>() ?? false;
+
+        // Resolved BEFORE the schedule is read: a rejected path must fail fast, not after
+        // pulling every cell out of the model.
+        var safeExportPath = string.Empty;
+        if (!string.IsNullOrEmpty(exportPath))
+        {
+            if (!PathSafety.TryResolveSafe(exportPath, out safeExportPath, out var pathError))
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, pathError,
+                    suggestion: "Give an absolute path outside the Windows system folders "
+                              + "(the project drive and network shares are fine).");
+
+            if (!PathSafety.CanWriteTo(safeExportPath, overwrite, out var overwriteError))
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, overwriteError,
+                    suggestion: "Replacing a file is a different act from creating one; "
+                              + "it has to be asked for.");
+        }
 
         if (scheduleId <= 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "scheduleId is required");
@@ -95,11 +119,12 @@ public class ExportScheduleTool : IRiveTTTool
                 foreach (var row in rows)
                     sb.AppendLine(string.Join(sep, row));
 
-                File.WriteAllText(exportPath, sb.ToString(), Encoding.UTF8);
+                File.WriteAllText(safeExportPath, sb.ToString(), Encoding.UTF8);
                 return RiveTTResult<object>.Ok(new
                 {
                     scheduleName = schedule.Name,
-                    exportedTo = exportPath,
+                    exportedTo = safeExportPath,
+                    overwroteExistingFile = overwrite,
                     rowCount = rows.Count,
                     columnCount = sectionData.NumberOfColumns
                 });
@@ -115,7 +140,10 @@ public class ExportScheduleTool : IRiveTTTool
         }
         catch (Exception ex)
         {
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown, $"Failed: {ex.Message}");
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
+                $"Could not export the schedule: {ex.Message}",
+                suggestion: "Check that the schedule id is a ViewSchedule and that the target "
+                          + "folder exists and is writable.");
         }
     }
 }

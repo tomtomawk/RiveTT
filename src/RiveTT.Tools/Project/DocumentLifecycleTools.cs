@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Project;
 
@@ -57,7 +58,7 @@ internal static class DocumentLifecyclePreview
     }
 }
 
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class SaveDocumentTool : IRiveTTTool
 {
     public string Name => "save_document";
@@ -125,7 +126,7 @@ public sealed class SaveDocumentTool : IRiveTTTool
     }
 }
 
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class SaveAsDocumentTool : IRiveTTTool
 {
     public string Name => "save_as_document";
@@ -163,6 +164,12 @@ public sealed class SaveAsDocumentTool : IRiveTTTool
             !targetPath!.EndsWith(".rvt", StringComparison.OrdinalIgnoreCase))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"targetPath must be an absolute path ending in .rvt (received: {targetPath})");
+
+        if (!PathSafety.TryResolveSafe(targetPath, out var safeTargetPath, out var pathError))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, pathError,
+                suggestion: "Save to the project drive or a share, not into a Windows "
+                          + "system folder.");
+        targetPath = safeTargetPath;
 
         var targetDirectory = Path.GetDirectoryName(targetPath) ?? "";
         var targetExists = File.Exists(targetPath);

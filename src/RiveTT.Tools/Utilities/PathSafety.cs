@@ -5,20 +5,29 @@ using System.IO;
 namespace RiveTT.Tools.Utilities;
 
 /// <summary>
-/// Validates user-supplied file paths before read/write, restricting them to a
-/// small allowlist of user-owned directories. Prevents path-traversal and
-/// arbitrary-file access from MCP callers (ultrareview H25/H28/H36).
+/// Validates caller-supplied file paths before read or write.
+///
+/// The rule is a DENY list of places nobody's project lives, not an allow list of the
+/// current user's personal folders. The allow-list version refused
+/// <c>P:\Projets\2026-047\...</c> — the agency's own project drive, where every export
+/// is actually meant to land — while <c>save_as_document</c> wrote a .rvt anywhere at
+/// all because it never called this at the time. It cost the daily gesture and did not
+/// close the door it named. A control that blocks normal work gets bypassed, not
+/// respected.
+///
+/// What stays refused: Windows, Program Files, ProgramData, and the RiveTT install
+/// itself. Traversal (<c>..</c>) is collapsed first, so it cannot be used to reach them.
 /// </summary>
 public static class PathSafety
 {
     /// <summary>
-    /// Canonical, trailing-separator-terminated roots a caller-supplied path is
-    /// allowed to resolve under. Computed once; SpecialFolder lookups are cheap
-    /// but stable for the process lifetime.
+    /// Canonical, trailing-separator-terminated roots no caller-supplied path may resolve
+    /// under. System locations and RiveTT's own state: writing there is either a mistake
+    /// or an attempt, never a project deliverable.
     /// </summary>
-    private static readonly Lazy<string[]> AllowedRoots = new(BuildAllowedRoots);
+    private static readonly Lazy<string[]> DeniedRoots = new(BuildDeniedRoots);
 
-    private static string[] BuildAllowedRoots()
+    private static string[] BuildDeniedRoots()
     {
         var roots = new List<string>();
 
@@ -32,20 +41,21 @@ public static class PathSafety
             catch { /* folder unavailable on this OS/profile */ }
         }
 
-        Add(Environment.SpecialFolder.MyDocuments);
-        Add(Environment.SpecialFolder.DesktopDirectory);
-        Add(Environment.SpecialFolder.UserProfile);
+        Add(Environment.SpecialFolder.Windows);
+        Add(Environment.SpecialFolder.System);
+        Add(Environment.SpecialFolder.SystemX86);
+        Add(Environment.SpecialFolder.ProgramFiles);
+        Add(Environment.SpecialFolder.ProgramFilesX86);
+        Add(Environment.SpecialFolder.CommonApplicationData);
 
-        // Downloads has no SpecialFolder enum value; derive from the profile.
+        // RiveTT's own state: the audit log is evidence, and a tool that could overwrite
+        // it could erase the trace of what it did. The scripts folder is executed code.
         try
         {
-            var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            if (!string.IsNullOrEmpty(profile))
-                roots.Add(WithSeparator(Path.GetFullPath(Path.Combine(profile, "Downloads"))));
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (!string.IsNullOrEmpty(localAppData))
+                roots.Add(WithSeparator(Path.GetFullPath(Path.Combine(localAppData, "RiveTT"))));
         }
-        catch { }
-
-        try { roots.Add(WithSeparator(Path.GetFullPath(Path.GetTempPath()))); }
         catch { }
 
         return roots.ToArray();
@@ -59,19 +69,20 @@ public static class PathSafety
     }
 
     /// <summary>
-    /// Resolves <paramref name="userPath"/> to an absolute canonical path and verifies
-    /// it lives under one of the allowed user directories. Returns false (with a reason)
-    /// for traversal, UNC, or system-directory paths.
+    /// Resolves <paramref name="userPath"/> to an absolute canonical path and verifies it
+    /// does not land in a system location. Local drives, mapped drives (P:\) and UNC
+    /// shares are all accepted: that is where an agency's projects live.
     /// </summary>
     /// <param name="userPath">The raw caller-supplied path.</param>
     /// <param name="resolvedPath">The canonical absolute path, when valid.</param>
     /// <param name="error">A human-readable reason when invalid.</param>
-    /// <param name="allowUnc">Accept UNC/network paths (\\host\share). Reserved for link
-    /// tools, where loading models from network shares is a standard BIM workflow.
-    /// Callers must opt in explicitly and the resolved path is recorded by the audit log.
-    /// Local paths stay restricted to the allowed user directories regardless.</param>
-    public static bool TryResolveSafe(string? userPath, out string resolvedPath, out string error, bool allowUnc = false)
+    /// <param name="allowUnc">Kept for source compatibility with the tools that pass it.
+    /// UNC is accepted either way now; the parameter no longer changes the outcome and
+    /// new code should not pass it.</param>
+    public static bool TryResolveSafe(string? userPath, out string resolvedPath, out string error,
+        bool allowUnc = false)
     {
+        _ = allowUnc;
         resolvedPath = string.Empty;
         error = string.Empty;
 
@@ -81,10 +92,20 @@ public static class PathSafety
             return false;
         }
 
+        // Tested on the RAW input: GetFullPath roots everything it returns, resolving a
+        // relative path against the process working directory — which, inside Revit, is
+        // the Revit install folder. Nothing a caller writes means that.
+        if (!Path.IsPathRooted(userPath))
+        {
+            error = "Path must be absolute (a drive letter, or a UNC share).";
+            return false;
+        }
+
         string full;
         try
         {
-            // GetFullPath collapses ".." and normalizes separators.
+            // GetFullPath collapses ".." and normalizes separators. Doing this BEFORE the
+            // deny check is what makes traversal ineffective rather than merely detected.
             full = Path.GetFullPath(userPath);
         }
         catch (Exception ex)
@@ -93,31 +114,40 @@ public static class PathSafety
             return false;
         }
 
-        // UNC / network shares (\\host\share or //host/share): rejected by default;
-        // link tools opt in because shares can never live under the user-profile roots.
-        if (full.StartsWith(@"\\", StringComparison.Ordinal) ||
-            full.StartsWith("//", StringComparison.Ordinal))
-        {
-            if (allowUnc)
-            {
-                resolvedPath = full;
-                return true;
-            }
-            error = "Network/UNC paths are not allowed.";
-            return false;
-        }
-
-        foreach (var root in AllowedRoots.Value)
+        foreach (var root in DeniedRoots.Value)
         {
             if (full.StartsWith(root, StringComparison.OrdinalIgnoreCase))
             {
-                resolvedPath = full;
-                return true;
+                error = "Path is inside a Windows system directory or RiveTT's own state " +
+                        "(Windows, Program Files, ProgramData, %LOCALAPPDATA%\\RiveTT).";
+                return false;
             }
         }
 
-        error = "Path is outside the allowed directories " +
-                "(Documents, Desktop, Downloads, user profile, or temp).";
+        resolvedPath = full;
+        return true;
+    }
+
+    /// <summary>
+    /// Guards the difference between creating a file and destroying one.
+    ///
+    /// Overwriting is not the same act as writing, and an export tool that silently
+    /// replaced an existing file gave the caller no way to notice it had. Every tool
+    /// writing to a caller-supplied path calls this after
+    /// <see cref="TryResolveSafe"/>: it refuses an existing target unless the caller
+    /// asked for the replacement in so many words.
+    /// </summary>
+    /// <param name="resolvedPath">The canonical path, already validated.</param>
+    /// <param name="overwrite">The caller's explicit <c>overwrite</c> flag.</param>
+    /// <param name="error">Set when the write must be refused.</param>
+    public static bool CanWriteTo(string resolvedPath, bool overwrite, out string error)
+    {
+        error = string.Empty;
+        if (overwrite || !File.Exists(resolvedPath)) return true;
+
+        error = $"'{Path.GetFileName(resolvedPath)}' already exists in " +
+                $"'{Path.GetDirectoryName(resolvedPath)}'. Pass overwrite=true to replace it, " +
+                "or choose another name.";
         return false;
     }
 }

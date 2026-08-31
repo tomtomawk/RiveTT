@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -60,9 +60,14 @@ public class LoadFamilyTool : IRiveTTTool
         // PLAN_CORRECTION.md.
         var overwriteExisting = input["overwriteExisting"]?.Value<bool>() ?? true;
 
-        if (!File.Exists(familyPath))
+        if (!PathSafety.TryResolveSafe(familyPath, out var safeFamilyPath, out var pathError))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, pathError,
+                suggestion: "Give an absolute .rfa path outside the Windows system folders; "
+                          + "the project drive and network shares are accepted.");
+
+        if (!File.Exists(safeFamilyPath))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
-                $"familyPath does not exist: {familyPath}");
+                $"familyPath does not exist: {safeFamilyPath}");
 
         if (!session.RequestConfirmation("load family", 1))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
@@ -71,7 +76,7 @@ public class LoadFamilyTool : IRiveTTTool
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
 
-        if (doc.LoadFamily(familyPath, new Utilities.OverwritingFamilyLoadOptions(overwriteExisting), out var family))
+        if (doc.LoadFamily(safeFamilyPath, new Utilities.OverwritingFamilyLoadOptions(overwriteExisting), out var family))
         {
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

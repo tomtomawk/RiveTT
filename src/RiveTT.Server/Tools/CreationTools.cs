@@ -260,6 +260,7 @@ public static class CreationTools
         [Description("Legacy output path alias; used only when filePath is omitted")] string? outputPath = null,
         [Description("Worksheet name. Default: Export")] string? sheetName = null,
         [Description("Maximum elements to export. Default: 10000")] int? maxElements = null,
+        [Description("Replace filePath if it already exists. Default: false — an existing spreadsheet is never silently destroyed")] bool overwrite = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -282,6 +283,7 @@ public static class CreationTools
         else if (outputPath != null) p["filePath"] = outputPath;
         if (sheetName != null) p["sheetName"] = sheetName;
         if (maxElements != null) p["maxElements"] = maxElements;
+        p["overwrite"] = overwrite;
         var result = await revit.ExecuteAsync("export_to_excel", p, ct);
         return result.ToString();
     }
@@ -565,7 +567,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "export_schedule"), Description("Export a schedule as JSON, or write it to a CSV/TSV file. Without exportPath the data comes back inline; with exportPath the file is written using delimiter (or format).")]
+    [McpServerTool(Name = "export_schedule"), Description("Export a schedule as JSON, or write it to a CSV/TSV file. Without exportPath the data comes back inline; with exportPath the file is written using delimiter (or format). Writing a file needs the ribbon write lock open, and will not replace an existing file unless overwrite=true.")]
     public static async Task<string> ExportSchedule(
         RevitConnectionManager revit,
         [Description("Schedule element ID")] long scheduleId,
@@ -573,6 +575,7 @@ public static class CreationTools
         [Description("Absolute output file path. Omit to get the data inline")] string? exportPath = null,
         [Description("Field separator: Tab | Comma | Semicolon. Overrides format")] string? delimiter = null,
         [Description("Write the header row. Default: true")] bool includeHeaders = true,
+        [Description("Replace exportPath if it already exists. Default: false — an existing file is never silently destroyed")] bool overwrite = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["scheduleId"] = scheduleId };
@@ -580,6 +583,7 @@ public static class CreationTools
         if (exportPath != null) p["exportPath"] = exportPath;
         if (delimiter != null) p["delimiter"] = delimiter;
         p["includeHeaders"] = includeHeaders;
+        p["overwrite"] = overwrite;
         var result = await revit.ExecuteAsync("export_schedule", p, ct);
         return result.ToString();
     }

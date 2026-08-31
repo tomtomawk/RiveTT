@@ -3,7 +3,7 @@
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-08-28 — connecteur 0.4.0 — **198 outils publiés**, 195 classes runtime.
+Relevé du 2026-08-31 — connecteur 0.4.0 — **198 outils publiés**, 195 classes runtime.
 
 ## Comment lire ce document
 
@@ -25,13 +25,13 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 | Mesure | Valeur |
 |---|---|
 | Outils publiés | **198** |
-| Dont écriture | **138** (70 %) — c'est la part que le verrou du ruban gouverne |
-| Écritures sans `dryRun` | **79**, alors que le contrat annonce `dryRunDefault: true` |
+| Dont écriture | **139** (70 %) — c'est la part que le verrou du ruban gouverne |
+| Écritures sans `dryRun` | **80** sur 139 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
 | Défauts critiques et majeurs corrigés | **8**, gardés par `ConfirmedDefectFixSourceTests` |
 | Lacunes API comblées depuis le relevé précédent | **16** sur 19 |
-| Erreurs génériques `Failed: …` sans suggestion | **129** |
+| Erreurs génériques `Failed: …` sans suggestion | **128** |
 | Géométrie par boîte englobante | **15** |
-| Classement `[ToolSafety]` en désaccord avec le nom | **9** |
+| Classement `[ToolSafety]` en désaccord avec le nom | **10** |
 | Défauts confirmés / signaux à vérifier | **0** / **10** |
 
 ## Répartition par catégorie
@@ -187,7 +187,7 @@ documentation.
 | `create_revision` | écriture | — | 5 | List, create, update, or assign revisions to sheets, and draw revision clouds. action=list\|create\|set\|add_to_sheets\|create_cloud. 'set' updates an exi… | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_schedule` | écriture | — | 5 | Create a new schedule view in Revit. | **mineur** — pas de dryRun ; erreur générique sans suggestion |
 | `create_sheet` | écriture | oui | 5 | Create a sheet, with a title block. Pass titleBlockId (an OST_TitleBlocks family type id, from list_system_types or list_family_types) or a family/typ… | **mineur** — erreur générique sans suggestion |
-| `export_schedule` | lecture | — | 5 | Export a schedule as JSON, or write it to a CSV/TSV file. Without exportPath the data comes back inline; with exportPath the file is written using del… | **mineur** — erreur générique sans suggestion |
+| `export_schedule` | écriture | — | 5 | Export a schedule as JSON, or write it to a CSV/TSV file. Without exportPath the data comes back inline; with exportPath the file is written using del… | **mineur** — pas de dryRun ; classement déclaré (écriture) différent du préfixe du nom |
 | `get_current_view_info` | lecture | — | 5 | Get information about the currently active view in Revit. | **mineur** — erreur générique sans suggestion |
 | `get_project_info` | lecture | — | 5 | Get project name, address, levels, phases, worksets, and links from the active Revit document. | **mineur** — erreur générique sans suggestion |
 | `get_schedule_data` | lecture | — | 5 | Export schedule data as JSON from an existing schedule view. availableFields is omitted unless includeAvailableFields=true: it lists every schedulable… | **mineur** — erreur générique sans suggestion |
@@ -342,7 +342,7 @@ documentation.
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
-| `get_server_capabilities` | lecture | oui | 5 | Report RiveTT's effective automatic-mode, dry-run, audit, response, selection, document, and lifecycle capability contract. | — |
+| `get_server_capabilities` | lecture | — | 5 | Report RiveTT's effective automatic-mode, dry-run, audit, response, selection, document, and lifecycle capability contract. | — |
 | `clear_cache` | lecture | — | 4 | Clear every entry from the plugin-side tool-result cache. | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `get_cache_stats` | lecture | — | 4 | Return diagnostic hit/miss telemetry from the plugin-side tool-result cache. | — |
 | `ping_revit` | lecture | — | 2 | Test MCP connection to RiveTT. Displays a greeting in Revit. | — |

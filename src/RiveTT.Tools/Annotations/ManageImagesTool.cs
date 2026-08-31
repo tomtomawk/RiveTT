@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
@@ -72,6 +72,11 @@ public class ManageImagesTool : IRiveTTTool
         if (string.IsNullOrWhiteSpace(filePath) || viewIdLong <= 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "filePath and viewId are required");
 
+        if (!PathSafety.TryResolveSafe(filePath, out var safeFilePath, out var pathError))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, pathError,
+                suggestion: "Give an absolute image path outside the Windows system folders; "
+                          + "the project drive and network shares are accepted.");
+
         var view = doc.GetElement(ToolHelpers.ToElementId(viewIdLong)) as View;
         if (view == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"viewId {viewIdLong} is not a View");
@@ -93,7 +98,7 @@ public class ManageImagesTool : IRiveTTTool
         ImageInstance instance;
         try
         {
-            var options = new ImageTypeOptions(filePath!, false, ImageTypeSource.Import) { Resolution = resolutionDpi };
+            var options = new ImageTypeOptions(safeFilePath, false, ImageTypeSource.Import) { Resolution = resolutionDpi };
             imageType = ImageType.Create(doc, options);
 
             var placement = positionToken != null

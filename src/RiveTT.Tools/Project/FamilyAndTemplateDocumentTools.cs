@@ -9,6 +9,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Project;
 
@@ -36,8 +37,16 @@ public static class DocumentFilePathValidation
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"filePath must be an absolute path ending in {requiredExtension} (received: {filePath})");
 
-        if (!File.Exists(filePath))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"File not found: {filePath}");
+        // Gated here rather than in each caller: open_family and open_template both come
+        // through this helper, and a seventh document tool added later gets the check for
+        // free instead of being forgotten the way these two were.
+        if (!PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, pathError,
+                suggestion: "Open the file from the project drive, a share, or a user folder — "
+                          + "not from a Windows system folder.");
+
+        if (!File.Exists(safePath))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"File not found: {safePath}");
 
         return null;
     }
@@ -54,7 +63,7 @@ public static class DocumentFilePathValidation
 /// activated project family) were measured working on 26/08/2026 (see PLAN_CORRECTION.md
 /// Annex A).
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class OpenFamilyTool : IRiveTTTool
 {
     public string Name => "open_family";
@@ -141,7 +150,7 @@ public sealed class OpenFamilyTool : IRiveTTTool
 /// only reads a template to seed a new project, and never edits the template
 /// itself.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class OpenTemplateTool : IRiveTTTool
 {
     public string Name => "open_template";
@@ -235,7 +244,7 @@ public sealed class OpenTemplateTool : IRiveTTTool
 /// is the ONLY open document, there is nothing to activate instead, and the tool
 /// refuses rather than guess.
 /// </summary>
-[ToolSafety(false, true)]
+[ToolSafety(false, true, supportsDryRun: true)]
 public sealed class CloseDocumentTool : IRiveTTTool
 {
     public string Name => "close_document";

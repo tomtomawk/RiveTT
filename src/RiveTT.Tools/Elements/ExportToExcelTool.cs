@@ -45,12 +45,20 @@ public class ExportToExcelTool : IRiveTTTool
             filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
                 $"RevitExport_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
 
-        // H25-wave: restrict writes to user-owned directories; reject traversal/UNC/system paths.
+        // Refuse system locations; the project drive and network shares are accepted.
         if (!PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 pathError,
-                suggestion: "Provide a path under Documents, Desktop, Downloads, the user profile, or temp");
+                suggestion: "Give an absolute path outside the Windows system folders; the "
+                          + "project drive and network shares are accepted.");
         filePath = safePath;
+
+        // Replacing someone's spreadsheet is a different act from writing a new one, and
+        // it used to happen silently: ClosedXML's SaveAs overwrites without a word.
+        var overwrite = input["overwrite"]?.Value<bool>() ?? false;
+        if (!PathSafety.CanWriteTo(filePath, overwrite, out var overwriteError))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, overwriteError,
+                suggestion: "Pass overwrite=true to replace it deliberately, or change filePath.");
 
         try
         {
@@ -190,6 +198,7 @@ public class ExportToExcelTool : IRiveTTTool
             return RiveTTResult<object>.Ok(new
             {
                 filePath,
+                overwroteExistingFile = overwrite,
                 elementCount = elemList.Count,
                 instanceParameterCount = instanceParamNames.Count,
                 typeParameterCount = typeParamNames.Count,

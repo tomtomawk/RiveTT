@@ -9,6 +9,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Project;
 
@@ -69,7 +70,7 @@ internal static class DocumentLifecycleSupport
 }
 
 /// <summary>Creates a new project document from a Revit template (.rte).</summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class CreateDocumentTool : IRiveTTTool
 {
     public string Name => "create_document";
@@ -117,7 +118,24 @@ public sealed class CreateDocumentTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"targetPath must be an absolute path ending in .rvt (received: {targetPath})");
 
+        if (!PathSafety.TryResolveSafe(targetPath, out var safeTargetPath, out var targetPathError))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, targetPathError,
+                suggestion: "Create the project on the project drive or a share, not in a "
+                          + "Windows system folder.");
+        targetPath = safeTargetPath;
+
         var defaultTemplate = SafeDefaultTemplate(application);
+        // The default template comes from Revit's own configuration and lives under
+        // ProgramData — trusted, and deliberately not put through the caller gate. Only a
+        // template the CALLER supplied is checked.
+        if (!string.IsNullOrWhiteSpace(templatePath))
+        {
+            if (!PathSafety.TryResolveSafe(templatePath, out var safeTemplatePath, out var templatePathError))
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, templatePathError,
+                    suggestion: "Point templatePath at a .rte on the project drive, a share, or a user folder.");
+            templatePath = safeTemplatePath;
+        }
+
         var resolvedTemplate = string.IsNullOrWhiteSpace(templatePath) ? defaultTemplate : templatePath;
 
         if (string.IsNullOrWhiteSpace(resolvedTemplate))
@@ -257,7 +275,7 @@ public sealed class CreateDocumentTool : IRiveTTTool
 }
 
 /// <summary>Opens and activates an existing project file in Revit.</summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public sealed class OpenDocumentTool : IRiveTTTool
 {
     public string Name => "open_document";
@@ -289,6 +307,11 @@ public sealed class OpenDocumentTool : IRiveTTTool
             !filePath!.EndsWith(".rvt", StringComparison.OrdinalIgnoreCase))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"filePath must be an absolute path ending in .rvt (received: {filePath})");
+
+        if (!PathSafety.TryResolveSafe(filePath, out var safeFilePath, out var filePathError))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, filePathError,
+                suggestion: "Open the project from the project drive, a share, or a user folder.");
+        filePath = safeFilePath;
 
         if (!File.Exists(filePath))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
