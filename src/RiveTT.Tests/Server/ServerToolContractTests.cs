@@ -214,6 +214,7 @@ namespace RiveTT.Tests.Server
                 name => Assert.Equal("createLinkedMarkers", name),
                 name => Assert.Equal("usePostCommandIsolate", name),
                 name => Assert.Equal("offset", name),
+                name => Assert.Equal("dryRun", name),
                 name => Assert.Equal("ct", name));
 
             Assert.Equal(typeof(JsonElement?), GetParameter(method, "hostElementIds").ParameterType);

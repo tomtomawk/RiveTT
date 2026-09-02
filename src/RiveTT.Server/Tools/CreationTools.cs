@@ -13,9 +13,10 @@ public static class CreationTools
     public static async Task<string> CreateSurfaceBasedElement(
         RevitConnectionManager revit,
         [Description("JSON array of creation specs: [{category, boundary:{outerLoop:[{p0:{x,y,z},p1:{x,y,z}}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees applies to OST_Roofs only.")] string specs,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["data"] = JArray.Parse(specs) };
+        var p = new JObject { ["data"] = JArray.Parse(specs), ["dryRun"] = dryRun };
         var result = await revit.ExecuteAsync("create_surface_based_element", p, ct);
         return result.ToString();
     }
@@ -30,10 +31,11 @@ public static class CreationTools
         [Description("Level element ID (create_plan)")] long? levelId = null,
         [Description("Area plan view element ID (create_boundary, create_area)")] long? viewId = null,
         [Description("JSON array of curve specs forming a closed loop (create_boundary): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] System.Text.Json.JsonElement? curves = null,
-        [Description("Point inside a closed area boundary, JSON {x,y} in mm (create_area)")] string? point = null,
+        [Description("Point inside a closed area boundary, JSON {x,y} in mm (create_area)")] System.Text.Json.JsonElement? point = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["action"] = action };
+        var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (sourceSchemeId != null) p["sourceSchemeId"] = sourceSchemeId;
         if (newName != null) p["newName"] = newName;
         if (areaSchemeId != null) p["areaSchemeId"] = areaSchemeId;
@@ -45,7 +47,12 @@ public static class CreationTools
                 return JsonArrayParam.InvalidArrayResult("manage_area_plans", "curves", curves);
             p["curves"] = curvesArray;
         }
-        if (point != null) p["point"] = JObject.Parse(point);
+        if (point != null)
+        {
+            if (!JsonObjectParam.TryParse(point, out var pointObj))
+                return JsonObjectParam.InvalidObjectResult("manage_area_plans", "point", point);
+            p["point"] = pointObj;
+        }
         var result = await revit.ExecuteAsync("manage_area_plans", p, ct);
         return result.ToString();
     }
@@ -59,11 +66,12 @@ public static class CreationTools
         [Description("Host floor/roof/wall element ID (host, wall)")] long? hostElementId = null,
         [Description("JSON array of curve specs forming a closed loop (shaft, host): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] System.Text.Json.JsonElement? curves = null,
         [Description("Whether the cut is a void vs. solid addition (host). Default: true")] bool cutIsVoid = true,
-        [Description("First corner point, JSON {x,y,z} in mm (wall)")] string? point1 = null,
-        [Description("Second (opposite) corner point, JSON {x,y,z} in mm (wall)")] string? point2 = null,
+        [Description("First corner point, JSON {x,y,z} in mm (wall)")] System.Text.Json.JsonElement? point1 = null,
+        [Description("Second (opposite) corner point, JSON {x,y,z} in mm (wall)")] System.Text.Json.JsonElement? point2 = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["openingType"] = openingType, ["cutIsVoid"] = cutIsVoid };
+        var p = new JObject { ["openingType"] = openingType, ["cutIsVoid"] = cutIsVoid, ["dryRun"] = dryRun };
         if (baseLevelId != null) p["baseLevelId"] = baseLevelId;
         if (topLevelId != null) p["topLevelId"] = topLevelId;
         if (hostElementId != null) p["hostElementId"] = hostElementId;
@@ -73,8 +81,18 @@ public static class CreationTools
                 return JsonArrayParam.InvalidArrayResult("create_opening", "curves", curves);
             p["curves"] = curvesArray;
         }
-        if (point1 != null) p["point1"] = JObject.Parse(point1);
-        if (point2 != null) p["point2"] = JObject.Parse(point2);
+        if (point1 != null)
+        {
+            if (!JsonObjectParam.TryParse(point1, out var point1Obj))
+                return JsonObjectParam.InvalidObjectResult("create_opening", "point1", point1);
+            p["point1"] = point1Obj;
+        }
+        if (point2 != null)
+        {
+            if (!JsonObjectParam.TryParse(point2, out var point2Obj))
+                return JsonObjectParam.InvalidObjectResult("create_opening", "point2", point2);
+            p["point2"] = point2Obj;
+        }
         var result = await revit.ExecuteAsync("create_opening", p, ct);
         return result.ToString();
     }
@@ -208,23 +226,35 @@ public static class CreationTools
     public static async Task<string> CreateSpotDimension(
         RevitConnectionManager revit,
         [Description("Element ID whose face/edge is tagged")] long elementId,
-        [Description("Point to read the elevation at, as JSON {\"x\":mm,\"y\":mm,\"z\":mm}; must lie on or very near the element's geometry")] string point,
+        [Description("Point to read the elevation at, as JSON {\"x\":mm,\"y\":mm,\"z\":mm}; must lie on or very near the element's geometry")] System.Text.Json.JsonElement point,
         [Description("Owning view element ID. Default: the active view")] long? viewId = null,
-        [Description("Elbow point as JSON {x,y,z} in mm. Default: derived from the view's up direction")] string? bend = null,
-        [Description("Leader end point as JSON {x,y,z} in mm. Default: derived from the view's right direction")] string? end = null,
+        [Description("Elbow point as JSON {x,y,z} in mm. Default: derived from the view's up direction")] System.Text.Json.JsonElement? bend = null,
+        [Description("Leader end point as JSON {x,y,z} in mm. Default: derived from the view's right direction")] System.Text.Json.JsonElement? end = null,
         [Description("Show a leader line. Default: true")] bool hasLeader = true,
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
+        if (!JsonObjectParam.TryParse(point, out var pointObj))
+            return JsonObjectParam.InvalidObjectResult("create_spot_dimension", "point", point);
         var p = new JObject
         {
             ["elementId"] = elementId,
-            ["point"] = JObject.Parse(point),
+            ["point"] = pointObj,
             ["hasLeader"] = hasLeader
         };
         if (viewId != null) p["viewId"] = viewId;
-        if (bend != null) p["bend"] = JObject.Parse(bend);
-        if (end != null) p["end"] = JObject.Parse(end);
+        if (bend != null)
+        {
+            if (!JsonObjectParam.TryParse(bend, out var bendObj))
+                return JsonObjectParam.InvalidObjectResult("create_spot_dimension", "bend", bend);
+            p["bend"] = bendObj;
+        }
+        if (end != null)
+        {
+            if (!JsonObjectParam.TryParse(end, out var endObj))
+                return JsonObjectParam.InvalidObjectResult("create_spot_dimension", "end", end);
+            p["end"] = endObj;
+        }
         p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_spot_dimension", p, ct);
         return result.ToString();
@@ -334,11 +364,13 @@ public static class CreationTools
         [Description("Radial center Y in mm")] double? centerY = null,
         [Description("Total sweep angle in degrees (radial). Default: 360")] double? totalAngle = null,
         [Description("Build a real associative ArrayElement. Default: true. false = loose copies")] bool associative = true,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject
         {
             ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()),
+            ["dryRun"] = dryRun,
         };
         if (arrayType != null) p["arrayType"] = arrayType;
         if (count != null) p["count"] = count;
@@ -424,9 +456,10 @@ public static class CreationTools
         [Description("Beam type name (optional)")] string? beamTypeName = null,
         [Description("Elevation offset in mm relative to level. Default: 0")] double? elevation = null,
         [Description("Build a real associative BeamSystem. Default: true. false = loose beams")] bool associative = true,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["levelName"] = levelName };
+        var p = new JObject { ["levelName"] = levelName, ["dryRun"] = dryRun };
         if (xMin != null) p["xMin"] = xMin;
         if (xMax != null) p["xMax"] = xMax;
         if (yMin != null) p["yMin"] = yMin;
@@ -466,9 +499,10 @@ public static class CreationTools
         [Description("Revision element ID (required for set, add_to_sheets, and create_cloud)")] long? revisionId = null,
         [Description("View element ID the cloud is drawn in (required for create_cloud)")] long? viewId = null,
         [Description("JSON array of curve specs forming a closed loop (required for create_cloud): [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] System.Text.Json.JsonElement? curves = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject();
+        var p = new JObject { ["dryRun"] = dryRun };
         if (action != null) p["action"] = action;
         if (date != null) p["date"] = date;
         if (description != null) p["description"] = description;
@@ -592,9 +626,10 @@ public static class CreationTools
         [Description("Field separator: Tab | Comma | Semicolon. Overrides format")] string? delimiter = null,
         [Description("Write the header row. Default: true")] bool includeHeaders = true,
         [Description("Replace exportPath if it already exists. Default: false — an existing file is never silently destroyed")] bool overwrite = false,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["scheduleId"] = scheduleId };
+        var p = new JObject { ["scheduleId"] = scheduleId, ["dryRun"] = dryRun };
         if (format != null) p["format"] = format;
         if (exportPath != null) p["exportPath"] = exportPath;
         if (delimiter != null) p["delimiter"] = delimiter;
@@ -640,9 +675,10 @@ public static class CreationTools
         [Description("View name (optional; default derived from file name)")] string? viewName = null,
         [Description("Text size in mm. Default: 2.0")] double? textSize = null,
         [Description("Treat first row as header. Default: true")] bool includeHeaders = true,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["filePath"] = filePath };
+        var p = new JObject { ["filePath"] = filePath, ["dryRun"] = dryRun };
         if (delimiter != null) p["delimiter"] = delimiter;
         if (viewType != null) p["viewType"] = viewType;
         if (viewName != null) p["viewName"] = viewName;

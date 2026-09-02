@@ -25,11 +25,11 @@ public static class ViewTools
         [Description("View template element ID to apply on creation (optional)")] long? templateId = null,
         [Description("View template name to apply on creation (alternative to templateId)")] string? templateName = null,
         [Description("Activate the crop box. Default: unchanged Pass \"true\" or \"false\"; omit to leave unchanged.")] string? cropActive = null,
-        [Description("Crop rectangle min corner as JSON {\"x\":mm,\"y\":mm} (in the view plane). Requires cropMax")] string? cropMin = null,
-        [Description("Crop rectangle max corner as JSON {\"x\":mm,\"y\":mm}. Requires cropMin")] string? cropMax = null,
+        [Description("Crop rectangle min corner as JSON {\"x\":mm,\"y\":mm} (in the view plane). Requires cropMax")] System.Text.Json.JsonElement? cropMin = null,
+        [Description("Crop rectangle max corner as JSON {\"x\":mm,\"y\":mm}. Requires cropMin")] System.Text.Json.JsonElement? cropMax = null,
         [Description("REQUIRED for viewType=Callout: element ID of the parent view the callout is cut from")] long? parentViewId = null,
-        [Description("REQUIRED for viewType=Callout: callout rectangle min corner as JSON {\"x\":mm,\"y\":mm} in the parent view's own coordinates (model XY for a plan). Requires calloutMax")] string? calloutMin = null,
-        [Description("REQUIRED for viewType=Callout: callout rectangle max corner as JSON {\"x\":mm,\"y\":mm}. Requires calloutMin")] string? calloutMax = null,
+        [Description("REQUIRED for viewType=Callout: callout rectangle min corner as JSON {\"x\":mm,\"y\":mm} in the parent view's own coordinates (model XY for a plan). Requires calloutMax")] System.Text.Json.JsonElement? calloutMin = null,
+        [Description("REQUIRED for viewType=Callout: callout rectangle max corner as JSON {\"x\":mm,\"y\":mm}. Requires calloutMin")] System.Text.Json.JsonElement? calloutMax = null,
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
@@ -51,11 +51,31 @@ public static class ViewTools
                 return TriStateFlag.InvalidFlagResult("create_view", "cropActive", cropActive);
             p["cropActive"] = cropActiveFlag;
         }
-        if (cropMin != null) p["cropMin"] = JObject.Parse(cropMin);
-        if (cropMax != null) p["cropMax"] = JObject.Parse(cropMax);
+        if (cropMin != null)
+        {
+            if (!JsonObjectParam.TryParse(cropMin, out var cropMinObj))
+                return JsonObjectParam.InvalidObjectResult("create_view", "cropMin", cropMin);
+            p["cropMin"] = cropMinObj;
+        }
+        if (cropMax != null)
+        {
+            if (!JsonObjectParam.TryParse(cropMax, out var cropMaxObj))
+                return JsonObjectParam.InvalidObjectResult("create_view", "cropMax", cropMax);
+            p["cropMax"] = cropMaxObj;
+        }
         if (parentViewId != null) p["parentViewId"] = parentViewId;
-        if (calloutMin != null) p["calloutMin"] = JObject.Parse(calloutMin);
-        if (calloutMax != null) p["calloutMax"] = JObject.Parse(calloutMax);
+        if (calloutMin != null)
+        {
+            if (!JsonObjectParam.TryParse(calloutMin, out var calloutMinObj))
+                return JsonObjectParam.InvalidObjectResult("create_view", "calloutMin", calloutMin);
+            p["calloutMin"] = calloutMinObj;
+        }
+        if (calloutMax != null)
+        {
+            if (!JsonObjectParam.TryParse(calloutMax, out var calloutMaxObj))
+                return JsonObjectParam.InvalidObjectResult("create_view", "calloutMax", calloutMax);
+            p["calloutMax"] = calloutMaxObj;
+        }
         p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("create_view", p, ct);
         return result.ToString();
@@ -141,9 +161,10 @@ public static class ViewTools
         [Description("Override color R 0-255 (for apply)")] int? overrideR = null,
         [Description("Override color G 0-255 (for apply)")] int? overrideG = null,
         [Description("Override color B 0-255 (for apply)")] int? overrideB = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject();
+        var p = new JObject { ["dryRun"] = dryRun };
         if (action != null) p["action"] = action;
         if (filterName != null) p["filterName"] = filterName;
         if (categoryNames != null)
@@ -287,9 +308,10 @@ public static class ViewTools
         RevitConnectionManager revit,
         [Description("Category the keys apply to (e.g. Rooms, OST_Rooms)")] string categoryName,
         [Description("Name for the new key schedule")] string? name = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["categoryName"] = categoryName };
+        var p = new JObject { ["categoryName"] = categoryName, ["dryRun"] = dryRun };
         if (name != null) p["name"] = name;
         var result = await revit.ExecuteAsync("create_key_schedule", p, ct);
         return result.ToString();
@@ -383,9 +405,10 @@ public static class ViewTools
         [Description("View IDs to apply/remove template on. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? viewIds = null,
         [Description("Template element ID (for apply)")] long? templateId = null,
         [Description("Template name (alternative to templateId)")] string? templateName = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject();
+        var p = new JObject { ["dryRun"] = dryRun };
         if (action != null) p["action"] = action;
         if (viewIds != null)
         {
@@ -447,15 +470,21 @@ public static class ViewTools
         [Description("Action: list | rename | move | assign_to_views | create. Default: list")] string action = "list",
         [Description("Scope box element ID (rename, move)")] long? elementId = null,
         [Description("New name (rename)")] string? newName = null,
-        [Description("Move translation as JSON {x,y,z} in mm (move)")] string? translation = null,
+        [Description("Move translation as JSON {x,y,z} in mm (move)")] System.Text.Json.JsonElement? translation = null,
         [Description("Scope box element ID to assign, or 0 to clear (assign_to_views)")] long? scopeBoxId = null,
         [Description("View element IDs to apply the scope box to, as a JSON array of numbers (assign_to_views)")] System.Text.Json.JsonElement? viewIds = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["action"] = action };
+        var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (elementId != null) p["elementId"] = elementId;
         if (newName != null) p["newName"] = newName;
-        if (translation != null) p["translation"] = JObject.Parse(translation);
+        if (translation != null)
+        {
+            if (!JsonObjectParam.TryParse(translation, out var translationObj))
+                return JsonObjectParam.InvalidObjectResult("manage_scope_boxes", "translation", translation);
+            p["translation"] = translationObj;
+        }
         if (scopeBoxId != null) p["scopeBoxId"] = scopeBoxId;
         if (viewIds != null)
         {

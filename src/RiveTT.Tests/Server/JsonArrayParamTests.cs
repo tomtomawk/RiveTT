@@ -49,11 +49,14 @@ public class JsonArrayParamTests
     }
 
     [Fact]
-    public void JsonElement_EmptyNativeArray_IsNotProvided()
+    public void JsonElement_EmptyNativeArray_ParsesAsEmptyList()
     {
+        // An explicit [] is a valid input distinct from omission (a null JsonElement?,
+        // covered by JsonElement_Null_IsNotProvided) — it must not be refused as
+        // InvalidInput, only treated as an empty filter/list.
         var ok = JsonArrayParam.TryParse(Element("[]"), out var parsed);
 
-        Assert.False(ok);
+        Assert.True(ok);
         Assert.Empty(parsed);
     }
 

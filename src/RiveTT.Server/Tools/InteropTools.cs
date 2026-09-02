@@ -26,9 +26,11 @@ public static class InteropTools
         bool createLinkedMarkers = true,
         [Description("Import-only: use a post-command isolate flow (slower but more compatible). Default false.")]
         bool usePostCommandIsolate = false,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")]
+        bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["mode"] = mode };
+        var p = new JObject { ["mode"] = mode, ["dryRun"] = dryRun };
         if (refs != null) p["refs"] = refs;
         p["append"] = append;
         p["isolate"] = isolate;

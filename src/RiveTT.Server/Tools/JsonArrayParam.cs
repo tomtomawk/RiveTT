@@ -88,7 +88,7 @@ internal static class JsonArrayParam
         {
             case System.Text.Json.JsonValueKind.Array:
                 parsed = JArray.Parse(element.GetRawText());
-                return parsed.Count > 0;
+                return true;
             case System.Text.Json.JsonValueKind.String:
                 return TryParse(element.GetString(), out parsed);
             case System.Text.Json.JsonValueKind.Number:

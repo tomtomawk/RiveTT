@@ -36,14 +36,31 @@ public class DryRunDeclarationSourceTests
                 "documents the dryRun contract for every other tool; read-only, previews nothing itself"
         };
 
+    /// <summary>
+    /// Non-read-only runtime tools whose MCP wrapper legitimately does not forward
+    /// dryRun. Each entry needs a reason; anything else is the add_shared_parameter /
+    /// manage_view_display bug: a wrapper with no dryRun parameter at all means the
+    /// SDK silently drops a caller's dryRun:true before it reaches the router, so the
+    /// router's own supportsDryRun refusal (RiveTTRouter.cs) never fires and the write
+    /// executes for real.
+    /// </summary>
+    private static readonly Dictionary<string, string> NoDryRunForwardingExemptions =
+        new(StringComparer.Ordinal);
+
     private static readonly Regex ToolClass = new(
         @"\[ToolSafety\(([^)]*)\)\]\s*(?:public\s+)?(?:sealed\s+)?class\s+(\w+)\s*:\s*([^\{]+)\{",
         RegexOptions.Compiled);
 
+    private static readonly Regex ToolNamePattern = new(
+        @"public\s+string\s+Name\s*=>\s*""([a-z0-9_]+)""", RegexOptions.Compiled);
+
     private static string ToolsRoot => Path.GetFullPath(
         Path.Combine("..", "..", "..", "..", "RiveTT.Tools"));
 
-    private sealed record ToolSource(string Class, string File, bool ReadOnly, bool Declares, bool Reads);
+    private static string ServerToolsRoot => Path.GetFullPath(
+        Path.Combine("..", "..", "..", "..", "RiveTT.Server", "Tools"));
+
+    private sealed record ToolSource(string Class, string File, string Name, bool ReadOnly, bool Declares, bool Reads);
 
     private static IEnumerable<ToolSource> Tools()
     {
@@ -68,14 +85,43 @@ public class DryRunDeclarationSourceTests
                 var body = source[start..end];
 
                 var args = match.Groups[1].Value;
+                var name = ToolNamePattern.Match(body);
                 yield return new ToolSource(
                     Class: match.Groups[2].Value,
                     File: Path.GetFileName(file),
+                    Name: name.Success ? name.Groups[1].Value : "",
                     ReadOnly: args.Split(',')[0].Trim() == "true",
                     Declares: args.Contains("supportsDryRun: true", StringComparison.Ordinal),
                     Reads: body.Contains("dryRun", StringComparison.Ordinal));
             }
         }
+    }
+
+    /// <summary>
+    /// Maps every MCP-published tool name to (runtime tool it forwards to, whether it
+    /// sends dryRun, whether that parameter defaults to true).
+    /// </summary>
+    private static Dictionary<string, (string Runtime, bool SendsDryRun, bool DefaultsTrue)> CollectMcpDryRunForwarding()
+    {
+        var result = new Dictionary<string, (string, bool, bool)>(StringComparer.Ordinal);
+        foreach (var file in Directory.GetFiles(ServerToolsRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var source = File.ReadAllText(file);
+            var sections = Regex.Split(source, @"\[McpServerTool\(Name\s*=\s*""([a-z0-9_]+)""\)");
+            for (var i = 1; i < sections.Length - 1; i += 2)
+            {
+                var tool = sections[i];
+                var body = sections[i + 1];
+                var target = Regex.Match(body, @"ExecuteAsync\(\s*""([a-z0-9_]+)""");
+                var runtime = target.Success ? target.Groups[1].Value : tool;
+                var sendsDryRun = body.Contains("p[\"dryRun\"] = dryRun", StringComparison.Ordinal)
+                                  || body.Contains("[\"dryRun\"] = dryRun", StringComparison.Ordinal);
+                var defaultMatch = Regex.Match(body, @"bool dryRun\s*=\s*(true|false)");
+                var defaultsTrue = defaultMatch.Success && defaultMatch.Groups[1].Value == "true";
+                result[tool] = (runtime, sendsDryRun, defaultsTrue);
+            }
+        }
+        return result;
     }
 
     [Fact]
@@ -147,17 +193,8 @@ public class DryRunDeclarationSourceTests
         //
         // The reverse breaks just as badly: a runtime tool that previews by default with
         // no dryRun published has no way to be told to apply.
-        var publishes = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var file in Directory.GetFiles(
-                     Path.GetFullPath(Path.Combine("..", "..", "..", "..", "RiveTT.Server", "Tools")),
-                     "*.cs", SearchOption.AllDirectories))
-        {
-            var source = File.ReadAllText(file);
-            var sections = Regex.Split(source, @"\[McpServerTool\(Name\s*=\s*""([a-z0-9_]+)""\)");
-            for (var i = 1; i < sections.Length - 1; i += 2)
-                publishes[sections[i]] = sections[i + 1];
-        }
-        Assert.NotEmpty(publishes);
+        var forwarding = CollectMcpDryRunForwarding();
+        Assert.NotEmpty(forwarding);
 
         var declaring = new HashSet<string>(StringComparer.Ordinal);
         foreach (var file in Directory.GetFiles(ToolsRoot, "*.cs", SearchOption.AllDirectories))
@@ -171,24 +208,28 @@ public class DryRunDeclarationSourceTests
                 if (!matches[i].Groups[1].Value.Contains("supportsDryRun: true", StringComparison.Ordinal)) continue;
                 var start = matches[i].Index + matches[i].Length;
                 var end = i + 1 < matches.Count ? matches[i + 1].Index : source.Length;
-                var name = Regex.Match(source[start..end], @"public\s+string\s+Name\s*=>\s*""([a-z0-9_]+)""");
+                var name = ToolNamePattern.Match(source[start..end]);
                 if (name.Success) declaring.Add(name.Groups[1].Value);
             }
         }
         Assert.NotEmpty(declaring);
 
         var offenders = new List<string>();
-        foreach (var (tool, body) in publishes)
+        foreach (var (tool, forward) in forwarding)
         {
             // A facade forwards to another runtime tool: the declaration lives THERE.
-            var target = Regex.Match(body, @"ExecuteAsync\(\s*""([a-z0-9_]+)""");
-            var runtime = target.Success ? target.Groups[1].Value : tool;
-            var sendsDryRun = body.Contains("p[\"dryRun\"] = dryRun", StringComparison.Ordinal)
-                              || body.Contains("[\"dryRun\"] = dryRun", StringComparison.Ordinal);
+            var (runtime, sendsDryRun, defaultsTrue) = forward;
 
-            if (sendsDryRun && !declaring.Contains(runtime))
-                offenders.Add($"{tool} publishes dryRun but {runtime} does not declare supportsDryRun "
-                              + "— the router refuses every call that carries it");
+            // A wrapper may legitimately publish dryRun for a runtime tool that does NOT
+            // declare supportsDryRun: true, as long as it defaults to false. That is the
+            // add_shared_parameter/manage_view_display fix: the parameter exists solely
+            // so an explicit dryRun:true reaches the router and gets refused with
+            // InvalidInput, while a caller who never mentions dryRun keeps getting the
+            // real write it always got. Defaulting that parameter to true instead would
+            // refuse every ordinary call by default — that combination is still a bug.
+            if (sendsDryRun && defaultsTrue && !declaring.Contains(runtime))
+                offenders.Add($"{tool} publishes dryRun defaulting to true but {runtime} does not declare "
+                              + "supportsDryRun — the router refuses every call that carries it, including the default");
             if (!sendsDryRun && declaring.Contains(runtime))
                 offenders.Add($"{runtime} previews but {tool} does not publish dryRun "
                               + "— a caller cannot ask it to apply");
@@ -199,8 +240,40 @@ public class DryRunDeclarationSourceTests
     }
 
     [Fact]
+    public void EveryNonReadOnlyRuntimeTool_HasItsWrapperForwardDryRun()
+    {
+        // The router's own supportsDryRun refusal (RiveTTRouter.cs) only fires if
+        // dryRun actually reaches it. A wrapper with no dryRun parameter at all does
+        // not just fail to preview — the SDK drops a caller's dryRun:true silently
+        // before the method body runs, so a write tool with supportsDryRun:false
+        // executes for real instead of being refused. add_shared_parameter and
+        // manage_view_display were both missing the parameter entirely.
+        var forwarding = CollectMcpDryRunForwarding();
+        var runtimeSendsDryRun = new Dictionary<string, bool>(StringComparer.Ordinal);
+        foreach (var (_, forward) in forwarding)
+        {
+            if (forward.SendsDryRun) runtimeSendsDryRun[forward.Runtime] = true;
+            else runtimeSendsDryRun.TryAdd(forward.Runtime, false);
+        }
+
+        var offenders = Tools()
+            .Where(t => !t.ReadOnly)
+            .Where(t => !string.IsNullOrEmpty(t.Name))
+            .Where(t => !NoDryRunForwardingExemptions.ContainsKey(t.Class))
+            .Where(t => !(runtimeSendsDryRun.TryGetValue(t.Name, out var sends) && sends))
+            .Select(t => $"{t.Class} ({t.Name}) is not read-only but its MCP wrapper never forwards dryRun "
+                         + "— a caller's dryRun:true is silently dropped instead of being refused or honored")
+            .OrderBy(text => text, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(offenders.Count == 0,
+            "dryRun never reaches the router for these tools:\n  " + string.Join("\n  ", offenders));
+    }
+
+    [Fact]
     public void ExemptionsAllCarryAReason()
     {
         Assert.All(MentionsWithoutAccepting, entry => Assert.False(string.IsNullOrWhiteSpace(entry.Value)));
+        Assert.All(NoDryRunForwardingExemptions, entry => Assert.False(string.IsNullOrWhiteSpace(entry.Value)));
     }
 }

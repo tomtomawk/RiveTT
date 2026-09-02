@@ -64,9 +64,10 @@ public static class ProjectTools
         [Description("Path to the family file (.rfa)")] string? familyPath = null,
         [Description("Filter by category")] string? categoryFilter = null,
         [Description("When a same-named family already exists, overwrite it (updates its types/parameters). Default: true. Set false to leave an existing family untouched.")] bool overwriteExisting = true,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["action"] = action, ["overwriteExisting"] = overwriteExisting };
+        var p = new JObject { ["action"] = action, ["overwriteExisting"] = overwriteExisting, ["dryRun"] = dryRun };
         if (familyPath != null) p["familyPath"] = familyPath;
         if (categoryFilter != null) p["categoryFilter"] = categoryFilter;
         var result = await revit.ExecuteAsync("load_family", p, ct);
@@ -168,9 +169,10 @@ public static class ProjectTools
         [Description("Existing-phase presentation (for create). Default: ByCategory")] string? existingStatus = null,
         [Description("Demolished-phase presentation (for create). Default: ByCategory")] string? demolishedStatus = null,
         [Description("Temporary-phase presentation (for create). Default: ByCategory")] string? temporaryStatus = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject();
+        var p = new JObject { ["dryRun"] = dryRun };
         if (action != null) p["action"] = action;
         if (filterName != null) p["filterName"] = filterName;
         if (filterId != null) p["filterId"] = filterId;
@@ -207,9 +209,10 @@ public static class ProjectTools
         [Description("Sheet set name (create), or exact name to match (delete, alternative to elementId)")] string? name = null,
         [Description("View or sheet element IDs to include, as a JSON array of numbers (create)")] System.Text.Json.JsonElement? viewIds = null,
         [Description("Sheet set element ID (delete, alternative to name)")] long? elementId = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["action"] = action };
+        var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (name != null) p["name"] = name;
         if (viewIds != null)
         {
@@ -253,12 +256,14 @@ public static class ProjectTools
         [Description("Create a section-boxed 3D view around detected clashes. Default: true")] bool createSectionBox = true,
         [Description("Confirm each bounding-box candidate against the real solids. Default: true; false is faster but over-reports.")] bool useSolidGeometry = true,
         [Description("Stop after this many clashes. Default: 100")] int? maxResults = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject
         {
             ["categoryA"] = categoryA,
             ["categoryB"] = categoryB,
+            ["dryRun"] = dryRun,
         };
         if (tolerance != null) p["tolerance"] = tolerance;
         if (maxResults != null) p["maxResults"] = maxResults;
@@ -730,9 +735,10 @@ public static class ProjectTools
         [Description("Color blue component 0-255")] int? colorB = null,
         [Description("Halftone brightness percent 0-100 (for set_halftone)")] int? halftonePercent = null,
         [Description("Underlay brightness percent 0-100 (for set_halftone)")] int? underlayBrightness = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["action"] = action };
+        var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (name            != null) p["name"]              = name;
         if (lineWeight      != null) p["lineWeight"]        = lineWeight;
         if (linePatternName != null) p["linePatternName"]   = linePatternName;

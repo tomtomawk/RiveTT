@@ -119,14 +119,19 @@ public static class ParameterTools
         RevitConnectionManager revit,
         [Description("JSON rows: [{elementId, paramName1:value}] or [{elementId, parameters:{...}}]")] string data,
         [Description("Preview changes without applying. Default: true")] bool dryRun = true,
-        [Description("Map CSV headers to display names or BuiltInParameter values, e.g. {\"Numéro\":\"ROOM_NUMBER\"}")] string? parameterMap = null,
+        [Description("Map CSV headers to display names or BuiltInParameter values, e.g. {\"Numéro\":\"ROOM_NUMBER\"}")] System.Text.Json.JsonElement? parameterMap = null,
         [Description("Include per-element diagnostics. Default: false")] bool includeDetails = false,
         [Description("Maximum detail rows when includeDetails=true. Default: 20")] int? sampleLimit = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["data"] = JArray.Parse(data) };
         p["dryRun"] = dryRun;
-        if (parameterMap != null) p["parameterMap"] = JObject.Parse(parameterMap);
+        if (parameterMap != null)
+        {
+            if (!JsonObjectParam.TryParse(parameterMap, out var parameterMapObj))
+                return JsonObjectParam.InvalidObjectResult("sync_csv_parameters", "parameterMap", parameterMap);
+            p["parameterMap"] = parameterMapObj;
+        }
         p["includeDetails"] = includeDetails;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         var result = await revit.ExecuteAsync("sync_csv_parameters", p, ct);
@@ -222,12 +227,14 @@ public static class ParameterTools
         [Description("Group name in the shared parameter file. Default: RiveTT")] string? groupName = null,
         [Description("Instance (true) or type (false) binding. Default: true Pass \"true\" or \"false\"; omit to leave unchanged.")] string? isInstance = null,
         [Description("Data type for a newly created definition: Text | Integer | Number | Length | Area | Volume | Angle | YesNo | URL. Default: Text. Ignored if the definition already exists in the shared parameter file.")] string? dataType = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject
         {
             ["parameterName"] = parameterName,
             ["categories"] = new JArray(categories),
+            ["dryRun"] = dryRun,
         };
         if (groupName != null) p["groupName"] = groupName;
         if (isInstance != null)

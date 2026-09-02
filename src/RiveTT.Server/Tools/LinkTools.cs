@@ -16,9 +16,10 @@ public static class LinkTools
         [Description("Initial X position in mm. Default: 0")] double? positionX = null,
         [Description("Initial Y position in mm. Default: 0")] double? positionY = null,
         [Description("Initial Z position in mm. Default: 0")] double? positionZ = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["filePath"] = filePath };
+        var p = new JObject { ["filePath"] = filePath, ["dryRun"] = dryRun };
         if (positionX != null) p["positionX"] = positionX;
         if (positionY != null) p["positionY"] = positionY;
         if (positionZ != null) p["positionZ"] = positionZ;
@@ -96,6 +97,7 @@ public static class LinkTools
         [Description("Linked element ID inside the linked model")] long linkedElementId,
         [Description("Create a section box around the element. Default: true")] bool createSectionBox = true,
         [Description("Section box padding in mm. Default: 1000")] double? offset = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject
@@ -105,6 +107,7 @@ public static class LinkTools
         };
         p["createSectionBox"] = createSectionBox;
         if (offset != null) p["offset"] = offset;
+        p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("highlight_linked_element", p, ct);
         return result.ToString();
     }
@@ -120,6 +123,7 @@ public static class LinkTools
         [Description("Create red DirectShape markers in the host doc around each linked element's bounding box. Default: true. Ignored when usePostCommandIsolate=true.")] bool createLinkedMarkers = true,
         [Description("Use Revit's native PostCommand(IsolateElement) instead of the marker strategy. Default: false. Asynchronous: tool returns before isolate completes; section box and markers are skipped.")] bool usePostCommandIsolate = false,
         [Description("Section box padding in mm. Default: 1200")] double? offset = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -141,6 +145,7 @@ public static class LinkTools
         p["createLinkedMarkers"] = createLinkedMarkers;
         p["usePostCommandIsolate"] = usePostCommandIsolate;
         if (offset != null) p["offset"] = offset;
+        p["dryRun"] = dryRun;
 
         var result = await revit.ExecuteAsync("show_cross_model_elements", p, ct);
         return result.ToString();

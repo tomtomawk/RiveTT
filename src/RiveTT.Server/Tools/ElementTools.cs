@@ -59,7 +59,7 @@ public static class ElementTools
         [Description("Response mode: summary | idsOnly | details. Default: summary")] string? responseMode = "summary",
         [Description("Combine the filters with: and | or. Default: and")] string? combineWith = null,
         [Description("Invert the combined filter (NOT) — return elements that do NOT match. Default: false")] bool invert = false,
-        [Description("Restrict instances to a level: JSON {\"levelId\":123} or {\"levelName\":\"L1\"}")] string? levelFilter = null,
+        [Description("Restrict instances to a level: JSON {\"levelId\":123} or {\"levelName\":\"L1\"}")] System.Text.Json.JsonElement? levelFilter = null,
         [Description("Optional group filter: grouped | ungrouped")] string? groupStatus = null,
         [Description("Optional wall constraint filter: level_constrained | unconnected | attached | unattached")] string? wallConstraintStatus = null,
         CancellationToken ct = default)
@@ -73,7 +73,12 @@ public static class ElementTools
         if (responseMode != null) data["responseMode"] = responseMode;
         if (combineWith != null) data["combineWith"] = combineWith;
         data["invert"] = invert;
-        if (levelFilter != null) data["levelFilter"] = JObject.Parse(levelFilter);
+        if (levelFilter != null)
+        {
+            if (!JsonObjectParam.TryParse(levelFilter, out var levelFilterObj))
+                return JsonObjectParam.InvalidObjectResult("filter_elements", "levelFilter", levelFilter);
+            data["levelFilter"] = levelFilterObj;
+        }
         if (groupStatus != null) data["groupStatus"] = groupStatus;
         if (wallConstraintStatus != null) data["wallConstraintStatus"] = wallConstraintStatus;
 
@@ -128,6 +133,7 @@ public static class ElementTools
         RevitConnectionManager revit,
         [Description("Element IDs to operate on")] long[] elementIds,
         [Description("Action to perform")] string action,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var data = new JObject
@@ -135,7 +141,7 @@ public static class ElementTools
             ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()),
             ["action"] = action,
         };
-        var p = new JObject { ["data"] = data };
+        var p = new JObject { ["data"] = data, ["dryRun"] = dryRun };
         var result = await revit.ExecuteAsync("manage_view_display", p, ct);
         return result.ToString();
     }
@@ -150,11 +156,13 @@ public static class ElementTools
         [Description("Offset X in mm. Default: 0")] double? offsetX = null,
         [Description("Offset Y in mm. Default: 0")] double? offsetY = null,
         [Description("Offset Z in mm. Default: 0")] double? offsetZ = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject
         {
             ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()),
+            ["dryRun"] = dryRun,
         };
         if (sourceViewId != null) p["sourceViewId"] = sourceViewId;
         if (targetViewId != null) p["targetViewId"] = targetViewId;
@@ -478,13 +486,13 @@ public static class ElementTools
         RevitConnectionManager revit,
         [Description("Element IDs to modify")] long[] elementIds,
         [Description("Action: move | rotate | mirror | copy")] string action,
-        [Description("Translation vector {x,y,z} in mm for move (JSON object)")] string? translation = null,
-        [Description("Rotation center {x,y,z} in mm for rotate (JSON object)")] string? rotationCenter = null,
+        [Description("Translation vector {x,y,z} in mm for move (JSON object)")] System.Text.Json.JsonElement? translation = null,
+        [Description("Rotation center {x,y,z} in mm for rotate (JSON object)")] System.Text.Json.JsonElement? rotationCenter = null,
         [Description("Rotation angle in DEGREES for rotate")] double? rotationAngle = null,
-        [Description("Rotation axis direction {x,y,z} for rotate (JSON object). Default: Z axis")] string? rotationAxis = null,
-        [Description("Mirror plane origin {x,y,z} in mm (JSON object)")] string? mirrorPlaneOrigin = null,
-        [Description("Mirror plane normal {x,y,z} unit vector (JSON object)")] string? mirrorPlaneNormal = null,
-        [Description("Copy offset {x,y,z} in mm for copy (JSON object)")] string? copyOffset = null,
+        [Description("Rotation axis direction {x,y,z} for rotate (JSON object). Default: Z axis")] System.Text.Json.JsonElement? rotationAxis = null,
+        [Description("Mirror plane origin {x,y,z} in mm (JSON object)")] System.Text.Json.JsonElement? mirrorPlaneOrigin = null,
+        [Description("Mirror plane normal {x,y,z} unit vector (JSON object)")] System.Text.Json.JsonElement? mirrorPlaneNormal = null,
+        [Description("Copy offset {x,y,z} in mm for copy (JSON object)")] System.Text.Json.JsonElement? copyOffset = null,
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
@@ -493,13 +501,43 @@ public static class ElementTools
             ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()),
             ["action"] = action,
         };
-        if (translation != null) p["translation"] = JToken.Parse(translation);
-        if (rotationCenter != null) p["rotationCenter"] = JToken.Parse(rotationCenter);
+        if (translation != null)
+        {
+            if (!JsonObjectParam.TryParse(translation, out var translationObj))
+                return JsonObjectParam.InvalidObjectResult("modify_element", "translation", translation);
+            p["translation"] = translationObj;
+        }
+        if (rotationCenter != null)
+        {
+            if (!JsonObjectParam.TryParse(rotationCenter, out var rotationCenterObj))
+                return JsonObjectParam.InvalidObjectResult("modify_element", "rotationCenter", rotationCenter);
+            p["rotationCenter"] = rotationCenterObj;
+        }
         if (rotationAngle != null) p["rotationAngle"] = rotationAngle;
-        if (rotationAxis != null) p["rotationAxis"] = JToken.Parse(rotationAxis);
-        if (mirrorPlaneOrigin != null) p["mirrorPlaneOrigin"] = JToken.Parse(mirrorPlaneOrigin);
-        if (mirrorPlaneNormal != null) p["mirrorPlaneNormal"] = JToken.Parse(mirrorPlaneNormal);
-        if (copyOffset != null) p["copyOffset"] = JToken.Parse(copyOffset);
+        if (rotationAxis != null)
+        {
+            if (!JsonObjectParam.TryParse(rotationAxis, out var rotationAxisObj))
+                return JsonObjectParam.InvalidObjectResult("modify_element", "rotationAxis", rotationAxis);
+            p["rotationAxis"] = rotationAxisObj;
+        }
+        if (mirrorPlaneOrigin != null)
+        {
+            if (!JsonObjectParam.TryParse(mirrorPlaneOrigin, out var mirrorPlaneOriginObj))
+                return JsonObjectParam.InvalidObjectResult("modify_element", "mirrorPlaneOrigin", mirrorPlaneOrigin);
+            p["mirrorPlaneOrigin"] = mirrorPlaneOriginObj;
+        }
+        if (mirrorPlaneNormal != null)
+        {
+            if (!JsonObjectParam.TryParse(mirrorPlaneNormal, out var mirrorPlaneNormalObj))
+                return JsonObjectParam.InvalidObjectResult("modify_element", "mirrorPlaneNormal", mirrorPlaneNormal);
+            p["mirrorPlaneNormal"] = mirrorPlaneNormalObj;
+        }
+        if (copyOffset != null)
+        {
+            if (!JsonObjectParam.TryParse(copyOffset, out var copyOffsetObj))
+                return JsonObjectParam.InvalidObjectResult("modify_element", "copyOffset", copyOffset);
+            p["copyOffset"] = copyOffsetObj;
+        }
         p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("modify_element", p, ct);
         return result.ToString();

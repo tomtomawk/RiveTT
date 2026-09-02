@@ -111,9 +111,10 @@ public static class StoreyAndGroupTools
         [Description("Action: create_assembly | create_parts")] string action,
         [Description("Element IDs to group/split, as a JSON array of numbers")] string elementIds,
         [Description("The assembly's own category (create_assembly), e.g. OST_Assemblies")] string? categoryName = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["action"] = action, ["elementIds"] = JArray.Parse(elementIds) };
+        var p = new JObject { ["action"] = action, ["elementIds"] = JArray.Parse(elementIds), ["dryRun"] = dryRun };
         if (categoryName != null) p["categoryName"] = categoryName;
         return (await revit.ExecuteAsync("create_assembly", p, ct)).ToString();
     }
@@ -124,14 +125,20 @@ public static class StoreyAndGroupTools
         [Description("Action: list | place. Default: list")] string action = "list",
         [Description("Path to the image/PDF file (place)")] string? filePath = null,
         [Description("View element ID to place the image in (place)")] long? viewId = null,
-        [Description("Placement center point, JSON {x,y,z} in mm. Default: view origin (place)")] string? position = null,
+        [Description("Placement center point, JSON {x,y,z} in mm. Default: view origin (place)")] System.Text.Json.JsonElement? position = null,
         [Description("Import resolution in DPI. Default: 300 (place)")] double? resolutionDpi = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["action"] = action };
+        var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (filePath != null) p["filePath"] = filePath;
         if (viewId != null) p["viewId"] = viewId;
-        if (position != null) p["position"] = JObject.Parse(position);
+        if (position != null)
+        {
+            if (!JsonObjectParam.TryParse(position, out var positionObj))
+                return JsonObjectParam.InvalidObjectResult("manage_images", "position", position);
+            p["position"] = positionObj;
+        }
         if (resolutionDpi != null) p["resolutionDpi"] = resolutionDpi;
         return (await revit.ExecuteAsync("manage_images", p, ct)).ToString();
     }

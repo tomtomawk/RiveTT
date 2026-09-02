@@ -30,9 +30,10 @@ public static class MaterialTools
         [Description("Material name")] string name,
         [Description("Material class (e.g. Concrete, Finish, Insulation)")] string? materialClass = null,
         [Description("Color as hex string (e.g. #808080)")] string? color = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["name"] = name };
+        var p = new JObject { ["name"] = name, ["dryRun"] = dryRun };
         if (materialClass != null) p["materialClass"] = materialClass;
         if (color != null) p["color"] = color;
         var result = await revit.ExecuteAsync("create_material", p, ct);
@@ -143,9 +144,10 @@ public static class MaterialTools
         [Description("New material name")] string newName,
         [Description("Source material element ID (alternative to sourceMaterialName)")] long? sourceMaterialId = null,
         [Description("Source material name (alternative to sourceMaterialId)")] string? sourceMaterialName = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["newName"] = newName };
+        var p = new JObject { ["newName"] = newName, ["dryRun"] = dryRun };
         if (sourceMaterialId != null) p["sourceMaterialId"] = sourceMaterialId;
         if (sourceMaterialName != null) p["sourceMaterialName"] = sourceMaterialName;
         var result = await revit.ExecuteAsync("duplicate_material", p, ct);
@@ -159,14 +161,20 @@ public static class MaterialTools
         [Description("Source type element ID (alternative to sourceTypeName + familyName)")] long? sourceTypeId = null,
         [Description("Source type name (used with familyName)")] string? sourceTypeName = null,
         [Description("Family name (used with sourceTypeName)")] string? familyName = null,
-        [Description("Parameter overrides as JSON object: {paramName: value, ...}")] string? parameterOverrides = null,
+        [Description("Parameter overrides as JSON object: {paramName: value, ...}")] System.Text.Json.JsonElement? parameterOverrides = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["newName"] = newName };
+        var p = new JObject { ["newName"] = newName, ["dryRun"] = dryRun };
         if (sourceTypeId != null) p["sourceTypeId"] = sourceTypeId;
         if (sourceTypeName != null) p["sourceTypeName"] = sourceTypeName;
         if (familyName != null) p["familyName"] = familyName;
-        if (parameterOverrides != null) p["parameterOverrides"] = JObject.Parse(parameterOverrides);
+        if (parameterOverrides != null)
+        {
+            if (!JsonObjectParam.TryParse(parameterOverrides, out var parameterOverridesObj))
+                return JsonObjectParam.InvalidObjectResult("duplicate_family_type", "parameterOverrides", parameterOverrides);
+            p["parameterOverrides"] = parameterOverridesObj;
+        }
         var result = await revit.ExecuteAsync("duplicate_family_type", p, ct);
         return result.ToString();
     }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using ModelContextProtocol.Server;
 using Xunit;
 
@@ -143,6 +144,47 @@ public class McpParameterTypeContractTests
         if (start < 0) return null;
         var next = source.IndexOf("[McpServerTool", start, StringComparison.Ordinal);
         return next < 0 ? source.Substring(start) : source.Substring(start, next - start);
+    }
+
+    [Fact]
+    public void NoMcpToolParsesAStringParameterAsAJsonObject()
+    {
+        // Same failure mode as the array case above, for scalar JSON objects: a
+        // vector {x,y,z}, a line {p0,p1}, a parameter map. A string/string?
+        // parameter whose own body does JObject.Parse(that parameter) or
+        // JToken.Parse(that parameter) cannot bind when a caller sends the native
+        // JSON object its description shows — modify_element(translation:{x,y,z})
+        // failed with the host's generic "An error occurred invoking" error before
+        // this fix. These must travel as JsonElement/JsonElement? and go through
+        // JsonObjectParam, exactly like optional arrays go through JsonArrayParam.
+        var offenders = new List<string>();
+
+        foreach (var group in McpTools().GroupBy(tool => tool.Method.DeclaringType!))
+        {
+            var path = Path.GetFullPath(Path.Combine("..", "..", "..", "..",
+                "RiveTT.Server", "Tools", group.Key.Name + ".cs"));
+            if (!File.Exists(path)) continue;
+            var source = File.ReadAllText(path);
+
+            foreach (var (method, toolName) in group)
+            {
+                var body = MethodBody(source, method.Name);
+                if (body == null) continue;
+
+                foreach (var parameter in method.GetParameters())
+                {
+                    if (parameter.ParameterType != typeof(string)) continue;
+                    var pattern = $@"J(?:Object|Token)\.Parse\(\s*{Regex.Escape(parameter.Name!)}\s*\)";
+                    if (Regex.IsMatch(body, pattern))
+                        offenders.Add($"{toolName}.{parameter.Name}");
+                }
+            }
+        }
+
+        Assert.True(offenders.Count == 0,
+            "String parameters parsed as a JSON object cannot bind a native JSON object argument. " +
+            "Publish them as JsonElement/JsonElement? and parse with JsonObjectParam:\n  " +
+            string.Join("\n  ", offenders));
     }
 
     [Fact]

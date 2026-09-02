@@ -134,9 +134,10 @@ public static class LifecycleAndStairTools
         [Description("Curtain wall or curtain system element ID")] long hostElementId,
         [Description("Grid line direction: u | v")] string direction,
         [Description("Offset in mm along the host's own axis for the new grid line")] double offsetMm,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["hostElementId"] = hostElementId, ["direction"] = direction, ["offsetMm"] = offsetMm };
+        var p = new JObject { ["hostElementId"] = hostElementId, ["direction"] = direction, ["offsetMm"] = offsetMm, ["dryRun"] = dryRun };
         return (await revit.ExecuteAsync("add_curtain_grid_line", p, ct)).ToString();
     }
 
@@ -148,9 +149,10 @@ public static class LifecycleAndStairTools
         [Description("Curtain wall or curtain system element ID")] long hostElementId,
         [Description("MullionType element ID — from list_system_types(category: \"OST_CurtainWallMullions\")")] long mullionTypeId,
         [Description("Grid line element IDs to restrict this to, as a JSON array of numbers. Omit to cover every ungridded segment")] System.Text.Json.JsonElement? gridLineIds = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["hostElementId"] = hostElementId, ["mullionTypeId"] = mullionTypeId };
+        var p = new JObject { ["hostElementId"] = hostElementId, ["mullionTypeId"] = mullionTypeId, ["dryRun"] = dryRun };
         if (gridLineIds != null)
         {
             if (!JsonArrayParam.TryParse(gridLineIds, out var gridLineIdsArray))
@@ -168,13 +170,15 @@ public static class LifecycleAndStairTools
         [Description("Curve specs forming a closed loop, JSON array: [{type:line|arc, start{x,y,z}, end{x,y,z}, mid?{x,y,z}}] in mm")] string curves,
         [Description("Toposolid type element ID")] long toposolidTypeId,
         [Description("Level element ID")] long levelId,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject
         {
             ["curves"] = JArray.Parse(curves),
             ["toposolidTypeId"] = toposolidTypeId,
-            ["levelId"] = levelId
+            ["levelId"] = levelId,
+            ["dryRun"] = dryRun
         };
         return (await revit.ExecuteAsync("create_toposolid", p, ct)).ToString();
     }

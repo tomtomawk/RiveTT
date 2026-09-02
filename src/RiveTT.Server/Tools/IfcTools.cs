@@ -35,9 +35,10 @@ public static class IfcTools
         [Description("Path to the IFC file to link")] string ifcFilePath,
         [Description("Optional path to the companion .ifc.RVT (defaults to alongside the IFC)")] string? revitFilePath = null,
         [Description("Recreate the link if one already exists. Default: true")] bool recreateLink = true,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["ifcFilePath"] = ifcFilePath };
+        var p = new JObject { ["ifcFilePath"] = ifcFilePath, ["dryRun"] = dryRun };
         if (revitFilePath != null) p["revitFilePath"] = revitFilePath;
         p["recreateLink"] = recreateLink;
         var result = await revit.ExecuteAsync("ifc_link", p, ct);
@@ -92,17 +93,23 @@ public static class IfcTools
         [Description("Export base quantities. Default: false")] bool exportBaseQuantities = false,
         [Description("Split walls and columns by level. Default: false")] bool wallAndColumnSplitting = false,
         [Description("Space boundary level: 0, 1, 2. Default: 0")] int? spaceBoundaryLevel = null,
-        [Description("Extra IFCExportOptions as a JSON object {key: \"value\", ...}, e.g. {\"ExportInternalRevitPropertySets\":\"true\", \"Export2DElements\":\"true\", \"VisibleElementsOfViewExport\":\"true\"}")] string? overrides = null,
+        [Description("Extra IFCExportOptions as a JSON object {key: \"value\", ...}, e.g. {\"ExportInternalRevitPropertySets\":\"true\", \"Export2DElements\":\"true\", \"VisibleElementsOfViewExport\":\"true\"}")] System.Text.Json.JsonElement? overrides = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["outputDirectory"] = outputDirectory };
+        var p = new JObject { ["outputDirectory"] = outputDirectory, ["dryRun"] = dryRun };
         if (fileName != null) p["fileName"] = fileName;
         if (fileVersion != null) p["fileVersion"] = fileVersion;
         if (filterViewId != null) p["filterViewId"] = filterViewId;
         p["exportBaseQuantities"] = exportBaseQuantities;
         p["wallAndColumnSplitting"] = wallAndColumnSplitting;
         if (spaceBoundaryLevel != null) p["spaceBoundaryLevel"] = spaceBoundaryLevel;
-        if (overrides != null) p["overrides"] = JObject.Parse(overrides);
+        if (overrides != null)
+        {
+            if (!JsonObjectParam.TryParse(overrides, out var overridesObj))
+                return JsonObjectParam.InvalidObjectResult("ifc_export_basic", "overrides", overrides);
+            p["overrides"] = overridesObj;
+        }
         // IFC export on large models can take several minutes — use 15 min timeout.
         var result = await revit.ExecuteAsync("ifc_export_basic", p, commandTimeoutSeconds: 900, ct);
         return result.ToString();
@@ -115,17 +122,24 @@ public static class IfcTools
         [Description("Configuration name (e.g. IFC 2x3 Coordination View 2.0)")] string configurationName,
         [Description("File name (without extension); default derived from project name")] string? fileName = null,
         [Description("View ID to filter the export (optional)")] long? filterViewId = null,
-        [Description("Overrides as JSON object {key: string, ...}")] string? overrides = null,
+        [Description("Overrides as JSON object {key: string, ...}")] System.Text.Json.JsonElement? overrides = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject
         {
             ["outputDirectory"] = outputDirectory,
             ["configurationName"] = configurationName,
+            ["dryRun"] = dryRun,
         };
         if (fileName != null) p["fileName"] = fileName;
         if (filterViewId != null) p["filterViewId"] = filterViewId;
-        if (overrides != null) p["overrides"] = JObject.Parse(overrides);
+        if (overrides != null)
+        {
+            if (!JsonObjectParam.TryParse(overrides, out var overridesObj))
+                return JsonObjectParam.InvalidObjectResult("ifc_export_with_configuration", "overrides", overrides);
+            p["overrides"] = overridesObj;
+        }
         // IFC export on large models can take several minutes — use 15 min timeout.
         var result = await revit.ExecuteAsync("ifc_export_with_configuration", p, commandTimeoutSeconds: 900, ct);
         return result.ToString();
@@ -156,9 +170,10 @@ public static class IfcTools
     public static async Task<string> IfcSetFamilyMappingFile(
         RevitConnectionManager revit,
         [Description("Path to the family mapping .txt file")] string filePath,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["filePath"] = filePath };
+        var p = new JObject { ["filePath"] = filePath, ["dryRun"] = dryRun };
         var result = await revit.ExecuteAsync("ifc_set_family_mapping_file", p, ct);
         return result.ToString();
     }

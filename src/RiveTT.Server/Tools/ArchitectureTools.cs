@@ -17,7 +17,7 @@ public static class ArchitectureTools
         RevitConnectionManager revit,
         [Description("Wall type element ID")] long wallTypeId,
         [Description("Base level element ID")] long baseLevelId,
-        [Description("Line JSON: {p0:{x,y,z},p1:{x,y,z},pMid?:{x,y,z}} in mm")] string locationLine,
+        [Description("Line JSON: {p0:{x,y,z},p1:{x,y,z},pMid?:{x,y,z}} in mm")] System.Text.Json.JsonElement locationLine,
         [Description("Top constraint level element ID. Omit for an unconnected wall")] long? topLevelId = null,
         [Description("Unconnected height in mm. Used only when topLevelId is omitted. Default: 3000")] double? height = null,
         [Description("Base offset in mm. Default: 0")] double? baseOffset = null,
@@ -25,12 +25,14 @@ public static class ArchitectureTools
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
+        if (!JsonObjectParam.TryParse(locationLine, out var locationLineObj))
+            return JsonObjectParam.InvalidObjectResult("create_wall", "locationLine", locationLine);
         var wall = new JObject
         {
             ["category"] = "OST_Walls",
             ["typeId"] = wallTypeId,
             ["baseLevelId"] = baseLevelId,
-            ["locationLine"] = JObject.Parse(locationLine),
+            ["locationLine"] = locationLineObj,
             ["strictType"] = true
         };
         if (topLevelId != null) wall["topLevelId"] = topLevelId;
@@ -49,7 +51,7 @@ public static class ArchitectureTools
         RevitConnectionManager revit,
         [Description("Door family type element ID")] long typeId,
         [Description("Host wall element ID")] long hostWallId,
-        [Description("Insertion point JSON {x,y,z} in mm")] string locationPoint,
+        [Description("Insertion point JSON {x,y,z} in mm")] System.Text.Json.JsonElement locationPoint,
         [Description("Level element ID")] long levelId,
         [Description("Flip the exterior/interior facing direction. Default false")] bool facingFlipped = false,
         [Description("Flip the door hand. Default false")] bool handFlipped = false,
@@ -64,7 +66,7 @@ public static class ArchitectureTools
         RevitConnectionManager revit,
         [Description("Window family type element ID")] long typeId,
         [Description("Host wall element ID")] long hostWallId,
-        [Description("Insertion point JSON {x,y,z} in mm")] string locationPoint,
+        [Description("Insertion point JSON {x,y,z} in mm")] System.Text.Json.JsonElement locationPoint,
         [Description("Level element ID")] long levelId,
         [Description("Flip the exterior/interior facing direction. Default false")] bool facingFlipped = false,
         [Description("z semantics: absolute (default) | relativeToLevel")] string? zMode = null,
@@ -108,16 +110,18 @@ public static class ArchitectureTools
 
     private static async Task<string> CreateHostedOpening(
         RevitConnectionManager revit, string category, long typeId, long hostWallId,
-        string locationPoint, long levelId, bool facingFlipped, bool handFlipped,
+        System.Text.Json.JsonElement locationPoint, long levelId, bool facingFlipped, bool handFlipped,
         string? zMode, bool dryRun, CancellationToken ct, string publicToolName)
     {
+        if (!JsonObjectParam.TryParse(locationPoint, out var locationPointObj))
+            return JsonObjectParam.InvalidObjectResult(publicToolName, "locationPoint", locationPoint);
         var spec = new JObject
         {
             ["category"] = category,
             ["typeId"] = typeId,
             ["hostWallId"] = hostWallId,
             ["levelId"] = levelId,
-            ["locationPoint"] = JObject.Parse(locationPoint),
+            ["locationPoint"] = locationPointObj,
             ["strictType"] = true
         };
         spec["facingFlipped"] = facingFlipped;
