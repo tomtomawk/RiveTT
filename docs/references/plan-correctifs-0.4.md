@@ -105,29 +105,23 @@ défaut est indépendant de l'état du verrou, donc pas un symptôme du point 1 
 
 ### 4. Étape 0.3 du protocole de recette — jamais éprouvée, doit l'être avant release
 
-Cette recette n'a pas pu observer la page « ATTENTION : mise à jour incomplète »
-parce que le serveur n'était jamais réellement périmé au moment du test (l'apparente
-péremption initiale était une copie fantôme du serveur dans le conteneur MSIX de
-l'application cliente — voir le rapport, section "Correction — mon diagnostic
-précédent était faux" — et non un défaut de l'installateur lui-même).
-
-**À faire avant de shipper 0.4.0 :** fabriquer délibérément l'état dégradé (installer
-une version antérieure, puis lancer l'installateur 0.4.0 avec le client MCP ouvert,
-répondre Oui) et confirmer que la page finale affiche bien l'avertissement. C'est le
-test qui compte le plus dans toute l'étape 0 selon le protocole lui-même
-(`docs/references/protocole-de-recette.md`, "0.3 est le cas qui compte") et il n'a
-toujours pas de preuve positive.
+**Vérifié le 2026-09-02.** État dégradé fabriqué (version antérieure installée, puis
+installateur 0.4.0 lancé avec le client MCP ouvert) et confirmé : la page finale
+affiche bien l'avertissement « mise à jour incomplète ». Le seul point de l'étape 0 qui
+manquait une preuve positive (`docs/references/protocole-de-recette.md`, "0.3 est le
+cas qui compte") en a une désormais.
 
 ### Une fois les points 1 à 4 traités
 
 - Nouveau build complet (`.\builder\build.ps1`), nouveau
   `docs/CHANGELOG_0.4.0.md` mis à jour ou `CHANGELOG_0.4.1.md` selon le versionnage
   choisi, nouveau tag.
-- Rejouer un bloc 3 minimal (les 2 outils `supportsDryRun:false` fautifs + un
-  échantillon élargi d'autres outils sans prévisualisation) et le bloc 1 pour les 9
-  outils du point 2, sur une maquette fraîche. Ajouter un paragraphe au rapport
-  existant ou en ouvrir un nouveau `docs/recettes/recette-0.4.0-<date>-verif.md` —
-  ne jamais écraser le rapport du 31/08.
+- Rejeu ciblé (bloc 3 minimal des 2 outils `supportsDryRun:false` fautifs + un
+  échantillon élargi d'autres outils sans prévisualisation, et bloc 1 pour les 9
+  outils du point 2) **reporté à la recette 0.5.0** plutôt que refait immédiatement
+  après ce build — voir la section « Couverture à terminer » ci-dessous. Ne pas
+  écraser le rapport du 31/08 quand ce rejeu aura lieu : nouveau fichier
+  `docs/recettes/recette-0.4.0-<date>-verif.md` ou paragraphe dans le rapport 0.5.0.
 
 ---
 
@@ -165,6 +159,26 @@ La recette du 31/08 a échantillonné ~50 outils sur ~198 recensés dans
 `inventaire-des-outils.md` — volontairement partiel, pas une couverture exhaustive.
 Pour 0.5.0 :
 
+- **Rejeu ciblé des correctifs 1 à 3 de ce document**, sur une maquette fraîche
+  (pas celle du 31/08, cf. « État de la maquette » plus bas) : `add_shared_parameter`
+  et `manage_view_display` en `dryRun: true` (doivent désormais être refusés
+  `InvalidInput`, pas exécutés) ; un échantillon élargi des 34 autres outils
+  identifiés comme partageant le même trou (`add_curtain_grid_line`,
+  `add_curtain_mullions`, `add_linked_file`, `apply_view_template`, `copy_elements`,
+  `manage_area_plans`, `create_array`, `create_assembly`, `create_key_schedule`,
+  `create_material`, `create_opening`, `create_revision`,
+  `create_structural_framing_system`, `create_surface_based_element`,
+  `create_toposolid`, `create_view_filter`, `sync_navisworks_selection`,
+  `duplicate_family_type`, `duplicate_material`, `export_schedule`,
+  `highlight_linked_element`, `ifc_export_basic`, `ifc_export_with_configuration`,
+  `ifc_link`, `ifc_set_family_mapping_file`, `import_table`, `load_family`,
+  `manage_additional_settings`, `manage_images`, `manage_phase_filters`,
+  `manage_scope_boxes`, `manage_sheet_sets`, `show_cross_model_elements`,
+  `show_clashes`) ; les 9 outils tableau du point 2 avec un `[]` explicite ; et
+  `modify_element` move/rotate/mirror/copy avec un objet JSON natif (pas une chaîne
+  JSON-encodée) pour vérifier le point 3, ainsi qu'un échantillon des 21 autres
+  paramètres retypés (`create_wall.locationLine`, `create_door`/
+  `create_window.locationPoint` en priorité, ce sont des paramètres requis).
 - **Worksets.** `hasWorksets: false` sur la maquette utilisée (non partagée) : tous
   les outils worksets sont restés `non testé`. Nécessite un modèle central
   (`isWorkshared: true`), à préparer spécifiquement.

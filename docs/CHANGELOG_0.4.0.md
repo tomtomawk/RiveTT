@@ -253,7 +253,75 @@ appelle et consigne, un auditeur qui conteste ligne à ligne en relisant la maqu
 `audit.jsonl`. C'est ce qui manquait pour les 131 outils qu'aucun test ne cite, et pour
 tout ce que le paquet NuGet de référence ne peut pas exercer.
 
-## 6. Signature du code
+## 6. Défauts trouvés par la première recette
+
+Le protocole du §5, mené une première fois le 31/08/2026 contre cette build même
+(`docs/recettes/recette-0.4.0-2026-08-31.md`, commit plugin `2276548`), a trouvé deux
+défauts critiques et un majeur qui contredisaient directement les garanties du §3.
+Décision prise à leur découverte : ne pas publier l'installateur issu de ce commit tel
+quel. Détail dans `docs/references/plan-correctifs-0.4.md`.
+
+### `dryRun` n'atteignait jamais le routeur sur 36 outils — **critique**
+
+Le refus décrit au §3 (`input["dryRun"] == true` sur un outil `supportsDryRun: false`)
+suppose que `dryRun` arrive jusqu'au routeur. Mesuré : `add_shared_parameter`, appelé
+avec `dryRun: true`, a répondu `success: true` et **créé pour de vrai** un paramètre
+partagé (`list_shared_parameters` : 48 → 49 avant/après, lecture indépendante).
+`manage_view_display` reproduit la même mécanique.
+
+Cause : leur façade MCP (`RiveTT.Server`) ne publie **aucun paramètre `dryRun`** — pas
+seulement une mauvaise valeur, l'argument est absent de la signature C#. Le SDK MCP
+laisse tomber en silence un argument JSON qui ne correspond à aucun paramètre déclaré :
+`dryRun: true` n'atteint jamais le routeur, qui ne peut donc pas le refuser. Le
+sondage ne s'est pas arrêté aux deux outils relevés en recette : balayée à tout
+`RiveTT.Server`, la même absence touchait **36 outils** d'écriture non prévisualisables.
+
+`DryRunDeclarationSourceTests.PublishingDryRun_AndDeclaringIt_AgreeAcrossTheTwoHalves`
+ne pouvait pas le voir : il ne croisait que les outils runtime qui déclarent
+`supportsDryRun: true`, jamais ceux qui déclarent explicitement `false`. Nouveau test,
+`EveryNonReadOnlyRuntimeTool_HasItsWrapperForwardDryRun`, qui balaie tout outil non
+lecture-seule et exige que sa façade forwarde `dryRun`, déclaré ou non.
+
+Corrigé sur les 36 : `bool dryRun = false` ajouté à chaque façade, toujours forwardé.
+Le défaut à `false` — pas `true` comme la convention habituelle du §3 — est délibéré :
+ces outils ne savent pas prévisualiser, donc l'appel par défaut continue de s'exécuter
+comme avant ; seul un `dryRun: true` explicite est désormais intercepté et refusé.
+
+### Un tableau JSON vide explicite était traité comme absent — **critique, transversal**
+
+`JsonArrayParam.TryParse` renvoyait `false` pour un tableau JSON natif vide (`[]`),
+confondant « fourni et vide » avec « omis ». Neuf outils refusaient donc `InvalidInput`
+sur un `[]` explicite, dont `get_current_view_elements` sans aucun contournement
+possible — outil inutilisable — et `manage_scope_boxes`/`manage_area_plans`, qui
+échouaient sur leur action `list`, une lecture pure, avant même le contrôle du verrou.
+
+Corrigé d'une ligne : un tableau natif vide est un parsing **réussi**, pas un échec.
+Le test qui figeait l'ancien comportement (`JsonElement_EmptyNativeArray_IsNotProvided`)
+est renommé et inversé.
+
+### Les objets JSON scalaires ne pouvaient pas être envoyés nativement — **majeur, transversal**
+
+Même défaut que celui que `JsonArrayParam` corrige pour les tableaux (§3, note sur les
+tableaux optionnels), jamais appliqué aux objets JSON scalaires — vecteurs `{x,y,z}`,
+lignes `{p0,p1}`, maps de paramètres. `modify_element(action: "move", translation:
+{x,y,z})` échouait avec le message générique non structuré `"An error occurred
+invoking 'modify_element'."`, sans `code` ni `execution` : le paramètre était déclaré
+`string` et parsé par `JObject.Parse`, alors que sa propre description invite à envoyer
+l'objet JSON natif — ce qu'un binder MCP ne sait pas coercer en `string`. Le `catch`
+structuré de `ModifyElementTool` (§3, erreurs génériques) n'est jamais atteint : l'échec
+a lieu dans le binder, côté `RiveTT.Server`, avant `RiveTT.Tools`.
+
+Nouveau `JsonObjectParam`, calqué sur `JsonArrayParam` : accepte l'objet JSON natif ou
+la forme chaîne JSON-encodée historique. Appliqué aux **23 sites** touchés dans 8
+fichiers — pas seulement `modify_element` relevé en recette, aussi des paramètres
+**requis** : `create_wall.locationLine`, `create_door`/`create_window.locationPoint`.
+
+Rejeu ciblé sur maquette fraîche (les deux outils `dryRun` fautifs, un échantillon
+élargi d'autres écritures sans aperçu, et les neuf outils tableau) reporté à la
+prochaine recette complète (0.5.0) plutôt que refait immédiatement — voir
+`docs/references/plan-correctifs-0.4.md`, section « Reporté à 0.5.0 ».
+
+## 7. Signature du code
 
 `builder\build.ps1` signe binaires, installateur et désinstalleur par empreinte de
 certificat (`RIVETT_SIGN_THUMBPRINT`). La signature est **facultative** : sans certificat
@@ -273,3 +341,4 @@ diffusion externe, une véritable autorité est nécessaire.
 | Session Revit choisie implicitement (la plus récente) | deux instances ouvertes : l'agent écrit dans l'une sans le dire |
 | 15 outils à géométrie par boîte englobante | listés dans l'inventaire |
 | Vérifications sur maquette du 0.3.0 | `docs/CHANGELOG_0.3.0.md` §6 |
+| Rejeu ciblé des 3 défauts du §6 (dryRun, tableau vide) sur maquette fraîche | reporté à la recette 0.5.0 |
