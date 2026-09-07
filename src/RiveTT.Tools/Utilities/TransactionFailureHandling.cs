@@ -19,7 +19,7 @@ public static class TransactionFailureHandling
 {
     /// <summary>
     /// Installs the warning-suppressing preprocessor on the transaction.
-    /// Call after creating the transaction (before or after Start()).
+    /// Call AFTER Start(): Revit resets all failure options when a transaction starts.
     /// Returns the capture object: after a Commit() that does not return
     /// TransactionStatus.Committed, <see cref="FailureCapture.Errors"/> holds
     /// the Revit error descriptions for the Fail message.
@@ -30,6 +30,9 @@ public static class TransactionFailureHandling
     public static FailureCapture SuppressWarnings(Transaction tx,
         ISet<string>? allowedWarningIds)
     {
+        if (tx.GetStatus() != TransactionStatus.Started)
+            throw new System.InvalidOperationException(
+                "Start the transaction before installing failure handling; Start resets the options.");
         var capture = new FailureCapture(allowedWarningIds);
         var options = tx.GetFailureHandlingOptions();
         options.SetFailuresPreprocessor(capture);

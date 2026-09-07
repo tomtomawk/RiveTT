@@ -91,8 +91,8 @@ public sealed class DuplicateStoreyTool : IRiveTTTool
             if (upperLevels.Count > 0)
             {
                 using var moveTx = new Transaction(doc, "RiveTT: Shift Upper Levels");
-                var moveFailures = TransactionFailureHandling.FromInput(moveTx, input);
                 moveTx.Start();
+                var moveFailures = TransactionFailureHandling.FromInput(moveTx, input);
                 ElementTransformUtils.MoveElements(doc, upperLevels.Select(level => level.Id).ToList(),
                     new XYZ(0, 0, shiftUpperMm / MmPerFoot));
                 if (moveTx.Commit() != TransactionStatus.Committed)
@@ -109,8 +109,8 @@ public sealed class DuplicateStoreyTool : IRiveTTTool
                 .FirstOrDefault(level => Math.Abs(level.Elevation - targetElevationFt) < 1e-6);
             using (var levelTx = new Transaction(doc, "RiveTT: Create Target Level"))
             {
-                var levelFailures = TransactionFailureHandling.FromInput(levelTx, input);
                 levelTx.Start();
+                var levelFailures = TransactionFailureHandling.FromInput(levelTx, input);
                 targetLevel = existing ?? Level.Create(doc, targetElevationFt);
                 if (existing == null) targetLevel.Name = targetName;
                 if (levelTx.Commit() != TransactionStatus.Committed)
@@ -126,8 +126,8 @@ public sealed class DuplicateStoreyTool : IRiveTTTool
             var reboundLevelParameters = 0;
             using (var copyTx = new Transaction(doc, "RiveTT: Copy Storey Elements"))
             {
-                var copyFailures = TransactionFailureHandling.FromInput(copyTx, input);
                 copyTx.Start();
+                var copyFailures = TransactionFailureHandling.FromInput(copyTx, input);
                 copiedIds = ElementTransformUtils.CopyElements(doc,
                     analysis.Copyable.Select(element => element.Id).ToList(),
                     new XYZ(0, 0, deltaFt));

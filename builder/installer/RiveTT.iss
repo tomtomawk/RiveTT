@@ -360,11 +360,64 @@ begin
                  mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
 end;
 
+{ A packaged MCP client can pass its package identity to the installer. Windows
+  then virtualizes LocalAppData and the client keeps seeing a frozen server copy.
+  Query the process identity before writing anything. Windows 10+ is required. }
+function GetCurrentPackageFullName(var Length: Cardinal; Buffer: String): Integer;
+  external 'GetCurrentPackageFullName@kernel32.dll stdcall';
+
+function InstallationContextIsUnpackaged(): Boolean;
+var
+  Length: Cardinal;
+  Code: Integer;
+begin
+  Length := 0;
+  Code := GetCurrentPackageFullName(Length, '');
+  Result := Code = 15700;  { APPMODEL_ERROR_NO_PACKAGE }
+  if not Result then
+    MsgBox('Lancez cet installateur depuis l''Explorateur Windows.'
+      + #13#10#13#10 + 'Il a été lancé dans le contexte d''une application packagée, '
+      + 'ou Windows ne permet pas de vérifier ce contexte. Installer ici peut créer '
+      + 'une copie isolée de RiveTT qui ne recevra plus les mises à jour.'
+      + #13#10#13#10 + 'Fermez cette fenêtre, ouvrez le dossier de téléchargement '
+      + 'dans l''Explorateur, puis double-cliquez sur l''installateur.', mbError, MB_OK);
+end;
+
+function FindVirtualizedServerCopies(): String;
+var
+  PackagesRoot, Candidate: String;
+  Entry: TFindRec;
+begin
+  Result := '';
+  PackagesRoot := ExpandConstant('{localappdata}\Packages\');
+  if FindFirst(PackagesRoot + '*', Entry) then
+  begin
+    try
+      repeat
+        if (Entry.Name <> '.') and (Entry.Name <> '..') and
+           ((Entry.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0) then
+        begin
+          Candidate := PackagesRoot + Entry.Name + '\LocalCache\Local\RiveTT\server\RiveTT.Server.exe';
+          if FileExists(Candidate) then
+          begin
+            Log('Virtualized RiveTT server: ' + Candidate);
+            Result := Result + Candidate + #13#10;
+          end;
+        end;
+      until not FindNext(Entry);
+    finally
+      FindClose(Entry);
+    end;
+  end;
+end;
+
 function InitializeSetup(): Boolean;
 var
   Message: String;
   Ignored: Boolean;   { 2027 has no minimum update; its TooOld flag is meaningless }
 begin
+  Result := False;
+  if not InstallationContextIsUnpackaged() then Exit;
   ForcedYears := ExpandConstant('{param:REVIT|}');
 
   Detected2026 := RevitIsSupported('2026', Found2026Version, Stale2026);
@@ -551,7 +604,7 @@ end;
 
 procedure CurPageChanged(CurPageID: Integer);
 var
-  Summary, ServerFound: String;
+  Summary, ServerFound, VirtualizedCopies: String;
 begin
   if CurPageID <> wpFinished then
     Exit;
@@ -574,6 +627,19 @@ begin
       + 'Revit peut rester ouvert.' + #13#10#13#10
       + 'Détail technique : serveur attendu en {#AppVersion}, trouvé en '
       + ServerFound + '. Journal : ' + ExpandConstant('{log}');
+    Exit;
+  end;
+
+  VirtualizedCopies := FindVirtualizedServerCopies();
+  if VirtualizedCopies <> '' then
+  begin
+    WizardForm.FinishedLabel.Caption :=
+        'ATTENTION : une ancienne copie isolée du serveur peut masquer cette mise à jour.'
+      + #13#10#13#10 + 'La version {#AppVersion} est installée, mais une application '
+      + 'packagée peut continuer à utiliser sa propre copie. Fermez cette application '
+      + 'et faites retirer uniquement son ancien dossier RiveTT\server indiqué ci-dessous, '
+      + 'puis relancez-la. Les copies ne sont pas supprimées automatiquement.'
+      + #13#10#13#10 + VirtualizedCopies;
     Exit;
   end;
 

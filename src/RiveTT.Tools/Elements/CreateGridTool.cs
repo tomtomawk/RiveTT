@@ -72,8 +72,8 @@ public class CreateGridTool : IRiveTTTool
                 StringComparer.OrdinalIgnoreCase);
 
             using var tx = new Transaction(doc, "RiveTT: Create Grid");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             // X grids (vertical lines, labeled alphabetically by default)
             for (int i = 0; i < xCount; i++)
@@ -191,8 +191,8 @@ public class CreateGridTool : IRiveTTTool
                 $"DryRun: would rename the grid '{oldName}' to '{newName}'.",
                 new { action = "rename", gridId = ToolHelpers.GetElementIdValue(grid.Id), oldName, newName });
         using var tx = new Transaction(doc, "RiveTT: Rename Grid");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         grid.Name = newName;
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -216,8 +216,8 @@ public class CreateGridTool : IRiveTTTool
                 new { action = "delete", gridId = ToolHelpers.GetElementIdValue(grid.Id), deletedGrid = name });
 
         using var tx = new Transaction(doc, "RiveTT: Delete Grid");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         doc.Delete(grid.Id);
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

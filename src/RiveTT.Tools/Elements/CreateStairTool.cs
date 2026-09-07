@@ -132,8 +132,8 @@ public sealed class CreateStairTool : IRiveTTTool
 
             using (var tx = new Transaction(doc, "RiveTT: Stair Runs"))
             {
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 if (stairsType != null)
                 {
@@ -225,8 +225,8 @@ public sealed class CreateStairTool : IRiveTTTool
                 try
                 {
                     using var railingTx = new Transaction(doc, "RiveTT: Stair Railing");
-                    TransactionFailureHandling.SuppressWarnings(railingTx);
                     railingTx.Start();
+                    TransactionFailureHandling.SuppressWarnings(railingTx);
                     var railings = Railing.Create(doc, stairsId, ToolHelpers.ToElementId(railingTypeId),
                         RailingPlacementPosition.Treads);
                     railingTx.Commit();

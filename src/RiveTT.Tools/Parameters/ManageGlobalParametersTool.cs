@@ -14,6 +14,7 @@ namespace RiveTT.Tools.Parameters;
 /// Lists, creates, reads, updates, or deletes global parameters in the project.
 /// Global parameters are project-level named values that can drive dimensions and constraints.
 /// </summary>
+[ReadOnlyActions("list", "list", "get")]
 [ToolSafety(false, true, supportsDryRun: true)]
 public class ManageGlobalParametersTool : IRiveTTTool
 {
@@ -193,8 +194,8 @@ public class ManageGlobalParametersTool : IRiveTTTool
         var initialValue = input["value"]?.Value<string>();
 
         using var tx = new Transaction(doc, "RiveTT: Create Global Parameter");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
 #if REVIT2023_OR_GREATER
         var gp = GlobalParameter.Create(doc, name, ResolveSpecTypeId(dataType));
@@ -239,8 +240,8 @@ public class ManageGlobalParametersTool : IRiveTTTool
                 $"Parameter '{name}' is driven by a formula and cannot be set directly");
 
         using var tx = new Transaction(doc, "RiveTT: Set Global Parameter Value");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         ApplyStringValue(gp, value);
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -262,8 +263,8 @@ public class ManageGlobalParametersTool : IRiveTTTool
                 $"Global parameter '{name}' not found");
 
         using var tx = new Transaction(doc, "RiveTT: Delete Global Parameter");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         doc.Delete(gp.Id);
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -295,8 +296,8 @@ public class ManageGlobalParametersTool : IRiveTTTool
                 $"A global parameter named '{newName}' already exists.");
 
         using var tx = new Transaction(doc, "RiveTT: Rename Global Parameter");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         gp.Name = newName;
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -328,8 +329,8 @@ public class ManageGlobalParametersTool : IRiveTTTool
                 $"Global parameter '{name}' not found");
 
         using var tx = new Transaction(doc, "RiveTT: Set Global Parameter Formula");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         try
         {
             gp.SetFormula(formula);
@@ -373,8 +374,8 @@ public class ManageGlobalParametersTool : IRiveTTTool
         bool moved;
         using (var tx = new Transaction(doc, "RiveTT: Reorder Global Parameter"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             moved = up
                 ? GlobalParametersManager.MoveParameterUpOrder(doc, gp.Id)
                 : GlobalParametersManager.MoveParameterDownOrder(doc, gp.Id);
@@ -405,8 +406,8 @@ public class ManageGlobalParametersTool : IRiveTTTool
 
         using (var tx = new Transaction(doc, "RiveTT: Sort Global Parameters"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             GlobalParametersManager.SortParameters(doc, sortOrder);
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

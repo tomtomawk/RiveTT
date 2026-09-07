@@ -23,6 +23,7 @@ namespace RiveTT.Tools.Elements;
 /// own forum recommends. Everything else (area plan, boundary lines, areas) has a
 /// real, verified creation API.
 /// </summary>
+[ReadOnlyActions("list_schemes", "list_schemes")]
 [ToolSafety(false, false)]
 public class CreateAreaPlanTool : IRiveTTTool
 {
@@ -94,8 +95,8 @@ public class CreateAreaPlanTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{sourceIdLong} is not an AreaScheme");
 
         using var tx = new Transaction(doc, "RiveTT: Duplicate Area Scheme");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         var copiedIds = ElementTransformUtils.CopyElement(doc, source.Id, XYZ.Zero);
         var copy = copiedIds.Select(doc.GetElement).OfType<AreaScheme>().FirstOrDefault();
@@ -137,8 +138,8 @@ public class CreateAreaPlanTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{levelIdLong} is not a Level");
 
         using var tx = new Transaction(doc, "RiveTT: Create Area Plan");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         ViewPlan plan;
         try
@@ -184,8 +185,8 @@ public class CreateAreaPlanTool : IRiveTTTool
         var plane = SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(XYZ.BasisZ, new XYZ(0, 0, view.GenLevel?.Elevation ?? 0)));
 
         using var tx = new Transaction(doc, "RiveTT: Create Area Boundary");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         var createdIds = new List<long>();
         var warnings = new List<string>();
@@ -233,8 +234,8 @@ public class CreateAreaPlanTool : IRiveTTTool
             (pointToken["y"]?.Value<double>() ?? 0) / MmPerFoot);
 
         using var tx = new Transaction(doc, "RiveTT: Create Area");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         Area area;
         try

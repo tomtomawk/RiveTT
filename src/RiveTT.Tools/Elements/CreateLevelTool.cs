@@ -96,8 +96,8 @@ public class CreateLevelTool : IRiveTTTool
             var warnings = new List<string>();
 
             using var tx = new Transaction(doc, "RiveTT: Create Level");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             var level = Level.Create(doc, elevationMm / MmPerFoot);
             level.Name = name;
@@ -175,8 +175,8 @@ public class CreateLevelTool : IRiveTTTool
 
         var changed = new List<string>();
         using var tx = new Transaction(doc, "RiveTT: Set Level");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         if (elevationMm.HasValue)
         {
@@ -238,8 +238,8 @@ public class CreateLevelTool : IRiveTTTool
 
         var oldName = level.Name;
         using var tx = new Transaction(doc, "RiveTT: Rename Level");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         level.Name = newName;
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -269,8 +269,8 @@ public class CreateLevelTool : IRiveTTTool
 
         var name = level!.Name;
         using var tx = new Transaction(doc, "RiveTT: Delete Level");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         doc.Delete(level.Id);
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

@@ -107,8 +107,8 @@ public class IfcReloadLinkTool : IRiveTTTool
                 // outside of a transaction" (ultrareview C6).
                 using (var tx = new Transaction(doc!, "RiveTT: Reload IFC Link"))
                 {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     RevitLinkType.CreateFromIFC(doc!, newIfcFilePath, revitFilePath, recreateLink, options);
                     if (tx.Commit() != TransactionStatus.Committed)
                         return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

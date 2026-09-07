@@ -275,121 +275,21 @@ public sealed class CreateDocumentTool : IRiveTTTool
     }
 }
 
-/// <summary>Opens and activates an existing project file in Revit.</summary>
-[ToolSafety(false, false, supportsDryRun: true)]
-public sealed class OpenDocumentTool : IRiveTTTool
+/// <summary>Compatibility alias for the unified Revit file opener.</summary>
+[ToolSafety(true, false, supportsDryRun: true)]
+public sealed class OpenDocumentTool : IRiveTTTool, ICommandTimeoutTool
 {
+    public int CommandTimeoutSeconds => 300;
     public string Name => "open_document";
     public string Category => "Documents";
     public bool RequiresDocument => false;
     public bool IsDynamic => false;
-
-    public string Description =>
-        "Opens a .rvt file and makes it the active document in Revit. Every subsequent tool call then targets " +
-        "that document, and all caches are flushed. Set detachFromCentral=true for a workshared model. " +
-        "Supported from this connector's ExternalEvent context — it is the API *event* handlers (Idling, " +
-        "DocumentChanged) that cannot switch documents.";
-
+    public string Description => "Compatibility alias for open_file: opens and activates RVT, RFA, RTE, RFT or IFC, also while RiveTT is locked.";
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
-        var application = DocumentLifecycleSupport.ResolveApplication(session);
-        var filePath = input["filePath"]?.Value<string>()
-                       ?? input["path"]?.Value<string>()
-                       ?? input["targetPath"]?.Value<string>();
-        var detach = input["detachFromCentral"]?.Value<bool>() ?? false;
-        var dryRun = input["dryRun"]?.Value<bool>() ?? true;
-
-        if (string.IsNullOrWhiteSpace(filePath))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
-                "filePath is required and was not provided",
-                suggestion: "Pass filePath as an absolute .rvt path.");
-
-        if (!Path.IsPathFullyQualified(filePath) ||
-            !filePath!.EndsWith(".rvt", StringComparison.OrdinalIgnoreCase))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
-                $"filePath must be an absolute path ending in .rvt (received: {filePath})");
-
-        if (!PathSafety.TryResolveSafe(filePath, out var safeFilePath, out var filePathError))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, filePathError,
-                suggestion: "Open the project from the project drive, a share, or a user folder.");
-        filePath = safeFilePath;
-
-        if (!File.Exists(filePath))
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
-                $"File not found: {filePath}");
-
-        var currentDocument = session.Store.Get<object>("activeDocument") as Document;
-        var alreadyActive = currentDocument != null &&
-                            string.Equals(currentDocument.PathName, filePath, StringComparison.OrdinalIgnoreCase);
-
-        if (dryRun)
-        {
-            return RiveTTResult<object>.Ok(new
-            {
-                message = alreadyActive
-                    ? "DryRun: this file is already the active document."
-                    : $"DryRun: would open and activate '{Path.GetFileName(filePath)}'.",
-                filePath,
-                fileSizeBytes = new FileInfo(filePath).Length,
-                alreadyActive,
-                currentDocument = currentDocument?.PathName,
-                currentDocumentHasUnsavedChanges = currentDocument?.IsModified ?? false,
-                detachFromCentral = detach,
-                openDocuments = application == null
-                    ? new List<object>()
-                    : DocumentLifecycleSupport.DescribeOpenDocuments(application),
-                warnings = currentDocument?.IsModified == true
-                    ? new[] { "The current document has unsaved changes. Save it first: switching documents does not save it." }
-                    : Array.Empty<string>()
-            });
-        }
-
-        var uiApplication = DocumentLifecycleSupport.ResolveUiApplication(session);
-        if (uiApplication == null)
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
-                "No UIApplication in session, so no document can be activated",
-                suggestion: "Activate any view in Revit once, then retry.");
-
-        using var dialogs = new OpenDialogAutoAnswer(uiApplication);
-        try
-        {
-            if (detach)
-            {
-                var modelPath = ModelPathUtils.ConvertUserVisiblePathToModelPath(filePath);
-                var options = new OpenOptions
-                {
-                    DetachFromCentralOption = DetachFromCentralOption.DetachAndPreserveWorksets
-                };
-                uiApplication.OpenAndActivateDocument(modelPath, options, false);
-            }
-            else
-            {
-                uiApplication.OpenAndActivateDocument(filePath);
-            }
-
-            var opened = uiApplication.ActiveUIDocument?.Document;
-            return RiveTTResult<object>.Ok(new
-            {
-                message = $"Opened and activated '{Path.GetFileName(filePath)}'. All caches were flushed." +
-                          (dialogs.Answered.Count > 0
-                              ? $" {dialogs.Answered.Count} Revit dialog(s) were answered automatically."
-                              : ""),
-                path = opened?.PathName ?? filePath,
-                title = opened?.Title,
-                detachedFromCentral = detach,
-                isWorkshared = opened?.IsWorkshared ?? false,
-                cachesInvalidated = true,
-                dismissedDialogs = dialogs.Answered,
-                warnings = dialogs.Warnings
-            });
-        }
-        catch (Exception exception)
-        {
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                $"Could not open and activate the document: {exception.Message}",
-                suggestion: "Revit refuses to switch documents while another operation is in progress, and a " +
-                            "workshared central model needs detachFromCentral=true. Close any open dialog in " +
-                            "Revit and retry.");
-        }
+        var request = (JObject)input.DeepClone();
+        request["dryRun"] = input["dryRun"]?.Value<bool>() ?? true;
+        request["detachFromCentral"] = input["detachFromCentral"]?.Value<bool>() ?? false;
+        return new OpenFileTool().Execute(request, session);
     }
 }

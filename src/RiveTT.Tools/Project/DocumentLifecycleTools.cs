@@ -89,8 +89,8 @@ public sealed class SaveDocumentTool : IRiveTTTool
             if (!Directory.Exists(directory)) blockers.Add($"Directory does not exist: {directory}");
             else if (!DocumentLifecyclePreview.IsWritableDirectory(directory))
                 blockers.Add($"Directory is not writable: {directory}");
-            if (DocumentLifecyclePreview.IsFileLocked(path))
-                blockers.Add("The target file is locked by another process.");
+            // An exclusive File.Open also fails on Revit's OWN file handle. It cannot
+            // identify another process and therefore cannot predict Document.Save.
             if (document.IsReadOnly) blockers.Add("Revit reports this document as read-only.");
 
             return RiveTTResult<object>.Ok(new
@@ -104,7 +104,9 @@ public sealed class SaveDocumentTool : IRiveTTTool
                 currentFileSizeBytes = DocumentLifecyclePreview.FileSizeBytes(path),
                 isWorkshared = document.IsWorkshared,
                 isReadOnly = document.IsReadOnly,
-                blockers
+                blockers,
+                previewMethod = "declared",
+                warnings = new[] { "External file locks cannot be distinguished from Revit's own handle; save success is only known after execution." }
             });
         }
 
@@ -160,10 +162,11 @@ public sealed class SaveAsDocumentTool : IRiveTTTool
                 suggestion: "Pass targetPath (aliases: filePath, path) as an absolute .rvt path, " +
                             "e.g. {\"targetPath\": \"C:\\\\Projets\\\\model_V4.rvt\", \"overwrite\": false}.");
 
+        var requiredExtension = document.IsFamilyDocument ? ".rfa" : ".rvt";
         if (!Path.IsPathFullyQualified(targetPath) ||
-            !targetPath!.EndsWith(".rvt", StringComparison.OrdinalIgnoreCase))
+            !targetPath!.EndsWith(requiredExtension, StringComparison.OrdinalIgnoreCase))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
-                $"targetPath must be an absolute path ending in .rvt (received: {targetPath})");
+                $"targetPath must be an absolute path ending in {requiredExtension} for this document (received: {targetPath})");
 
         if (!PathSafety.TryResolveSafe(targetPath, out var safeTargetPath, out var pathError))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, pathError,

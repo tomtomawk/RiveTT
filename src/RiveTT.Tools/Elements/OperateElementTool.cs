@@ -19,6 +19,7 @@ namespace RiveTT.Tools.Elements;
 /// destructive action removed the only reason this tool needed [ToolSafety] destructive=true.
 /// Input uses a "data" wrapper to match the fork's OperateElementEventHandler schema.
 /// </summary>
+[ReadOnlyActions("", "select", UseDataEnvelope = true)]
 [ToolSafety(false, false)]
 public class OperateElementTool : IRiveTTTool
 {
@@ -160,8 +161,8 @@ public class OperateElementTool : IRiveTTTool
                 int[] colorValue = ParseColorArray(colorToken);
                 using (var tx = new Transaction(doc, "RiveTT: Set Element Color"))
                 {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     SetElementsColor(doc, elementIds, colorValue);
                     if (tx.Commit() != TransactionStatus.Committed)
                         throw new TransactionRolledBackException(TransactionFailureHandling.Describe(txFailures));
@@ -174,8 +175,8 @@ public class OperateElementTool : IRiveTTTool
                 int transparency = Math.Max(0, Math.Min(100, transparencyToken?.Value<int>() ?? 50));
                 using (var tx = new Transaction(doc, "RiveTT: Set Element Transparency"))
                 {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     var overrideSettings = new OverrideGraphicSettings();
                     overrideSettings.SetSurfaceTransparency(transparency);
                     foreach (var id in elementIds)
@@ -188,8 +189,8 @@ public class OperateElementTool : IRiveTTTool
             case "hide":
                 using (var tx = new Transaction(doc, "RiveTT: Hide Elements"))
                 {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     doc.ActiveView.HideElements(elementIds);
                     if (tx.Commit() != TransactionStatus.Committed)
                         throw new TransactionRolledBackException(TransactionFailureHandling.Describe(txFailures));
@@ -199,8 +200,8 @@ public class OperateElementTool : IRiveTTTool
             case "temphide":
                 using (var tx = new Transaction(doc, "RiveTT: Temp Hide Elements"))
                 {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     doc.ActiveView.HideElementsTemporary(elementIds);
                     if (tx.Commit() != TransactionStatus.Committed)
                         throw new TransactionRolledBackException(TransactionFailureHandling.Describe(txFailures));
@@ -210,8 +211,8 @@ public class OperateElementTool : IRiveTTTool
             case "isolate":
                 using (var tx = new Transaction(doc, "RiveTT: Isolate Elements"))
                 {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     doc.ActiveView.IsolateElementsTemporary(elementIds);
                     if (tx.Commit() != TransactionStatus.Committed)
                         throw new TransactionRolledBackException(TransactionFailureHandling.Describe(txFailures));
@@ -221,8 +222,8 @@ public class OperateElementTool : IRiveTTTool
             case "unhide":
                 using (var tx = new Transaction(doc, "RiveTT: Unhide Elements"))
                 {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     doc.ActiveView.UnhideElements(elementIds);
                     if (tx.Commit() != TransactionStatus.Committed)
                         throw new TransactionRolledBackException(TransactionFailureHandling.Describe(txFailures));
@@ -232,8 +233,8 @@ public class OperateElementTool : IRiveTTTool
             case "resetisolate":
                 using (var tx = new Transaction(doc, "RiveTT: Reset Isolation"))
                 {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     doc.ActiveView.DisableTemporaryViewMode(TemporaryViewMode.TemporaryHideIsolate);
                     if (tx.Commit() != TransactionStatus.Committed)
                         throw new TransactionRolledBackException(TransactionFailureHandling.Describe(txFailures));
@@ -311,8 +312,8 @@ public class OperateElementTool : IRiveTTTool
 
         using (var tx = new Transaction(doc, "RiveTT: Create Section Box"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             targetView.IsSectionBoxActive = true;
             targetView.SetSectionBox(boundingBox);
             if (tx.Commit() != TransactionStatus.Committed)

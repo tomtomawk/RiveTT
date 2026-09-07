@@ -90,8 +90,8 @@ public class CopyElementsTool : IRiveTTTool
                         "targetDocumentTitle is the active document — omit it for a same-document copy");
 
                 using var tx = new Transaction(destDoc, "RiveTT: Copy Elements Across Documents");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 try
                 {
                     copiedIds = ElementTransformUtils.CopyElements(
@@ -148,8 +148,8 @@ public class CopyElementsTool : IRiveTTTool
                         $"Target view with ID {targetViewId} not found");
 
                 using var tx = new Transaction(doc, "RiveTT: Copy Elements Between Views");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 try
                 {
                     copiedIds = ElementTransformUtils.CopyElements(
@@ -170,8 +170,8 @@ public class CopyElementsTool : IRiveTTTool
             {
                 // Simple in-place copy with optional offset
                 using var tx = new Transaction(doc, "RiveTT: Copy Elements");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 try
                 {
                     copiedIds = ElementTransformUtils.CopyElements(doc, ids, translation);

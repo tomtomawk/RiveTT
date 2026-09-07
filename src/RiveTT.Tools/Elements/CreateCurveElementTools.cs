@@ -160,8 +160,8 @@ public sealed class CreateDetailLineTool : IRiveTTTool
         try
         {
             using var tx = new Transaction(doc, "RiveTT: Create Detail Lines");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             var created = new List<long>();
             GraphicsStyle? style = ResolveLineStyle(doc, lineStyleName);
@@ -252,8 +252,8 @@ public sealed class CreateModelLineTool : IRiveTTTool
         try
         {
             using var tx = new Transaction(doc, "RiveTT: Create Model Lines");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             var sketchPlane = CurveInput.CreateHorizontalSketchPlane(doc, elevationFt);
             var style = CreateDetailLineTool.ResolveLineStyle(doc, lineStyleName);
@@ -341,8 +341,8 @@ public sealed class CreateRoomSeparationLineTool : IRiveTTTool
         try
         {
             using var tx = new Transaction(doc, "RiveTT: Create Room Separation Lines");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             var sketchPlane = CurveInput.CreateHorizontalSketchPlane(doc, elevationFt);
             var curveArray = new CurveArray();
@@ -447,8 +447,8 @@ public sealed class PlaceTitleBlockTool : IRiveTTTool
         try
         {
             using var tx = new Transaction(doc, "RiveTT: Place Title Block");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             if (!symbol.IsActive)
             {

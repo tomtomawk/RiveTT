@@ -29,9 +29,14 @@ lourd sans l'avoir demandé, c'est découvrir l'incompatibilité après l'attent
 |---|---|
 | Référence de coordination | `ifc_link` |
 | Recharger un lien existant | `ifc_reload_link` |
-| Ouvrir en document Revit, ou importer | `ifc_open_or_import` |
+| Ouvrir et activer un IFC, verrou fermé | `open_file` (copie de travail isolée) |
+| Conversion avec options avancées, en arrière-plan | `ifc_open_or_import` (verrou d'écriture requis) |
 
-Deux choses à savoir avant de lancer :
+Pour `open_file`, le fichier source et les caches de conversion sont isolés dans
+un dossier temporaire unique ; enregistrer ensuite le projet sous un chemin durable.
+`ifc_open_or_import` ne change pas le document actif.
+
+Pour les outils IFC avancés et la liaison, deux choses à savoir avant de lancer :
 
 - un **fichier `.RVT` intermédiaire est créé à côté du fichier IFC d'origine**. Il
   faut donc un dossier accessible en écriture. `recreateLink: false` réutilise un

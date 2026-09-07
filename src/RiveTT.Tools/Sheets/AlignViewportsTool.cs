@@ -51,8 +51,8 @@ public class AlignViewportsTool : IRiveTTTool
 
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Align Viewports");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             foreach (var tid in targetViewportIds)
             {

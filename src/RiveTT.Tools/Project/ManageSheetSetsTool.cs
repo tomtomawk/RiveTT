@@ -16,6 +16,7 @@ namespace RiveTT.Tools.Project;
 /// every time. Built on Document.PrintManager.ViewSheetSetting, the API's own path
 /// for saving a named set (PrintRange.Select + ViewSheetSetting.SaveAs).
 /// </summary>
+[ReadOnlyActions("list", "list")]
 [ToolSafety(false, false)]
 public class ManageSheetSetsTool : IRiveTTTool
 {
@@ -99,8 +100,8 @@ public class ManageSheetSetsTool : IRiveTTTool
         var printManager = doc.PrintManager;
 
         using var tx = new Transaction(doc, "RiveTT: Create Sheet Set");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         printManager.PrintRange = PrintRange.Select;
         var viewSheetSetting = printManager.ViewSheetSetting;
@@ -152,8 +153,8 @@ public class ManageSheetSetsTool : IRiveTTTool
                 "No matching sheet set found", suggestion: "Provide elementId or an exact name from action=list");
 
         using var tx = new Transaction(doc, "RiveTT: Delete Sheet Set");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         var deletedName = target.Name;
         doc.Delete(target.Id);
         if (tx.Commit() != TransactionStatus.Committed)

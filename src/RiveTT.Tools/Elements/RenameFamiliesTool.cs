@@ -60,8 +60,8 @@ public class RenameFamiliesTool : IRiveTTTool
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Rename Families");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 foreach (var fam in familyList)
                 {

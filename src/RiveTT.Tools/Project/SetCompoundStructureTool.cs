@@ -134,8 +134,8 @@ public class SetCompoundStructureTool : IRiveTTTool
 
         using (var tx = new Transaction(doc, "RiveTT: Replace Compound Structure"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             cs.SetLayers(newLayers);
 
             // Set structural material index to the first Structure layer
@@ -216,8 +216,8 @@ public class SetCompoundStructureTool : IRiveTTTool
 
         using (var tx = new Transaction(doc, "RiveTT: Add Compound Structure Layer"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             cs.SetLayers(existingLayers);
             hostType.SetCompoundStructure(cs);
             if (tx.Commit() != TransactionStatus.Committed)
@@ -277,8 +277,8 @@ public class SetCompoundStructureTool : IRiveTTTool
 
         using (var tx = new Transaction(doc, "RiveTT: Remove Compound Structure Layer"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             cs.SetLayers(existingLayers);
             hostType.SetCompoundStructure(cs);
             if (tx.Commit() != TransactionStatus.Committed)
@@ -380,8 +380,8 @@ public class SetCompoundStructureTool : IRiveTTTool
 
         using (var tx = new Transaction(doc, "RiveTT: Modify Compound Structure Layer"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             cs.SetLayers(existingLayers);
             hostType.SetCompoundStructure(cs);
             if (tx.Commit() != TransactionStatus.Committed)
@@ -465,8 +465,8 @@ public class SetCompoundStructureTool : IRiveTTTool
 
         using (var tx = new Transaction(doc, "RiveTT: Set Compound Structure Wrapping"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             hostType.SetCompoundStructure(cs);
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

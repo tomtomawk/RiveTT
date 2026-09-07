@@ -94,8 +94,8 @@ public class ColorElementsTool : IRiveTTTool
             if (action == "reset")
             {
                 using var resetTx = new Transaction(doc, "RiveTT: Reset Element Colors");
-                var resetTxFailures = TransactionFailureHandling.SuppressWarnings(resetTx);
                 resetTx.Start();
+                var resetTxFailures = TransactionFailureHandling.SuppressWarnings(resetTx);
                 var blank = new OverrideGraphicSettings();
                 int reset = 0;
                 foreach (var element in elements)
@@ -150,8 +150,8 @@ public class ColorElementsTool : IRiveTTTool
             // Apply overrides inside a transaction
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Color Elements");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             try
             {

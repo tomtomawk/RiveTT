@@ -77,8 +77,8 @@ public class TagWallsTool : IRiveTTTool
 
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Tag Walls");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             if (!tagType.IsActive)
             {

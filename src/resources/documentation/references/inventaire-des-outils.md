@@ -3,7 +3,7 @@
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-08-31 — connecteur 0.4.0 — **198 outils publiés**, 195 classes runtime.
+Relevé du 2026-09-07 — connecteur 0.5.0 — **200 outils publiés**, 197 classes runtime.
 
 ## Comment lire ce document
 
@@ -24,38 +24,38 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 
 | Mesure | Valeur |
 |---|---|
-| Outils publiés | **198** |
-| Dont écriture | **139** (70 %) — c'est la part que le verrou du ruban gouverne |
-| Écritures sans `dryRun` | **36** sur 139 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
+| Outils publiés | **200** |
+| Dont écriture | **136** (68 %) — c'est la part que le verrou du ruban gouverne |
+| Écritures sans `dryRun` | **36** sur 136 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
 | Défauts critiques et majeurs corrigés | **8**, gardés par `ConfirmedDefectFixSourceTests` |
 | Lacunes API comblées depuis le relevé précédent | **16** sur 19 |
 | Erreurs génériques `Failed: …` sans suggestion | **0** |
 | Géométrie par boîte englobante | **15** |
-| Classement `[ToolSafety]` en désaccord avec le nom | **10** |
-| Défauts confirmés / signaux à vérifier | **0** / **10** |
+| Classement `[ToolSafety]` en désaccord avec le nom | **15** |
+| Défauts confirmés / signaux à vérifier | **0** / **12** |
 
 ## Répartition par catégorie
 
 | Catégorie | Outils | Part |
 |---|---:|---:|
-| Elements | 65 | 33 % |
-| Project | 49 | 25 % |
+| Elements | 65 | 32 % |
+| Project | 49 | 24 % |
 | IFC | 20 | 10 % |
-| Views | 13 | 7 % |
+| Views | 14 | 7 % |
 | LinkedFiles | 10 | 5 % |
-| Annotations | 9 | 5 % |
+| Annotations | 9 | 4 % |
 | Parameters | 8 | 4 % |
-| Documents | 7 | 4 % |
-| Sheets | 5 | 3 % |
+| Documents | 8 | 4 % |
+| Sheets | 5 | 2 % |
 | Meta | 4 | 2 % |
 | Workflows | 4 | 2 % |
 | Architecture | 2 | 1 % |
-| Code | 1 | 1 % |
-| Interop | 1 | 1 % |
+| Code | 1 | 0 % |
+| Interop | 1 | 0 % |
 
 Le ferraillage et la charpente métallique — 112 outils, 38 % de la surface — ont été
 retirés du dépôt, pas filtrés. Ce qui reste est le catalogue que l'agent lit à chaque
-session : 198 outils dont 70 % d'écriture, tous dans le périmètre logement,
+session : 200 outils dont 68 % d'écriture, tous dans le périmètre logement,
 équipement, tertiaire et santé.
 
 ## Défauts corrigés
@@ -97,10 +97,12 @@ documentation.
 | `batch_rename_affix` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds, savedSelectionName, scope, selectionToken |
 | `clear_parameter_values` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds, savedSelectionName, scope, selectionToken |
 | `color_elements` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
+| `create_wall` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : baseLevelId, baseOffset |
 | `detach_wall_constraint` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `duplicate_family_type` | clé imbriquée annoncée, absente du runtime : paramName |
 | `duplicate_storey` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `filter_by_parameter_value` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds |
+| `open_document` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : filePath |
 | `sync_csv_parameters` | clé imbriquée annoncée, absente du runtime : paramName1 |
 | `sync_navisworks_selection` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : append, createLinkedMarkers, createSectionBox, isolate, usePostCommandIsolate |
 | `tag_rooms` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
@@ -111,6 +113,7 @@ documentation.
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
+| `create_wall` → `create_line_based_element` | écriture | oui | 5 | Create one native Revit wall. wallTypeId and baseLevelId are required. Set topLevelId to constrain the wall to a level; topOffset is in mm and may be… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : baseLevelId, baseOffset |
 | `filter_by_parameter_value` | lecture | — | 5 | Filter elements by one parameter condition, or several combined with AND/OR via the conditions array. Conditions: equals, not_equals, contains, not_co… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds |
 | `copy_elements` | écriture | — | 5 | Copy elements with optional mm offset. Can target a different view (sourceViewId+targetViewId) or another OPEN document (targetDocumentTitle). | **mineur** — pas de dryRun |
 | `create_door` → `create_point_based_element` | écriture | oui | 5 | Place a door family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give z… | **mineur** — géométrie par boîte englobante |
@@ -125,7 +128,6 @@ documentation.
 | `create_room` | écriture | oui | 5 | Create a room at a point on a level. x/y are plan coordinates in mm; the level sets the elevation. A point that is not inside a closed loop of room-bo… | — |
 | `create_room_separation_line` | écriture | oui | 5 | Draw room separation lines in a plan view to split or bound a room without building a physical wall. path is a JSON array [{x,y,z}, ...] in mm. This i… | — |
 | `create_stair` | écriture | oui | 5 | Create a native component stair between two levels. runs is a JSON array [{p0:{x,y}, p1:{x,y}}, ...] in mm plan coordinates — the levels drive the ele… | — |
-| `create_wall` → `create_line_based_element` | écriture | oui | 5 | Create one native Revit wall. wallTypeId and baseLevelId are required. Set topLevelId to constrain the wall to a level; topOffset is in mm and may be… | — |
 | `delete_element` | écriture destructif | oui | 5 | Delete elements. The dryRun preview reports the real cascade (dependent tags, sketches, railings...) and any group membership. Deleting a group MEMBER… | — |
 | `edit_group_members` | écriture destructif | oui | 5 | Add or remove members of a model group. The Revit API cannot edit group members in place, so this ungroups the instance, changes the member set and cr… | — |
 | `export_elements_data` | lecture | — | 5 | Export element data as JSON or CSV, by category and/or by explicit elementIds. Parameter names may be given in English or in the document language (Ma… | — |
@@ -247,7 +249,7 @@ documentation.
 | `ifc_get_export_configuration` | lecture | — | 3 | Get full details of a specific export configuration by name. | — |
 | `ifc_list_export_configurations` | lecture | — | 3 | List available built-in export configurations | — |
 | `ifc_list_rebuild_candidates` | lecture | — | 3 | List elements above a rebuild confidence threshold. | — |
-| `ifc_open_or_import` | écriture destructif | oui | 3 | Open or import an IFC file as a native Revit project (actions: open \| import). | — |
+| `ifc_open_or_import` | écriture destructif | oui | 3 | Open/import an IFC into a background Revit document with advanced options. Use open_file for opening AND activating an IFC with the write lock closed.… | — |
 | `ifc_rebuild_floors` | écriture | oui | 3 | Rebuild native floors from IFC DirectShapes. dryRun defaults to true. | — |
 | `ifc_rebuild_roofs` | écriture | oui | 3 | Rebuild native roofs from IFC DirectShapes. dryRun defaults to true. | — |
 | `ifc_rebuild_structural_members` | écriture | oui | 3 | Rebuild columns and beams from IFC DirectShapes. dryRun defaults to true. | — |
@@ -256,7 +258,7 @@ documentation.
 | `ifc_tag_unreconstructable_elements` | écriture destructif | oui | 3 | Tag IFC DirectShapes that cannot be rebuilt by writing a marker parameter. | — |
 | `ifc_validate_request` | lecture | — | 3 | Validate IFC file path, extension, and schema version. | — |
 
-### Views — 13 outils
+### Views — 14 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
@@ -272,6 +274,7 @@ documentation.
 | `manage_scope_boxes` | écriture | — | 4 | Inventory, rename, move, or assign-to-views existing scope boxes (OST_VolumeOfInterest). The Revit API has no method to create one from scratch — draw… | **mineur** — pas de dryRun ; géométrie par boîte englobante |
 | `batch_modify_view_range` | écriture | oui | 4 | Modify view range offsets (top, cut plane, bottom, view depth) for multiple views. Offsets are in mm. | — |
 | `manage_unplaced_views` | écriture destructif | oui | 4 | List or delete views that are not placed on any sheet | — |
+| `activate_view` | lecture | oui | 3 | Make a view or sheet the active view in the current Revit document. Available while RiveTT is locked; no transaction or model edit. Returns the actual… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `rename_views` | écriture destructif | oui | 3 | Batch rename views using find/replace, prefix, or suffix operations. | — |
 
 ### LinkedFiles — 10 outils
@@ -316,17 +319,18 @@ documentation.
 | `transfer_parameters` | écriture destructif | oui | 4 | Copy parameter values from source element to one or more target elements. | — |
 | `sync_csv_parameters` | écriture destructif | oui | 2 | Synchronize parameter values from CSV data into Revit elements. | **signal** — clé imbriquée annoncée, absente du runtime : paramName1 |
 
-### Documents — 7 outils
+### Documents — 8 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
+| `open_document` | lecture | oui | 5 | Compatibility alias for open_file: open RVT, RFA, RTE, RFT or IFC and make it the ACTIVE document in Revit, even while RiveTT is locked. Every later t… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : filePath |
 | `create_document` | écriture | oui | 5 | Create a NEW EMPTY project from a Revit template (.rte) and save it to targetPath. This is the real 'new project': save_as_document duplicates the ope… | — |
-| `open_document` | écriture | oui | 5 | Open a .rvt file and make it the ACTIVE document in Revit. Every later tool call targets that document and all caches are flushed. Save the current do… | — |
-| `save_as_document` | écriture | oui | 5 | Save the active Revit project to an absolute .rvt path (parameter name: targetPath). This DUPLICATES the open document - it does not create a blank pr… | — |
+| `save_as_document` | écriture | oui | 5 | Save the active Revit project to an absolute .rvt project path or .rfa family path (parameter name: targetPath). This DUPLICATES the open document - i… | — |
 | `save_document` | écriture | oui | 5 | Save the active Revit project at its current path. dryRun reports the path, the unsaved-changes state and any predictable blocker without writing. | — |
+| `open_family` | lecture | oui | 3 | Opens a .rfa family file and makes it the active document in Revit, for visual editing (type parameters, geometry). The active document CHANGES - ever… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
+| `open_file` | lecture | oui | 3 | Open and activate a file entirely in Revit, available while the RiveTT write lock is closed. RVT/RFA/RTE open directly. RFT creates a new family; IFC… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
+| `open_template` | lecture | oui | 3 | Opens a .rte template file and makes it the active document in Revit, to edit the TEMPLATE itself (levels, types, view templates). To start a new PROJ… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `close_document` | écriture destructif | oui | 3 | Closes an open document (project, family, or template). Defaults to the active document; pass filePath to close a different one open in the background… | — |
-| `open_family` | écriture | oui | 3 | Opens a .rfa family file and makes it the active document in Revit, for visual editing (type parameters, geometry). The active document CHANGES - ever… | — |
-| `open_template` | écriture | oui | 3 | Opens a .rte template file and makes it the active document in Revit, to edit the TEMPLATE itself (levels, types, view templates). To start a new PROJ… | — |
 
 ### Sheets — 5 outils
 
@@ -375,6 +379,27 @@ documentation.
 |---|---|---|---:|---|---|
 | `sync_navisworks_selection` | écriture | — | 2 | Symmetric Revit↔Navis selection bridge. mode=export → emit RiveTTElementRefs from current Revit selection (host + linked). mode=import → consume RiveT… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : append, createLinkedMarkers, createSectionBox, isolate, usePostCommandIsolate |
 
+## Commandes disponibles verrou fermé
+
+Toutes les commandes classées lecture restent accessibles, y compris `open_file` et `activate_view`. Les commandes mixtes suivantes autorisent uniquement les actions listées ; leurs autres actions restent soumises au verrou. Un `dryRun` non pris en charge reste refusé.
+
+| Commande mixte | Actions sans verrou |
+|---|---|
+| `manage_additional_settings` | `list_line_styles`, `list_line_weights`, `list_line_patterns`, `list_fill_patterns`, `get_halftone` |
+| `manage_area_plans` | `list_schemes` |
+| `manage_global_parameters` | `list`, `get` |
+| `manage_images` | `list` |
+| `manage_links` | `list` |
+| `manage_phase_filters` | `list` |
+| `manage_project_parameters` | `list` |
+| `manage_project_units` | `get`, `list_valid_units` |
+| `manage_scope_boxes` | `list` |
+| `manage_selection` | `list` |
+| `manage_sheet_sets` | `list` |
+| `manage_unplaced_views` | `list` |
+| `manage_view_display` | `select` |
+| `manage_view_templates` | `list` |
+
 ## Lacunes comblées depuis le relevé précédent
 
 Seize des dix-neuf capacités listées comme absentes ont désormais un point d'entrée.
@@ -403,7 +428,7 @@ bout en bout par le connecteur.
 
 ## Exposé par l'API Revit, pas encore outillé
 
-Vérifié par recherche de l'API dans `src/RiveTT.Tools` sur les 198 outils : aucune de
+Vérifié par recherche de l'API dans `src/RiveTT.Tools` sur les 200 outils : aucune de
 ces capacités n'a de point d'entrée. Effort : **S** de l'ordre de la journée, **M** de
 la semaine, **L** au-delà.
 

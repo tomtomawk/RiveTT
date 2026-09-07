@@ -62,8 +62,8 @@ public class DeleteScheduleTool : IRiveTTTool
                     new { scheduleId = ToolHelpers.GetElementIdValue(schedule.Id), scheduleName = name });
 
             using var tx = new Transaction(doc, "RiveTT: Delete Schedule");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             doc.Delete(schedule.Id);
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

@@ -61,6 +61,12 @@ public class CreateLineBasedElementTool : IRiveTTTool
         if (warnings.Count > 0)
             message += "\n\nWarnings:\n  - " + string.Join("\n  - ", warnings);
 
+        if (details.Count == 0 && warnings.Count > 0)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                "No valid line-based element specification could be applied.",
+                suggestion: "Correct the reported specifications. Use baseLevelId for a level ID and baseElevationMm for an absolute elevation.",
+                context: new Dictionary<string, object> { ["warnings"] = warnings });
+
         return RiveTTResult<object>.Ok(new
         {
             message,
@@ -69,7 +75,8 @@ public class CreateLineBasedElementTool : IRiveTTTool
             created = createdIds.Count,
             skipped = warnings.Count,
             createdElementIds = createdIds,
-            details
+            details,
+            warnings
         });
     }
 
@@ -125,9 +132,10 @@ public class CreateLineBasedElementTool : IRiveTTTool
         // Parse optional parameters
         var requestedTypeId = item["typeId"]?.Value<long?>() ?? -1;
         var heightMm       = item["height"]?.Value<double?>() ?? 3000.0;
-        var baseLevelMm    = item["baseLevel"]?.Value<double?>() ?? 0.0;
-        var baseOffsetMm   = item["baseOffset"]?.Value<double?>() ?? 0.0;
-        var baseLevelId    = item["baseLevelId"]?.Value<long?>() ?? -1;
+        var constraint     = LineBaseConstraint.Parse(item);
+        var baseLevelMm    = constraint.ElevationMm;
+        var baseOffsetMm   = constraint.OffsetMm;
+        var baseLevelId    = constraint.LevelId ?? -1;
         var topLevelId     = item["topLevelId"]?.Value<long?>() ?? -1;
         var topOffsetMm    = item["topOffset"]?.Value<double?>() ?? 0.0;
         var strictType     = item["strictType"]?.Value<bool?>() ?? false;
@@ -141,14 +149,14 @@ public class CreateLineBasedElementTool : IRiveTTTool
             : FindNearestLevel(doc, baseLevelFt);
         if (baseLevel == null)
         {
-            warnings.Add("No levels found in document");
+            warnings.Add(baseLevelId > 0
+                ? $"baseLevelId {baseLevelId} is not a level. Use baseElevationMm for an absolute elevation in mm."
+                : "No levels found in document");
             return;
         }
         // With an explicit level ID, baseOffset is relative to that level.
         // The legacy elevation-based schema keeps its absolute-Z conversion.
-        var baseOffset = baseLevelId > 0
-            ? baseOffsetMm / MmPerFoot
-            : (baseOffsetMm + baseLevelMm) / MmPerFoot - baseLevel.Elevation;
+        var baseOffset = constraint.RelativeOffsetMm(baseLevel.Elevation * MmPerFoot) / MmPerFoot;
 
         // Resolve type
         FamilySymbol? symbol = null;
@@ -214,8 +222,8 @@ public class CreateLineBasedElementTool : IRiveTTTool
 
                 using (var tx = new Transaction(doc, "RiveTT: Create Wall"))
                 {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     try
                     {
                         var wall = Wall.Create(doc, locationLine, wallType.Id, baseLevel.Id, heightFt, baseOffset, false, false);
@@ -317,8 +325,8 @@ public class CreateLineBasedElementTool : IRiveTTTool
 
                 using (var tx2 = new Transaction(doc, "RiveTT: Create Line-Based Element"))
                 {
-                    var tx2Failures = TransactionFailureHandling.SuppressWarnings(tx2);
                     tx2.Start();
+                    var tx2Failures = TransactionFailureHandling.SuppressWarnings(tx2);
                     try
                     {
                         if (!symbol.IsActive)

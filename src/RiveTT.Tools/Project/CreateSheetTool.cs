@@ -134,8 +134,8 @@ public class CreateSheetTool : IRiveTTTool
             }
 
             using var tx = new Transaction(doc, "RiveTT: Create Sheet");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             // Activate title block if needed
             if (tbId != ElementId.InvalidElementId)

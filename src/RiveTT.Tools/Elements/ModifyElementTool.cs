@@ -58,8 +58,8 @@ public class ModifyElementTool : IRiveTTTool
 
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, $"RiveTT: Modify Elements - {action}");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             try
             {
                 switch (action)

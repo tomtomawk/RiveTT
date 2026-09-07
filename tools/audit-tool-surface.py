@@ -155,6 +155,7 @@ def load_runtime():
                 # DryRunDeclarationSourceTests verrouille les deux sens.
                 "hasDryRun": "supportsDryRun: true" in attrs,
                 "readsDryRun": "dryRun" in block,
+                "readOnlyActions": re.findall(r'"([a-z_]*)"', (re.search(r'\[ReadOnlyActions\(([^\]]+)\)\]', attrs).group(1) if re.search(r'\[ReadOnlyActions\(([^\]]+)\)\]', attrs) else ''))[1:],
                 "safetyDeclared": bool(pair or single),
                 "readOnly": (pair.group(1) == "true") if pair else
                             ((single.group(1) == "true") if single else None),
@@ -436,6 +437,7 @@ def analyse(server, runtime, corpus):
             "file": (run or {}).get("file", ""),
             "description": (srv or {}).get("description", ""),
             "readOnly": (run or {}).get("readOnly"),
+            "readOnlyActions": (run or {}).get("readOnlyActions", []),
             "destructive": (run or {}).get("destructive", False),
             "hasDryRun": (run or {}).get("hasDryRun", False),
             "flags": flags,
@@ -604,6 +606,14 @@ def emit(rows):
                 if row["sev"] else "—"))
         add("")
 
+    add("## Commandes disponibles verrou fermé\n")
+    add("Toutes les commandes classées lecture restent accessibles, y compris `open_file` et `activate_view`. Les commandes mixtes suivantes autorisent uniquement les actions listées ; leurs autres actions restent soumises au verrou. Un `dryRun` non pris en charge reste refusé.\n")
+    add("| Commande mixte | Actions sans verrou |")
+    add("|---|---|")
+    for row in sorted(rows, key=lambda r: r["name"]):
+        if row["readOnlyActions"]:
+            add("| `%s` | %s |" % (row["name"], ", ".join("`%s`" % a for a in row["readOnlyActions"])))
+    add("")
     add("## Lacunes comblées depuis le relevé précédent\n")
     add("Seize des dix-neuf capacités listées comme absentes ont désormais un point d'entrée.\n"
         "Les quatre manques dits structurels — toitures, surfaces réglementaires, rampes,\n"

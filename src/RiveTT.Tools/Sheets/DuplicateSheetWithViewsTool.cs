@@ -87,8 +87,8 @@ public class DuplicateSheetWithViewsTool : IRiveTTTool
 
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Duplicate Sheet With Views");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             for (int i = 0; i < copies; i++)
             {

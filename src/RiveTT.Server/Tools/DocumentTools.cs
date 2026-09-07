@@ -19,10 +19,10 @@ public static class DocumentTools
         return (await revit.ExecuteAsync("save_document", request, ct)).ToString();
     }
 
-    [McpServerTool(Name = "save_as_document"), Description("Save the active Revit project to an absolute .rvt path (parameter name: targetPath). This DUPLICATES the open document - it does not create a blank project from a template. dryRun reports source path, target path, overwrite policy and blockers without writing. Every cached read is flushed on success, so a follow-up read returns the new path.")]
+    [McpServerTool(Name = "save_as_document"), Description("Save the active Revit project to an absolute .rvt project path or .rfa family path (parameter name: targetPath). This DUPLICATES the open document - it does not create a blank project from a template. dryRun reports source path, target path, overwrite policy and blockers without writing. Every cached read is flushed on success, so a follow-up read returns the new path.")]
     public static async Task<string> SaveAsDocument(
         RevitConnectionManager revit,
-        [Description("Absolute output .rvt path")] string? targetPath = null,
+        [Description("Absolute output .rvt path for a project, or .rfa for a family")] string? targetPath = null,
         [Description("Replace an existing file. Default false")] bool overwrite = false,
         [Description("Preview without saving. Default: false")] bool dryRun = false,
         CancellationToken ct = default)

@@ -45,8 +45,8 @@ public class PinUnpinLinkInstanceTool : IRiveTTTool
 
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, $"RiveTT: {(pin ? "Pin" : "Unpin")} Link Instance");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             foreach (var id in instanceIds)
             {

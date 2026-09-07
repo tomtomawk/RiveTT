@@ -34,7 +34,10 @@ public sealed class RiveTTTests
         var source = ReadSource("RiveTT.Tools", "Elements", "CreateLineBasedElementTool.cs");
 
         Assert.Contains("baseLevelId > 0", source);
-        Assert.Contains("baseOffsetMm / MmPerFoot", source);
+        Assert.Contains("constraint.RelativeOffsetMm(baseLevel.Elevation * MmPerFoot) / MmPerFoot", source);
+        var constraint = RiveTT.Tools.Utilities.LineBaseConstraint.Parse(
+            Newtonsoft.Json.Linq.JObject.Parse("{\"baseLevelId\":608,\"baseOffset\":100}"));
+        Assert.Equal(100, constraint.RelativeOffsetMm(3000));
     }
 
     [Fact]

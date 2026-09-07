@@ -83,8 +83,8 @@ public class BulkModifyParameterValuesTool : IRiveTTTool
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Bulk Modify Parameters");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 ProcessElements(elementList, parameterName!, operation, value, findText, replaceText, onlyEmpty, modified, ref skipped, failures);
                 if (tx.Commit() != TransactionStatus.Committed)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

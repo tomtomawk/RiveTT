@@ -22,8 +22,8 @@ public class IfcOpenOrImportTool : IRiveTTTool
     public bool RequiresDocument => false;
     public bool IsDynamic => false;
     public string Description =>
-        "Open or import an IFC file into Revit. Previews by default. Opening an IFC CHANGES THE ACTIVE "
-        + "DOCUMENT: every later tool call targets the new document and all caches are flushed. Revit also "
+        "Open or import an IFC file into a background Revit document. Previews by default. "
+        + "For opening AND activating without the write lock, use open_file. Revit also "
         + "writes a derived .RVT cache next to the IFC. Set dryRun=false to proceed.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
@@ -62,7 +62,7 @@ public class IfcOpenOrImportTool : IRiveTTTool
             return ChangePreview.Declared(
                 $"DryRun: would {actionStr} '{Path.GetFileName(filePath)}' with intent '{intentStr}'."
                 + (actionStr.Equals("open", StringComparison.OrdinalIgnoreCase)
-                    ? " The ACTIVE DOCUMENT would change to the opened IFC and every cache would be flushed."
+                    ? " A background document would be created. Use open_file to activate an IFC in Revit."
                     : ""),
                 new
                 {
@@ -72,7 +72,7 @@ public class IfcOpenOrImportTool : IRiveTTTool
                     fileSizeBytes = new FileInfo(filePath).Length,
                     derivedRvtCache = cachePath,
                     derivedRvtCacheExists = File.Exists(cachePath),
-                    wouldChangeActiveDocument = actionStr.Equals("open", StringComparison.OrdinalIgnoreCase)
+                    wouldChangeActiveDocument = false
                 },
                 blockers);
         }
@@ -96,19 +96,22 @@ public class IfcOpenOrImportTool : IRiveTTTool
             options.ForceImport = forceImport;
             options.AutoJoin = autoJoin;
 
-            var app = session.Store.Get<object>("application") as Autodesk.Revit.ApplicationServices.Application;
+            var app = Project.DocumentLifecycleSupport.ResolveApplication(session);
             if (app == null)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                     "Revit Application not available in session");
 
             var newDoc = app.OpenIFCDocument(filePath, options);
 
+            if (newDoc == null)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "Revit returned no IFC document.");
             return RiveTTResult<object>.Ok(new
             {
                 action = actionStr,
                 intent = intentStr,
                 filePath,
-                documentTitle = newDoc?.Title ?? "unknown",
+                documentTitle = newDoc.Title,
+                activeDocumentChanged = false,
                 success = newDoc != null,
             });
         }

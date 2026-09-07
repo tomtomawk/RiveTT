@@ -37,6 +37,7 @@ public sealed class GetServerCapabilitiesTool : IRiveTTTool
             // session. The field used to be named "readOnly" and hard-coded true.
             writesAllowed = session.WriteAccess.WritesAllowed,
             readOnlyModeExists = true,
+            commandsAvailableWhenLocked = session.CommandsAvailableWhenLocked,
             readOnlyMode = new
             {
                 active = !session.WriteAccess.WritesAllowed,
@@ -44,7 +45,7 @@ public sealed class GetServerCapabilitiesTool : IRiveTTTool
                 scope = "the Revit session; surviving document open/close/save-as",
                 blocks = "every tool whose execution.toolReadOnly is false, refused with " +
                          "PermissionDenied before execution — the model is never touched",
-                stillAllowed = "all read tools, and dryRun previews are NOT an exception: " +
+                stillAllowed = "read tools, open_file/activate_view navigation and explicitly declared read actions; dryRun previews are NOT an exception: " +
                                "a write tool stays refused even with dryRun=true",
                 unlockFrom = "Revit ribbon, Add-Ins tab, RiveTT panel, 'Écriture' button",
                 toolsCanUnlock = false,
@@ -53,7 +54,7 @@ public sealed class GetServerCapabilitiesTool : IRiveTTTool
             },
             executionFields = new
             {
-                toolReadOnly = "classification of the tool that produced this response",
+                toolReadOnly = "classification of this call, including its explicitly declared read action on a mixed tool",
                 toolDestructive = "the tool can delete or overwrite model data",
                 writesAllowed = "session-wide state of the ribbon write lock; when false, " +
                                 "every tool with toolReadOnly=false is refused",
@@ -122,7 +123,7 @@ public sealed class GetServerCapabilitiesTool : IRiveTTTool
             discoveryHints = new[]
             {
                 "A blank project comes from create_document(templatePath, targetPath) — save_as_document duplicates the OPEN model instead.",
-                "open_document switches the active document; every later call targets it and all caches are flushed.",
+                "open_file opens RVT/RFA/RTE/RFT/IFC; activate_view selects a view or sheet by ID. Both work with the write lock closed. Every later call targets the activated document/view and caches are flushed.",
                 "Vertical circulation: create_stair between two levels, then a railing via its railingTypeId.",
                 "System types (walls, floors, ceilings, roofs, railings, stairs, title blocks) are NOT loadable families: enumerate them with list_system_types, duplicate them with duplicate_system_type.",
                 "There is no 'create similar' tool: copy_elements with an offset re-hosts the copy and does the same job, including across levels (level constraints are recomputed).",

@@ -69,8 +69,8 @@ public class MatchElementPropertiesTool : IRiveTTTool
             var results     = new List<object>();
 
             using var tx = new Transaction(doc, "RiveTT: Match Element Properties");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             try
             {

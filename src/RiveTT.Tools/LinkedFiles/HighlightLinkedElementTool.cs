@@ -103,8 +103,8 @@ public class HighlightLinkedElementTool : IRiveTTTool
                 if (targetView != null)
                 {
                     using var tx = new Transaction(doc, "RiveTT: Highlight Linked Element");
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                     targetView.IsSectionBoxActive = true;
                     targetView.SetSectionBox(new BoundingBoxXYZ

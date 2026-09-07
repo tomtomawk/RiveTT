@@ -85,8 +85,8 @@ public class CreateOpeningTool : IRiveTTTool
         foreach (var c in curves) curveArray.Append(c);
 
         using var tx = new Transaction(doc, "RiveTT: Create Shaft Opening");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         Opening opening;
         try
@@ -137,8 +137,8 @@ public class CreateOpeningTool : IRiveTTTool
         var cutIsVoid = input["cutIsVoid"]?.Value<bool?>() ?? true;
 
         using var tx = new Transaction(doc, "RiveTT: Create Host Opening");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         Opening opening;
         try
@@ -177,8 +177,8 @@ public class CreateOpeningTool : IRiveTTTool
         var p2 = ParseXYZ(p2Token);
 
         using var tx = new Transaction(doc, "RiveTT: Create Wall Opening");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         Opening opening;
         try

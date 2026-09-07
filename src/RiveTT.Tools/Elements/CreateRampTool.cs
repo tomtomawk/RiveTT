@@ -119,8 +119,8 @@ public sealed class CreateRampTool : IRiveTTTool
 
             using (var tx = new Transaction(doc, "RiveTT: Ramp Runs"))
             {
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 var stairs = doc.GetElement(stairsId);
                 if (stairs != null && stairs.GetTypeId() != rampType.Id)
@@ -173,8 +173,8 @@ public sealed class CreateRampTool : IRiveTTTool
                 try
                 {
                     using var railingTx = new Transaction(doc, "RiveTT: Ramp Railing");
-                    TransactionFailureHandling.SuppressWarnings(railingTx);
                     railingTx.Start();
+                    TransactionFailureHandling.SuppressWarnings(railingTx);
                     var railings = Railing.Create(doc, stairsId, ToolHelpers.ToElementId(railingTypeId),
                         RailingPlacementPosition.Treads);
                     railingTx.Commit();

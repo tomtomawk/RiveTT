@@ -221,8 +221,8 @@ public class CreateSurfaceBasedElementTool : IRiveTTTool
         }
 
         using var tx = new Transaction(doc, "RiveTT: Create Surface Element");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         try
         {
             switch (builtInCategory)

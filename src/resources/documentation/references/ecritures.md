@@ -138,3 +138,18 @@ contexte-là et non un gestionnaire d'événement API ou un éditeur modal.
   portée attendue.
 - Utiliser `send_code_to_revit` pour contourner un outil dédié ou son `dryRun`.
 - Supposer que l'utilisateur préfère un script : c'est l'option B par défaut.
+
+## Contraintes de niveau en 0.5.0
+
+Dans `create_line_based_element`, `baseLevelId` est un identifiant Revit et
+`baseOffset` un décalage relatif en mm. `baseLevel` non nul est un alias de cet
+identifiant. Pour une altitude absolue projet, utiliser `baseElevationMm` ;
+migrer tout ancien appel qui utilisait `baseLevel` comme altitude vers cette clé.
+Le défaut `baseLevel:0` conserve l'altitude zéro. Identifiant et altitude explicite
+sont mutuellement exclusifs. Un niveau introuvable est signalé.
+
+`manage_links` recharge et décharge sans transaction extérieure, comme l'exige
+Revit. Ces actions effacent l'historique Annuler ; le résultat le signale.
+La prévisualisation de `save_document` ne peut pas déterminer si le handle du
+fichier appartient à Revit ou à un tiers : seule la sauvegarde réelle le vérifie.
+`save_as_document` demande un chemin RFA pour une famille, RVT pour un projet.

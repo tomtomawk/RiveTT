@@ -86,8 +86,8 @@ public class DuplicateFamilyTypeTool : IRiveTTTool
 
             using (var tx = new Transaction(doc!, "RiveTT: Duplicate Family Type"))
             {
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 var newType = source.Duplicate(newName) as FamilySymbol;
                 if (newType == null)

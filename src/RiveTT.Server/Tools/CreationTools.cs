@@ -97,10 +97,10 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_line_based_element"), Description("Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, height?, baseLevel?, baseOffset?}]. Add pMid to make a curved (arc) wall/beam. Coordinates in mm.")]
+    [McpServerTool(Name = "create_line_based_element"), Description("Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?}]. Add pMid to make a curved (arc) wall/beam. Coordinates in mm. baseLevelId (or baseLevel alias) is an element ID; baseOffset is relative to it in mm. Alternatively baseElevationMm is absolute project Z in mm.")]
     public static async Task<string> CreateLineBasedElement(
         RevitConnectionManager revit,
-        [Description("JSON array of specs: [{category, locationLine:{p0, p1, pMid?}, typeId?, height?, baseLevel?, baseOffset?}]")] string specs,
+        [Description("JSON array of specs: [{category, locationLine:{p0, p1, pMid?}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?}]")] string specs,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {

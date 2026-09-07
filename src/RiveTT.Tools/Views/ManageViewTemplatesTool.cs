@@ -13,6 +13,7 @@ namespace RiveTT.Tools.Views;
 /// <summary>
 /// Lists, duplicates, deletes, or renames view templates.
 /// </summary>
+[ReadOnlyActions("list", "list")]
 [ToolSafety(false, true, supportsDryRun: true)]
 public class ManageViewTemplatesTool : IRiveTTTool
 {
@@ -79,8 +80,8 @@ public class ManageViewTemplatesTool : IRiveTTTool
         var results = new List<object>();
         var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Duplicate View Templates");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         foreach (var tid in templateIds)
         {
             var template = doc.GetElement(new ElementId(tid)) as View;
@@ -156,8 +157,8 @@ public class ManageViewTemplatesTool : IRiveTTTool
         }
 
         using var tx = new Transaction(doc, "RiveTT: Delete View Templates");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         int deleted = 0;
         foreach (var tid in templateIds)
         {
@@ -188,8 +189,8 @@ public class ManageViewTemplatesTool : IRiveTTTool
                 new { oldName = template.Name, newName, templateId });
 
         using var tx = new Transaction(doc, "RiveTT: Rename View Template");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         var oldName = template.Name;
         template.Name = newName;
         if (tx.Commit() != TransactionStatus.Committed)

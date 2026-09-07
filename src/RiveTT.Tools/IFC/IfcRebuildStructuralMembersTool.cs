@@ -149,8 +149,8 @@ public class IfcRebuildStructuralMembersTool : IRiveTTTool
                     }
 
                     using var tx = new Transaction(doc!, "RiveTT: Rebuild Column");
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     // H-IFC-ACT: Activate() writes to the document — must run inside the transaction.
                     if (!symbol.IsActive) symbol.Activate();
                     var inst = doc!.Create.NewFamilyInstance(
@@ -238,8 +238,8 @@ public class IfcRebuildStructuralMembersTool : IRiveTTTool
                     }
 
                     using var tx = new Transaction(doc!, "RiveTT: Rebuild Beam");
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     // H-IFC-ACT: Activate() writes to the document — must run inside the transaction.
                     if (!symbol.IsActive) symbol.Activate();
                     var line = Line.CreateBound(profile.StartPoint, profile.EndPoint);

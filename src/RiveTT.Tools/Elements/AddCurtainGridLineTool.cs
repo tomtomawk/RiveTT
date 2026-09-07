@@ -56,8 +56,8 @@ public class AddCurtainGridLineTool : IRiveTTTool
             : new XYZ(offsetFt, 0, 0);
 
         using var tx = new Transaction(doc, "RiveTT: Add Curtain Grid Line");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         try
         {

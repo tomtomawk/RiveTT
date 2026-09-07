@@ -143,8 +143,8 @@ public class IfcRebuildRoofsTool : IRiveTTTool
             try
             {
                 using var tx = new Transaction(doc!, "RiveTT: Rebuild Roof");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 // Convert CurveLoop to CurveArray for NewFootPrintRoof
                 var curveArray = new CurveArray();

@@ -76,8 +76,8 @@ public class CreateAssemblyTool : IRiveTTTool
                 $"Category '{categoryName}' could not be resolved in this document");
 
         using var tx = new Transaction(doc, "RiveTT: Create Assembly");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         AssemblyInstance assembly;
         try
@@ -111,8 +111,8 @@ public class CreateAssemblyTool : IRiveTTTool
                 suggestion: "Only physical, part-eligible model elements (walls, floors, roofs...) qualify.");
 
         using var tx = new Transaction(doc, "RiveTT: Create Parts");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         try
         {

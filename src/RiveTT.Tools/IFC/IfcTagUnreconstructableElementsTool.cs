@@ -82,8 +82,8 @@ public class IfcTagUnreconstructableElementsTool : IRiveTTTool
         var results = new List<object>();
 
         using var tx = new Transaction(doc!, "RiveTT: Tag Unreconstructable");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         foreach (var ds in targets)
         {

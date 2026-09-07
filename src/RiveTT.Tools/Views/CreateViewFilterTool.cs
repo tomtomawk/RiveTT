@@ -86,8 +86,8 @@ public class CreateViewFilterTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No valid categories resolved");
 
         using var tx = new Transaction(doc, "RiveTT: Create View Filter");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         var filter = ParameterFilterElement.Create(doc, filterName, catIds);
 
@@ -226,8 +226,8 @@ public class CreateViewFilterTool : IRiveTTTool
         if (view == null) return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "View not found");
 
         using var tx = new Transaction(doc, "RiveTT: Apply View Filter");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         view.AddFilter(filter.Id);
         view.SetFilterVisibility(filter.Id, isVisible);

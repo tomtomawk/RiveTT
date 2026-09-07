@@ -154,18 +154,18 @@ public class DryRunDeclarationSourceTests
     }
 
     [Fact]
-    public void NoReadOnlyTool_DeclaresDryRun()
+    public void ReadOnlyNavigationPreviews_MustReadTheFlag()
     {
-        // supportsDryRun on a read tool is noise at best: it has nothing to preview, and
-        // the router never stamps a preview for it.
+        // Model-read-only no longer means no UI effect: opening a file or activating
+        // a view may be previewed. The flag must be read, just like a model-write preview.
         var offenders = Tools()
-            .Where(t => t.ReadOnly && t.Declares)
+            .Where(t => t.ReadOnly && t.Declares && !t.Reads)
             .Select(t => t.Class)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToList();
 
         Assert.True(offenders.Count == 0,
-            "Read-only tools cannot preview anything: " + string.Join(", ", offenders));
+            "Navigation tools must honor their declared preview: " + string.Join(", ", offenders));
     }
 
     [Fact]

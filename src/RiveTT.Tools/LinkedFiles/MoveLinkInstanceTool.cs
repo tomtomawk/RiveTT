@@ -68,8 +68,8 @@ public class MoveLinkInstanceTool : IRiveTTTool
 
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Move Link Instance");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             ElementTransformUtils.MoveElement(doc, linkInstance.Id, translation);
             // dryRun keeps the transaction OPEN so the payload below can still read the
             // elements it describes; the rollback happens just before returning.

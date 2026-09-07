@@ -76,9 +76,12 @@ public class FindUntaggedElementsTool : IRiveTTTool
                 foreach (var catToken in categoriesToken)
                 {
                     var catStr = catToken.ToString();
-                    var bic = Utilities.CategoryResolver.Resolve(catStr);
-                    if (bic != null)
-                        builtInCategories.Add(bic.Value);
+                    var categoryId = Utilities.CategoryResolver.ResolveToId(doc, catStr);
+                    if (categoryId == null)
+                        return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                            $"Unknown category: {catStr}",
+                            suggestion: "Use an OST_* code, an English name or the exact localized category name.");
+                    builtInCategories.Add((BuiltInCategory)categoryId.Value);
                 }
                 if (builtInCategories.Count == 0)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
@@ -153,7 +156,8 @@ public class FindUntaggedElementsTool : IRiveTTTool
                             {
                                 elementId = elementIdValue,
                                 name = element.Name,
-                                category = element.Category?.Name ?? "Unknown"
+                                category = element.Category?.Name ?? "Unknown",
+                                categoryBic = Utilities.CategoryResolver.DescribeBuiltInCategory(element.Category)
                             });
                         }
                     }

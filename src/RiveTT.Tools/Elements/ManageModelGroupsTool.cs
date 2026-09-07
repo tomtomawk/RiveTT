@@ -136,8 +136,8 @@ public sealed class ManageModelGroupsTool : IRiveTTTool
             });
 
         using var tx = new Transaction(doc, "RiveTT: Duplicate Model Group Type");
-        var failures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var failures = TransactionFailureHandling.SuppressWarnings(tx);
         var duplicate = type.Duplicate(name!) as GroupType;
         if (duplicate == null)
         {
@@ -185,8 +185,8 @@ public sealed class ManageModelGroupsTool : IRiveTTTool
             return RiveTTResult<object>.Ok(new { dryRun = true, processed = groups.Count, groups = preview });
 
         using var tx = new Transaction(doc, "RiveTT: Ungroup Model Groups");
-        var failures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var failures = TransactionFailureHandling.SuppressWarnings(tx);
         var released = new HashSet<long>();
         var attachedCount = groups.Count(group => group.IsAttached);
         var groupsToUngroup = groups.Where(group => !group.IsAttached).ToList();

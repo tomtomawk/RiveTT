@@ -131,7 +131,15 @@ public sealed class RiveTTApp : IExternalApplication
         return Result.Succeeded;
     }
 
-    private void OnDocumentOpened(object? sender, DocumentOpenedEventArgs args) => BindDocument(args.Document);
+    private void OnDocumentOpened(object? sender, DocumentOpenedEventArgs args)
+    {
+        // OpenDocumentFile/OpenIFCDocument may open a BACKGROUND document. Binding
+        // args.Document sent later MCP writes to it while Revit still showed another
+        // model. The UI is the authority; ViewActivated binds the new target on activation.
+        var active = _uiApplication?.ActiveUIDocument?.Document;
+        if (active != null && _session?.Store.Get<object>("activeDocument") != active)
+            BindDocument(active);
+    }
 
     private void OnDocumentClosing(object? sender, DocumentClosingEventArgs args)
     {
@@ -174,6 +182,12 @@ public sealed class RiveTTApp : IExternalApplication
         var document = e.CurrentActiveView?.Document;
         if (document != null && _session?.Store.Get<object>("activeDocument") != document)
             BindDocument(document);
+        else if (document != null)
+        {
+            // Reads scoped to the active view must also change on manual tab switches.
+            _session?.BumpDocumentVersion();
+            _session?.Cache.InvalidateAll();
+        }
     }
 
     private void BindDocument(Autodesk.Revit.DB.Document? document)

@@ -185,8 +185,8 @@ public sealed class EditGroupMembersTool : IRiveTTTool
             try
             {
                 using var excludeTx = new Transaction(doc, "RiveTT: Exclude Group Members");
-                var excludeFailures = TransactionFailureHandling.SuppressWarnings(excludeTx);
                 excludeTx.Start();
+                var excludeFailures = TransactionFailureHandling.SuppressWarnings(excludeTx);
                 doc.Delete(toExclude.Select(ToolHelpers.ToElementId).ToList());
 
                 if (excludeTx.Commit() != TransactionStatus.Committed)
@@ -265,8 +265,8 @@ public sealed class EditGroupMembersTool : IRiveTTTool
         try
         {
             using var tx = new Transaction(doc, "RiveTT: Edit Group Members");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             // UngroupMembers releases the members of THIS instance only; the type
             // survives if other instances remain.

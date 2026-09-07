@@ -13,6 +13,7 @@ namespace RiveTT.Tools.Views;
 /// <summary>
 /// Lists or deletes views that are not placed on any sheet.
 /// </summary>
+[ReadOnlyActions("list", "list")]
 [ToolSafety(false, true, supportsDryRun: true)]
 public class ManageUnplacedViewsTool : IRiveTTTool
 {
@@ -71,8 +72,8 @@ public class ManageUnplacedViewsTool : IRiveTTTool
                         "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Delete Unplaced Views");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 int deleted = 0;
                 foreach (var v in views)
                 {

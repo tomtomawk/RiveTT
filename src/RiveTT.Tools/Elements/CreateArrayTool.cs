@@ -66,8 +66,8 @@ public class CreateArrayTool : IRiveTTTool
                         "Associative arrays need an active view. Activate a view, or pass associative=false for loose copies.");
 
                 using var atx = new Transaction(doc, "RiveTT: Create Array (associative)");
-                var atxFailures = TransactionFailureHandling.SuppressWarnings(atx);
                 atx.Start();
+                var atxFailures = TransactionFailureHandling.SuppressWarnings(atx);
                 ElementId arrayId;
                 if (arrayType == "radial")
                 {
@@ -105,8 +105,8 @@ public class CreateArrayTool : IRiveTTTool
             }
 
             using var tx = new Transaction(doc, "RiveTT: Create Array");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             if (arrayType == "radial")
             {

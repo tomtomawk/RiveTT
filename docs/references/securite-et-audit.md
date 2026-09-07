@@ -4,7 +4,7 @@
 
 `[ToolSafety(readOnly, destructive, supportsDryRun)]` n'est plus de la métadonnée.
 Depuis 0.4.0, `readOnly` est une **frontière de permission** : `RiveTTRouter.Route`
-refuse tout outil classé `readOnly: false` avec `PermissionDenied` tant que
+refuse tout appel d'écriture avec `PermissionDenied` tant que
 `WriteAccessPolicy.WritesAllowed` est faux, avant le cache et avant le contrôle de
 document ouvert.
 
@@ -96,3 +96,21 @@ sable est la quatrième ligne, pas la première.
 - La journalisation d'audit reste best-effort et ne fait jamais tomber l'appel.
 - Les tests de durcissement du bac à sable restent actifs.
 - Un outil dédié est préféré au code arbitraire.
+
+## Branches de lecture explicites (0.5.0)
+
+`ReadOnlyActionsAttribute` autorise des branches de lecture d'un outil mixte.
+Le défaut et la priorité de l'enveloppe `data` doivent correspondre exactement au
+runtime ; `UseDataEnvelope` est opt-in. Les autres actions restent verrouillées.
+Le routeur calcule `execution.toolReadOnly` sur l'appel. Aucun outil ne touche au
+verrou, et `dryRun` n'accorde aucune permission supplémentaire.
+
+`open_file`, `open_document`, `open_family`, `open_template` et `activate_view`
+sont des commandes de navigation autorisées verrou fermé. La conversion IFC et
+l'instanciation RFT de `open_file` créent des copies temporaires, sans écraser les
+sources. `PathSafety` exige un chemin pleinement qualifié ; seules les lectures
+RFA/RTE/RFT explicitement autorisées peuvent atteindre les bibliothèques sous
+`ProgramData\Autodesk`. Cette exception ne s'applique pas aux sorties.
+
+Installer : le contexte MSIX est refusé avant les écritures d'installation. Les
+copies de serveur virtualisées sont signalées sans suppression automatique.

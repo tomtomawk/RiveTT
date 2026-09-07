@@ -235,8 +235,8 @@ public class ShowCrossModelElementsTool : IRiveTTTool
 
                 using (var tx = new Transaction(doc, "RiveTT: Show Cross Model Elements"))
                 {
-                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                     tx.Start();
+                    var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                     foreach (var marker in pendingMarkers)
                     {

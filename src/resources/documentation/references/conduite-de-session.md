@@ -33,7 +33,7 @@ deux sont indépendants l'un de l'autre.
 | Champ | Ce qu'il dit |
 |---|---|
 | `execution.writesAllowed` | verrou d'écriture de la session — **faux au démarrage de chaque session Revit** |
-| `execution.toolReadOnly` | classe l'outil qui répond, pas la session |
+| `execution.toolReadOnly` | classe l'appel et son action, pas la session |
 | `execution.cached` | réponse servie par le cache, pas une observation fraîche |
 | `execution.versionMismatch` | serveur MCP et plugin de versions différentes — voir `../SKILL.md`, règle 7 |
 | `unresolvedParameterNames` | noms de paramètres non résolus. **Une colonne vide sans ce champ est une vraie valeur vide** |
@@ -82,7 +82,7 @@ chargeables. C'est la confusion la plus fréquente.
 | Cas | Outil | Remarque |
 |---|---|---|
 | Nouveau projet vide | `create_document(templatePath?, targetPath)` | `save_as_document` **duplique** le modèle ouvert, il ne crée pas un projet vide |
-| Ouvrir et activer un fichier | `open_document(filePath)` | change le document actif et vide les caches — enregistrer le courant avant |
+| Ouvrir et activer un fichier | `open_file(filePath)` | change le document actif et vide les caches — enregistrer le courant avant |
 | Ouvrir une famille ou un gabarit | `open_family` / `open_template` | le document actif change |
 | Modifier les valeurs de type d'une famille | `edit_family` | **en arrière-plan, aucune fenêtre ne s'ouvre** |
 | Fermer | `close_document` | fermer le document **actif** exige qu'un autre soit ouvert |
@@ -120,3 +120,23 @@ propres. Lire `hasExcludedMembers` **par instance**, ne pas se fier à la premi�
 - Lire un nombre sans son `unit`, ou une colonne vide comme une valeur vide.
 - Chercher un type système avec `list_family_types` en espérant un `familyName`.
 - Utiliser `save_as_document` pour obtenir un projet vide.
+
+## Navigation MCP en 0.5.0
+
+`open_file(filePath, detachFromCentral=false, dryRun=false)` ouvre et active les
+RVT, RFA et RTE. RFT crée une famille et IFC convertit un projet dans une copie de
+travail sous `%TEMP%\RiveTT\OpenedFiles` : utiliser ensuite `save_as_document`
+pour conserver le résultat dans le dossier du projet. Les sources restent intactes.
+DWG, PDF et images passent par les outils d'import/lien d'un document existant.
+`open_document` conserve son défaut `dryRun=true` et délègue à `open_file`.
+
+`activate_view(viewId, dryRun=false)` active une vue ou feuille du document courant,
+sans transaction. Vérifier l'identifiant rendu puis utiliser la vue cible pour les
+appels suivants. Un gabarit ou une vue interne est refusé.
+
+Ces commandes sont disponibles verrou fermé. Le catalogue
+`get_server_capabilities.commandsAvailableWhenLocked` regroupe les commandes et
+les actions `list`/`get` explicitement autorisées, ainsi que la sélection via
+`manage_view_display(action=select)`. Les autres actions d'écriture restent
+verrouillées. `execution.toolReadOnly` qualifie l'appel et son action ;
+`execution.writesAllowed` décrit toujours le verrou de session.

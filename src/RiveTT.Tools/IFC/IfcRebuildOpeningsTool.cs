@@ -137,8 +137,8 @@ public class IfcRebuildOpeningsTool : IRiveTTTool
             try
             {
                 using var tx = new Transaction(doc!, "RiveTT: Create Opening");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 if (hostElement is Wall wall)
                 {

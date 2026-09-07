@@ -41,8 +41,8 @@ public class CreateTextNoteTool : IRiveTTTool
 
         var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Create Text Notes");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         try
         {

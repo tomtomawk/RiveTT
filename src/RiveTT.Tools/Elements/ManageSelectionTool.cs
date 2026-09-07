@@ -20,6 +20,7 @@ namespace RiveTT.Tools.Elements;
 /// list. elementIds/overwrite apply to save only (elementIds absent = current UI selection).
 /// selectInView applies to load only. dryRun applies to delete only.
 /// </summary>
+[ReadOnlyActions("", "list")]
 [ToolSafety(false, true, supportsDryRun: true)]
 public class ManageSelectionTool : IRiveTTTool
 {
@@ -87,8 +88,8 @@ public class ManageSelectionTool : IRiveTTTool
             var existing = FindByName(doc, name);
 
             using var tx = new Transaction(doc, "RiveTT: Save Selection");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             if (existing != null)
             {
@@ -126,7 +127,8 @@ public class ManageSelectionTool : IRiveTTTool
 
     private static RiveTTResult<object> Load(Document doc, JObject input, bool requireName)
     {
-        var name = input["name"]?.Value<string>();
+        // list ignores load-only parameters and must never change UI selection.
+        var name = requireName ? input["name"]?.Value<string>() : null;
         if (requireName && string.IsNullOrEmpty(name))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "name is required for action=load");
 
@@ -224,8 +226,8 @@ public class ManageSelectionTool : IRiveTTTool
             }
 
             using var tx = new Transaction(doc, "RiveTT: Delete Selection");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             doc.Delete(filter.Id);
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

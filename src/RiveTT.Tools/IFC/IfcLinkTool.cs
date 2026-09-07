@@ -75,8 +75,8 @@ public class IfcLinkTool : IRiveTTTool
             ElementId linkTypeId;
             using (var tx = new Transaction(doc!, "RiveTT: Link IFC"))
             {
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 var linkResult = RevitLinkType.CreateFromIFC(
                     doc!, ifcFilePath, revitFilePath, recreateLink, options);
 
@@ -96,8 +96,8 @@ public class IfcLinkTool : IRiveTTTool
             RevitLinkInstance instance;
             using (var tx2 = new Transaction(doc!, "RiveTT: Place IFC Link"))
             {
-                var txFailures2 = TransactionFailureHandling.SuppressWarnings(tx2);
                 tx2.Start();
+                var txFailures2 = TransactionFailureHandling.SuppressWarnings(tx2);
                 instance = RevitLinkInstance.Create(doc!, linkTypeId);
                 if (tx2.Commit() != TransactionStatus.Committed)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

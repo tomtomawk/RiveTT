@@ -116,8 +116,8 @@ public class CadLinkCleanupTool : IRiveTTTool
                     });
 
             using var tx = new Transaction(doc, "RiveTT: CAD Link Cleanup");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             int deleted = 0;
             foreach (var item in targets)
             {

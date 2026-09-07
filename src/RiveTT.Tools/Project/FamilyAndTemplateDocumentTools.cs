@@ -40,7 +40,7 @@ public static class DocumentFilePathValidation
         // Gated here rather than in each caller: open_family and open_template both come
         // through this helper, and a seventh document tool added later gets the check for
         // free instead of being forgotten the way these two were.
-        if (!PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError))
+        if (!PathSafety.TryResolveSafe(filePath, out var safePath, out var pathError, allowRevitLibraryRead: true))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, pathError,
                 suggestion: "Open the file from the project drive, a share, or a user folder — "
                           + "not from a Windows system folder.");
@@ -63,7 +63,7 @@ public static class DocumentFilePathValidation
 /// activated project family) were measured working on 26/08/2026 (see PLAN_CORRECTION.md
 /// Annex A).
 /// </summary>
-[ToolSafety(false, false, supportsDryRun: true)]
+[ToolSafety(true, false, supportsDryRun: true)]
 public sealed class OpenFamilyTool : IRiveTTTool
 {
     public string Name => "open_family";
@@ -150,7 +150,7 @@ public sealed class OpenFamilyTool : IRiveTTTool
 /// only reads a template to seed a new project, and never edits the template
 /// itself.
 /// </summary>
-[ToolSafety(false, false, supportsDryRun: true)]
+[ToolSafety(true, false, supportsDryRun: true)]
 public sealed class OpenTemplateTool : IRiveTTTool
 {
     public string Name => "open_template";

@@ -87,8 +87,8 @@ public class ApplyViewTemplateTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Apply View Template");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         int applied = 0;
         foreach (var vid in viewIds)
         {
@@ -111,8 +111,8 @@ public class ApplyViewTemplateTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Remove View Template");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         int removed = 0;
         foreach (var vid in viewIds)
         {

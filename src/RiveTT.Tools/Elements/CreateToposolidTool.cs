@@ -67,8 +67,8 @@ public class CreateToposolidTool : IRiveTTTool
         }
 
         using var tx = new Transaction(doc, "RiveTT: Create Toposolid");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         Toposolid toposolid;
         try

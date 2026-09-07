@@ -14,7 +14,7 @@ public static class ElementTools
         [Description("Array of Revit element IDs to query")] long[] elementIds,
         [Description("Include type-level parameters. Default: true")] bool includeTypeParameters = true,
         [Description("Only these parameters, resolved in English or in the document language. Unresolved names are reported in unresolvedParameterNames. JSON array, e.g. [\"A\",\"B\"]")] System.Text.Json.JsonElement? parameterNames = null,
-        [Description("Return compact parameter rows (name+value only) and skip empty params. Default: false")] bool compact = false,
+        [Description("Return compact parameter rows, preserving empty values, units and resolution metadata. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
         var p = new JObject

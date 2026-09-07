@@ -64,8 +64,8 @@ public class CreatePlaceholderSheetsTool : IRiveTTTool
         var results = new List<object>();
         var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Create Placeholder Sheets");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         foreach (var sd in sheetsArray)
         {
@@ -165,8 +165,8 @@ public class CreatePlaceholderSheetsTool : IRiveTTTool
 
         var results = new List<object>();
         using var tx = new Transaction(doc, "RiveTT: Convert Placeholder Sheets");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         foreach (var sid in sheetIds)
         {
@@ -228,8 +228,8 @@ public class CreatePlaceholderSheetsTool : IRiveTTTool
         }
 
         using var tx = new Transaction(doc, "RiveTT: Delete Placeholder Sheets");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         int deleted = 0;
         foreach (var sid in sheetIds)
         {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
@@ -16,6 +16,7 @@ namespace RiveTT.Tools.Annotations;
 /// Verified API: ImageType.Create(Document, ImageTypeOptions), then
 /// ImageInstance.Create(Document, View, ElementId, ImagePlacementOptions).
 /// </summary>
+[ReadOnlyActions("list", "list")]
 [ToolSafety(false, false)]
 public class ManageImagesTool : IRiveTTTool
 {
@@ -96,8 +97,8 @@ public class ManageImagesTool : IRiveTTTool
             : XYZ.Zero;
 
         using var tx = new Transaction(doc, "RiveTT: Place Image");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         ImageType imageType;
         ImageInstance instance;

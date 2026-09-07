@@ -44,8 +44,8 @@ public class CreateKeyScheduleTool : IRiveTTTool
                 suggestion: "Use an OST_* name, an English category name, or the exact localized label");
 
         using var tx = new Transaction(doc, "RiveTT: Create Key Schedule");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         ViewSchedule schedule;
         try

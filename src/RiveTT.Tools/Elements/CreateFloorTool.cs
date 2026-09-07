@@ -180,8 +180,8 @@ public class CreateFloorTool : IRiveTTTool
             }
 
             using var tx = new Transaction(doc, "RiveTT: Create Floor");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             var floor = Floor.Create(doc, loops, floorType.Id, level.Id);
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

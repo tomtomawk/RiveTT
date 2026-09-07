@@ -125,8 +125,8 @@ public sealed class EditFamilyTool : IRiveTTTool
 
             using (var tx = new Transaction(famDoc, "RiveTT: Edit Family Types"))
             {
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 foreach (var (typeName, parameters) in requests)
                 {

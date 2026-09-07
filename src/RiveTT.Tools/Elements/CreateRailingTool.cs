@@ -71,8 +71,8 @@ public sealed class CreateRailingTool : IRiveTTTool
                 });
 
             using var transaction = new Transaction(document, "RiveTT: Create Railing");
-            var failures = TransactionFailureHandling.FromInput(transaction, input);
             transaction.Start();
+            var failures = TransactionFailureHandling.FromInput(transaction, input);
             var railing = Railing.Create(document, curveLoop, railingType.Id, level.Id);
             if (transaction.Commit() != TransactionStatus.Committed)
                 return TransactionFailureHandling.ToFailure(failures,

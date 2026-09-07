@@ -74,8 +74,8 @@ public class TransferParametersTool : IRiveTTTool
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Transfer Parameters");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 results = TransferToTargets(doc, targetIds, sourceValues, includeType);
                 if (tx.Commit() != TransactionStatus.Committed)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

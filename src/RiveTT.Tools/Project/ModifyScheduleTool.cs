@@ -70,8 +70,8 @@ public class ModifyScheduleTool : IRiveTTTool
             var dryRun = ToolHelpers.GetDryRun(input);
 
             using var tx = new Transaction(doc, "RiveTT: Modify Schedule");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             var result = normalizedAction switch
             {

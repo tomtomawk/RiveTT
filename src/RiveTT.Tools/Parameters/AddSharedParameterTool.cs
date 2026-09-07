@@ -124,8 +124,8 @@ public class AddSharedParameterTool : IRiveTTTool
                 : (ElementBinding)app.Create.NewTypeBinding(categorySet);
 
             using var tx = new Transaction(doc, "RiveTT: Add Shared Parameter");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             try
             {

@@ -41,21 +41,55 @@ public class CreateDimensionsTool : IRiveTTTool
 
         var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Create Dimensions");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         try
         {
             foreach (var dimSpec in dimensions)
             {
+                using var itemTx = new SubTransaction(doc);
+                var itemIds = new List<long>();
+                var itemWarnings = new List<string>();
                 try
                 {
-                    CreateSingleDimension(doc, (JObject)dimSpec, createdIds, warnings);
+                    itemTx.Start();
+                    CreateSingleDimension(doc, (JObject)dimSpec, itemIds, itemWarnings);
+                    if (itemIds.Count == 0)
+                        throw new InvalidOperationException(string.Join("; ", itemWarnings));
+                    doc.Regenerate();
+                    foreach (var id in itemIds)
+                    {
+                        var dim = doc.GetElement(new ElementId(id)) as Dimension;
+                        if (dim == null || !dim.IsValidObject || !dim.AreReferencesAvailable)
+                            throw new InvalidOperationException("Dimension references could not be resolved after regeneration.");
+                        var values = dim.NumberOfSegments == 0
+                            ? new double?[] { dim.Value }
+                            : dim.Segments.Cast<DimensionSegment>().Select(segment => segment.Value).ToArray();
+                        if (!DimensionMeasurementValidation.IsValid(values))
+                            throw new InvalidOperationException("Revit produced a non-positive or invalid dimension. Check reference alignment or use startPoint/endPoint.");
+                        var ownerView = doc.GetElement(dim.OwnerViewId) as View;
+                        if (ownerView == null) throw new InvalidOperationException("Dimension has no owner view.");
+                        itemWarnings.AddRange(ViewCropDiagnostics.Inspect(ownerView, dim));
+                    }
+                    if (itemTx.Commit() != TransactionStatus.Committed)
+                        throw new InvalidOperationException("Revit rolled back the dimension.");
+                    createdIds.AddRange(itemIds);
+                    warnings.AddRange(itemWarnings);
                 }
                 catch (Exception ex)
                 {
-                    warnings.Add($"Failed to create dimension: {ex.Message}");
+                    if (itemTx.GetStatus() == TransactionStatus.Started) itemTx.RollBack();
+                    warnings.Add($"Dimension {dimensions.IndexOf(dimSpec)} rolled back with its supporting lines: {ex.Message}");
                 }
+            }
+            if (createdIds.Count == 0)
+            {
+                tx.RollBack();
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                    "No valid dimension was created. All attempts and supporting lines were rolled back.",
+                    suggestion: "Check the reported references or use point-to-point dimensions.",
+                    context: new Dictionary<string, object> { ["warnings"] = warnings, ["modelChanged"] = false });
             }
             // dryRun keeps the transaction OPEN so the payload below can still read the
             // elements it describes; the rollback happens just before returning.
@@ -64,10 +98,11 @@ public class CreateDimensionsTool : IRiveTTTool
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
         }
-        catch
+        catch (Exception ex)
         {
             if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
-            throw;
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                $"create_dimensions could not complete: {ex.Message}", suggestion: "Check the target view and references before retrying.");
         }
 
         if (dryRun)
@@ -79,7 +114,6 @@ public class CreateDimensionsTool : IRiveTTTool
                 new
         {
             createdCount = createdIds.Count,
-            createdDimensionIds = createdIds,
             warnings
         });
         }
@@ -106,7 +140,7 @@ public class CreateDimensionsTool : IRiveTTTool
             view = doc.ActiveView;
         }
 
-        if (view == null)
+        if (view == null || view.IsTemplate || view is View3D || view is ViewSchedule || view is ViewSheet)
         {
             warnings.Add("Could not resolve target view");
             return;
@@ -153,7 +187,9 @@ public class CreateDimensionsTool : IRiveTTTool
                 warnings.Add($"Element {eid} not found, skipping");
                 continue;
             }
-            resolved.Add((eid, elem, GetElementCenter(elem)));
+            var centre = GetElementCenter(elem);
+            centre -= view.ViewDirection * view.ViewDirection.DotProduct(centre - view.Origin);
+            resolved.Add((eid, elem, centre));
         }
 
         if (resolved.Count < 2)
@@ -175,6 +211,8 @@ public class CreateDimensionsTool : IRiveTTTool
         }
         var dir = span.Normalize();
 
+        if (resolved.Count != elementIds.Count || resolved.Select(r => r.Id).Distinct().Count() != resolved.Count)
+            throw new ArgumentException("Every elementIds entry must resolve to a distinct element.");
         var refs = new ReferenceArray();
         for (var i = 0; i < resolved.Count; i++)
         {
@@ -190,13 +228,12 @@ public class CreateDimensionsTool : IRiveTTTool
             var othersCentre = resolved.Where((_, j) => j != i)
                 .Aggregate(XYZ.Zero, (acc, r) => acc + r.Centre) / (resolved.Count - 1);
             var toOthers = othersCentre - centre;
-            var faceDirection = toOthers.GetLength() > 1e-9 ? toOthers.Normalize() : dir;
+            var faceDirection = toOthers.DotProduct(dir) < 0 ? -dir : dir;
 
             var reference = GetBestReference(elem, view, faceDirection);
             if (reference == null)
             {
-                warnings.Add($"Cannot find dimensionable reference for element {eid}");
-                continue;
+                throw new ArgumentException($"Element {eid} has no planar reference perpendicular to the measurement direction. Use aligned elements or startPoint/endPoint.");
             }
             refs.Append(reference);
         }
@@ -223,6 +260,7 @@ public class CreateDimensionsTool : IRiveTTTool
             linePoint = mid + view.UpDirection * (2000.0 / MmPerFoot);
         }
 
+        linePoint -= view.ViewDirection * view.ViewDirection.DotProduct(linePoint - view.Origin);
         // A bound line along the measurement direction, through the offset point, long
         // enough to cover the span with a margin. It used to extend `dir * 1000` each way
         // — Revit works in FEET, so that was a 610 m dimension line.
@@ -248,8 +286,8 @@ public class CreateDimensionsTool : IRiveTTTool
             if (dimensionStyleId > 0)
             {
                 var styleElem = doc.GetElement(new ElementId(dimensionStyleId));
-                if (styleElem is DimensionType dt)
-                    dim.DimensionType = dt;
+                if (styleElem is not DimensionType dt) throw new ArgumentException("dimensionStyleId is not a dimension type.");
+                dim.DimensionType = dt;
             }
         }
     }
@@ -278,9 +316,12 @@ public class CreateDimensionsTool : IRiveTTTool
         // The anchor tick must ALSO lie in the view plane. It used to run along
         // XYZ.BasisZ, which is perpendicular to a plan view's plane — Revit rejected
         // every point-to-point dimension with "Curve must be in the plane", at any z.
-        // UpDirection is in-plane by construction, and perpendicular to a horizontal
-        // measurement, which is where a witness line belongs.
-        var tick = view.UpDirection.Multiply(10.0 / MmPerFoot);
+        // Witness lines stay in-plane and perpendicular to the measurement,
+        // including vertical and diagonal dimensions.
+        if ((p1 - p0).GetLength() < 1e-6)
+            throw new ArgumentException("Points coincide after projection into the view plane.");
+        var measurementDirection = (p1 - p0).Normalize();
+        var tick = normal.CrossProduct(measurementDirection).Normalize() * (10.0 / MmPerFoot);
 
         var detailLine1 = doc.Create.NewDetailCurve(view, Line.CreateBound(p0, p0 + tick));
         var detailLine2 = doc.Create.NewDetailCurve(view, Line.CreateBound(p1, p1 + tick));
@@ -304,7 +345,9 @@ public class CreateDimensionsTool : IRiveTTTool
                 // which is 6.56 feet, not the 2 it looked like.
                 : (p0 + p1) / 2.0 + view.UpDirection * (2000.0 / MmPerFoot);
 
-            var dimLine = Line.CreateBound(p0, p1);
+            linePoint -= normal * normal.DotProduct(linePoint - view.Origin);
+            var half = (p1 - p0).GetLength() / 2 + 500.0 / MmPerFoot;
+            var dimLine = Line.CreateBound(linePoint - measurementDirection * half, linePoint + measurementDirection * half);
             var dim = doc.Create.NewDimension(view, dimLine, refs);
             if (dim != null)
             {
@@ -316,8 +359,8 @@ public class CreateDimensionsTool : IRiveTTTool
                 if (dimensionStyleId > 0)
                 {
                     var styleElem = doc.GetElement(new ElementId(dimensionStyleId));
-                    if (styleElem is DimensionType dt)
-                        dim.DimensionType = dt;
+                    if (styleElem is not DimensionType dt) throw new ArgumentException("dimensionStyleId is not a dimension type.");
+                    dim.DimensionType = dt;
                 }
             }
             else
@@ -361,50 +404,30 @@ public class CreateDimensionsTool : IRiveTTTool
         if (geom == null) return null;
 
         Reference? best = null;
-        var bestScore = -1.0;
-        Reference? fallback = null;
-
-        void Consider(Solid solid)
+        var bestScore = double.NegativeInfinity;
+        void Visit(GeometryElement? part, Transform transform)
         {
-            foreach (Face face in solid.Faces)
+            if (part == null) return;
+            foreach (var obj in part)
             {
-                if (face.Reference == null) continue;
-                fallback ??= face.Reference;
-
-                // Only a planar face has a single meaningful normal; a curved one cannot
-                // be dimensioned to reliably.
-                if (face is not PlanarFace planar) continue;
-
-                var score = planar.FaceNormal.DotProduct(direction);
-                if (score > bestScore)
+                if (obj is Solid solid)
                 {
-                    bestScore = score;
-                    best = face.Reference;
+                    foreach (Face face in solid.Faces)
+                    {
+                        if (face is not PlanarFace planar || face.Reference == null) continue;
+                        var score = transform.OfVector(planar.FaceNormal).Normalize().DotProduct(direction);
+                        if (Math.Abs(score) < 1 - 1e-6 || score <= bestScore) continue;
+                        bestScore = score;
+                        best = face.Reference;
+                    }
                 }
+                else if (obj is GeometryInstance instance)
+                    // Keep original references; GetInstanceGeometry returns unusable copies.
+                    Visit(instance.GetSymbolGeometry(), transform.Multiply(instance.Transform));
             }
         }
-
-        foreach (var obj in geom)
-        {
-            if (obj is Solid solid)
-            {
-                Consider(solid);
-            }
-            else if (obj is Line line && line.Reference != null)
-            {
-                fallback ??= line.Reference;
-            }
-            else if (obj is GeometryInstance gi)
-            {
-                foreach (var innerObj in gi.GetInstanceGeometry())
-                    if (innerObj is Solid innerSolid)
-                        Consider(innerSolid);
-            }
-        }
-
-        // A face roughly perpendicular to the measurement is not worth returning as if it
-        // were a choice; below ~30 degrees off-axis the dimension is meaningless anyway.
-        return bestScore > 0.5 ? best : (best ?? fallback);
+        Visit(geom, Transform.Identity);
+        return best;
     }
 
     private static XYZ GetElementCenter(Element elem)

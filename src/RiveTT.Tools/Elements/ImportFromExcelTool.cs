@@ -80,8 +80,8 @@ public class ImportFromExcelTool : IRiveTTTool
             if (!dryRun)
             {
                 using var tx = new Transaction(doc, "RiveTT: Import From Excel");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 for (int row = 2; row <= lastRow; row++)
                 {

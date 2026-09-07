@@ -60,8 +60,8 @@ public class AddCurtainMullionsTool : IRiveTTTool
             : grid.GetUGridLineIds().Concat(grid.GetVGridLineIds());
 
         using var tx = new Transaction(doc, "RiveTT: Add Curtain Mullions");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         var addedCount = 0;
         var warnings = new List<string>();

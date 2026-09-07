@@ -71,8 +71,8 @@ public class WorkflowClashReviewTool : IRiveTTTool
             if (createSectionBox && clashes.Count > 0 && minPt != null && maxPt != null)
             {
                 using var tx = new Transaction(doc, "RiveTT: Clash Review Section Box");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 var vft = new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
                     .FirstOrDefault(v => v.ViewFamily == ViewFamily.ThreeDimensional);
                 if (vft != null)

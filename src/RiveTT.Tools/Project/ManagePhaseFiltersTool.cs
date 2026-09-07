@@ -26,6 +26,7 @@ namespace RiveTT.Tools.Project;
 ///   ShowOverriden  (also accepted: Overridden, Overriden)
 ///   DontShow       (also accepted: NotDisplayed, None, Hidden)
 /// </summary>
+[ReadOnlyActions("list", "list")]
 [ToolSafety(false, false)]
 public class ManagePhaseFiltersTool : IRiveTTTool
 {
@@ -133,8 +134,8 @@ public class ManagePhaseFiltersTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Modify Phase Filter");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         filter.SetPhaseStatusPresentation(statusEnum, presentationEnum);
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -184,8 +185,8 @@ public class ManagePhaseFiltersTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Create Phase Filter");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         var created = PhaseFilter.Create(doc, name!);
         created.SetPhaseStatusPresentation(ElementOnPhaseStatus.New,        newP);
         created.SetPhaseStatusPresentation(ElementOnPhaseStatus.Existing,   exP);

@@ -121,8 +121,8 @@ public class PurgeUnusedTool : IRiveTTTool
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Purge Unused");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 int deletedTypes = 0, deletedMaterials = 0, deletedTemplates = 0, deletedFilters = 0;
 
                 // Accumulate per-item delete failures instead of swallowing them silently:

@@ -14,6 +14,7 @@ namespace RiveTT.Tools.Parameters;
 /// <summary>
 /// Lists, creates, deletes, or modifies project parameters.
 /// </summary>
+[ReadOnlyActions("list", "list")]
 [ToolSafety(false, true, supportsDryRun: true)]
 public class ManageProjectParametersTool : IRiveTTTool
 {
@@ -173,8 +174,8 @@ public class ManageProjectParametersTool : IRiveTTTool
             bool inserted;
             using (var tx = new Transaction(doc, "RiveTT: Create Project Parameter"))
             {
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 inserted = doc.ParameterBindings.Insert(definition, binding);
                 if (tx.Commit() != TransactionStatus.Committed)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -251,8 +252,8 @@ public class ManageProjectParametersTool : IRiveTTTool
 
         using (var tx = new Transaction(doc, "RiveTT: Delete Project Parameter"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             if (isShared)
             {
@@ -380,8 +381,8 @@ public class ManageProjectParametersTool : IRiveTTTool
 
         using (var tx = new Transaction(doc, "RiveTT: Change Parameter Binding Type"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             var freshMap = doc.ParameterBindings;
             freshMap.Remove(targetDef);
             bool inserted = group != null
@@ -580,8 +581,8 @@ public class ManageProjectParametersTool : IRiveTTTool
         // then mutating via the same reference silently fails. ReInsert against a built-in
         // Revit-owned parameter (e.g. 'Material') returns false by design.
         using var tx = new Transaction(doc, "RiveTT: Modify Project Parameter");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         var freshMap = doc.ParameterBindings;
         bool persistReInsert = freshMap.ReInsert(targetDef, newBinding);
         if (tx.Commit() != TransactionStatus.Committed)
@@ -709,8 +710,8 @@ public class ManageProjectParametersTool : IRiveTTTool
 
         using (var tx = new Transaction(doc, "RiveTT: Set Parameter Group"))
         {
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             foreach (var def in modifiable)
             {
                 var fromGroup = def.GetGroupTypeId()?.TypeId ?? "";

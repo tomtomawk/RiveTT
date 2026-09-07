@@ -168,8 +168,8 @@ public class IfcRebuildFamilyInstancesTool : IRiveTTTool
             try
             {
                 using var tx = new Transaction(doc!, "RiveTT: Place Family Instance");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 // H-IFC-ACT: Activate() writes to the document — must run inside the transaction.
                 if (!symbol.IsActive) symbol.Activate();
 

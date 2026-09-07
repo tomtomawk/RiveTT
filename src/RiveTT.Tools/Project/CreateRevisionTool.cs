@@ -87,8 +87,8 @@ public class CreateRevisionTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, curveError);
 
         using var tx = new Transaction(doc, "RiveTT: Create Revision Cloud");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         RevisionCloud cloud;
         try
@@ -148,8 +148,8 @@ public class CreateRevisionTool : IRiveTTTool
         var issuedTo = input["issuedTo"]?.Value<string>();
 
         using var tx = new Transaction(doc, "RiveTT: Create Revision");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         var revision = Revision.Create(doc);
         if (!string.IsNullOrEmpty(date)) revision.RevisionDate = date;
@@ -185,8 +185,8 @@ public class CreateRevisionTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"Revision {revisionIdLong} not found");
 
         using var tx = new Transaction(doc, "RiveTT: Update Revision");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         var date = input["date"]?.Value<string>();
         var description = input["description"]?.Value<string>();
@@ -255,8 +255,8 @@ public class CreateRevisionTool : IRiveTTTool
         }
 
         using var tx = new Transaction(doc, "RiveTT: Add Revision to Sheets");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         int updatedCount = 0;
         foreach (var sid in sheetIds)

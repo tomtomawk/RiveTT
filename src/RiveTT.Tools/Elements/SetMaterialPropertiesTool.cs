@@ -46,8 +46,8 @@ public class SetMaterialPropertiesTool : IRiveTTTool
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Set Material Properties");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 foreach (var req in requests)
                 {

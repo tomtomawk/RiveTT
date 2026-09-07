@@ -222,8 +222,8 @@ public class CreatePointBasedElementTool : IRiveTTTool
         }
 
         using var tx = new Transaction(doc, "RiveTT: Create Point-Based Element");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         try
         {
             if (!symbol.IsActive)

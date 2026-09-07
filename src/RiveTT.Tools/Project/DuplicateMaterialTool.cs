@@ -67,8 +67,8 @@ public class DuplicateMaterialTool : IRiveTTTool
 
             using (var tx = new Transaction(doc, "RiveTT: Duplicate Material"))
             {
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 newMatId = Material.Create(doc, newName);
                 var newMat = doc.GetElement(newMatId) as Material;

@@ -37,7 +37,7 @@ Pour la signature d'un outil : l'attribut `[McpServerTool]` correspondant dans
 
 Tout succès porte `execution.{connector, pluginVersion, mcpServerVersion,
 revitVersion, mode, toolReadOnly, toolDestructive, writesAllowed, cached}`.
-`toolReadOnly` classe l'outil, pas la session ; `writesAllowed` est le verrou de
+`toolReadOnly` classe l'appel et son action, pas la session ; `writesAllowed` est le verrou de
 session. Les anciens noms `readOnly`/`destructive` n'existent plus, et
 `serverVersion` non plus : il était lu sur le plugin, ce qui rendait invisible une
 mise à jour appliquée à moitié.
@@ -50,3 +50,7 @@ même information arrive dans `error.context`.
 
 Les descriptions se corrigent directement sur les attributs `[McpServerTool]`,
 puis `python tools/audit-tool-surface.py` régénère l'inventaire.
+
+En 0.5.0, consulter aussi `get_server_capabilities.commandsAvailableWhenLocked`
+pour grouper les commandes autorisées verrou fermé. Les outils mixtes y publient
+leurs actions de lecture ; leur classement global reste celui d'un outil d'écriture.

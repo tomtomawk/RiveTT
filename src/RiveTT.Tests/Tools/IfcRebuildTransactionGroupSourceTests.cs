@@ -45,7 +45,7 @@ public class IfcRebuildTransactionGroupSourceTests
     {
         var src = ReadTool(file);
         // Every Activate site carries the marker and sits right after tx.Start().
-        var marked = Regex.Matches(src, @"tx\.Start\(\);\s*\r?\n\s*// H-IFC-ACT");
+        var marked = Regex.Matches(src, @"tx\.Start\(\);\s*var txFailures = TransactionFailureHandling\.SuppressWarnings\(tx\);\s*// H-IFC-ACT");
         Assert.Equal(expectedSites, marked.Count);
         // Every Activate in the file is one of the marked (inside-tx) sites — none
         // may remain in the old before-the-Transaction form.

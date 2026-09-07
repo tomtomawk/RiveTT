@@ -26,7 +26,7 @@ diverger.
    par cible, il n'est pas multi-cible.
 5. Ne pas toucher à l'isolation par canal nommé, au journal d'audit, aux erreurs
    structurées ni au bac à sable Roslyn.
-6. `execution.toolReadOnly` classe **l'outil qui a répondu**, ce n'est pas un verrou de
+6. `execution.toolReadOnly` classe **l'appel et son action**, ce n'est pas un verrou de
    session. Le verrou de session, c'est `execution.writesAllowed` : chaque session
    Revit démarre en lecture seule, et seul un humain la déverrouille depuis le panneau
    RiveTT du ruban (onglet Compléments). Sur un `PermissionDenied` avec
@@ -82,3 +82,23 @@ dépôt, pas du poste de travail : ces références **ne sont pas installées**.
 clone, elles sont sous `docs/references/` — `nouvel-outil.md`,
 `contrats-et-erreurs.md`, `outils-dynamiques-et-capacites.md`, `securite-et-audit.md`,
 `checklist-release.md` — et `AGENTS.md` à la racine se lit en premier.
+
+## Navigation MCP en 0.5.0
+
+`open_file(filePath, detachFromCentral=false, dryRun=false)` ouvre et active les
+RVT, RFA et RTE. RFT crée une famille et IFC convertit un projet dans une copie de
+travail sous `%TEMP%\RiveTT\OpenedFiles` : utiliser ensuite `save_as_document`
+pour conserver le résultat dans le dossier du projet. Les sources restent intactes.
+DWG, PDF et images passent par les outils d'import/lien d'un document existant.
+`open_document` conserve son défaut `dryRun=true` et délègue à `open_file`.
+
+`activate_view(viewId, dryRun=false)` active une vue ou feuille du document courant,
+sans transaction. Vérifier l'identifiant rendu puis utiliser la vue cible pour les
+appels suivants. Un gabarit ou une vue interne est refusé.
+
+Ces commandes sont disponibles verrou fermé. Le catalogue
+`get_server_capabilities.commandsAvailableWhenLocked` regroupe les commandes et
+les actions `list`/`get` explicitement autorisées, ainsi que la sélection via
+`manage_view_display(action=select)`. Les autres actions d'écriture restent
+verrouillées. `execution.toolReadOnly` qualifie l'appel et son action ;
+`execution.writesAllowed` décrit toujours le verrou de session.

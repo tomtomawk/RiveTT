@@ -87,8 +87,8 @@ public class CreateStructuralFramingSystemTool : IRiveTTTool
                 };
 
                 using var btx = new Transaction(doc, "RiveTT: Create Beam System");
-                var btxFailures = TransactionFailureHandling.SuppressWarnings(btx);
                 btx.Start();
+                var btxFailures = TransactionFailureHandling.SuppressWarnings(btx);
                 if (!beamType.IsActive) beamType.Activate();
                 // direction = beam run direction (along Y); is3D = false (planar).
                 var bs = BeamSystem.Create(doc, profile, level, XYZ.BasisY, false);
@@ -122,8 +122,8 @@ public class CreateStructuralFramingSystemTool : IRiveTTTool
             }
 
             using var tx = new Transaction(doc, "RiveTT: Create Structural Framing System");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             if (!beamType.IsActive) beamType.Activate();
 

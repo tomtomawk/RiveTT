@@ -40,6 +40,9 @@ public class RiveTTSession
     /// </summary>
     public (int Previewing, int Writing) DryRunCoverage { get; set; }
 
+    /// <summary>Registered navigation/query tools and explicit read branches; survives document switches.</summary>
+    public object[] CommandsAvailableWhenLocked { get; set; } = Array.Empty<object>();
+
     /// <summary>
     /// Tool-result cache. Always non-null. Plugin wires invalidation to Revit
     /// document events; in tests a default cache is created automatically.

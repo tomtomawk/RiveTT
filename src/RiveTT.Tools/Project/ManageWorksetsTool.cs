@@ -80,8 +80,8 @@ public class ManageWorksetsTool : IRiveTTTool
                 new { action = "create", name });
 
         using var tx = new Transaction(doc, "RiveTT: Create Workset");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         var workset = Workset.Create(doc, name);
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -116,8 +116,8 @@ public class ManageWorksetsTool : IRiveTTTool
                 $"DryRun: would rename the workset '{oldName}' to '{newName}'.",
                 new { action = "rename", worksetId = workset.Id.IntegerValue, oldName, newName });
         using var tx = new Transaction(doc, "RiveTT: Rename Workset");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         WorksetTable.RenameWorkset(doc, workset.Id, newName);
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -165,8 +165,8 @@ public class ManageWorksetsTool : IRiveTTTool
                 });
         }
         using var tx = new Transaction(doc, "RiveTT: Delete Workset");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         var settings = new DeleteWorksetSettings(DeleteWorksetOption.MoveElementsToWorkset, fallback.Id);
         WorksetTable.DeleteWorkset(doc, workset.Id, settings);
         if (tx.Commit() != TransactionStatus.Committed)

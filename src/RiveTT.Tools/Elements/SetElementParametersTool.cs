@@ -87,8 +87,8 @@ public class SetElementParametersTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Set Parameters");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         try
         {

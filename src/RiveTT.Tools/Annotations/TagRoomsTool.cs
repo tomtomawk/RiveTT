@@ -33,8 +33,7 @@ public class TagRoomsTool : IRiveTTTool
 
         try
         {
-            // viewId when given, active view otherwise: nothing in the MCP surface can
-            // activate a view, so tagging used to require a human to switch tabs first.
+            // Explicit viewId or the current view selected with activate_view.
             var view = ToolHelpers.ResolveTargetView(doc, input, out var viewError);
             if (view == null) return viewError!;
 
@@ -76,8 +75,8 @@ public class TagRoomsTool : IRiveTTTool
 
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Tag Rooms");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             foreach (var room in rooms)
             {
@@ -98,6 +97,8 @@ public class TagRoomsTool : IRiveTTTool
                     if (tag != null)
                     {
                         tag.HasLeader = useLeader;
+                        doc.Regenerate();
+                        warnings.AddRange(ViewCropDiagnostics.Inspect(view, tag));
                         taggedCount++;
                     }
                 }

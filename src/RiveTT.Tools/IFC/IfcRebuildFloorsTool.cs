@@ -148,8 +148,8 @@ public class IfcRebuildFloorsTool : IRiveTTTool
             try
             {
                 using var tx = new Transaction(doc!, "RiveTT: Rebuild Floor");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 var curveLoops = new List<CurveLoop> { footprint };
                 var newFloor = Floor.Create(doc!, curveLoops, floorType.Id, level.Id);

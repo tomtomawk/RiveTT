@@ -101,8 +101,8 @@ public class CreateFilledRegionTool : IRiveTTTool
 
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Create Filled Region");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             var region = FilledRegion.Create(doc, regionType.Id, view.Id, loops);
             // Built BEFORE the rollback: afterwards the elements this describes no longer
             // exist and reading a name off one throws. Captured verbatim from the real

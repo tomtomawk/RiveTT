@@ -84,7 +84,7 @@ public class GetElementParametersTool : IRiveTTTool
                         continue;
                     }
 
-                    parameters.Add(ExtractParameter(parameter, isType: false, requested, matchedBy));
+                    parameters.Add(ExtractParameter(parameter, isType: parameter.Element is ElementType, requested, matchedBy));
                 }
             }
             else

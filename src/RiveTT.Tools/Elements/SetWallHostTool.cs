@@ -46,8 +46,8 @@ public sealed class SetWallHostTool : IRiveTTTool
         try
         {
             using var transaction = new Transaction(document, "RiveTT: Set Wall Host");
-            var failures = TransactionFailureHandling.FromInput(transaction, input);
             transaction.Start();
+            var failures = TransactionFailureHandling.FromInput(transaction, input);
             var hostId = hostWallId > 0 ? ToolHelpers.ToElementId(hostWallId) : ElementId.InvalidElementId;
             wall.SetHostWallId(hostId);
             var offset = wall.get_Parameter(BuiltInParameter.WALL_OFFSET_FROM_HOST);

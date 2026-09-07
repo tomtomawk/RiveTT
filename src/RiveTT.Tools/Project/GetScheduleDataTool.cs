@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Project;
 
@@ -29,6 +30,8 @@ public class GetScheduleDataTool : IRiveTTTool
 
         var scheduleId = input["scheduleId"]?.Value<long>() ?? 0;
         var maxRows    = input["maxRows"]?.Value<int>() ?? 500;
+        if (maxRows < 0)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "maxRows must be non-negative.");
         // availableFields is independent of maxRows and ran into hundreds of entries,
         // so a 10-row request still blew past the client's output limit. Opt-in now;
         // list_schedulable_fields is the dedicated tool for it.
@@ -91,24 +94,48 @@ public class GetScheduleDataTool : IRiveTTTool
         for (int i = 0; i < definition.GetFieldCount(); i++)
         {
             var field = definition.GetField(i);
-            headers.Add(field.GetName());
+            if (!field.IsHidden) headers.Add(field.ColumnHeading);
         }
 
         // Table rows
         var tableData = schedule.GetTableData();
         var bodySection = tableData.GetSectionData(SectionType.Body);
-        int rowCount = bodySection.NumberOfRows;
+        int rawBodyRowCount = bodySection.NumberOfRows;
         int colCount = bodySection.NumberOfColumns;
 
         var rows = new List<List<string>>();
+        var skippedFields = new List<object>();
         int startRow = bodySection.FirstRowNumber;
-        for (int r = startRow; r < rowCount && rows.Count < maxRows; r++)
+        // Column headings are text cells in Body on ordinary schedules. Skip only
+        // the matching leading text row; never delete a matching parameter-data row.
+        var headerRowsSkipped = 0;
+        if (rawBodyRowCount > 0 && definition.ShowHeaders && colCount == headers.Count)
+        {
+            var firstRow = new List<string>();
+            var textCells = new List<bool>();
+            for (int c = bodySection.FirstColumnNumber; c <= bodySection.LastColumnNumber; c++)
+            {
+                firstRow.Add(schedule.GetCellText(SectionType.Body, startRow, c));
+                textCells.Add(bodySection.GetCellType(startRow, c) == CellType.Text);
+            }
+            if (ScheduleRowClassification.IsColumnHeading(headers, firstRow, textCells))
+            {
+                startRow++;
+                headerRowsSkipped = 1;
+            }
+        }
+        int rowCount = rawBodyRowCount - headerRowsSkipped;
+        for (int r = startRow; r <= bodySection.LastRowNumber && rows.Count < maxRows; r++)
         {
             var row = new List<string>();
-            for (int c = 0; c < colCount; c++)
+            for (int c = bodySection.FirstColumnNumber; c <= bodySection.LastColumnNumber; c++)
             {
                 try { row.Add(schedule.GetCellText(SectionType.Body, r, c)); }
-                catch { row.Add(""); }
+                catch (Exception ex)
+                {
+                    row.Add("");
+                    skippedFields.Add(new { row = r, column = c, reason = ex.Message });
+                }
             }
             rows.Add(row);
         }
@@ -136,8 +163,11 @@ public class GetScheduleDataTool : IRiveTTTool
             rows,
             fieldCount      = headers.Count,
             rowCount,
+            rawBodyRowCount,
+            headerRowsSkipped,
+            skippedFields,
             returnedRows    = rows.Count,
-            truncated       = rowCount - bodySection.FirstRowNumber > rows.Count,
+            truncated       = rowCount > rows.Count,
             availableFieldCount = schedulableFields.Count,
             availableFields
         });

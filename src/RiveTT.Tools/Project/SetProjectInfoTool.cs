@@ -42,8 +42,8 @@ public class SetProjectInfoTool : IRiveTTTool
         {
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Set Project Info");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             ApplyString(input, "projectName",              v => info.Name = v,                    changed, "projectName");
             ApplyString(input, "projectNumber",            v => info.Number = v,                  changed, "projectNumber");

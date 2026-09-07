@@ -94,7 +94,7 @@ public class ToolResponseShaperTests
     }
 
     [Fact]
-    public void ShapeGetElementParametersCompact_KeepsNameValueAndDropsEmptyParams()
+    public void ShapeGetElementParametersCompact_PreservesEmptyParamsAndTheirMeaning()
     {
         var payload = JObject.Parse("""
         {
@@ -121,17 +121,19 @@ public class ToolResponseShaperTests
         Assert.Equal("Doors", element["category"]!.Value<string>());
 
         var parameters = (JArray)element["parameters"]!;
-        Assert.Equal(2, parameters.Count);
+        Assert.Equal(3, parameters.Count);
 
         Assert.Equal("Comments", parameters[0]!["name"]!.Value<string>());
         Assert.Equal("entry", parameters[0]!["value"]!.Value<string>());
-        Assert.Null(parameters[0]!["hasValue"]);
-        Assert.Null(parameters[0]!["isReadOnly"]);
+        Assert.True(parameters[0]!["hasValue"]!.Value<bool>());
+        Assert.False(parameters[0]!["isReadOnly"]!.Value<bool>());
         Assert.Null(parameters[0]!["isShared"]);
-        Assert.Null(parameters[0]!["storageType"]);
+        Assert.Equal("String", parameters[0]!["storageType"]!.Value<string>());
         Assert.Null(parameters[0]!["groupName"]);
 
-        Assert.Equal("[Type] Width", parameters[1]!["name"]!.Value<string>());
+        Assert.Equal("Mark", parameters[1]!["name"]!.Value<string>());
+        Assert.False(parameters[1]!["hasValue"]!.Value<bool>());
+        Assert.Equal("[Type] Width", parameters[2]!["name"]!.Value<string>());
     }
 
     [Fact]

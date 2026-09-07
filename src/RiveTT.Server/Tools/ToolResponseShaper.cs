@@ -87,16 +87,19 @@ public static class ToolResponseShaper
 
     private static JToken ShapeGetElementParameters(JToken payload)
     {
+        if (payload is not JObject original || original["elements"] is not JArray sourceElements
+            || sourceElements.Any(e => e is not JObject || e["parameters"] is not JArray))
+            return payload;
         var elements = payload["elements"]?.Children<JObject>().Select(el =>
         {
-            var parameters = el["parameters"]?.Children<JObject>()
-                .Where(p => p["hasValue"]?.Value<bool>() == true)
-                .Select(p => new JObject
-                {
-                    ["name"] = p["name"],
-                    ["value"] = p["value"]
-                })
-                .ToArray() ?? System.Array.Empty<JObject>();
+            var parameters = el["parameters"]!.Select(p =>
+            {
+                if (p is not JObject parameter) return p.DeepClone();
+                var compact = (JObject)parameter.DeepClone();
+                compact.Remove("groupName");
+                compact.Remove("isShared");
+                return (JToken)compact;
+            }).ToArray();
 
             var shapedElement = new JObject
             {
@@ -114,11 +117,8 @@ public static class ToolResponseShaper
             return shapedElement;
         }).ToArray() ?? System.Array.Empty<JObject>();
 
-        var result = new JObject
-        {
-            ["message"] = payload["message"],
-            ["elements"] = new JArray(elements)
-        };
+        var result = (JObject)original.DeepClone();
+        result["elements"] = new JArray(elements);
 
         foreach (var counter in new[]
                  {

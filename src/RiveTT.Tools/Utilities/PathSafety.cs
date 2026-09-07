@@ -80,7 +80,7 @@ public static class PathSafety
     /// UNC is accepted either way now; the parameter no longer changes the outcome and
     /// new code should not pass it.</param>
     public static bool TryResolveSafe(string? userPath, out string resolvedPath, out string error,
-        bool allowUnc = false)
+        bool allowUnc = false, bool allowRevitLibraryRead = false)
     {
         _ = allowUnc;
         resolvedPath = string.Empty;
@@ -95,7 +95,7 @@ public static class PathSafety
         // Tested on the RAW input: GetFullPath roots everything it returns, resolving a
         // relative path against the process working directory — which, inside Revit, is
         // the Revit install folder. Nothing a caller writes means that.
-        if (!Path.IsPathRooted(userPath))
+        if (!Path.IsPathFullyQualified(userPath))
         {
             error = "Path must be absolute (a drive letter, or a UNC share).";
             return false;
@@ -114,9 +114,16 @@ public static class PathSafety
             return false;
         }
 
+        // Opening the Autodesk-supplied families/templates must work from ProgramData.
+        // This opt-in is only for reads of Revit library formats, never an output path.
+        var autodeskLibrary = WithSeparator(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Autodesk"));
+        var libraryRead = allowRevitLibraryRead
+            && full.StartsWith(autodeskLibrary, StringComparison.OrdinalIgnoreCase)
+            && Path.GetExtension(full).ToLowerInvariant() is ".rfa" or ".rte" or ".rft";
         foreach (var root in DeniedRoots.Value)
         {
-            if (full.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            if (!libraryRead && full.StartsWith(root, StringComparison.OrdinalIgnoreCase))
             {
                 error = "Path is inside a Windows system directory or RiveTT's own state " +
                         "(Windows, Program Files, ProgramData, %LOCALAPPDATA%\\RiveTT).";

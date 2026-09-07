@@ -15,6 +15,7 @@ namespace RiveTT.Tools.Project;
 /// fill patterns, halftone/underlay, and detail levels.
 /// Corresponds to Manage → Additional Settings dropdown.
 /// </summary>
+[ReadOnlyActions("list_line_styles", "list_line_styles", "list_line_weights", "list_line_patterns", "list_fill_patterns", "get_halftone")]
 [ToolSafety(false, false)]
 public class ManageAdditionalSettingsTool : IRiveTTTool
 {
@@ -104,8 +105,8 @@ public class ManageAdditionalSettingsTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Create Line Style");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         var newStyle = doc.Settings.Categories.NewSubcategory(linesCategory, name);
 
@@ -149,8 +150,8 @@ public class ManageAdditionalSettingsTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Modify Line Style");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         ApplyLineStyleOverrides(doc, target, input);
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -331,8 +332,8 @@ public class ManageAdditionalSettingsTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Set Halftone/Underlay Settings");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         setMethod.Invoke(null, new[] { doc, settings });
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

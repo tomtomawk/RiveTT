@@ -231,7 +231,7 @@ résultat immédiatement après.
 - `create_document` : **nouveau projet vierge** depuis un gabarit `.rte`, enregistré au
   chemin demandé. C'est le vrai « nouveau projet » ; `save_as_document` duplique le
   modèle ouvert avec tout son historique. `activate: true` l'ouvre ensuite dans Revit.
-- `open_document` : ouvre un `.rvt` et en fait le document actif. Tous les appels
+- `open_file` : ouvre un fichier Revit et en fait le document actif (voir navigation 0.5.0 ci-dessous). `open_document` est son alias compatible. Tous les appels
   suivants le ciblent et les caches sont vidés. Enregistrer le document courant avant :
   le changement ne le sauvegarde pas.
 - `create_stair` : escalier par composant entre deux niveaux, volées droites (`runs`) et
@@ -395,3 +395,23 @@ Claude Code lit `SKILL.md` directement ; `agents/openai.yaml` ne sert qu'à Code
 | Le panneau RiveTT n'apparaît pas dans le ruban | `%APPDATA%\Autodesk\Revit\Addins\<2026\|2027>\RiveTT.addin` présent |
 | Écritures refusées | Bouton *Écriture* du panneau RiveTT : chaque session démarre en lecture seule |
 | Journal des appels | `%LOCALAPPDATA%\RiveTT\audit.jsonl` |
+
+## Navigation MCP en 0.5.0
+
+`open_file(filePath, detachFromCentral=false, dryRun=false)` ouvre et active les
+RVT, RFA et RTE. RFT crée une famille et IFC convertit un projet dans une copie de
+travail sous `%TEMP%\RiveTT\OpenedFiles` : utiliser ensuite `save_as_document`
+pour conserver le résultat dans le dossier du projet. Les sources restent intactes.
+DWG, PDF et images passent par les outils d'import/lien d'un document existant.
+`open_document` conserve son défaut `dryRun=true` et délègue à `open_file`.
+
+`activate_view(viewId, dryRun=false)` active une vue ou feuille du document courant,
+sans transaction. Vérifier l'identifiant rendu puis utiliser la vue cible pour les
+appels suivants. Un gabarit ou une vue interne est refusé.
+
+Ces commandes sont disponibles verrou fermé. Le catalogue
+`get_server_capabilities.commandsAvailableWhenLocked` regroupe les commandes et
+les actions `list`/`get` explicitement autorisées, ainsi que la sélection via
+`manage_view_display(action=select)`. Les autres actions d'écriture restent
+verrouillées. `execution.toolReadOnly` qualifie l'appel et son action ;
+`execution.writesAllowed` décrit toujours le verrou de session.

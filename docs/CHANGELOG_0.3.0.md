@@ -282,3 +282,22 @@ par l'API, `DesignOptionSet` n'est même pas un type public), les **zones de dé
 (aucune méthode de création — `manage_scope_boxes` inventorie ce que Revit a créé). Trois
 manques subsistent, priorité basse : repères de texte (Keynote), lignes de raccord
 (Matchline), plateformes de construction (BuildingPad).
+
+### Complément 0.5.0 à la recette manuelle du §6
+
+À vérifier dans Revit 2026.5 et 2027 après installation de la même version du
+serveur et du plugin (aucune validation live effectuée lors du développement) :
+
+- Verrou fermé : `open_file` RVT/RFA/RTE/RFT/IFC, puis `activate_view` plan,
+  coupe et feuille ; refus de gabarit ; prévisualisations sans changement.
+- Ancien document modifié laissé ouvert, document déjà ouvert, projet détaché,
+  conversion IFC et famille RFT enregistrées sous ; contexte/cache après activation.
+- Lecture de chaque action du catalogue verrou fermé et refus des écritures voisines.
+- Niveaux par ID et altitude explicite, cotes multi-murs et par points, références
+  invalides sans éléments auxiliaires résiduels, recadrage des cotes et tags.
+- Nomenclatures simples/groupées, catégories FR/EN, paramètres compacts avec unités.
+- Suppression du cas signalé avec avertissements, échec de transaction sans dialogue,
+  rechargement/déchargement de lien, prévisualisation et sauvegarde réelle.
+- Installateur depuis Explorateur et contexte MSIX, copies virtualisées signalées.
+
+Détail des changements et sources Autodesk : `CHANGELOG_0.5.0.md`.

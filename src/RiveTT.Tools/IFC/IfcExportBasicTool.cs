@@ -89,8 +89,8 @@ public class IfcExportBasicTool : IRiveTTTool, ICommandTimeoutTool
                 options.FamilyMappingFile = mappingFile;
 
             using var tx = new Transaction(doc!, "RiveTT: Export IFC");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             var exportResult = doc!.Export(outputDirectory, fileName, options);
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

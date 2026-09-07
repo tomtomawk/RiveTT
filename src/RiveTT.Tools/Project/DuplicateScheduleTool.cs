@@ -54,8 +54,8 @@ public class DuplicateScheduleTool : IRiveTTTool
 
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Duplicate Schedule");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             var newId = schedule.Duplicate(ViewDuplicateOption.Duplicate);
             var newSchedule = doc.GetElement(newId) as ViewSchedule;
             if (newSchedule != null)

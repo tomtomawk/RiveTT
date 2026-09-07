@@ -62,7 +62,7 @@ public static class IfcTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "ifc_open_or_import"), Description("Open or import an IFC file as a native Revit project (actions: open | import).")]
+    [McpServerTool(Name = "ifc_open_or_import"), Description("Open/import an IFC into a background Revit document with advanced options. Use open_file for opening AND activating an IFC with the write lock closed. This advanced tool can write an RVT cache beside the IFC.")]
     public static async Task<string> IfcOpenOrImport(
         RevitConnectionManager revit,
         [Description("Path to the IFC file")] string filePath,

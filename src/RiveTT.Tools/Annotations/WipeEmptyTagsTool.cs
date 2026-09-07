@@ -126,8 +126,8 @@ public class WipeEmptyTagsTool : IRiveTTTool
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
                 using var tx = new Transaction(doc, "RiveTT: Wipe Empty Tags");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 int deleted = 0;
                 // Surface per-tag delete failures (e.g. a tag pinned or in a locked workset)
                 // instead of swallowing them: deletedCount alone hides partial failure.

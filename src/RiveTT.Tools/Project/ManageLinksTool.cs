@@ -13,6 +13,7 @@ namespace RiveTT.Tools.Project;
 /// <summary>
 /// Lists, reloads, or unloads linked Revit/CAD/IFC files.
 /// </summary>
+[ReadOnlyActions("list", "list")]
 [ToolSafety(false, true, supportsDryRun: true)]
 public class ManageLinksTool : IRiveTTTool
 {
@@ -114,22 +115,20 @@ public class ManageLinksTool : IRiveTTTool
                 : ModelPathUtils.ConvertModelPathToUserVisiblePath(reference.GetAbsolutePath());
             return ChangePreview.Declared(
                 $"DryRun: would reload the link '{linkInstance.Name}' from disk.",
-                new { linkId, name = linkInstance.Name, action = "reload", currentPath },
+                new { linkId, name = linkInstance.Name, action = "reload", currentPath, clearsUndoHistory = true },
                 blockers: currentPath != null && !System.IO.File.Exists(currentPath)
                     ? new[] { $"The linked file is not reachable: {currentPath}" }
                     : null);
         }
 
-        using var tx = new Transaction(doc, "RiveTT: Reload Link");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
-        tx.Start();
-        linkType.Reload();
-        if (tx.Commit() != TransactionStatus.Committed)
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
-                suggestion: "Fix the reported model errors and retry.");
-
-        return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded" });
+        // Autodesk: Reload manages its own transaction and clears Undo history.
+        if (doc.IsModifiable) return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "Finish the active transaction before reloading a link.");
+        using var result = linkType.Reload();
+        if (result.LoadResult != LinkLoadResultType.LinkLoaded)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"Revit could not reload the link: {result.LoadResult}", suggestion: "Check the link path, access rights and workset state.");
+        return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded",
+            loadResult = result.LoadResult.ToString(), undoHistoryCleared = true });
     }
 
     private static RiveTTResult<object> UnloadLink(Document doc, long linkId, JObject input)
@@ -149,18 +148,11 @@ public class ManageLinksTool : IRiveTTTool
             return ChangePreview.Declared(
                 $"DryRun: would unload the link '{linkInstance.Name}'. Its geometry disappears from "
                 + "every view until it is reloaded; the instance itself is kept.",
-                new { linkId, name = linkInstance.Name, action = "unload" });
+                new { linkId, name = linkInstance.Name, action = "unload", clearsUndoHistory = true });
 
-        using var tx = new Transaction(doc, "RiveTT: Unload Link");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
-        tx.Start();
+        if (doc.IsModifiable) return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "Finish the active transaction before unloading a link.");
         linkType.Unload(null);
-        if (tx.Commit() != TransactionStatus.Committed)
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
-                suggestion: "Fix the reported model errors and retry.");
-
-        return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "unloaded" });
+        return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "unloaded", undoHistoryCleared = true });
     }
 
     private static RiveTTResult<object> ReloadLinkFrom(Document doc, long linkId, JObject input)
@@ -197,7 +189,7 @@ public class ManageLinksTool : IRiveTTTool
                 : ModelPathUtils.ConvertModelPathToUserVisiblePath(reference.GetAbsolutePath());
             return ChangePreview.Declared(
                 $"DryRun: would repoint the link '{linkInstance.Name}' to '{newPath}'.",
-                new { linkId, name = linkInstance.Name, action = "reload_from", currentPath, newPath },
+                new { linkId, name = linkInstance.Name, action = "reload_from", currentPath, newPath, clearsUndoHistory = true },
                 blockers: System.IO.File.Exists(newPath) || newPath.StartsWith(@"\\", StringComparison.Ordinal)
                     ? null
                     : new[] { $"No file at the new path: {newPath}" });
@@ -205,16 +197,14 @@ public class ManageLinksTool : IRiveTTTool
 
         var modelPath = ModelPathUtils.ConvertUserVisiblePathToModelPath(newPath);
 
-        using var tx = new Transaction(doc, "RiveTT: Reload Link From");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
-        tx.Start();
-        linkType.LoadFrom(modelPath, new WorksetConfiguration());
-        if (tx.Commit() != TransactionStatus.Committed)
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
-                suggestion: "Fix the reported model errors and retry.");
-
-        return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded_from", newPath });
+        if (doc.IsModifiable) return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "Finish the active transaction before loading a link.");
+        using var configuration = new WorksetConfiguration();
+        using var result = linkType.LoadFrom(modelPath, configuration);
+        if (result.LoadResult != LinkLoadResultType.LinkLoaded)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"Revit could not load the link: {result.LoadResult}", suggestion: "Check the replacement file and access rights.");
+        return RiveTTResult<object>.Ok(new { linkId, name = linkInstance.Name, action = "reloaded_from", newPath,
+            loadResult = result.LoadResult.ToString(), undoHistoryCleared = true });
     }
 
     private static RiveTTResult<object> RemoveLink(Document doc, long linkId, JObject input)
@@ -246,8 +236,8 @@ public class ManageLinksTool : IRiveTTTool
         }
 
         using var tx = new Transaction(doc, "RiveTT: Remove Link");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         doc.Delete(element.Id);
 
         bool typeRemoved = false;

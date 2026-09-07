@@ -140,8 +140,8 @@ public class DeleteElementTool : IRiveTTTool
                     List<ElementId> wouldDeleteIds;
                     using (var probeTx = new Transaction(doc, "RiveTT: Delete Preview"))
                     {
-                        TransactionFailureHandling.SuppressWarnings(probeTx);
                         probeTx.Start();
+                        TransactionFailureHandling.SuppressWarnings(probeTx);
                         wouldDeleteIds = doc.Delete(validElements.Select(ve => ve.Id).ToList()).ToList();
                         probeTx.RollBack();
                     }
@@ -210,8 +210,8 @@ public class DeleteElementTool : IRiveTTTool
             ICollection<ElementId> deletedIds;
             var cascadeInfo = new List<object>();
             using var tx = new Transaction(doc, "RiveTT: Delete Elements");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             try
             {
                 // Probe the cascade first, inside a rolled-back sub-transaction, so the
@@ -248,9 +248,8 @@ public class DeleteElementTool : IRiveTTTool
 
                 deletedIds = doc.Delete(requestedIds);
                 if (tx.Commit() != TransactionStatus.Committed)
-                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                        $"Revit rolled back the deletion: {TransactionFailureHandling.Describe(txFailures)}",
-                        suggestion: "Fix the reported model errors and retry.");
+                    return TransactionFailureHandling.ToFailure(txFailures,
+                        "Revit rolled back the deletion", "Fix the reported model errors and retry.");
             }
             catch
             {
@@ -279,6 +278,8 @@ public class DeleteElementTool : IRiveTTTool
                 invalidCount = invalidIds.Count,
                 groupMembers,
                 groupExclusionIds = excludedIds,
+                revitWarnings = txFailures.Warnings,
+                warningsSuppressed = txFailures.WarningsSuppressed,
                 warnings = excludedIds.Count == 0
                     ? Array.Empty<string>()
                     : new[]

@@ -78,8 +78,8 @@ public class LoadFamilyTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RiveTT: Load Family");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         if (doc.LoadFamily(safeFamilyPath, new Utilities.OverwritingFamilyLoadOptions(overwriteExisting), out var family))
         {
@@ -153,8 +153,8 @@ public class LoadFamilyTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Source family type not found");
 
         using var tx = new Transaction(doc, "RiveTT: Duplicate Family Type");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         var newType = sourceType.Duplicate(newTypeName) as FamilySymbol;
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

@@ -19,6 +19,7 @@ namespace RiveTT.Tools.Views;
 /// EXISTING one. action=create returns a structured "unsupported" result rather than a
 /// generic failure, same as manage_area_plans(action=create) for the same kind of API gap.
 /// </summary>
+[ReadOnlyActions("list", "list")]
 [ToolSafety(false, false)]
 public class ManageScopeBoxesTool : IRiveTTTool
 {
@@ -110,8 +111,8 @@ public class ManageScopeBoxesTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"{elementIdLong} is not a scope box");
 
         using var tx = new Transaction(doc, "RiveTT: Rename Scope Box");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         elem.Name = newName!;
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -138,8 +139,8 @@ public class ManageScopeBoxesTool : IRiveTTTool
             (translationToken["z"]?.Value<double>() ?? 0) / MmPerFoot);
 
         using var tx = new Transaction(doc, "RiveTT: Move Scope Box");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         ElementTransformUtils.MoveElement(doc, id, translation);
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -164,8 +165,8 @@ public class ManageScopeBoxesTool : IRiveTTTool
         var targetId = scopeBoxIdLong.Value > 0 ? ToolHelpers.ToElementId(scopeBoxIdLong.Value) : ElementId.InvalidElementId;
 
         using var tx = new Transaction(doc, "RiveTT: Assign Scope Box");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
         var applied = new List<long>();
         var warnings = new List<string>();

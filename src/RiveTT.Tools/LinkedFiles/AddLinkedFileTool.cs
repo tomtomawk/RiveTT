@@ -62,8 +62,8 @@ public class AddLinkedFileTool : IRiveTTTool
             if (Math.Abs(positionX) > 0.001 || Math.Abs(positionY) > 0.001 || Math.Abs(positionZ) > 0.001)
             {
                 using var tx = new Transaction(doc, "RiveTT: Position Linked File");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 var offset = new XYZ(positionX / MmPerFoot, positionY / MmPerFoot, positionZ / MmPerFoot);
                 ElementTransformUtils.MoveElement(doc, instance.Id, offset);
                 if (tx.Commit() != TransactionStatus.Committed)

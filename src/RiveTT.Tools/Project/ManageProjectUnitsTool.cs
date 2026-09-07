@@ -13,6 +13,7 @@ namespace RiveTT.Tools.Project;
 /// <summary>
 /// Gets or sets project units (length, area, volume, angle, slope, etc.).
 /// </summary>
+[ReadOnlyActions("get", "get", "list_valid_units")]
 [ToolSafety(false, false, supportsDryRun: true)]
 public class ManageProjectUnitsTool : IRiveTTTool
 {
@@ -142,8 +143,8 @@ public class ManageProjectUnitsTool : IRiveTTTool
 
         var dryRun = ToolHelpers.GetDryRun(input);
         using var tx = new Transaction(doc, "RiveTT: Set Project Units");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         doc.SetUnits(units);
         // Built BEFORE the rollback: afterwards the elements this describes no longer
         // exist and reading a name off one throws. Captured verbatim from the real

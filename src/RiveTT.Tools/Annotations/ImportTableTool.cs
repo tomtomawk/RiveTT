@@ -84,8 +84,8 @@ public class ImportTableTool : IRiveTTTool
             }
 
             using var tx = new Transaction(doc, "RiveTT: Import Table");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             try
             {

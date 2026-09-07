@@ -106,8 +106,8 @@ public static class RoslynExecutor
             else
             {
                 using var tx = new Transaction(globals.document, "RiveTT: Script");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 try
                 {
                     result = method.Invoke(null, new object[] { globals.document, globals.uiDocument, globals.app });

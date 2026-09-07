@@ -105,8 +105,8 @@ public class CreateRoomTool : IRiveTTTool
             }
 
             using var tx = new Transaction(doc, "RiveTT: Create Room");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             var uv = new UV(xFt, yFt);
             var room = doc.Create.NewRoom(level, uv);
@@ -167,8 +167,8 @@ public class CreateRoomTool : IRiveTTTool
             {
                 var roomId = room.Id;
                 using var deleteTx = new Transaction(doc, "RiveTT: Discard Unenclosed Room");
-                TransactionFailureHandling.SuppressWarnings(deleteTx);
                 deleteTx.Start();
+                TransactionFailureHandling.SuppressWarnings(deleteTx);
                 doc.Delete(roomId);
                 deleteTx.Commit();
 

@@ -46,8 +46,8 @@ public class CreateMaterialTool : IRiveTTTool
 
             using (var tx = new Transaction(doc, "RiveTT: Create Material"))
             {
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 newMatId = Material.Create(doc, name);
                 var mat = doc.GetElement(newMatId) as Material;

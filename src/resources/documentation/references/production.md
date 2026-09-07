@@ -43,21 +43,27 @@ ressemble à « aucun conflit ».
 
 ## Vues et annotations
 
-### Ce qui dépend de la vue active
+### Choisir la vue
 
-`tag_rooms`, `tag_walls` et `color_elements` n'opèrent que sur la **vue active de
-Revit**, et seulement si elle contient des éléments visibles de la catégorie visée.
-Vérifier avec `get_current_view_info` avant, systématiquement.
+Utiliser `activate_view(viewId)` pour rendre une vue ou feuille active, même
+verrou fermé, puis `get_current_view_info` pour contrôler le contexte. Les outils
+qui publient `viewId`, dont `tag_rooms`, `tag_walls` et `color_elements`, acceptent
+une vue explicite ; son omission utilise leur défaut documenté. Choisir une vue
+compatible avec les annotations et les éléments concernés. Préférer les catégories
+`OST_*` aux noms localisés.
 
-`color_elements` échoue sur une feuille ou une page de garde : basculer d'abord sur
-un plan ou une vue 3D. Il attend par ailleurs des noms de catégorie **localisés**,
-donc dépendants de la langue de Revit.
+### Cotes et recadrage
 
-### Cotes
+En 0.5.0, `create_dimensions` projette les positions sur le plan de la vue.
+Les cotes à références d'éléments exigent des faces compatibles avec la direction
+de mesure. Les cotes par points créent des lignes auxiliaires dans cette vue.
+`linePoint` place la ligne de cote ; les coordonnées sont en mm.
+Chaque tentative invalide est annulée avec ses lignes auxiliaires ; si toutes
+échouent, l'appel échoue. Lire les avertissements même après un succès partiel.
 
-Le Z passé à `create_dimensions` doit correspondre **exactement** à l'altitude du
-niveau. La prendre dans `get_project_info`, jamais à la main : une approximation ne
-produit pas une cote approximative, elle produit une cote qui n'accroche rien.
+Les cotes et tags de pièces exposent des avertissements si leurs limites dépassent
+le recadrage. Le contrôle est conservateur : contours non rectangulaires et vues
+scindées exigent une vérification visuelle. La création ne garantit pas la visibilité.
 
 ### Nommer une vue
 
@@ -76,5 +82,5 @@ Pour un horodatage, `HH-mm-ss` — jamais `HH:mm:ss`.
 - `count_lines_per_view` en parallèle, ou sans `threshold`.
 - Mélanger contrôle qualité et production dans une même longue session.
 - Poser des tags ou des couleurs sans avoir vérifié la vue active.
-- Approximer le Z d'une cote.
+- Ignorer les avertissements de référence ou de recadrage d'une cote.
 - Mettre `:` ou `/` dans un nom de vue.

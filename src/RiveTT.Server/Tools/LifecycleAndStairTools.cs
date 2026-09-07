@@ -37,12 +37,12 @@ public static class LifecycleAndStairTools
     }
 
     [McpServerTool(Name = "open_document"), Description(
-        "Open a .rvt file and make it the ACTIVE document in Revit. Every later tool call targets that " +
+        "Compatibility alias for open_file: open RVT, RFA, RTE, RFT or IFC and make it the ACTIVE document in Revit, even while RiveTT is locked. Every later tool call targets that " +
         "document and all caches are flushed. Save the current document first if it has unsaved changes — " +
         "switching does not save it. Use detachFromCentral=true for a workshared central model.")]
     public static async Task<string> OpenDocument(
         RevitConnectionManager revit,
-        [Description("Absolute .rvt path to open")] string filePath,
+        [Description("Absolute RVT/RFA/RTE/RFT/IFC path to open")] string filePath,
         [Description("Detach from central and preserve worksets (workshared models). Default false")] bool detachFromCentral = false,
         [Description("Preview without opening. Default: true")] bool dryRun = true,
         CancellationToken ct = default)

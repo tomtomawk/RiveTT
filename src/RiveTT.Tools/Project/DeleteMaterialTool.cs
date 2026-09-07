@@ -74,8 +74,8 @@ public class DeleteMaterialTool : IRiveTTTool
 
             using (var tx = new Transaction(doc, "RiveTT: Delete Material"))
             {
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 doc.Delete(material.Id);
                 if (tx.Commit() != TransactionStatus.Committed)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

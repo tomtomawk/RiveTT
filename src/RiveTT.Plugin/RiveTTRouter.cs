@@ -49,7 +49,8 @@ public class RiveTTRouter
     private static readonly HashSet<string> LifecycleWriteTools =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            "save_document", "save_as_document", "create_document", "open_document"
+            "save_document", "save_as_document", "create_document", "open_document",
+            "open_family", "open_template", "open_file", "close_document", "activate_view"
         };
 
     private sealed class ToolSafetyRegistration
@@ -118,6 +119,17 @@ public class RiveTTRouter
         // none. RiveTT.Tools cannot see the router, so the fact travels through the
         // session, recomputed on each registration (195 of them, at startup).
         _session.DryRunCoverage = ComputeDryRunCoverage();
+        _session.CommandsAvailableWhenLocked = _tools.Values
+            .Where(t => IsToolReadOnly(t.Name) || t.GetType().IsDefined(typeof(ReadOnlyActionsAttribute)))
+            .OrderBy(t => t.Category).ThenBy(t => t.Name)
+            .Select(t => (object)new
+            {
+                tool = t.Name, category = t.Category,
+                actions = IsToolReadOnly(t.Name) ? new[] { "*" }
+                    : t.GetType().GetCustomAttribute<ReadOnlyActionsAttribute>()!.Actions,
+                requiresDocument = t.RequiresDocument,
+                requiresDocumentCapabilities = t.IsDynamic
+            }).ToArray();
 
         var prefixReadOnly = IsReadOnlyTool(tool.Name);
         if (safety.Declared && safety.ReadOnly != prefixReadOnly)
@@ -197,7 +209,7 @@ public class RiveTTRouter
         // must answer the same whether or not a document is open, and the refusal
         // must never be mistaken for a missing document. No tool can lift it —
         // only a human, from the RiveTT panel of the Revit ribbon.
-        if (!_session.WriteAccess.WritesAllowed && !IsToolReadOnly(toolName))
+        if (!_session.WriteAccess.WritesAllowed && !IsCallReadOnly(toolName, input))
         {
             var refusal = RiveTTResult<object>.Fail(RiveTTErrorCode.PermissionDenied,
                 $"'{displayName}' can modify the model and RiveTT is currently in read-only mode.",
@@ -414,7 +426,7 @@ public class RiveTTRouter
             ? new JObject()
             : JToken.FromObject(result.Data);
         var obj = data as JObject ?? new JObject { ["value"] = data };
-        var isReadOnly = IsToolReadOnly(toolName);
+        var isReadOnly = IsCallReadOnly(toolName, input);
         var supportsDryRun = SupportsDryRun(toolName);
         var dryRun = input["dryRun"]?.Value<bool>() == true;
 
@@ -448,7 +460,7 @@ public class RiveTTRouter
             // writesAllowed is the session-wide fact, driven by the ribbon toggle:
             // when it is false, every tool with toolReadOnly=false is refused.
             ["toolReadOnly"] = isReadOnly,
-            ["toolDestructive"] = IsToolDestructive(toolName),
+            ["toolDestructive"] = !isReadOnly && IsToolDestructive(toolName),
             // Per-tool, because there is no server-wide answer: 56 of the 135 write
             // tools preview, the rest apply straight away. get_server_capabilities
             // used to publish a blanket dryRunDefault:true, which is what told an
@@ -664,6 +676,14 @@ public class RiveTTRouter
         return _toolSafety.TryGetValue(toolName, out var safety)
             ? safety.ReadOnly
             : IsReadOnlyTool(toolName);
+    }
+
+    public bool IsCallReadOnly(string toolName, JObject input)
+    {
+        if (IsToolReadOnly(toolName)) return true;
+        if (!_tools.TryGetValue(toolName, out var tool)) return false;
+        var actions = tool.GetType().GetCustomAttribute<ReadOnlyActionsAttribute>();
+        return actions?.Matches(input) == true;
     }
 
     public bool IsToolDestructive(string toolName)

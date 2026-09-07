@@ -50,8 +50,8 @@ public class DuplicateViewTool : IRiveTTTool
             var results = new List<object>();
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Duplicate Views");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             foreach (var vid in viewIds)
             {

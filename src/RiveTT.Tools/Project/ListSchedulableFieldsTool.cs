@@ -38,12 +38,12 @@ public class ListSchedulableFieldsTool : IRiveTTTool
             ?? "OST_Rooms";
         var scheduleType = input["scheduleType"]?.Value<string>() ?? "regular";
 
-        var resolved = CategoryResolver.Resolve(categoryName);
+        var resolved = CategoryResolver.ResolveToId(doc, categoryName);
         if (resolved == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 $"Unknown category: {categoryName}",
                 suggestion: "Use OST_* codes like OST_Rooms, or English friendly names like Walls, Doors, Foundations");
-        var builtInCategory = resolved.Value;
+        var builtInCategory = (BuiltInCategory)resolved.Value;
 
         try
         {
@@ -83,7 +83,8 @@ public class ListSchedulableFieldsTool : IRiveTTTool
 
             return RiveTTResult<object>.Ok(new
             {
-                category     = categoryName,
+                category     = Autodesk.Revit.DB.Category.GetCategory(doc, resolved)?.Name ?? categoryName,
+                categoryBic  = builtInCategory.ToString(),
                 scheduleType,
                 fieldCount   = fields.Count,
                 fields

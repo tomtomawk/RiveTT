@@ -145,8 +145,8 @@ public class IfcRebuildWallsTool : IRiveTTTool
             try
             {
                 using var tx = new Transaction(doc!, "RiveTT: Rebuild Wall");
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
                 var baseLine = Line.CreateBound(profile.StartPoint, profile.EndPoint);
                 var offset = profile.BaseElevation - level.Elevation;

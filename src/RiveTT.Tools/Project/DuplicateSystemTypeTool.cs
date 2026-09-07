@@ -108,8 +108,8 @@ public class DuplicateSystemTypeTool : IRiveTTTool
             // Duplicate
             using (var tx = new Transaction(doc, "RiveTT: Duplicate System Type"))
             {
-                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 tx.Start();
+                var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
                 var newType = sourceType.Duplicate(newName);
                 if (tx.Commit() != TransactionStatus.Committed)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -160,8 +160,8 @@ public class DuplicateSystemTypeTool : IRiveTTTool
                 + "follows the rename; none is modified otherwise.",
                 new { action = "rename", typeId = ToolHelpers.GetElementIdValue(type.Id), oldName, newName });
         using var tx = new Transaction(doc, "RiveTT: Rename Type");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         type.Name = newName;
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -191,8 +191,8 @@ public class DuplicateSystemTypeTool : IRiveTTTool
                 });
 
         using var tx = new Transaction(doc, "RiveTT: Delete Type");
-        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         var deleted = doc.Delete(type.Id);
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,

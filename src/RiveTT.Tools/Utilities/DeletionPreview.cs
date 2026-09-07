@@ -44,8 +44,8 @@ public static class DeletionPreview
             List<ElementId> wouldDelete;
             using (var probe = new Transaction(doc, "RiveTT: Delete Preview"))
             {
-                TransactionFailureHandling.SuppressWarnings(probe);
                 probe.Start();
+                TransactionFailureHandling.SuppressWarnings(probe);
                 wouldDelete = doc.Delete(ids.ToList()).ToList();
                 probe.RollBack();
             }

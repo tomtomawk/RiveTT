@@ -40,8 +40,8 @@ public class CreateViewTool : IRiveTTTool
         {
             var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, "RiveTT: Create View");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             View? createdView = null;
             string? calloutError = null;

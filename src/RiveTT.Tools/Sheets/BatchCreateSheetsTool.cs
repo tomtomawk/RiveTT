@@ -56,8 +56,8 @@ public class BatchCreateSheetsTool : IRiveTTTool
             var placedTotal = 0;
 
             using var tx = new Transaction(doc, "RiveTT: Batch Create Sheets");
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
             tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
 
             foreach (var sheetDef in sheetsArray)
             {
