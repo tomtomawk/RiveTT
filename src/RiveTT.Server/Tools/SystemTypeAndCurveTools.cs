@@ -17,7 +17,7 @@ public static class SystemTypeAndCurveTools
 {
     [McpServerTool(Name = "list_system_types"), Description(
         "List the system types of a category: walls, floors, ceilings, roofs, railings, stairs, ramps, " +
-        "viewports, text, dimensions, sheets, title blocks. System types are NOT loadable families, so " +
+        "viewports, text, dimensions. To include title blocks and family-backed mullions, pass includeLoadable:true. System types are NOT loadable families, so " +
         "duplicate_family_type does not apply to them — use duplicate_system_type. Omit the category to get " +
         "the per-category inventory with its language-independent OST codes. The returned typeId feeds " +
         "create_wall, create_railing, create_floor, create_sheet and duplicate_system_type.")]

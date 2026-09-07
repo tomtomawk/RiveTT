@@ -256,10 +256,10 @@ tout ce que le paquet NuGet de référence ne peut pas exercer.
 ## 6. Défauts trouvés par la première recette
 
 Le protocole du §5, mené une première fois le 31/08/2026 contre cette build même
-(`docs/recettes/recette-0.4.0-2026-08-31.md`, commit plugin `2276548`), a trouvé deux
+(rapport historique retiré de la documentation active, commit plugin `2276548`), a trouvé deux
 défauts critiques et un majeur qui contredisaient directement les garanties du §3.
 Décision prise à leur découverte : ne pas publier l'installateur issu de ce commit tel
-quel. Détail dans `docs/references/plan-correctifs-0.4.md`.
+quel. Les constats sont conservés ci-dessous ; le protocole courant reprend les régressions à tester.
 
 ### `dryRun` n'atteignait jamais le routeur sur 36 outils — **critique**
 
@@ -319,7 +319,7 @@ fichiers — pas seulement `modify_element` relevé en recette, aussi des param�
 Rejeu ciblé sur maquette fraîche (les deux outils `dryRun` fautifs, un échantillon
 élargi d'autres écritures sans aperçu, et les neuf outils tableau) reporté à la
 prochaine recette complète (0.5.0) plutôt que refait immédiatement — voir
-`docs/references/plan-correctifs-0.4.md`, section « Reporté à 0.5.0 ».
+[le protocole courant](references/protocole-de-recette.md), phase 1.
 
 ## 7. Signature du code
 

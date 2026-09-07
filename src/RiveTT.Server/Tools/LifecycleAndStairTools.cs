@@ -147,13 +147,13 @@ public static class LifecycleAndStairTools
     public static async Task<string> AddCurtainMullions(
         RevitConnectionManager revit,
         [Description("Curtain wall or curtain system element ID")] long hostElementId,
-        [Description("MullionType element ID — from list_system_types(category: \"OST_CurtainWallMullions\")")] long mullionTypeId,
+        [Description("MullionType element ID — from list_system_types(category: \"OST_CurtainWallMullions\", includeLoadable: true)")] long mullionTypeId,
         [Description("Grid line element IDs to restrict this to, as a JSON array of numbers. Omit to cover every ungridded segment")] System.Text.Json.JsonElement? gridLineIds = null,
         [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["hostElementId"] = hostElementId, ["mullionTypeId"] = mullionTypeId, ["dryRun"] = dryRun };
-        if (gridLineIds != null)
+        if (JsonOptionalParam.IsProvided(gridLineIds))
         {
             if (!JsonArrayParam.TryParse(gridLineIds, out var gridLineIdsArray))
                 return JsonArrayParam.InvalidArrayResult("add_curtain_mullions", "gridLineIds", gridLineIds);
@@ -199,13 +199,13 @@ public static class LifecycleAndStairTools
         CancellationToken ct = default)
     {
         var p = new JObject { ["groupId"] = groupId, ["dryRun"] = dryRun };
-        if (addElementIds != null)
+        if (JsonOptionalParam.IsProvided(addElementIds))
         {
             if (!JsonArrayParam.TryParse(addElementIds, out var addElementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("edit_group_members", "addElementIds", addElementIds);
             p["addElementIds"] = addElementIdsArray;
         }
-        if (removeElementIds != null)
+        if (JsonOptionalParam.IsProvided(removeElementIds))
         {
             if (!JsonArrayParam.TryParse(removeElementIds, out var removeElementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("edit_group_members", "removeElementIds", removeElementIds);

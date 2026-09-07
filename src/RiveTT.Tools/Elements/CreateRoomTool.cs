@@ -188,7 +188,7 @@ public class CreateRoomTool : IRiveTTTool
                 levelName = level.Name,
                 levelId = ToolHelpers.GetElementIdValue(level.Id),
                 enclosed,
-                areaM2 = enclosed ? areaM2 : (double?)null,
+                areaM2,
                 warnings = enclosed
                     ? Array.Empty<string>()
                     : new[]

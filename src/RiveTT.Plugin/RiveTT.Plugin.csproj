@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RiveTT.Core\RiveTT.Core.csproj" />
+    <InternalsVisibleTo Include="RiveTT.Tests" />
   </ItemGroup>
 
   <ItemGroup>

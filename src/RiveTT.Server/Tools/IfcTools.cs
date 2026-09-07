@@ -104,7 +104,7 @@ public static class IfcTools
         p["exportBaseQuantities"] = exportBaseQuantities;
         p["wallAndColumnSplitting"] = wallAndColumnSplitting;
         if (spaceBoundaryLevel != null) p["spaceBoundaryLevel"] = spaceBoundaryLevel;
-        if (overrides != null)
+        if (JsonOptionalParam.IsProvided(overrides))
         {
             if (!JsonObjectParam.TryParse(overrides, out var overridesObj))
                 return JsonObjectParam.InvalidObjectResult("ifc_export_basic", "overrides", overrides);
@@ -134,7 +134,7 @@ public static class IfcTools
         };
         if (fileName != null) p["fileName"] = fileName;
         if (filterViewId != null) p["filterViewId"] = filterViewId;
-        if (overrides != null)
+        if (JsonOptionalParam.IsProvided(overrides))
         {
             if (!JsonObjectParam.TryParse(overrides, out var overridesObj))
                 return JsonObjectParam.InvalidObjectResult("ifc_export_with_configuration", "overrides", overrides);
@@ -283,7 +283,7 @@ public static class IfcTools
         CancellationToken ct = default)
     {
         var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
-        if (hostElementIds != null)
+        if (JsonOptionalParam.IsProvided(hostElementIds))
         {
             if (!JsonArrayParam.TryParse(hostElementIds, out var hostElementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("ifc_rebuild_openings", "hostElementIds", hostElementIds);

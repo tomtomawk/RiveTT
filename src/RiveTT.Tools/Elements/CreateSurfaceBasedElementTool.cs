@@ -41,12 +41,13 @@ public class CreateSurfaceBasedElementTool : IRiveTTTool
 
         var createdIds = new List<long>();
         var warnings   = new List<string>();
+        var applied = new List<object>();
 
         foreach (var item in dataToken)
         {
             try
             {
-                ProcessSurfaceElement(doc, (JObject)item, createdIds, warnings);
+                ProcessSurfaceElement(doc, (JObject)item, createdIds, warnings, applied);
             }
             catch (Exception ex)
             {
@@ -58,14 +59,23 @@ public class CreateSurfaceBasedElementTool : IRiveTTTool
         if (warnings.Count > 0)
             message += "\n\nWarnings:\n  - " + string.Join("\n  - ", warnings);
 
+        if (createdIds.Count == 0 && warnings.Count > 0)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                string.Join("\n", warnings),
+                suggestion: "Use baseLevelId for a Revit level ID, or baseElevationMm for absolute Z in mm. Check the type and boundary.");
+
         return RiveTTResult<object>.Ok(new
         {
             message,
-            createdElementIds = createdIds
+            createdElementIds = createdIds,
+            created = createdIds.Count,
+            skipped = dataToken.Count() - createdIds.Count,
+            warnings,
+            elements = applied
         });
     }
 
-    private static void ProcessSurfaceElement(Document doc, JObject item, List<long> createdIds, List<string> warnings)
+    private static void ProcessSurfaceElement(Document doc, JObject item, List<long> createdIds, List<string> warnings, List<object> applied)
     {
         // Parse category
         var categoryStr = item["category"]?.Value<string>() ?? "";
@@ -101,17 +111,21 @@ public class CreateSurfaceBasedElementTool : IRiveTTTool
 
         // Parse optional parameters
         var requestedTypeId = item["typeId"]?.Value<long?>() ?? -1;
-        var baseLevelMm     = item["baseLevel"]?.Value<double?>() ?? 0.0;
-        var baseOffsetMm    = item["baseOffset"]?.Value<double?>() ?? 0.0;
-
-        var baseLevelFt = baseLevelMm / MmPerFoot;
-        var baseLevel   = FindNearestLevel(doc, baseLevelFt);
+        var constraint = LineBaseConstraint.Parse(item);
+        var baseLevel = constraint.LevelId.HasValue
+            ? doc.GetElement(ToolHelpers.ToElementId(constraint.LevelId.Value)) as Level
+            : FindNearestLevel(doc, constraint.ElevationMm / MmPerFoot);
         if (baseLevel == null)
         {
-            warnings.Add("No levels found in document");
+            warnings.Add(constraint.LevelId.HasValue
+                ? $"baseLevelId {constraint.LevelId} is not a level. Use baseElevationMm for an absolute elevation in mm."
+                : "No levels found in document");
             return;
         }
-        var baseOffset = (baseOffsetMm + baseLevelMm) / MmPerFoot - baseLevel.Elevation;
+        var baseOffset = constraint.RelativeOffsetMm(baseLevel.Elevation * MmPerFoot) / MmPerFoot;
+        var slopeDegrees = item["roofSlopeDegrees"]?.Value<double?>() ?? 0.0;
+        if (!double.IsFinite(slopeDegrees) || slopeDegrees < 0 || slopeDegrees >= 90)
+            throw new ArgumentException("roofSlopeDegrees must be finite and in [0, 90).");
 
         // Build curve list from boundary segments
         var curves = new List<Curve>();
@@ -223,6 +237,7 @@ public class CreateSurfaceBasedElementTool : IRiveTTTool
         using var tx = new Transaction(doc, "RiveTT: Create Surface Element");
         tx.Start();
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
+        Element? createdElement = null;
         try
         {
             switch (builtInCategory)
@@ -235,7 +250,7 @@ public class CreateSurfaceBasedElementTool : IRiveTTTool
                     {
                         var offsetParam = floor.get_Parameter(BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM);
                         offsetParam?.Set(baseOffset);
-                        createdIds.Add(ToolHelpers.GetElementIdValue(floor.Id));
+                        createdElement = floor;
                     }
                     break;
                 }
@@ -254,7 +269,6 @@ public class CreateSurfaceBasedElementTool : IRiveTTTool
                         // roof) — the common case for a rectangular/polygon plan in logement.
                         // SlopeAngle is a rise/run RATIO in the Revit API, not degrees, hence the
                         // Math.Tan conversion. Omit it (or pass 0) for the previous flat behavior.
-                        var slopeDegrees = item["roofSlopeDegrees"]?.Value<double?>() ?? 0.0;
                         var definesSlope = slopeDegrees > 0.0;
                         var slopeRatio = definesSlope ? Math.Tan(slopeDegrees * Math.PI / 180.0) : 0.0;
                         foreach (ModelCurve mc in modelCurves)
@@ -265,7 +279,7 @@ public class CreateSurfaceBasedElementTool : IRiveTTTool
 
                         var offsetParam = roof.get_Parameter(BuiltInParameter.ROOF_LEVEL_OFFSET_PARAM);
                         offsetParam?.Set(baseOffset);
-                        createdIds.Add(ToolHelpers.GetElementIdValue(roof.Id));
+                        createdElement = roof;
                     }
                     break;
                 }
@@ -278,14 +292,41 @@ public class CreateSurfaceBasedElementTool : IRiveTTTool
                     {
                         var offsetParam = ceiling.get_Parameter(BuiltInParameter.CEILING_HEIGHTABOVELEVEL_PARAM);
                         offsetParam?.Set(baseOffset);
-                        createdIds.Add(ToolHelpers.GetElementIdValue(ceiling.Id));
+                        createdElement = ceiling;
                     }
                     break;
                 }
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
+            {
                 warnings.Add($"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}");
+                return;
+            }
+            if (createdElement != null)
+            {
+                var offsetBip = builtInCategory == BuiltInCategory.OST_Floors
+                    ? BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM
+                    : builtInCategory == BuiltInCategory.OST_Roofs
+                        ? BuiltInParameter.ROOF_LEVEL_OFFSET_PARAM
+                        : BuiltInParameter.CEILING_HEIGHTABOVELEVEL_PARAM;
+                var actualOffset = createdElement.get_Parameter(offsetBip)?.AsDouble();
+                var id = ToolHelpers.GetElementIdValue(createdElement.Id);
+                createdIds.Add(id);
+                applied.Add(new
+                {
+                    elementId = id,
+                    typeId = ToolHelpers.GetElementIdValue(createdElement.GetTypeId()),
+                    category = createdElement.Category?.Name,
+                    categoryBic = builtInCategory.ToString(),
+                    baseLevelId = ToolHelpers.GetElementIdValue(baseLevel.Id),
+                    baseLevelName = baseLevel.Name,
+                    baseOffsetMm = actualOffset * MmPerFoot,
+                    baseElevationMm = actualOffset.HasValue
+                        ? (baseLevel.Elevation + actualOffset.Value) * MmPerFoot : (double?)null,
+                    roofSlopeDegrees = builtInCategory == BuiltInCategory.OST_Roofs ? slopeDegrees : (double?)null
+                });
+            }
         }
         catch
         {

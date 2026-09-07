@@ -127,13 +127,13 @@ public static class LinkTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (hostElementIds != null)
+        if (JsonOptionalParam.IsProvided(hostElementIds))
         {
             if (!JsonArrayParam.TryParse(hostElementIds, out var hostElementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("show_cross_model_elements", "hostElementIds", hostElementIds);
             p["hostElementIds"] = hostElementIdsArray;
         }
-        if (linkedElements != null)
+        if (JsonOptionalParam.IsProvided(linkedElements))
         {
             if (!JsonArrayParam.TryParse(linkedElements, out var linkedElementsArray))
                 return JsonArrayParam.InvalidArrayResult("show_cross_model_elements", "linkedElements", linkedElements);
@@ -218,7 +218,7 @@ public static class LinkTools
         if (action != null) p["action"] = action;
         p["deleteImports"] = deleteImports;
         p["deleteLinks"] = deleteLinks;
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("clean_cad_links", "elementIds", elementIds);

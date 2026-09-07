@@ -52,7 +52,6 @@ public sealed class ListSystemTypesTool : IRiveTTTool
             var types = new FilteredElementCollector(doc)
                 .WhereElementIsElementType()
                 .Cast<ElementType>()
-                .Where(type => includeLoadable || type is not FamilySymbol)
                 .ToList();
 
             if (!string.IsNullOrWhiteSpace(category))
@@ -76,6 +75,13 @@ public sealed class ListSystemTypesTool : IRiveTTTool
                         ParameterNameResolver.Normalize(FamilyNameOf(type)).Contains(needle, StringComparison.Ordinal))
                     .ToList();
             }
+
+            var excludedLoadableTypeCount = includeLoadable ? 0 : types.Count(type => type is FamilySymbol);
+            if (!includeLoadable)
+                types = types.Where(type => type is not FamilySymbol).ToList();
+            var suggestion = excludedLoadableTypeCount > 0
+                ? "Matching loadable family types were excluded. Set includeLoadable: true to include them (for example title blocks and curtain wall mullions)."
+                : null;
 
             // No category given: return the inventory so the caller can pick one
             // without guessing localized labels.
@@ -102,6 +108,8 @@ public sealed class ListSystemTypesTool : IRiveTTTool
                     message = $"{types.Count} system type(s) across {inventory.Count} categories. " +
                               "Pass a category (categoryBic is language-independent) to list its types.",
                     totalTypeCount = types.Count,
+                    excludedLoadableTypeCount,
+                    suggestion,
                     categories = inventory
                 });
             }
@@ -131,6 +139,8 @@ public sealed class ListSystemTypesTool : IRiveTTTool
                 count = items.Count,
                 totalCount = types.Count,
                 truncated = types.Count > items.Count,
+                excludedLoadableTypeCount,
+                suggestion,
                 items
             });
         }
@@ -155,6 +165,12 @@ public sealed class ListSystemTypesTool : IRiveTTTool
 
     private static double? ThicknessMm(ElementType type)
     {
+        if (type is HostObjAttributes hostType)
+        {
+            var compound = hostType.GetCompoundStructure();
+            if (compound != null)
+                return Math.Round(compound.GetWidth() * MmPerFoot, 1);
+        }
         var parameter = type.get_Parameter(BuiltInParameter.WALL_ATTR_WIDTH_PARAM)
                         ?? type.get_Parameter(BuiltInParameter.FLOOR_ATTR_THICKNESS_PARAM);
         if (parameter == null || !parameter.HasValue) return null;

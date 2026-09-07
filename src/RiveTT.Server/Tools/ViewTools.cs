@@ -51,26 +51,26 @@ public static class ViewTools
                 return TriStateFlag.InvalidFlagResult("create_view", "cropActive", cropActive);
             p["cropActive"] = cropActiveFlag;
         }
-        if (cropMin != null)
+        if (JsonOptionalParam.IsProvided(cropMin))
         {
             if (!JsonObjectParam.TryParse(cropMin, out var cropMinObj))
                 return JsonObjectParam.InvalidObjectResult("create_view", "cropMin", cropMin);
             p["cropMin"] = cropMinObj;
         }
-        if (cropMax != null)
+        if (JsonOptionalParam.IsProvided(cropMax))
         {
             if (!JsonObjectParam.TryParse(cropMax, out var cropMaxObj))
                 return JsonObjectParam.InvalidObjectResult("create_view", "cropMax", cropMax);
             p["cropMax"] = cropMaxObj;
         }
         if (parentViewId != null) p["parentViewId"] = parentViewId;
-        if (calloutMin != null)
+        if (JsonOptionalParam.IsProvided(calloutMin))
         {
             if (!JsonObjectParam.TryParse(calloutMin, out var calloutMinObj))
                 return JsonObjectParam.InvalidObjectResult("create_view", "calloutMin", calloutMin);
             p["calloutMin"] = calloutMinObj;
         }
-        if (calloutMax != null)
+        if (JsonOptionalParam.IsProvided(calloutMax))
         {
             if (!JsonObjectParam.TryParse(calloutMax, out var calloutMaxObj))
                 return JsonObjectParam.InvalidObjectResult("create_view", "calloutMax", calloutMax);
@@ -121,13 +121,13 @@ public static class ViewTools
         if (pageSize != null) p["pageSize"] = pageSize;
         else if (limit != null) p["pageSize"] = limit;
         if (cursor != null) p["cursor"] = cursor;
-        if (modelCategoryList != null)
+        if (JsonOptionalParam.IsProvided(modelCategoryList))
         {
             if (!JsonArrayParam.TryParse(modelCategoryList, out var modelCategoryListArray))
                 return JsonArrayParam.InvalidArrayResult("get_current_view_elements", "modelCategoryList", modelCategoryList);
             p["modelCategoryList"] = modelCategoryListArray;
         }
-        if (annotationCategoryList != null)
+        if (JsonOptionalParam.IsProvided(annotationCategoryList))
         {
             if (!JsonArrayParam.TryParse(annotationCategoryList, out var annotationCategoryListArray))
                 return JsonArrayParam.InvalidArrayResult("get_current_view_elements", "annotationCategoryList", annotationCategoryList);
@@ -135,7 +135,7 @@ public static class ViewTools
         }
         if (categoryFilter != null && modelCategoryList == null) p["modelCategoryList"] = new JArray(categoryFilter);
         if (categoryFilter != null) p["categoryFilter"] = categoryFilter;
-        if (fields != null)
+        if (JsonOptionalParam.IsProvided(fields))
         {
             if (!JsonArrayParam.TryParse(fields, out var fieldsArray))
                 return JsonArrayParam.InvalidArrayResult("get_current_view_elements", "fields", fields);
@@ -167,7 +167,7 @@ public static class ViewTools
         var p = new JObject { ["dryRun"] = dryRun };
         if (action != null) p["action"] = action;
         if (filterName != null) p["filterName"] = filterName;
-        if (categoryNames != null)
+        if (JsonOptionalParam.IsProvided(categoryNames))
         {
             if (!JsonArrayParam.TryParse(categoryNames, out var categoryNamesArray))
                 return JsonArrayParam.InvalidArrayResult("create_view_filter", "categoryNames", categoryNames);
@@ -176,7 +176,7 @@ public static class ViewTools
         if (parameterName != null) p["parameterName"] = parameterName;
         if (filterRule != null) p["filterRule"] = filterRule;
         if (filterValue != null) p["filterValue"] = filterValue;
-        if (rules != null)
+        if (JsonOptionalParam.IsProvided(rules))
         {
             if (!JsonArrayParam.TryParse(rules, out var rulesArray))
                 return JsonArrayParam.InvalidArrayResult("create_view_filter", "rules", rules);
@@ -291,7 +291,7 @@ public static class ViewTools
             ["name"] = name,
             ["categoryName"] = category,
         };
-        if (fields != null)
+        if (JsonOptionalParam.IsProvided(fields))
         {
             if (!JsonArrayParam.TryParse(fields, out var fieldsArray))
                 return JsonArrayParam.InvalidArrayResult("create_schedule", "fields", fields);
@@ -410,7 +410,7 @@ public static class ViewTools
     {
         var p = new JObject { ["dryRun"] = dryRun };
         if (action != null) p["action"] = action;
-        if (viewIds != null)
+        if (JsonOptionalParam.IsProvided(viewIds))
         {
             if (!JsonArrayParam.TryParse(viewIds, out var viewIdsArray))
                 return JsonArrayParam.InvalidArrayResult("apply_view_template", "viewIds", viewIds);
@@ -479,14 +479,14 @@ public static class ViewTools
         var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (elementId != null) p["elementId"] = elementId;
         if (newName != null) p["newName"] = newName;
-        if (translation != null)
+        if (JsonOptionalParam.IsProvided(translation))
         {
             if (!JsonObjectParam.TryParse(translation, out var translationObj))
                 return JsonObjectParam.InvalidObjectResult("manage_scope_boxes", "translation", translation);
             p["translation"] = translationObj;
         }
         if (scopeBoxId != null) p["scopeBoxId"] = scopeBoxId;
-        if (viewIds != null)
+        if (JsonOptionalParam.IsProvided(viewIds))
         {
             if (!JsonArrayParam.TryParse(viewIds, out var viewIdsArray))
                 return JsonArrayParam.InvalidArrayResult("manage_scope_boxes", "viewIds", viewIds);
@@ -523,7 +523,7 @@ public static class ViewTools
         var p = new JObject();
         if (action != null) p["action"] = action;
         if (filterViewType != null) p["filterViewType"] = filterViewType;
-        if (templateIds != null)
+        if (JsonOptionalParam.IsProvided(templateIds))
         {
             if (!JsonArrayParam.TryParse(templateIds, out var templateIdsArray))
                 return JsonArrayParam.InvalidArrayResult("manage_view_templates", "templateIds", templateIds);
@@ -564,13 +564,13 @@ public static class ViewTools
     {
         var p = new JObject();
         if (action != null) p["action"] = action;
-        if (sheets != null)
+        if (JsonOptionalParam.IsProvided(sheets))
         {
             if (!JsonArrayParam.TryParse(sheets, out var sheetsArray))
                 return JsonArrayParam.InvalidArrayResult("create_placeholder_sheets", "sheets", sheets);
             p["sheets"] = sheetsArray;
         }
-        if (sheetIds != null)
+        if (JsonOptionalParam.IsProvided(sheetIds))
         {
             if (!JsonArrayParam.TryParse(sheetIds, out var sheetIdsArray))
                 return JsonArrayParam.InvalidArrayResult("create_placeholder_sheets", "sheetIds", sheetIds);

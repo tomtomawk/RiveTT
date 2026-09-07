@@ -9,10 +9,10 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class CreationTools
 {
-    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs — a roof is a real FootPrintRoof, Document.Create.NewFootPrintRoof). Pass [{category, boundary:{outerLoop:[{p0,p1}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; omit for a flat roof.")]
+    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs — a roof is a real FootPrintRoof, Document.Create.NewFootPrintRoof). Pass [{category, boundary:{outerLoop:[{p0,p1}, ...]}, typeId?, baseLevelId?, baseElevationMm?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; omit for a flat roof. baseLevelId (or nonzero baseLevel alias) is a level ID, never an altitude. baseElevationMm is absolute project Z in mm; baseOffset is relative mm. The response reports applied IDs, levels and offsets.")]
     public static async Task<string> CreateSurfaceBasedElement(
         RevitConnectionManager revit,
-        [Description("JSON array of creation specs: [{category, boundary:{outerLoop:[{p0:{x,y,z},p1:{x,y,z}}, ...]}, typeId?, baseLevel?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees applies to OST_Roofs only.")] string specs,
+        [Description("JSON array of creation specs: [{category, boundary:{outerLoop:[{p0:{x,y,z},p1:{x,y,z}}, ...]}, typeId?, baseLevelId?, baseElevationMm?, baseOffset?, roofSlopeDegrees?}]. baseLevelId (or nonzero baseLevel alias) is a Revit level ID; baseOffset is relative mm. Alternatively baseElevationMm is absolute project Z in mm. Do not combine ID and elevation. Legacy baseLevel:0 means absolute Z zero. roofSlopeDegrees applies to OST_Roofs only, in [0,90).")] string specs,
         [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
@@ -41,13 +41,13 @@ public static class CreationTools
         if (areaSchemeId != null) p["areaSchemeId"] = areaSchemeId;
         if (levelId != null) p["levelId"] = levelId;
         if (viewId != null) p["viewId"] = viewId;
-        if (curves != null)
+        if (JsonOptionalParam.IsProvided(curves))
         {
             if (!JsonArrayParam.TryParse(curves, out var curvesArray))
                 return JsonArrayParam.InvalidArrayResult("manage_area_plans", "curves", curves);
             p["curves"] = curvesArray;
         }
-        if (point != null)
+        if (JsonOptionalParam.IsProvided(point))
         {
             if (!JsonObjectParam.TryParse(point, out var pointObj))
                 return JsonObjectParam.InvalidObjectResult("manage_area_plans", "point", point);
@@ -75,19 +75,19 @@ public static class CreationTools
         if (baseLevelId != null) p["baseLevelId"] = baseLevelId;
         if (topLevelId != null) p["topLevelId"] = topLevelId;
         if (hostElementId != null) p["hostElementId"] = hostElementId;
-        if (curves != null)
+        if (JsonOptionalParam.IsProvided(curves))
         {
             if (!JsonArrayParam.TryParse(curves, out var curvesArray))
                 return JsonArrayParam.InvalidArrayResult("create_opening", "curves", curves);
             p["curves"] = curvesArray;
         }
-        if (point1 != null)
+        if (JsonOptionalParam.IsProvided(point1))
         {
             if (!JsonObjectParam.TryParse(point1, out var point1Obj))
                 return JsonObjectParam.InvalidObjectResult("create_opening", "point1", point1);
             p["point1"] = point1Obj;
         }
-        if (point2 != null)
+        if (JsonOptionalParam.IsProvided(point2))
         {
             if (!JsonObjectParam.TryParse(point2, out var point2Obj))
                 return JsonObjectParam.InvalidObjectResult("create_opening", "point2", point2);
@@ -97,10 +97,10 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_line_based_element"), Description("Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?}]. Add pMid to make a curved (arc) wall/beam. Coordinates in mm. baseLevelId (or baseLevel alias) is an element ID; baseOffset is relative to it in mm. Alternatively baseElevationMm is absolute project Z in mm.")]
+    [McpServerTool(Name = "create_line_based_element"), Description("Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?, topLevelId?, topOffset?}]. Add pMid to make a curved (arc) wall/beam. Coordinates in mm. baseLevelId (or baseLevel alias) is an element ID; baseOffset is relative to it in mm. Alternatively baseElevationMm is absolute project Z in mm. topLevelId is a top level ID for walls; topOffset is relative mm and this constraint takes precedence over height.")]
     public static async Task<string> CreateLineBasedElement(
         RevitConnectionManager revit,
-        [Description("JSON array of specs: [{category, locationLine:{p0, p1, pMid?}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?}]")] string specs,
+        [Description("JSON array of specs: [{category, locationLine:{p0, p1, pMid?}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?, topLevelId?, topOffset?}]")] string specs,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
@@ -133,7 +133,7 @@ public static class CreationTools
         CancellationToken ct = default)
     {
         var p = new JObject { ["dryRun"] = dryRun };
-        if (boundaryPoints != null)
+        if (JsonOptionalParam.IsProvided(boundaryPoints))
         {
             if (!JsonArrayParam.TryParse(boundaryPoints, out var boundaryPointsArray))
                 return JsonArrayParam.InvalidArrayResult("create_floor", "boundaryPoints", boundaryPoints);
@@ -142,7 +142,7 @@ public static class CreationTools
         if (roomId != null) p["roomId"] = roomId;
         if (floorTypeName != null) p["floorTypeName"] = floorTypeName;
         if (levelElevation != null) p["levelElevation"] = levelElevation;
-        if (holes != null)
+        if (JsonOptionalParam.IsProvided(holes))
         {
             if (!JsonArrayParam.TryParse(holes, out var holesArray))
                 return JsonArrayParam.InvalidArrayResult("create_floor", "holes", holes);
@@ -180,12 +180,14 @@ public static class CreationTools
         [Description("Number of Y grids (horizontal lines) to create")] int? yCount = null,
         [Description("Spacing between X grids in mm. Default: 5000")] double? xSpacing = null,
         [Description("Spacing between Y grids in mm. Default: 5000")] double? ySpacing = null,
-        [Description("First X grid label. Default: A")] string? xStartLabel = null,
-        [Description("First Y grid label. Default: 1")] string? yStartLabel = null,
+        [Description("First X grid label, string or integer. Default: A. Alphabetic supports A-Z and multi-letter labels such as RK.")] System.Text.Json.JsonElement? xStartLabel = null,
+        [Description("First Y grid label, string or integer. Default: 1. Numeric supports 7, 01 and A1.")] System.Text.Json.JsonElement? yStartLabel = null,
         [Description("Grid element id (for rename/delete)")] long? gridId = null,
         [Description("Grid name (identifies the target for rename/delete when gridId is omitted)")] string? name = null,
         [Description("New name (for rename)")] string? newName = null,
         [Description("Preview without changing the model. Default: true — the dry run creates the grids in a transaction, reports the names Revit assigned, and rolls back")] bool dryRun = true,
+        [Description("X sequence: alphabetic (A..Z, AA...) or numeric (1, 01, A1). Default: alphabetic")] string xNamingStyle = "alphabetic",
+        [Description("Y sequence: numeric (1, 01, A1) or alphabetic. Default: numeric")] string yNamingStyle = "numeric",
         CancellationToken ct = default)
     {
         var p = new JObject();
@@ -194,8 +196,14 @@ public static class CreationTools
         if (yCount != null) p["yCount"] = yCount;
         if (xSpacing != null) p["xSpacing"] = xSpacing;
         if (ySpacing != null) p["ySpacing"] = ySpacing;
-        if (xStartLabel != null) p["xStartLabel"] = xStartLabel;
-        if (yStartLabel != null) p["yStartLabel"] = yStartLabel;
+        if (!GridLabelParam.TryParse(xStartLabel, "A", out var xLabel))
+            return GridLabelParam.Invalid("xStartLabel");
+        if (!GridLabelParam.TryParse(yStartLabel, "1", out var yLabel))
+            return GridLabelParam.Invalid("yStartLabel");
+        p["xStartLabel"] = xLabel;
+        p["yStartLabel"] = yLabel;
+        p["xNamingStyle"] = xNamingStyle;
+        p["yNamingStyle"] = yNamingStyle;
         if (gridId != null) p["gridId"] = gridId;
         if (name != null) p["name"] = name;
         if (newName != null) p["newName"] = newName;
@@ -243,13 +251,13 @@ public static class CreationTools
             ["hasLeader"] = hasLeader
         };
         if (viewId != null) p["viewId"] = viewId;
-        if (bend != null)
+        if (JsonOptionalParam.IsProvided(bend))
         {
             if (!JsonObjectParam.TryParse(bend, out var bendObj))
                 return JsonObjectParam.InvalidObjectResult("create_spot_dimension", "bend", bend);
             p["bend"] = bendObj;
         }
-        if (end != null)
+        if (JsonOptionalParam.IsProvided(end))
         {
             if (!JsonObjectParam.TryParse(end, out var endObj))
                 return JsonObjectParam.InvalidObjectResult("create_spot_dimension", "end", end);
@@ -277,7 +285,7 @@ public static class CreationTools
         if (parameterName != null) p["parameterName"] = parameterName;
         if (action != null) p["action"] = action;
         p["useGradient"] = useGradient;
-        if (customColors != null)
+        if (JsonOptionalParam.IsProvided(customColors))
         {
             if (!JsonArrayParam.TryParse(customColors, out var customColorsArray))
                 return JsonArrayParam.InvalidArrayResult("color_elements", "customColors", customColors);
@@ -304,14 +312,14 @@ public static class CreationTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("export_to_excel", "categories", categories);
             p["categories"] = categoriesArray;
         }
         else if (category != null) p["categories"] = new JArray(category);
-        if (parameterNames != null)
+        if (JsonOptionalParam.IsProvided(parameterNames))
         {
             if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
                 return JsonArrayParam.InvalidArrayResult("export_to_excel", "parameterNames", parameterNames);
@@ -399,14 +407,14 @@ public static class CreationTools
         CancellationToken ct = default)
     {
         var p = new JObject { ["parameterName"] = parameterName };
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("create_color_legend", "categories", categories);
             p["categories"] = categoriesArray;
         }
         if (colorScheme != null) p["colorScheme"] = colorScheme;
-        if (customColors != null)
+        if (JsonOptionalParam.IsProvided(customColors))
         {
             if (!JsonArrayParam.TryParse(customColors, out var customColorsArray))
                 return JsonArrayParam.InvalidArrayResult("create_color_legend", "customColors", customColors);
@@ -433,7 +441,7 @@ public static class CreationTools
         var p = new JObject { ["boundaryPoints"] = JArray.Parse(boundaryPoints) };
         if (viewId != null) p["viewId"] = viewId;
         if (filledRegionTypeName != null) p["filledRegionTypeName"] = filledRegionTypeName;
-        if (holes != null)
+        if (JsonOptionalParam.IsProvided(holes))
         {
             if (!JsonArrayParam.TryParse(holes, out var holesArray))
                 return JsonArrayParam.InvalidArrayResult("create_filled_region", "holes", holes);
@@ -515,7 +523,7 @@ public static class CreationTools
             p["issued"] = issuedFlag;
         }
         if (visibility != null) p["visibility"] = visibility;
-        if (sheetIds != null)
+        if (JsonOptionalParam.IsProvided(sheetIds))
         {
             if (!JsonArrayParam.TryParse(sheetIds, out var sheetIdsArray))
                 return JsonArrayParam.InvalidArrayResult("create_revision", "sheetIds", sheetIds);
@@ -523,7 +531,7 @@ public static class CreationTools
         }
         if (revisionId != null) p["revisionId"] = revisionId;
         if (viewId != null) p["viewId"] = viewId;
-        if (curves != null)
+        if (JsonOptionalParam.IsProvided(curves))
         {
             if (!JsonArrayParam.TryParse(curves, out var curvesArray))
                 return JsonArrayParam.InvalidArrayResult("create_revision", "curves", curves);
@@ -565,20 +573,20 @@ public static class CreationTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("export_elements_data", "elementIds", elementIds);
             p["elementIds"] = elementIdsArray;
         }
         p["countOnly"] = countOnly;
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("export_elements_data", "categories", categories);
             p["categories"] = categoriesArray;
         }
-        if (parameterNames != null)
+        if (JsonOptionalParam.IsProvided(parameterNames))
         {
             if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
                 return JsonArrayParam.InvalidArrayResult("export_elements_data", "parameterNames", parameterNames);
@@ -605,7 +613,7 @@ public static class CreationTools
         CancellationToken ct = default)
     {
         var p = new JObject { ["outputDirectory"] = outputDirectory };
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("export_families", "categories", categories);
@@ -650,13 +658,13 @@ public static class CreationTools
     {
         var p = new JObject { ["outputDirectory"] = outputDirectory };
         if (format != null) p["format"] = format;
-        if (sheetIds != null)
+        if (JsonOptionalParam.IsProvided(sheetIds))
         {
             if (!JsonArrayParam.TryParse(sheetIds, out var sheetIdsArray))
                 return JsonArrayParam.InvalidArrayResult("batch_export", "sheetIds", sheetIds);
             p["sheetIds"] = sheetIdsArray;
         }
-        if (viewIds != null)
+        if (JsonOptionalParam.IsProvided(viewIds))
         {
             if (!JsonArrayParam.TryParse(viewIds, out var viewIdsArray))
                 return JsonArrayParam.InvalidArrayResult("batch_export", "viewIds", viewIds);

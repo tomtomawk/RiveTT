@@ -141,14 +141,14 @@ Source: "..\staging\RiveTT.addin"; DestDir: "{userappdata}\Autodesk\Revit\Addins
 ; Documentation, version-independent like the server. SKILL.md travels with it, so
 ; the agent-facing guidance and the human-facing guide can never drift apart on a
 ; workstation. Installing it here makes it AVAILABLE, not active: activating the
-; skill in Codex means writing into another product's own skills folder, which is
-; the separate, unchecked task below.
+; local ChatGPT skill is part of the unchecked ChatGPT configuration task below.
+; Claude requires an account-side skill import; the finish page explains that step.
 Source: "..\staging\documentation\*"; DestDir: "{app}\documentation"; \
     Flags: ignoreversion recursesubdirs
 
-; Same payload, optional destination: the Codex CLI skills folder.
+; The ChatGPT task installs both the MCP configuration and the local skill.
 Source: "..\staging\documentation\*"; DestDir: "{code:CodexSkillDir}"; \
-    Flags: ignoreversion recursesubdirs; Tasks: codexskill
+    Flags: ignoreversion recursesubdirs; Tasks: mcpcodex
 
 ; Registers the MCP server in a client's own configuration. Installed whatever the
 ; tasks below, because the uninstaller runs it too -- leaving a client pointing at a
@@ -156,20 +156,17 @@ Source: "..\staging\documentation\*"; DestDir: "{code:CodexSkillDir}"; \
 Source: "..\staging\register-mcp.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Tasks]
-; All three are unchecked on purpose: each one writes into the configuration of a
+; Both are unchecked on purpose: each one writes into the configuration of a
 ; product this installer does not own. Ticking them is the user asking for it.
 ;
 ; The two registration tasks replace the manual step the finish page used to end on
 ; ("declare the server in your client, with this path"), which every user had to do
 ; by hand and which nothing verified.
 Name: "mcpclaude"; \
-    Description: "Déclarer RiveTT dans Claude Desktop"; \
+    Description: "Configurer pour Claude (config + skill)"; \
     Flags: unchecked
 Name: "mcpcodex"; \
-    Description: "Déclarer RiveTT dans Codex (application de bureau OpenAI)"; \
-    Flags: unchecked
-Name: "codexskill"; \
-    Description: "Activer le skill RiveTT dans Codex CLI (dossier personnel des skills)"; \
+    Description: "Configurer pour ChatGPT (config + skill)"; \
     Flags: unchecked
 
 [UninstallRun]
@@ -184,10 +181,12 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
 
 [UninstallDelete]
 ; Copies parked by the locked-file rename below, the documentation, and the local
-; runtime state. The Codex skill folder is ours by name (rivett) and goes with it,
-; whether or not the optional task installed it -- Inno ignores a missing path.
+; runtime state. Personal skill files installed through [Files] are tracked by Inno.
+; Preserve additions in the personal skill directory instead of deleting it wholesale.
 Type: filesandordirs; Name: "{app}\documentation"
-Type: filesandordirs; Name: "{code:CodexSkillDir}"
+; Skill files copied by [Files] are tracked by Inno. Do not recursively delete
+; a user's skill directory, which may contain their own additions.
+Type: filesandordirs; Name: "{app}\integrations"
 Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2026\RiveTT"
 Type: filesandordirs; Name: "{userappdata}\Autodesk\Revit\Addins\2027\RiveTT"
 Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2026\RiveTT.addin.old-*"
@@ -197,10 +196,9 @@ Type: files; Name: "{userappdata}\Autodesk\Revit\Addins\2027\RiveTT.addin.old-*"
 const
   REVIT_ROOT = 'SOFTWARE\Autodesk\Revit\';
 
-{ Codex reads its skills from $CODEX_HOME\skills, and $CODEX_HOME defaults to
-  %USERPROFILE%\.codex. Resolved here in code rather than with an Inno
-  environment-variable constant, whose fallback is a literal string and so cannot
-  itself expand %USERPROFILE%.
+{ The current personal skill location is USERPROFILE\.agents\skills.
+  Reuse an existing legacy RiveTT skill in CODEX_HOME\skills to avoid creating
+  two skills with the same name on an upgraded workstation.
 
   Keep every brace character out of a brace comment, quoted or not. These comments
   do not nest and quoting does not shield anything: the first closing brace ends
@@ -209,12 +207,16 @@ const
   the const block above. }
 function CodexSkillDir(Param: String): String;
 var
-  Home: String;
+  ClientHome, LegacySkill: String;
 begin
-  Home := GetEnv('CODEX_HOME');
-  if Home = '' then
-    Home := AddBackslash(GetEnv('USERPROFILE')) + '.codex';
-  Result := AddBackslash(Home) + 'skills\rivett';
+  ClientHome := GetEnv('CODEX_HOME');
+  if ClientHome = '' then
+    ClientHome := AddBackslash(GetEnv('USERPROFILE')) + '.codex';
+  LegacySkill := AddBackslash(ClientHome) + 'skills\rivett';
+  if FileExists(AddBackslash(LegacySkill) + 'SKILL.md') then
+    Result := LegacySkill
+  else
+    Result := AddBackslash(GetEnv('USERPROFILE')) + '.agents\skills\rivett';
 end;
 
 { Asking the OS for the process list rather than guessing a window class name: Revit's
@@ -524,13 +526,47 @@ begin
             + ExpandConstant('{localappdata}\RiveTT\register-mcp-') + ClientName + '.log';
 end;
 
+function PrepareClaudeSkill(): String;
+var
+  Code: Integer;
+  Params, ArchivePath: String;
+begin
+  ArchivePath := ExpandConstant('{app}\integrations\Claude\rivett.zip');
+  Params := '-NoProfile -ExecutionPolicy Bypass -File "'
+          + ExpandConstant('{app}\register-mcp.ps1') + '" -Client Claude -PrepareSkill'
+          + ' -DocumentationPath "' + ExpandConstant('{app}\documentation') + '"'
+          + ' -SkillArchivePath "' + ArchivePath + '"';
+  if Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Params,
+          '', SW_HIDE, ewWaitUntilTerminated, Code) then
+  begin
+    if (Code = 0) and FileExists(ArchivePath) then
+    begin
+      Result := '  • Claude : skill prêt à importer (pas encore activé).' + #13#10
+              + '    Personnaliser > Skills > + > Importer un skill : ' + ArchivePath;
+      Exit;
+    end;
+  end;
+  Result := '  • Claude : ÉCHEC de préparation du skill. Voir '
+          + ExpandConstant('{localappdata}\RiveTT\register-mcp-Claude.log');
+end;
+
 procedure RegisterSelectedMcpClients();
 begin
   McpReport := '';
   if WizardIsTaskSelected('mcpclaude') then
+  begin
     McpReport := McpReport + RegisterMcpClient('Claude', 'Claude Desktop') + #13#10;
+    McpReport := McpReport + PrepareClaudeSkill() + #13#10;
+  end;
   if WizardIsTaskSelected('mcpcodex') then
-    McpReport := McpReport + RegisterMcpClient('Codex', 'Codex') + #13#10;
+  begin
+    McpReport := McpReport + RegisterMcpClient('Codex', 'ChatGPT Desktop') + #13#10;
+    if FileExists(AddBackslash(CodexSkillDir('')) + 'SKILL.md') then
+      McpReport := McpReport + '  • ChatGPT : skill installé dans '
+                + CodexSkillDir('') + '. Redémarrez ChatGPT.' + #13#10
+    else
+      McpReport := McpReport + '  • ChatGPT : ÉCHEC, skill introuvable.' + #13#10;
+  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -596,7 +632,7 @@ end;
 function McpSection(): String;
 begin
   if McpReport <> '' then
-    Result := 'Déclaration du serveur MCP :' + #13#10 + McpReport
+    Result := 'Configuration de vos applications (connexion et skill) :' + #13#10 + McpReport
   else
     Result := 'Déclarez le serveur MCP dans votre application d''IA, avec ce chemin :'
             + #13#10 + ExpandConstant('{app}\server\RiveTT.Server.exe') + #13#10;

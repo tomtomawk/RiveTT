@@ -61,6 +61,9 @@ public class CreateGridTool : IRiveTTTool
 
         try
         {
+            // Validate the entire requested sequence before opening a transaction.
+            if (xCount > 0) GridLabels.Generate(xStartLabel, xCount - 1, xNaming);
+            if (yCount > 0) GridLabels.Generate(yStartLabel, yCount - 1, yNaming);
             var createdGrids = new List<object>();
             var warnings = new List<string>();
             var z = elevationMm / MmPerFoot;
@@ -83,11 +86,13 @@ public class CreateGridTool : IRiveTTTool
                 var end = new XYZ(x, xExtentMaxMm / MmPerFoot, z);
                 var line = Line.CreateBound(start, end);
                 var grid = Grid.Create(doc, line);
-                var label = GenerateLabel(xStartLabel, i, xNaming);
+                var label = GridLabels.Generate(xStartLabel, i, xNaming);
                 if (existingNames.Contains(label))
                     warnings.Add($"Grid label '{label}' already exists, auto-assigned '{grid.Name}'.");
                 else if (TrySetName(grid, label))
                     existingNames.Add(label);
+                else
+                    warnings.Add($"Revit refused label '{label}'; actual label is '{grid.Name}'.");
                 createdGrids.Add(dryRun
                     ? (object)new { axis = "X", name = grid.Name, requestedLabel = label, position = i * xSpacingMm }
                     : new { id = ToolHelpers.GetElementIdValue(grid.Id), axis = "X", name = grid.Name, requestedLabel = label, position = i * xSpacingMm });
@@ -101,11 +106,13 @@ public class CreateGridTool : IRiveTTTool
                 var end = new XYZ(yExtentMaxMm / MmPerFoot, y, z);
                 var line = Line.CreateBound(start, end);
                 var grid = Grid.Create(doc, line);
-                var label = GenerateLabel(yStartLabel, i, yNaming);
+                var label = GridLabels.Generate(yStartLabel, i, yNaming);
                 if (existingNames.Contains(label))
                     warnings.Add($"Grid label '{label}' already exists, auto-assigned '{grid.Name}'.");
                 else if (TrySetName(grid, label))
                     existingNames.Add(label);
+                else
+                    warnings.Add($"Revit refused label '{label}'; actual label is '{grid.Name}'.");
                 createdGrids.Add(dryRun
                     ? (object)new { axis = "Y", name = grid.Name, requestedLabel = label, position = i * ySpacingMm }
                     : new { id = ToolHelpers.GetElementIdValue(grid.Id), axis = "Y", name = grid.Name, requestedLabel = label, position = i * ySpacingMm });
@@ -135,6 +142,11 @@ public class CreateGridTool : IRiveTTTool
                 warnings
             });
         }
+        catch (ArgumentException ex)
+        {
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, ex.Message,
+                suggestion: "Use alphabetic labels A/K/RK or numeric labels 1/01/A1 with the matching naming style.");
+        }
         catch (Exception ex)
         {
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
@@ -144,24 +156,6 @@ public class CreateGridTool : IRiveTTTool
                     + "call if it covered many elements. The full call, its duration and this error are "
                     + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
-    }
-
-    private static string GenerateLabel(string start, int index, string style)
-    {
-        if (style == "alphabetic")
-        {
-            // A..Z, AA..AZ, BA..
-            int charIndex = 0;
-            if (start.Length == 1 && char.IsLetter(start[0]))
-                charIndex = char.ToUpper(start[0]) - 'A';
-            int total = charIndex + index;
-            if (total < 26) return ((char)('A' + total)).ToString();
-            return ((char)('A' + total / 26 - 1)).ToString() + ((char)('A' + total % 26)).ToString();
-        }
-        // numeric
-        if (int.TryParse(start, out var startNum))
-            return (startNum + index).ToString();
-        return (index + 1).ToString();
     }
 
     private static bool TrySetName(Grid grid, string name)
@@ -186,14 +180,18 @@ public class CreateGridTool : IRiveTTTool
 
         var oldName = grid!.Name;
 
-        if (ToolHelpers.GetDryRun(input))
-            return ChangePreview.Declared(
-                $"DryRun: would rename the grid '{oldName}' to '{newName}'.",
-                new { action = "rename", gridId = ToolHelpers.GetElementIdValue(grid.Id), oldName, newName });
         using var tx = new Transaction(doc, "RiveTT: Rename Grid");
         tx.Start();
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
         grid.Name = newName;
+        var appliedName = grid.Name;
+        if (ToolHelpers.GetDryRun(input))
+        {
+            ChangePreview.Rollback(tx);
+            return ChangePreview.Probed(
+                $"DryRun: would rename the grid '{oldName}' to '{appliedName}'.",
+                new { action = "rename", gridId = ToolHelpers.GetElementIdValue(grid.Id), oldName, newName = appliedName });
+        }
         if (tx.Commit() != TransactionStatus.Committed)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",

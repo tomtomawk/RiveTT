@@ -37,7 +37,7 @@ public static class ToolResponseShaper
             return payload;
         }
 
-        return toolName switch
+        var shaped = toolName switch
         {
             "list_family_types" => ShapeAvailableFamilyTypes(payload),
             "list_schedulable_fields" => ShapeSchedulableFields(payload, summaryOnly),
@@ -56,6 +56,9 @@ public static class ToolResponseShaper
             "workflow_model_audit" => ShapeWorkflowModelAudit(payload),
             _ => payload
         };
+        if (payload is JObject original && shaped is JObject result && original["execution"] != null)
+            result["execution"] = original["execution"]!.DeepClone();
+        return shaped;
     }
 
     /// <summary>
@@ -157,6 +160,7 @@ public static class ToolResponseShaper
         // document full of wall types.
         var source = FindItemArray(payload, "items", "types", "familyTypes");
         if (source == null) return payload;
+        if (source.Any(item => item is not JObject)) return payload;
 
         var items = source.OfType<JObject>()
             .Select(item => new JObject
@@ -170,11 +174,9 @@ public static class ToolResponseShaper
             })
             .ToArray();
 
-        var result = new JObject
-        {
-            ["count"] = items.Length,
-            ["items"] = new JArray(items)
-        };
+        var result = payload is JObject original ? (JObject)original.DeepClone() : new JObject();
+        if (result["count"] == null) result["count"] = items.Length;
+        result["items"] = new JArray(items);
 
         // Carry the original counters through: recomputing them from the trimmed
         // list would silently rewrite the truth (shaper invariant 2). A bare-array
@@ -266,6 +268,8 @@ public static class ToolResponseShaper
                 ["totalRooms"] = payload["totalRooms"],
                 ["totalDoors"] = payload["totalDoors"],
                 ["totalWindows"] = payload["totalWindows"],
+                ["doorRoomOccurrences"] = payload["doorRoomOccurrences"],
+                ["windowRoomOccurrences"] = payload["windowRoomOccurrences"],
                 ["rooms"] = compactRooms is null ? null : new JArray(compactRooms)
             };
         }
@@ -287,6 +291,8 @@ public static class ToolResponseShaper
             ["totalRooms"] = payload["totalRooms"],
             ["totalDoors"] = payload["totalDoors"],
             ["totalWindows"] = payload["totalWindows"],
+            ["doorRoomOccurrences"] = payload["doorRoomOccurrences"],
+            ["windowRoomOccurrences"] = payload["windowRoomOccurrences"],
             ["rooms"] = new JArray(summaryRooms)
         };
     }
@@ -307,6 +313,10 @@ public static class ToolResponseShaper
                 ["typeName"] = opening["typeName"],
                 ["width"] = opening["width"],
                 ["height"] = opening["height"],
+                ["widthMeasurement"] = opening["widthMeasurement"]?.DeepClone(),
+                ["heightMeasurement"] = opening["heightMeasurement"]?.DeepClone(),
+                ["sillHeightMeasurement"] = opening["sillHeightMeasurement"]?.DeepClone(),
+                ["headHeightMeasurement"] = opening["headHeightMeasurement"]?.DeepClone(),
                 ["mark"] = opening["mark"]
             })
             .ToArray();

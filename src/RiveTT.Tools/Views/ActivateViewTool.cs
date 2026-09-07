@@ -28,8 +28,13 @@ public sealed class ActivateViewTool : IRiveTTTool
         if (uiDoc == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active Revit UI document.");
         var doc = uiDoc.Document;
-        if (doc.GetElement(new ElementId(id)) is not View view)
+        var element = doc.GetElement(new ElementId(id));
+        if (element == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"View {id} does not exist in the active document.");
+        if (element is not View view)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"Element {id} exists but is not a view (type: {element.GetType().Name}).",
+                suggestion: "Use a view or sheet ID from the active document.");
         if (view.IsTemplate || view.ViewType is ViewType.Internal or ViewType.Undefined or ViewType.ProjectBrowser or ViewType.SystemBrowser)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"View '{view.Name}' is a template or internal view and cannot be activated.");
         if (doc.IsModifiable || doc.IsReadOnly)

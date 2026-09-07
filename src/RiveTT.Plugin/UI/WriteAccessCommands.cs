@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
@@ -49,31 +48,22 @@ public sealed class ShowStatusCommand : IExternalCommand
         var auditPath = RiveTTEnvironment.Current.AuditLogPath;
         var document = commandData?.Application?.ActiveUIDocument?.Document;
 
-        var version = typeof(ShowStatusCommand).Assembly.GetName().Version?.ToString() ?? "inconnue";
-        var writeState = policy == null
-            ? "inconnu"
-            : policy.WritesAllowed ? "écriture autorisée" : "lecture seule";
-        var since = policy == null
-            ? string.Empty
-            : $" (depuis {policy.ChangedUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)}, " +
-              $"origine : {policy.ChangedBy})";
+        var version = typeof(ShowStatusCommand).Assembly.GetName().Version?.ToString(3) ?? "inconnue";
+        var content = StatusDialogContent.Create(
+            policy?.WritesAllowed, app?.IsServiceRunning == true, document?.Title,
+            version, commandData?.Application?.Application?.VersionNumber);
 
         var dialog = new TaskDialog("RiveTT")
         {
-            MainInstruction = $"Mode : {writeState}",
-            MainContent =
-                $"Version : {version}\n" +
-                $"Canal nommé : {(app?.IsServiceRunning == true ? "actif" : "inactif")}\n" +
-                $"Outils publiés : {app?.Router?.TotalToolCount.ToString(CultureInfo.CurrentCulture) ?? "0"}\n" +
-                $"Document actif : {document?.Title ?? "aucun"}\n" +
-                $"Mode d'écriture{since}\n\n" +
-                "Le mode se change avec les boutons Lecture seule / Écriture de ce panneau. " +
-                "Aucun outil MCP ne peut le faire à votre place.",
+            TitleAutoPrefix = false,
+            MainInstruction = content.Heading,
+            MainContent = content.Body,
+            FooterText = content.Footer,
             CommonButtons = TaskDialogCommonButtons.Close,
             DefaultButton = TaskDialogResult.Close
         };
         dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1,
-            "Ouvrir le journal d'audit", auditPath);
+            "Afficher le journal d'activité", "Retrouver l'historique des demandes de votre assistant.");
 
         if (dialog.Show() == TaskDialogResult.CommandLink1)
             RevealInExplorer(auditPath);

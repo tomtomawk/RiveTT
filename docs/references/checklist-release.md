@@ -92,8 +92,8 @@ to uninstall.
 - Every write tool that reads `dryRun` declares `supportsDryRun: true`, and no tool
   declares it without reading it — `DryRunDeclarationSourceTests` covers both, by
   scanning; there is no list to update.
-- Step 0 of `docs/references/protocole-de-recette.md` — the INSTALLER itself, run on a
-  machine that already carries an older version. Case 0.3 above all: installing while the
+- Installer appendix (I.1-I.8) of `docs/references/protocole-de-recette.md` — the INSTALLER itself, run on a
+  machine that already carries an older version. Case I.3 above all: installing while the
   MCP client is still running must end on the incomplete-update page, never a green one.
   That half-applied install is the costliest defect this product has had, it lives in the
   installer rather than in the code, and no unit test can reach it.

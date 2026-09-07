@@ -249,6 +249,11 @@ liste.
 
 ## 6. Vérifications qui restent à faire en session Revit réelle
 
+- **Fenêtre État RiveTT** — vérifier Lecture seule, Écriture autorisée et session
+  indisponible, avec/sans document ; titre unique, pied de page version et bouton
+  du journal d'activité. Contrôler la lisibilité à 100 % et 150 % de mise à l'échelle.
+  Le contenu est testé hors Revit ; le rendu natif reste à vérifier en session.
+
 Cet environnement de développement n'a pas Revit installé — 13+ tests de la suite ne peuvent
 pas s'y exécuter (`RevitAPI.dll` introuvable), et tout ce qui touche géométrie, transactions
 et messages d'erreur Revit n'est prouvable que sur maquette. À consigner dans la PR qui closes
@@ -284,6 +289,12 @@ manques subsistent, priorité basse : repères de texte (Keynote), lignes de rac
 (Matchline), plateformes de construction (BuildingPad).
 
 ### Complément 0.5.0 à la recette manuelle du §6
+
+Le premier lot architecture du 7 septembre demande également une relecture live
+des niveaux et altitudes des surfaces, des axes, des pièces et volumes, des
+épaisseurs, des ouvertures et des insertions partiellement échouées. Les cas précis
+et les limites de validation sont dans
+[le suivi de recette](references/suivi-recette-2026-09-07.md).
 
 À vérifier dans Revit 2026.5 et 2027 après installation de la même version du
 serveur et du plugin (aucune validation live effectuée lors du développement) :

@@ -34,7 +34,7 @@ public static class StoreyAndGroupTools
         if (targetLevelName != null) p["targetLevelName"] = targetLevelName;
         if (targetTopLevelId != null) p["targetTopLevelId"] = targetTopLevelId;
         if (moveUpperLevelsByMm != null) p["moveUpperLevelsByMm"] = moveUpperLevelsByMm;
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("duplicate_storey", "categories", categories);
@@ -44,7 +44,7 @@ public static class StoreyAndGroupTools
         p["includeDetails"] = includeDetails;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;
         if (warningPolicy != null) p["warningPolicy"] = warningPolicy;
-        if (allowedWarningIds != null)
+        if (JsonOptionalParam.IsProvided(allowedWarningIds))
         {
             if (!JsonArrayParam.TryParse(allowedWarningIds, out var allowedWarningIdsArray))
                 return JsonArrayParam.InvalidArrayResult("duplicate_storey", "allowedWarningIds", allowedWarningIds);
@@ -70,7 +70,7 @@ public static class StoreyAndGroupTools
             ["dryRun"] = dryRun
         };
         if (warningPolicy != null) p["warningPolicy"] = warningPolicy;
-        if (allowedWarningIds != null)
+        if (JsonOptionalParam.IsProvided(allowedWarningIds))
         {
             if (!JsonArrayParam.TryParse(allowedWarningIds, out var allowedWarningIdsArray))
                 return JsonArrayParam.InvalidArrayResult("detach_wall_constraint", "allowedWarningIds", allowedWarningIds);
@@ -94,7 +94,7 @@ public static class StoreyAndGroupTools
         var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (groupTypeId != null) p["groupTypeId"] = groupTypeId;
         if (newName != null) p["newName"] = newName;
-        if (groupIds != null)
+        if (JsonOptionalParam.IsProvided(groupIds))
         {
             if (!JsonArrayParam.TryParse(groupIds, out var groupIdsArray))
                 return JsonArrayParam.InvalidArrayResult("manage_model_groups", "groupIds", groupIds);
@@ -133,7 +133,7 @@ public static class StoreyAndGroupTools
         var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (filePath != null) p["filePath"] = filePath;
         if (viewId != null) p["viewId"] = viewId;
-        if (position != null)
+        if (JsonOptionalParam.IsProvided(position))
         {
             if (!JsonObjectParam.TryParse(position, out var positionObj))
                 return JsonObjectParam.InvalidObjectResult("manage_images", "position", position);

@@ -60,9 +60,11 @@ qui les empêche de décrire la même opération de deux façons.
 |---|---|
 | [AGENTS.md](AGENTS.md) | **À lire en premier.** Architecture, contrat à deux faces, verrou d'écriture. Les agents de code le chargent automatiquement comme instructions projet |
 | [docs/references/](docs/references/) | Créer un outil C#, contrats et erreurs, sécurité interne, checklist de release |
-| [docs/references/protocole-de-recette.md](docs/references/protocole-de-recette.md) | Recette sur maquette réelle, à deux agents : ce que `dotnet test` ne peut pas prouver |
+| [docs/references/protocole-de-recette.md](docs/references/protocole-de-recette.md) | Recette exhaustive en deux phases (création puis lecture), chemins et reporting agent : ce que `dotnet test` ne peut pas prouver |
 | [docs/CHANGELOG_0.4.0.md](docs/CHANGELOG_0.4.0.md) | Verrou d'écriture, contrat `dryRun`, défauts de l'audit du 31/08, ce qui reste ouvert |
 | [docs/CHANGELOG_0.3.0.md](docs/CHANGELOG_0.3.0.md) | Défauts corrigés, renommage et consolidation de la surface, ce qui reste à vérifier sur maquette |
+| [docs/recettes/](docs/recettes/) | Modèle de rapport et résultats des nouvelles campagnes |
+| [docs/CHANGELOG_0.5.0.md](docs/CHANGELOG_0.5.0.md) | Changements actuels et régressions à vérifier |
 
 **Référence commune**
 
@@ -181,10 +183,7 @@ L'installation est par utilisateur dans
 `%LOCALAPPDATA%\RiveTT\server`, la documentation dans
 `%LOCALAPPDATA%\RiveTT\documentation`.
 
-L'installateur propose en outre, **case décochée par défaut**, de copier le skill
-dans le dossier personnel des skills Codex. C'est décoché parce que cela modifie la
-configuration d'un autre produit : la documentation, elle, est installée dans tous
-les cas.
+L'installateur propose deux cases : **Configurer pour Claude (config + skill)** et **Configurer pour ChatGPT (config + skill)**. Claude reçoit un ZIP à importer ; ChatGPT Desktop reçoit le skill local avec la connexion. Voir [les emplacements et étapes](src/resources/documentation/configuration-clients.md).
 
 Pour enregistrer le serveur dans Codex :
 

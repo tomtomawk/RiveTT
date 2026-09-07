@@ -48,6 +48,17 @@
     Delete the RiveTT entry instead of writing it. Used at uninstall, so the client is
     not left launching an executable that no longer exists.
 
+.PARAMETER PrepareSkill
+    Prepare the Claude skill ZIP only, without touching client configuration.
+    Requires -Client Claude, -DocumentationPath and -SkillArchivePath.
+    The user still imports this archive through Claude's Skills interface.
+
+.PARAMETER DocumentationPath
+    Installed documentation containing SKILL.md and references.
+
+.PARAMETER SkillArchivePath
+    Destination ZIP for the Claude skill. Used only with -PrepareSkill.
+
 .OUTPUTS
     Exit code 0 registered, updated, already correct, or removed.
                1 failure -- the config was restored from the rolling backup.
@@ -57,7 +68,10 @@
 param(
     [Parameter(Mandatory = $true)][ValidateSet('Claude', 'Codex')][string] $Client,
     [string] $ServerPath,
-    [switch] $Remove
+    [switch] $Remove,
+    [switch] $PrepareSkill,
+    [string] $DocumentationPath,
+    [string] $SkillArchivePath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -361,7 +375,56 @@ function Update-CodexConfig {
     Write-Log 'Termine.'
 }
 
+function New-ClaudeSkillArchive {
+    if ($Client -ne 'Claude' -or $Remove) {
+        throw '-PrepareSkill est reserve a Claude, sans -Remove.'
+    }
+    if (-not $DocumentationPath -or -not $SkillArchivePath) {
+        throw '-DocumentationPath et -SkillArchivePath sont requis.'
+    }
+    $sourceRoot = [IO.Path]::GetFullPath($DocumentationPath)
+    $skillFile = Join-Path $sourceRoot 'SKILL.md'
+    $references = Join-Path $sourceRoot 'references'
+    if (-not (Test-Path -LiteralPath $skillFile -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $references -PathType Container)) {
+        throw 'Skill incomplet : SKILL.md et references sont requis.'
+    }
+    $files = @((Get-Item -LiteralPath $skillFile))
+    $readme = Join-Path $sourceRoot 'README.md'
+    if (Test-Path -LiteralPath $readme -PathType Leaf) {
+        $files += Get-Item -LiteralPath $readme
+    }
+    $files += @(Get-ChildItem -LiteralPath $references -File -Recurse)
+    $target = [IO.Path]::GetFullPath($SkillArchivePath)
+    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
+    $temporaryArchive = $target + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    try {
+        $archive = [IO.Compression.ZipFile]::Open($temporaryArchive, 'Create')
+        try {
+            foreach ($file in $files) {
+                $relative = $file.FullName.Substring($sourceRoot.TrimEnd('\').Length + 1)
+                $entry = 'rivett/' + $relative.Replace('\', '/')
+                [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                    $archive, $file.FullName, $entry) | Out-Null
+            }
+        } finally { $archive.Dispose() }
+        Copy-Item -LiteralPath $temporaryArchive -Destination $target -Force
+    } finally {
+        if (Test-Path -LiteralPath $temporaryArchive) {
+            Remove-Item -LiteralPath $temporaryArchive
+        }
+    }
+    Write-Log "Skill prepare : $target. Importer le ZIP dans Claude > Personnaliser > Skills."
+}
+
 # ------------------------------------------------------------------------------ main
+
+if ($PrepareSkill) {
+    try { New-ClaudeSkillArchive } catch { Stop-WithFailure $_.Exception.Message }
+    exit 0
+}
 
 Write-Log "--- $Client / $(if ($Remove) { 'retrait' } else { 'enregistrement' }) ---"
 

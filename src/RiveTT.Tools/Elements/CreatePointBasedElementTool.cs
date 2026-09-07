@@ -68,6 +68,8 @@ public class CreatePointBasedElementTool : IRiveTTTool
             dryRun,
             processed = dataToken.Count(),
             created = createdIds.Count,
+            skipped = dataToken.Count() - (dryRun ? details.Count : createdIds.Count),
+            warnings,
             createdElementIds = createdIds,
             details
         });

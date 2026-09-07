@@ -60,8 +60,9 @@ internal static class JsonObjectParam
                 ["code"] = "InvalidInput",
                 ["tool"] = tool,
                 ["message"] = $"{parameterName} must be a JSON object (received: \"{value}\")",
-                ["suggestion"] = $"Pass {parameterName} as a JSON object, e.g. {{\"x\":0,\"y\":0,\"z\":0}}, " +
-                                 "or as a JSON-encoded string of the same object.",
+                ["suggestion"] = parameterName == "levelFilter"
+                    ? "Pass levelFilter as {\"levelId\":123} or {\"levelName\":\"L1\"}, or omit it."
+                    : $"Pass {parameterName} as a JSON object matching this parameter's schema, or as a JSON-encoded string of that object.",
                 ["stage"] = "validation",
                 ["modelChanged"] = false
             }

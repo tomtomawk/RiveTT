@@ -22,7 +22,7 @@ public static class ElementTools
             ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()),
             ["includeTypeParameters"] = includeTypeParameters,
         };
-        if (parameterNames != null)
+        if (JsonOptionalParam.IsProvided(parameterNames))
         {
             if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
                 return JsonArrayParam.InvalidArrayResult("get_element_parameters", "parameterNames", parameterNames);
@@ -48,7 +48,7 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "filter_elements"), Description("Paginated element query by category, class, family symbol, bounding box, or level. Returns totalCount, returnedCount, appliedLimit and nextCursor. responseMode=summary (default), idsOnly, or details.")]
+    [McpServerTool(Name = "filter_elements"), Description("Paginated element query by category, level, group status or wall constraint status. Returns totalCount, returnedCount, appliedLimit and nextCursor. responseMode=summary (default), idsOnly, or details.")]
     public static async Task<string> AIElementFilter(
         RevitConnectionManager revit,
         [Description("BuiltInCategory code, e.g. OST_Walls, OST_Doors")] string? filterCategory = null,
@@ -73,7 +73,7 @@ public static class ElementTools
         if (responseMode != null) data["responseMode"] = responseMode;
         if (combineWith != null) data["combineWith"] = combineWith;
         data["invert"] = invert;
-        if (levelFilter != null)
+        if (JsonOptionalParam.IsProvided(levelFilter))
         {
             if (!JsonObjectParam.TryParse(levelFilter, out var levelFilterObj))
                 return JsonObjectParam.InvalidObjectResult("filter_elements", "levelFilter", levelFilter);
@@ -104,7 +104,7 @@ public static class ElementTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("capture_selection", "elementIds", elementIds);
@@ -187,7 +187,7 @@ public static class ElementTools
     {
         var p = new JObject { ["action"] = action };
         if (name != null) p["name"] = name;
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("manage_selection", "elementIds", elementIds);
@@ -245,7 +245,7 @@ public static class ElementTools
             ["sourceElementId"] = sourceElementId,
             ["targetElementIds"] = new JArray(targetElementIds.Cast<object>().ToArray()),
         };
-        if (parameterNames != null)
+        if (JsonOptionalParam.IsProvided(parameterNames))
         {
             if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
                 return JsonArrayParam.InvalidArrayResult("match_element_properties", "parameterNames", parameterNames);
@@ -270,13 +270,13 @@ public static class ElementTools
         var p = new JObject();
         if (elementId1 != null) p["elementId1"] = elementId1;
         if (elementId2 != null) p["elementId2"] = elementId2;
-        if (point1 != null)
+        if (JsonOptionalParam.IsProvided(point1))
         {
             if (!JsonArrayParam.TryParse(point1, out var point1Array))
                 return JsonArrayParam.InvalidArrayResult("measure_between_elements", "point1", point1);
             p["point1"] = point1Array;
         }
-        if (point2 != null)
+        if (JsonOptionalParam.IsProvided(point2))
         {
             if (!JsonArrayParam.TryParse(point2, out var point2Array))
                 return JsonArrayParam.InvalidArrayResult("measure_between_elements", "point2", point2);
@@ -302,7 +302,7 @@ public static class ElementTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("renumber_elements", "elementIds", elementIds);
@@ -328,7 +328,7 @@ public static class ElementTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("create_section_box_from_selection", "elementIds", elementIds);
@@ -385,13 +385,13 @@ public static class ElementTools
     {
         var p = new JObject();
         if (volumeType != null) p["volumeType"] = volumeType;
-        if (volumeIds != null)
+        if (JsonOptionalParam.IsProvided(volumeIds))
         {
             if (!JsonArrayParam.TryParse(volumeIds, out var volumeIdsArray))
                 return JsonArrayParam.InvalidArrayResult("get_elements_in_spatial_volume", "volumeIds", volumeIds);
             p["volumeIds"] = volumeIdsArray;
         }
-        if (categoryFilter != null)
+        if (JsonOptionalParam.IsProvided(categoryFilter))
         {
             if (!JsonArrayParam.TryParse(categoryFilter, out var categoryFilterArray))
                 return JsonArrayParam.InvalidArrayResult("get_elements_in_spatial_volume", "categoryFilter", categoryFilter);
@@ -421,13 +421,13 @@ public static class ElementTools
     {
         var p = new JObject();
         if (linkName != null) p["linkName"] = linkName;
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("get_linked_elements", "categories", categories);
             p["categories"] = categoriesArray;
         }
-        if (parameterNames != null)
+        if (JsonOptionalParam.IsProvided(parameterNames))
         {
             if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
                 return JsonArrayParam.InvalidArrayResult("get_linked_elements", "parameterNames", parameterNames);
@@ -454,13 +454,13 @@ public static class ElementTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (roomIds != null)
+        if (JsonOptionalParam.IsProvided(roomIds))
         {
             if (!JsonArrayParam.TryParse(roomIds, out var roomIdsArray))
                 return JsonArrayParam.InvalidArrayResult("get_room_openings", "roomIds", roomIds);
             p["roomIds"] = roomIdsArray;
         }
-        if (roomNumbers != null)
+        if (JsonOptionalParam.IsProvided(roomNumbers))
         {
             if (!JsonArrayParam.TryParse(roomNumbers, out var roomNumbersArray))
                 return JsonArrayParam.InvalidArrayResult("get_room_openings", "roomNumbers", roomNumbers);
@@ -470,7 +470,7 @@ public static class ElementTools
         if (elementType != null) p["elementType"] = elementType;
         p["includeRoomParams"] = includeRoomParams;
         p["includeElementParams"] = includeElementParams;
-        if (parameterNames != null)
+        if (JsonOptionalParam.IsProvided(parameterNames))
         {
             if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
                 return JsonArrayParam.InvalidArrayResult("get_room_openings", "parameterNames", parameterNames);
@@ -501,38 +501,38 @@ public static class ElementTools
             ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()),
             ["action"] = action,
         };
-        if (translation != null)
+        if (JsonOptionalParam.IsProvided(translation))
         {
             if (!JsonObjectParam.TryParse(translation, out var translationObj))
                 return JsonObjectParam.InvalidObjectResult("modify_element", "translation", translation);
             p["translation"] = translationObj;
         }
-        if (rotationCenter != null)
+        if (JsonOptionalParam.IsProvided(rotationCenter))
         {
             if (!JsonObjectParam.TryParse(rotationCenter, out var rotationCenterObj))
                 return JsonObjectParam.InvalidObjectResult("modify_element", "rotationCenter", rotationCenter);
             p["rotationCenter"] = rotationCenterObj;
         }
         if (rotationAngle != null) p["rotationAngle"] = rotationAngle;
-        if (rotationAxis != null)
+        if (JsonOptionalParam.IsProvided(rotationAxis))
         {
             if (!JsonObjectParam.TryParse(rotationAxis, out var rotationAxisObj))
                 return JsonObjectParam.InvalidObjectResult("modify_element", "rotationAxis", rotationAxis);
             p["rotationAxis"] = rotationAxisObj;
         }
-        if (mirrorPlaneOrigin != null)
+        if (JsonOptionalParam.IsProvided(mirrorPlaneOrigin))
         {
             if (!JsonObjectParam.TryParse(mirrorPlaneOrigin, out var mirrorPlaneOriginObj))
                 return JsonObjectParam.InvalidObjectResult("modify_element", "mirrorPlaneOrigin", mirrorPlaneOrigin);
             p["mirrorPlaneOrigin"] = mirrorPlaneOriginObj;
         }
-        if (mirrorPlaneNormal != null)
+        if (JsonOptionalParam.IsProvided(mirrorPlaneNormal))
         {
             if (!JsonObjectParam.TryParse(mirrorPlaneNormal, out var mirrorPlaneNormalObj))
                 return JsonObjectParam.InvalidObjectResult("modify_element", "mirrorPlaneNormal", mirrorPlaneNormal);
             p["mirrorPlaneNormal"] = mirrorPlaneNormalObj;
         }
-        if (copyOffset != null)
+        if (JsonOptionalParam.IsProvided(copyOffset))
         {
             if (!JsonObjectParam.TryParse(copyOffset, out var copyOffsetObj))
                 return JsonObjectParam.InvalidObjectResult("modify_element", "copyOffset", copyOffset);

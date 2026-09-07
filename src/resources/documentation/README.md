@@ -46,8 +46,13 @@ mise à jour 2026.5 depuis Autodesk Access.
 L'installateur le propose, par deux cases à cocher **décochées par défaut** — cocher
 revient à modifier la configuration d'un autre logiciel, c'est à vous de le demander :
 
-- *Déclarer RiveTT dans Claude Desktop* ;
-- *Déclarer RiveTT dans Codex (application de bureau OpenAI)*.
+- *Configurer pour Claude (config + skill)* : connexion déclarée et ZIP du skill
+  préparé ; il reste à l'importer dans Personnaliser → Skills ;
+- *Configurer pour ChatGPT (config + skill)* : connexion et skill local installés
+  ensemble pour ChatGPT Desktop.
+
+Les emplacements exacts et les étapes sont dans
+[Configurer Claude ou ChatGPT Desktop](configuration-clients.md).
 
 La page finale dit, pour chaque case cochée, si la déclaration a réussi. À la main,
 sinon :
@@ -99,7 +104,7 @@ jugement. D'où le panneau **Compléments → RiveTT** :
 |---|---|---|
 | **Lecture seule** | **rivet bleu**, dressé au-dessus de deux plaques encore libres | Tout outil susceptible de modifier la maquette est refusé avec `PermissionDenied`, **avant exécution** : la maquette n'est pas touchée. Les outils de lecture répondent normalement |
 | **Écriture** | **rivet orange**, posé, les deux plaques assemblées | Les outils d'écriture redeviennent exécutables. Chaque appel reste transactionnel et journalisé |
-| **État** | pastille bleue d'information | Versions, état du canal nommé, mode courant et son origine, document actif, nombre d'outils publiés, accès au journal d'audit |
+| **État** | pastille bleue d'information | Mode Lecture seule ou Écriture autorisée, disponibilité de RiveTT, document actif, version et accès au journal d'activité |
 
 Le rivet est celui du nom : froid et libre, rien n'est assemblé ; chaud et posé, la
 liaison est faite. C'est le moyen le plus simple de lire l'état d'un coup d'œil.
@@ -127,11 +132,10 @@ Côté agent, l'état est lisible partout : `execution.writesAllowed` sur chaque
 et le bloc `readOnlyMode` de `get_server_capabilities`. Sur un refus, la réponse indique
 où se trouve le bouton — il n'y a rien à réessayer.
 
-Contrepartie assumée : le classement est **par outil**, pas par action. Un outil qui
-peut écrire est refusé même quand on l'appelle pour lire, par exemple
-`manage_model_groups` en `action=inventory`. Une permission qui dépendrait des arguments
-dépendrait de 250 implémentations ; celle-ci ne dépend que du classement `toolReadOnly`
-déjà publié dans chaque réponse.
+Le classement tient compte de l'action pour les outils mixtes explicitement déclarés.
+Le catalogue `get_server_capabilities.commandsAvailableWhenLocked` indique les appels
+accessibles en lecture seule. Les autres actions d'écriture restent refusées ;
+`execution.toolReadOnly` décrit l'appel et `execution.writesAllowed` le verrou de session.
 
 ---
 
@@ -372,17 +376,7 @@ Restent indisponibles, et `get_server_capabilities` le déclare :
 | `references/inventaire-des-outils.md` | **Généré depuis le code.** Tous les outils publiés, leur nature, leur `dryRun`, leurs défauts connus |
 | `SKILL.md` | Destiné à l'agent : les règles permanentes et quelle référence charger selon la demande |
 
-`SKILL.md` est **présent** sur le poste, pas **actif**. L'activer dans Codex CLI demande
-de le copier dans le dossier personnel des skills, ce que l'installateur propose par une
-case décochée. À la main :
-
-```powershell
-$dest = "$env:USERPROFILE\.codex\skills\rivett"
-New-Item -ItemType Directory -Force $dest | Out-Null
-Copy-Item "$env:LOCALAPPDATA\RiveTT\documentation\*" $dest -Recurse -Force
-```
-
-Claude Code lit `SKILL.md` directement ; `agents/openai.yaml` ne sert qu'à Codex.
+Le skill est installé avec la configuration de votre application. Pour Claude, importer le ZIP préparé dans Personnaliser > Skills ; pour ChatGPT Desktop, rouvrir l'application après installation. Voir [les emplacements et étapes](configuration-clients.md).
 
 ---
 

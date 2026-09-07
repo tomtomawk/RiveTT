@@ -54,7 +54,7 @@ public static class ParameterTools
             ["parameterName"] = parameterName,
         };
         if (categoryName != null) p["categoryName"] = categoryName;
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("batch_modify_parameter_values", "elementIds", elementIds);
@@ -95,7 +95,7 @@ public static class ParameterTools
         if (parameterName != null) p["parameterName"] = parameterName;
         if (condition != null) p["condition"] = condition;
         if (value != null) p["value"] = value;
-        if (conditions != null)
+        if (JsonOptionalParam.IsProvided(conditions))
         {
             if (!JsonArrayParam.TryParse(conditions, out var conditionsArray))
                 return JsonArrayParam.InvalidArrayResult("filter_by_parameter_value", "conditions", conditions);
@@ -104,7 +104,7 @@ public static class ParameterTools
         if (logic != null) p["logic"] = logic;
         if (parameterType != null) p["parameterType"] = parameterType;
         if (scope != null) p["scope"] = scope;
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("filter_by_parameter_value", "elementIds", elementIds);
@@ -126,7 +126,7 @@ public static class ParameterTools
     {
         var p = new JObject { ["data"] = JArray.Parse(data) };
         p["dryRun"] = dryRun;
-        if (parameterMap != null)
+        if (JsonOptionalParam.IsProvided(parameterMap))
         {
             if (!JsonObjectParam.TryParse(parameterMap, out var parameterMapObj))
                 return JsonObjectParam.InvalidObjectResult("sync_csv_parameters", "parameterMap", parameterMap);
@@ -162,7 +162,7 @@ public static class ParameterTools
         if (prefix != null) p["prefix"] = prefix;
         if (suffix != null) p["suffix"] = suffix;
         if (scope != null) p["scope"] = scope;
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("batch_rename_affix", "elementIds", elementIds);
@@ -170,7 +170,7 @@ public static class ParameterTools
         }
         if (selectionToken != null) p["selectionToken"] = selectionToken;
         if (savedSelectionName != null) p["savedSelectionName"] = savedSelectionName;
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("batch_rename_affix", "categories", categories);
@@ -198,7 +198,7 @@ public static class ParameterTools
     {
         var p = new JObject { ["parameterName"] = parameterName };
         if (scope != null) p["scope"] = scope;
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("clear_parameter_values", "elementIds", elementIds);
@@ -206,7 +206,7 @@ public static class ParameterTools
         }
         if (selectionToken != null) p["selectionToken"] = selectionToken;
         if (savedSelectionName != null) p["savedSelectionName"] = savedSelectionName;
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("clear_parameter_values", "categories", categories);
@@ -272,14 +272,14 @@ public static class ParameterTools
                 return TriStateFlag.InvalidFlagResult("manage_project_parameters", "isInstance", isInstance);
             p["isInstance"] = isInstanceFlag;
         }
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("manage_project_parameters", "categories", categories);
             p["categories"] = categoriesArray;
         }
         if (categoriesMode != null) p["categoriesMode"] = categoriesMode;
-        if (parameterNames != null)
+        if (JsonOptionalParam.IsProvided(parameterNames))
         {
             if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
                 return JsonArrayParam.InvalidArrayResult("manage_project_parameters", "parameterNames", parameterNames);
@@ -307,7 +307,7 @@ public static class ParameterTools
             ["sourceElementId"] = sourceElementId,
             ["targetElementIds"] = new JArray(targetElementIds.Cast<object>().ToArray()),
         };
-        if (parameterNames != null)
+        if (JsonOptionalParam.IsProvided(parameterNames))
         {
             if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
                 return JsonArrayParam.InvalidArrayResult("transfer_parameters", "parameterNames", parameterNames);

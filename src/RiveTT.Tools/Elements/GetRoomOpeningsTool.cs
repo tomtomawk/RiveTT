@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Elements;
 
@@ -101,7 +102,8 @@ public class GetRoomOpeningsTool : IRiveTTTool
 
             // Build results
             var results = new List<object>();
-            int totalDoors = 0, totalWindows = 0;
+            var distinctDoors = new HashSet<long>();
+            var distinctWindows = new HashSet<long>();
             var typeCache = new Dictionary<long, (string familyName, string typeName, string width, string height)>();
 
             foreach (var room in targetRooms)
@@ -112,8 +114,8 @@ public class GetRoomOpeningsTool : IRiveTTTool
                 var doors   = allDoors.Take(maxElementsPerRoom).ToList();
                 var windows = allWindows.Take(maxElementsPerRoom).ToList();
 
-                totalDoors   += allDoors.Count;
-                totalWindows += allWindows.Count;
+                distinctDoors.UnionWith(allDoors.Select(d => GetElementIdValue(d.Id)));
+                distinctWindows.UnionWith(allWindows.Select(w => GetElementIdValue(w.Id)));
 
                 results.Add(new
                 {
@@ -133,8 +135,10 @@ public class GetRoomOpeningsTool : IRiveTTTool
             return RiveTTResult<object>.Ok(new
             {
                 totalRooms   = targetRooms.Count,
-                totalDoors,
-                totalWindows,
+                totalDoors = distinctDoors.Count,
+                totalWindows = distinctWindows.Count,
+                doorRoomOccurrences = roomDoors.Values.Sum(items => items.Count),
+                windowRoomOccurrences = roomWindows.Values.Sum(items => items.Count),
                 rooms = results
             });
         }
@@ -196,6 +200,12 @@ public class GetRoomOpeningsTool : IRiveTTTool
             typeName       = cached.typeName,
             width          = cached.width,
             height         = cached.height,
+            widthMeasurement = Measure(fi.Symbol.get_Parameter(BuiltInParameter.DOOR_WIDTH)
+                ?? fi.Symbol.get_Parameter(BuiltInParameter.WINDOW_WIDTH)),
+            heightMeasurement = Measure(fi.Symbol.get_Parameter(BuiltInParameter.DOOR_HEIGHT)
+                ?? fi.Symbol.get_Parameter(BuiltInParameter.WINDOW_HEIGHT)),
+            sillHeightMeasurement = Measure(fi.get_Parameter(BuiltInParameter.INSTANCE_SILL_HEIGHT_PARAM)),
+            headHeightMeasurement = Measure(fi.get_Parameter(BuiltInParameter.INSTANCE_HEAD_HEIGHT_PARAM)),
             sillHeight     = fi.get_Parameter(BuiltInParameter.INSTANCE_SILL_HEIGHT_PARAM)?.AsValueString()
                           ?? fi.LookupParameter("Sill Height")?.AsValueString() ?? "",
             headHeight     = fi.LookupParameter("Head Height")?.AsValueString() ?? "",
@@ -205,6 +215,20 @@ public class GetRoomOpeningsTool : IRiveTTTool
             fromRoomNumber = fromRoom?.get_Parameter(BuiltInParameter.ROOM_NUMBER)?.AsString() ?? "",
             toRoomNumber   = toRoom?.get_Parameter(BuiltInParameter.ROOM_NUMBER)?.AsString() ?? "",
             parameters     = includeElementParams ? ExtractParams(fi, parameterNames) : null
+        };
+    }
+
+    private static object Measure(Parameter? parameter)
+    {
+        var value = parameter == null ? null : ParameterValueFormatter.Format(parameter);
+        return new
+        {
+            value = value?.Value,
+            displayValue = value?.DisplayValue,
+            unit = value?.Unit,
+            internalValue = value?.InternalValue,
+            unavailableReason = parameter == null ? "Parameter not present" :
+                !parameter.HasValue ? "Parameter has no value" : null
         };
     }
 

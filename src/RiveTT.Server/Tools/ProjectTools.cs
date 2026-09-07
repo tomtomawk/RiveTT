@@ -86,7 +86,7 @@ public static class ProjectTools
         var p = new JObject { ["dryRun"] = dryRun };
         if (familyId != null) p["familyId"] = familyId;
         if (familyName != null) p["familyName"] = familyName;
-        if (changes != null)
+        if (JsonOptionalParam.IsProvided(changes))
         {
             if (!JsonArrayParam.TryParse(changes, out var changesArray))
                 return JsonArrayParam.InvalidArrayResult("edit_family", "changes", changes);
@@ -106,7 +106,7 @@ public static class ProjectTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (categoryList != null)
+        if (JsonOptionalParam.IsProvided(categoryList))
         {
             if (!JsonArrayParam.TryParse(categoryList, out var categoryListArray))
                 return JsonArrayParam.InvalidArrayResult("list_family_types", "categoryList", categoryList);
@@ -214,7 +214,7 @@ public static class ProjectTools
     {
         var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (name != null) p["name"] = name;
-        if (viewIds != null)
+        if (JsonOptionalParam.IsProvided(viewIds))
         {
             if (!JsonArrayParam.TryParse(viewIds, out var viewIdsArray))
                 return JsonArrayParam.InvalidArrayResult("manage_sheet_sets", "viewIds", viewIds);
@@ -403,7 +403,7 @@ public static class ProjectTools
         CancellationToken ct = default)
     {
         var p = new JObject { ["dryRun"] = dryRun };
-        if (elementIds != null)
+        if (JsonOptionalParam.IsProvided(elementIds))
         {
             if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
                 return JsonArrayParam.InvalidArrayResult("batch_rename", "elementIds", elementIds);
@@ -437,7 +437,7 @@ public static class ProjectTools
         if (suffix != null) p["suffix"] = suffix;
         if (findText != null) p["findText"] = findText;
         if (replaceText != null) p["replaceText"] = replaceText;
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("rename_families", "categories", categories);
@@ -461,7 +461,7 @@ public static class ProjectTools
         var p = new JObject();
         p["useLeader"] = useLeader;
         if (viewId != null) p["viewId"] = viewId;
-        if (roomIds != null)
+        if (JsonOptionalParam.IsProvided(roomIds))
         {
             if (!JsonArrayParam.TryParse(roomIds, out var roomIdsArray))
                 return JsonArrayParam.InvalidArrayResult("tag_rooms", "roomIds", roomIds);
@@ -486,7 +486,7 @@ public static class ProjectTools
         p["useLeader"] = useLeader;
         if (orientation != null) p["orientation"] = orientation;
         if (tagTypeId != null) p["tagTypeId"] = tagTypeId;
-        if (wallIds != null)
+        if (JsonOptionalParam.IsProvided(wallIds))
         {
             if (!JsonArrayParam.TryParse(wallIds, out var wallIdsArray))
                 return JsonArrayParam.InvalidArrayResult("tag_walls", "wallIds", wallIds);
@@ -507,7 +507,7 @@ public static class ProjectTools
     {
         var p = new JObject { ["dryRun"] = dryRun };
         if (viewId != null) p["viewId"] = viewId;
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("delete_empty_tags", "categories", categories);
@@ -549,13 +549,13 @@ public static class ProjectTools
         if (action != null) p["action"] = action;
         if (scheduleId != null) p["scheduleId"] = scheduleId;
         if (scheduleName != null) p["scheduleName"] = scheduleName;
-        if (fieldNames != null)
+        if (JsonOptionalParam.IsProvided(fieldNames))
         {
             if (!JsonArrayParam.TryParse(fieldNames, out var fieldNamesArray))
                 return JsonArrayParam.InvalidArrayResult("modify_schedule", "fieldNames", fieldNames);
             p["fieldNames"] = fieldNamesArray;
         }
-        if (sortFields != null)
+        if (JsonOptionalParam.IsProvided(sortFields))
         {
             if (!JsonArrayParam.TryParse(sortFields, out var sortFieldsArray))
                 return JsonArrayParam.InvalidArrayResult("modify_schedule", "sortFields", sortFields);
@@ -598,13 +598,13 @@ public static class ProjectTools
         CancellationToken ct = default)
     {
         var p = new JObject { ["filePath"] = filePath };
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("workflow_data_roundtrip", "categories", categories);
             p["categories"] = categoriesArray;
         }
-        if (parameterNames != null)
+        if (JsonOptionalParam.IsProvided(parameterNames))
         {
             if (!JsonArrayParam.TryParse(parameterNames, out var parameterNamesArray))
                 return JsonArrayParam.InvalidArrayResult("workflow_data_roundtrip", "parameterNames", parameterNames);
@@ -677,7 +677,7 @@ public static class ProjectTools
         var p = new JObject();
         if (limit != null) p["limit"] = limit;
         if (sortBy != null) p["sortBy"] = sortBy;
-        if (categories != null)
+        if (JsonOptionalParam.IsProvided(categories))
         {
             if (!JsonArrayParam.TryParse(categories, out var categoriesArray))
                 return JsonArrayParam.InvalidArrayResult("list_family_sizes", "categories", categories);

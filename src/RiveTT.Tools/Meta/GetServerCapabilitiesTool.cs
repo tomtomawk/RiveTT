@@ -80,7 +80,8 @@ public sealed class GetServerCapabilitiesTool : IRiveTTTool
             },
             unitPolicy = new
             {
-                inputs = "lengths in mm, angles in degrees",
+                inputs = "geometry: lengths in mm, angles in degrees; parameter values: follow each tool's schema",
+                parameterValues = "set_element_parameters: bare numeric Double values use Revit internal units (feet for lengths); pass a string with an explicit unit, e.g. '2500 mm', for dimensional values",
                 outputs = "project display units, with an explicit unit and the Revit internal value " +
                           "(internalValue, in ft/ft2/ft3) on numeric parameters",
                 elevation = "create_wall ignores locationLine.z (baseLevelId governs); " +

@@ -34,6 +34,42 @@ du code des comportements qui restent à vérifier dans Revit.
 
 ## Recettes et correctifs
 
+### Bloc architecture du 7 septembre 2026
+
+Premier lot : paramètres JSON optionnels, niveaux des surfaces et résultat appliqué,
+séquences d'axes, pièces non fermées et volumes, épaisseurs des types, ouvertures
+dédupliquées avec unités, métadonnées des réponses compactes, éléments ignorés et
+indication des familles chargeables exclues. Les descriptions MCP sont alignées.
+Le suivi détaillé, la migration de baseLevel vers baseElevationMm pour les anciens
+appels en altitude et les défauts encore ouverts figurent dans
+[le suivi de recette](references/suivi-recette-2026-09-07.md).
+Tests automatisés : 586 réussis, 2 ignorés. Builds 2026 et 2027 réussis.
+Validation en session Revit encore requise ; aucun installateur régénéré.
+
+### Fenêtre État RiveTT
+
+Le mode affiche explicitement Lecture seule, Écriture autorisée ou Indisponible.
+Le document actif et la disponibilité de RiveTT restent visibles ; le canal nommé,
+le compteur d'outils et l'origine technique du mode disparaissent. La version passe
+en pied de page, le titre RiveTT n'est plus doublé et le journal d'activité conserve
+son accès dans l'Explorateur. Aucun changement du verrou ou du journal d'audit.
+Contenu couvert par tests unitaires ; rendu natif à vérifier dans Revit (§6 du 0.3.0).
+
+### Configuration des applications dans l'installateur
+
+Deux cases regroupent désormais connexion et skill : « Configurer pour Claude
+(config + skill) » et « Configurer pour ChatGPT (config + skill) ». ChatGPT Desktop
+reçoit la configuration locale partagée avec Codex et le skill personnel ; un ancien
+dossier de skill existant est réutilisé. Claude reçoit sa configuration MCP et un
+ZIP avec SKILL.md et ses références, à importer dans Personnaliser → Skills.
+La page finale distingue connexion configurée, skill installé et import manuel restant.
+La désinstallation ne supprime plus récursivement le dossier personnel du skill.
+
+Validation : tests de préparation/mise à jour/échec du ZIP sur dossiers temporaires
+et contrat des tâches. Le parcours visuel de l'installateur, l'import dans Claude et
+la découverte du skill dans ChatGPT restent à vérifier lors du prochain packaging.
+Aucun installateur n'a été reconstruit pour cette modification.
+
 | Signalement | Traitement dans le code | Validation restante |
 |---|---|---|
 | Prévisualisations modifiantes, tableaux JSON vides, objets de modification refusés | Correctifs déjà présents dans la base 0.4.0 (3f94880), conservés | Rejouer la recette complète |

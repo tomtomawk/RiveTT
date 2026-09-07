@@ -68,7 +68,7 @@ public static class MaterialTools
     {
         var p = new JObject { ["typeId"] = typeId, ["dryRun"] = dryRun };
         if (action != null) p["action"] = action;
-        if (layers != null)
+        if (JsonOptionalParam.IsProvided(layers))
         {
             if (!JsonArrayParam.TryParse(layers, out var layersArray))
                 return JsonArrayParam.InvalidArrayResult("set_compound_structure", "layers", layers);
@@ -76,7 +76,7 @@ public static class MaterialTools
         }
         if (openingWrapping != null) p["openingWrapping"] = openingWrapping;
         if (endCap != null) p["endCap"] = endCap;
-        if (layerWrapping != null)
+        if (JsonOptionalParam.IsProvided(layerWrapping))
         {
             if (!JsonArrayParam.TryParse(layerWrapping, out var layerWrappingArray))
                 return JsonArrayParam.InvalidArrayResult("set_compound_structure", "layerWrapping", layerWrapping);
@@ -110,7 +110,7 @@ public static class MaterialTools
         CancellationToken ct = default)
     {
         var p = new JObject();
-        if (categoryFilters != null)
+        if (JsonOptionalParam.IsProvided(categoryFilters))
         {
             if (!JsonArrayParam.TryParse(categoryFilters, out var categoryFiltersArray))
                 return JsonArrayParam.InvalidArrayResult("get_material_quantities", "categoryFilters", categoryFilters);
@@ -169,7 +169,7 @@ public static class MaterialTools
         if (sourceTypeId != null) p["sourceTypeId"] = sourceTypeId;
         if (sourceTypeName != null) p["sourceTypeName"] = sourceTypeName;
         if (familyName != null) p["familyName"] = familyName;
-        if (parameterOverrides != null)
+        if (JsonOptionalParam.IsProvided(parameterOverrides))
         {
             if (!JsonObjectParam.TryParse(parameterOverrides, out var parameterOverridesObj))
                 return JsonObjectParam.InvalidObjectResult("duplicate_family_type", "parameterOverrides", parameterOverrides);

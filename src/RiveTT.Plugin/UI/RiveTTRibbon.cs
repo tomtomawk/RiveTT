@@ -57,8 +57,8 @@ internal static class RiveTTRibbon
             typeof(ShowStatusCommand).FullName), "status"));
         status.ToolTip = "État du connecteur RiveTT";
         status.LongDescription =
-            "Version, état du canal nommé, mode d'écriture, document actif, " +
-            "nombre d'outils publiés et chemin du journal d'audit.";
+            "Voir le mode actuel (Lecture seule ou Écriture autorisée), le document " +
+            "actif et la disponibilité de RiveTT. Accéder au journal d'activité.";
     }
 
     /// <summary>

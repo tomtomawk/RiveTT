@@ -49,15 +49,8 @@ public class ExportRoomDataTool : IRiveTTTool
                 .Cast<Room>()
                 .ToList();
 
-            if (!includeUnplaced)
-                rooms = rooms.Where(r => r.Area > 0).ToList();
-
-            if (!includeNotEnclosed)
-                rooms = rooms.Where(r =>
-                {
-                    try { return r.get_BoundingBox(null) != null; }
-                    catch { return false; }
-                }).ToList();
+            rooms = rooms.Where(r => RoomInclusion.Include(
+                r.Location is LocationPoint, r.Area, includeUnplaced, includeNotEnclosed)).ToList();
 
             if (levelId > 0)
             {
@@ -86,6 +79,7 @@ public class ExportRoomDataTool : IRiveTTTool
             }
 
             var matchedCount = rooms.Count;
+            var volumeCalculationEnabled = AreaVolumeSettings.GetAreaVolumeSettings(doc).ComputeVolumes;
             var result = rooms.Take(maxResults).Select(r =>
             {
                 var area = r.get_Parameter(BuiltInParameter.ROOM_AREA)?.AsDouble() ?? 0;
@@ -100,7 +94,8 @@ public class ExportRoomDataTool : IRiveTTTool
                     level = r.Level?.Name ?? "",
                     department = r.get_Parameter(BuiltInParameter.ROOM_DEPARTMENT)?.AsString() ?? "",
                     areaSqM = Math.Round(area * SqFtToSqM, 2),
-                    volumeCuM = Math.Round(volume * CuFtToCuM, 2),
+                    volumeCuM = volumeCalculationEnabled ? Math.Round(volume * CuFtToCuM, 2) : (double?)null,
+                    volumeStatus = volumeCalculationEnabled ? "calculated" : "calculationDisabled",
                     perimeterMm = Math.Round(perimeter * MmPerFoot, 0)
                 };
             }).ToList();
@@ -110,6 +105,7 @@ public class ExportRoomDataTool : IRiveTTTool
                 roomCount = result.Count,
                 matchedCount,
                 truncated = matchedCount > result.Count,
+                volumeCalculationEnabled,
                 levelName,
                 levelId = levelId > 0 ? (long?)levelId : null,
                 rooms = result

@@ -30,7 +30,7 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 | Défauts critiques et majeurs corrigés | **8**, gardés par `ConfirmedDefectFixSourceTests` |
 | Lacunes API comblées depuis le relevé précédent | **16** sur 19 |
 | Erreurs génériques `Failed: …` sans suggestion | **0** |
-| Géométrie par boîte englobante | **15** |
+| Géométrie par boîte englobante | **14** |
 | Classement `[ToolSafety]` en désaccord avec le nom | **15** |
 | Défauts confirmés / signaux à vérifier | **0** / **12** |
 
@@ -118,8 +118,7 @@ documentation.
 | `copy_elements` | écriture | — | 5 | Copy elements with optional mm offset. Can target a different view (sourceViewId+targetViewId) or another OPEN document (targetDocumentTitle). | **mineur** — pas de dryRun |
 | `create_door` → `create_point_based_element` | écriture | oui | 5 | Place a door family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give z… | **mineur** — géométrie par boîte englobante |
 | `create_window` → `create_point_based_element` | écriture | oui | 5 | Place a window family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give… | **mineur** — géométrie par boîte englobante |
-| `export_room_data` | lecture | — | 5 | Export room data (area in m2, perimeter, level, department). Filter inside Revit with levelName/levelId and nameFilter instead of returning every room… | **mineur** — géométrie par boîte englobante |
-| `filter_elements` | lecture | — | 5 | Paginated element query by category, class, family symbol, bounding box, or level. Returns totalCount, returnedCount, appliedLimit and nextCursor. res… | **mineur** — classement déclaré (lecture) différent du préfixe du nom ; géométrie par boîte englobante |
+| `filter_elements` | lecture | — | 5 | Paginated element query by category, level, group status or wall constraint status. Returns totalCount, returnedCount, appliedLimit and nextCursor. re… | **mineur** — classement déclaré (lecture) différent du préfixe du nom ; géométrie par boîte englobante |
 | `manage_area_plans` | écriture | — | 5 | Builds regulatory area surfaces (SHAB/SU/SDP): area schemes, area plan views, area boundary lines, and Area elements. action=list_schemes\|duplicate_sc… | **mineur** — pas de dryRun |
 | `batch_rename` | écriture destructif | oui | 5 | Batch rename elements or system types in the Revit project. Supports both loadable-family elements and system types (wall/floor/ceiling/roof types). | — |
 | `create_floor` | écriture | oui | 5 | Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId. Previews by default: the dry run r… | — |
@@ -131,6 +130,7 @@ documentation.
 | `delete_element` | écriture destructif | oui | 5 | Delete elements. The dryRun preview reports the real cascade (dependent tags, sketches, railings...) and any group membership. Deleting a group MEMBER… | — |
 | `edit_group_members` | écriture destructif | oui | 5 | Add or remove members of a model group. The Revit API cannot edit group members in place, so this ungroups the instance, changes the member set and cr… | — |
 | `export_elements_data` | lecture | — | 5 | Export element data as JSON or CSV, by category and/or by explicit elementIds. Parameter names may be given in English or in the document language (Ma… | — |
+| `export_room_data` | lecture | — | 5 | Export room data (area in m2, perimeter, level, department). Filter inside Revit with levelName/levelId and nameFilter instead of returning every room… | — |
 | `export_to_excel` | lecture | — | 5 | Export element data from a Revit category to an Excel file. | — |
 | `get_current_view_elements` | lecture | — | 5 | List elements visible in the currently active view. categoryFilter is a single-category shortcut (OST code, English name or localized label); modelCat… | — |
 | `get_element_parameters` | lecture | — | 5 | Get parameters of elements by Revit element ID. Numeric values come back in PROJECT display units with an explicit unit plus the Revit internal value… | — |
@@ -196,7 +196,7 @@ documentation.
 | `list_family_types` | lecture | — | 5 | List available family types in the Revit project. | — |
 | `list_materials` | lecture | — | 5 | List materials in the active Revit document. nameFilter and materialClass narrow the list inside Revit - a real project carries 200+ materials. | — |
 | `list_schedulable_fields` | lecture | — | 5 | Discover available schedulable fields for a category. | — |
-| `list_system_types` | lecture | — | 5 | List the system types of a category: walls, floors, ceilings, roofs, railings, stairs, ramps, viewports, text, dimensions, sheets, title blocks. Syste… | — |
+| `list_system_types` | lecture | — | 5 | List the system types of a category: walls, floors, ceilings, roofs, railings, stairs, ramps, viewports, text, dimensions. To include title blocks and… | — |
 | `list_warnings` | lecture | — | 5 | Get model warnings from the active Revit document. | — |
 | `list_worksets` | lecture | — | 5 | List all worksets in the active Revit document. | — |
 | `manage_links` | écriture destructif | oui | 5 | List, reload, reload-from-path, unload, or remove linked files. To add a NEW link use add_linked_file instead. | — |
