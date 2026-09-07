@@ -381,7 +381,7 @@ try {
         throw "Documentation introuvable : $docsSource."
     }
     New-Item -ItemType Directory -Path $docsOut -Force | Out-Null
-    Copy-Item (Join-Path $docsSource '*') $docsOut -Recurse -Force
+    Copy-Item (Join-Path $docsSource 'SKILL.md') $docsOut -Force
 
     # The MCP registration helper: product content like the documentation, not a build
     # tool, so it lives under src\resources and travels through staging like the rest.

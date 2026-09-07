@@ -43,10 +43,11 @@ The versioned build SOURCES are `builder/build.ps1` and
 
 `src/resources/documentation/` is part of the PRODUCT, not of the repository's own
 notes: build.ps1 copies it through staging and the installer lays it down in
-`%LOCALAPPDATA%\RiveTT\documentation`. `SKILL.md` and the operator references live
-there and are read by humans and agents alike, so a stale sentence in them reaches
+`%LOCALAPPDATA%\RiveTT\documentation`. The standalone `SKILL.md` is the only file
+there and is read by humans and agents alike, so a stale sentence in it reaches
 a workstation. Developer references — writing a tool, response contracts, release
-checklist — stay in `docs/references/` and are never installed.
+checklist — stay in `docs/references/` and are never installed. The tool audit
+updates the marked inventory section inside SKILL.md; do not recreate references/.
 
 The server is published self-contained. Framework-dependent it would need the
 .NET 10 runtime under Program Files, and installing that requires local admin —

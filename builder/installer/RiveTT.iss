@@ -143,11 +143,11 @@ Source: "..\staging\RiveTT.addin"; DestDir: "{userappdata}\Autodesk\Revit\Addins
 ; workstation. Installing it here makes it AVAILABLE, not active: activating the
 ; local ChatGPT skill is part of the unchecked ChatGPT configuration task below.
 ; Claude requires an account-side skill import; the finish page explains that step.
-Source: "..\staging\documentation\*"; DestDir: "{app}\documentation"; \
+Source: "..\staging\documentation\SKILL.md"; DestDir: "{app}\documentation"; \
     Flags: ignoreversion recursesubdirs
 
 ; The ChatGPT task installs both the MCP configuration and the local skill.
-Source: "..\staging\documentation\*"; DestDir: "{code:CodexSkillDir}"; \
+Source: "..\staging\documentation\SKILL.md"; DestDir: "{code:CodexSkillDir}"; \
     Flags: ignoreversion recursesubdirs; Tasks: mcpcodex
 
 ; Registers the MCP server in a client's own configuration. Installed whatever the
@@ -178,6 +178,33 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
     Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\register-mcp.ps1"" -Client Codex -Remove"; \
     RunOnceId: "unregistercodex"; Flags: runhidden waituntilterminated; Tasks: mcpcodex
+
+[InstallDelete]
+; Remove only known files from the former modular documentation.
+Type: files; Name: "{app}\documentation\README.md"
+Type: files; Name: "{code:CodexSkillDir}\README.md"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\agents\openai.yaml"
+Type: files; Name: "{code:CodexSkillDir}\agents\openai.yaml"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\configuration-clients.md"
+Type: files; Name: "{code:CodexSkillDir}\configuration-clients.md"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\references\conduite-de-session.md"
+Type: files; Name: "{code:CodexSkillDir}\references\conduite-de-session.md"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\references\ecritures.md"
+Type: files; Name: "{code:CodexSkillDir}\references\ecritures.md"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\references\index.md"
+Type: files; Name: "{code:CodexSkillDir}\references\index.md"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\references\inventaire-des-outils.md"
+Type: files; Name: "{code:CodexSkillDir}\references\inventaire-des-outils.md"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\references\production.md"
+Type: files; Name: "{code:CodexSkillDir}\references\production.md"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\references\signatures-des-outils.md"
+Type: files; Name: "{code:CodexSkillDir}\references\signatures-des-outils.md"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\references\workflows-ifc.md"
+Type: files; Name: "{code:CodexSkillDir}\references\workflows-ifc.md"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\RiveTT-SKILL-LITE.md"
+Type: files; Name: "{code:CodexSkillDir}\RiveTT-SKILL-LITE.md"; Tasks: mcpcodex
+Type: files; Name: "{app}\documentation\RiveTT-SKILL-UNIFIED.md"
+Type: files; Name: "{code:CodexSkillDir}\RiveTT-SKILL-UNIFIED.md"; Tasks: mcpcodex
 
 [UninstallDelete]
 ; Copies parked by the locked-file rename below, the documentation, and the local
@@ -691,8 +718,8 @@ begin
     + ' port TCP. Chaque session s''ouvre en LECTURE SEULE — pressez Écriture dans le'
     + ' panneau RiveTT (onglet Compléments) pour autoriser les modifications.' + #13#10#13#10
     + McpSection() + #13#10
-    + 'Documentation (guide, sécurité, IFC, références) :' + #13#10
-    + ExpandConstant('{app}\documentation');
+    + 'Skill unifié (guide, sécurité, IFC et outils) :' + #13#10
+    + ExpandConstant('{app}\documentation\SKILL.md');
 end;
 
 { Revit holds the plugin DLLs open; removing them while it runs would leave a partial

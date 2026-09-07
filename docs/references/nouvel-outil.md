@@ -5,10 +5,9 @@
 - `src/RiveTT.Tools/<Category>/<ToolName>Tool.cs`: `IRiveTTTool` implementation.
 - `src/RiveTT.Server/Tools/<Category>Tools.cs`: typed MCP wrapper.
 - `src/RiveTT.Tests`: unit, contract, or source tests.
-- `src/resources/documentation/README.md` (the shipped guide) and the relevant
-  reference under `src/resources/documentation/references/` when the behavior is
-  user-facing. Both ship with the product, so a stale sentence there reaches a
-  workstation.
+- `src/resources/documentation/SKILL.md`: the standalone shipped guide. Update
+  its relevant section for user-facing behavior; regenerate its embedded inventory
+  with tools/audit-tool-surface.py. Do not recreate modular reference files.
 
 ## Requirements
 

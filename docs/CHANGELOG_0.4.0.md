@@ -5,7 +5,7 @@ au ruban, et la fin d'une série de promesses que le code ne tenait pas. La seco
 d'un audit général du dépôt (31/08/2026) dont les mesures sont citées ici plutôt que
 résumées.
 
-`src/resources/documentation/references/inventaire-des-outils.md`, généré par
+`src/resources/documentation/SKILL.md`, généré par
 `tools/audit-tool-surface.py`, reste la source de vérité vivante sur la surface.
 
 ---

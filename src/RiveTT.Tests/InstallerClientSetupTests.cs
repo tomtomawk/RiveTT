@@ -7,6 +7,18 @@ namespace RiveTT.Tests;
 public class InstallerClientSetupTests
 {
     [Fact]
+    public void ProductDocumentationContainsOnlyStandaloneSkill()
+    {
+        var directory = RepositoryFile.Path("src", "resources", "documentation");
+        Assert.Equal(new[] { "SKILL.md" }, Directory.GetFiles(directory, "*", SearchOption.AllDirectories)
+            .Select(path => Path.GetRelativePath(directory, path)).ToArray());
+        var skill = File.ReadAllText(Path.Combine(directory, "SKILL.md"));
+        Assert.Contains("name: rivett", skill);
+        Assert.Contains("<!-- BEGIN GENERATED TOOL INVENTORY -->", skill);
+        Assert.Contains("<!-- END GENERATED TOOL INVENTORY -->", skill);
+    }
+
+    [Fact]
     public void ClientTasks_BundleConfigAndSkill_WithoutDeletingPersonalSkillDirectory()
     {
         var installer = File.ReadAllText(RepositoryFile.Path("builder", "installer", "RiveTT.iss"));
@@ -20,17 +32,19 @@ public class InstallerClientSetupTests
     }
 
     [Fact]
-    public void ClaudeArchive_ContainsSkillAndReferences_AndRefreshesWithoutStaleEntries()
+    public void ClaudeArchive_ContainsOnlyUnifiedSkill_AndIgnoresLegacyReferences()
     {
         using var fixture = new SkillFixture();
+        Directory.CreateDirectory(Path.Combine(fixture.Docs, "references"));
         File.WriteAllText(Path.Combine(fixture.Docs, "README.md"), "Guide");
         File.WriteAllText(Path.Combine(fixture.Docs, "references", "old.md"), "Old");
         Assert.Equal(0, fixture.Run());
         using (var zip = ZipFile.OpenRead(fixture.Archive))
         {
             Assert.NotNull(zip.GetEntry("rivett/SKILL.md"));
-            Assert.NotNull(zip.GetEntry("rivett/README.md"));
-            Assert.NotNull(zip.GetEntry("rivett/references/old.md"));
+            Assert.Single(zip.Entries);
+            Assert.Null(zip.GetEntry("rivett/README.md"));
+            Assert.Null(zip.GetEntry("rivett/references/old.md"));
             Assert.Null(zip.GetEntry("rivett/agents/openai.yaml"));
         }
         File.Delete(Path.Combine(fixture.Docs, "references", "old.md"));
@@ -38,7 +52,8 @@ public class InstallerClientSetupTests
         Assert.Equal(0, fixture.Run());
         using var updated = ZipFile.OpenRead(fixture.Archive);
         Assert.Null(updated.GetEntry("rivett/references/old.md"));
-        Assert.NotNull(updated.GetEntry("rivett/references/new.md"));
+        Assert.Null(updated.GetEntry("rivett/references/new.md"));
+        Assert.Single(updated.Entries);
         Assert.Equal("untouched", File.ReadAllText(fixture.ClaudeConfig));
     }
 
@@ -63,11 +78,10 @@ public class InstallerClientSetupTests
 
         internal SkillFixture()
         {
-            Directory.CreateDirectory(Path.Combine(Docs, "references"));
+            Directory.CreateDirectory(Docs);
             Directory.CreateDirectory(Path.GetDirectoryName(ClaudeConfig)!);
             File.WriteAllText(ClaudeConfig, "untouched");
             File.WriteAllText(Path.Combine(Docs, "SKILL.md"), "---\nname: rivett\ndescription: Test\n---\n# Test");
-            File.WriteAllText(Path.Combine(Docs, "references", "session.md"), "Reference");
         }
 
         internal int Run()

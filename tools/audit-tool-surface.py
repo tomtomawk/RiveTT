@@ -32,7 +32,7 @@ code. Il vit dans les listes TIER5/TIER4/TIER2 ci-dessous et se corrige en les
 editant.
 
 Le script ecrit une seule sortie, versionnee et LIVREE AVEC LE PRODUIT :
-src/resources/documentation/references/inventaire-des-outils.md. Une page
+src/resources/documentation/SKILL.md. Une page
 HTML autonome a existe en parallele : meme matiere, second format, regeneree et
 versionnee en meme temps, pour un diff illisible en revue. Le Markdown est la forme
 canonique parce qu'il se relit dans une pull request.
@@ -49,8 +49,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SERVER = os.path.join(ROOT, "src", "RiveTT.Server", "Tools")
 RUNTIME = os.path.join(ROOT, "src", "RiveTT.Tools")
-OUT = os.path.join(ROOT, "src", "resources", "documentation", "references",
-                   "inventaire-des-outils.md")
+OUT = os.path.join(ROOT, "src", "resources", "documentation", "SKILL.md")
 
 # Prefixes que le routeur considere comme lecture seule quand [ToolSafety] manque.
 # Doit rester aligne sur RiveTTRouter.ReadOnlyPrefixes.
@@ -654,7 +653,19 @@ def emit(rows):
     # « regenerer ne produit aucun diff » echouait sur la fin de ligne, pas sur le
     # contenu (mesures identiques des deux cotes : 198 outils, 139 ecritures, 66 sans
     # dryRun). Git normalise en LF a la validation, donc le blob ne change pas.
-    io.open(OUT, "w", encoding="utf-8", newline="\r\n").write("\n".join(out))
+    skill = read(OUT)
+    begin = "<!-- BEGIN GENERATED TOOL INVENTORY -->"
+    end = "<!-- END GENERATED TOOL INVENTORY -->"
+    if skill.count(begin) != 1 or skill.count(end) != 1:
+        raise ValueError("SKILL.md must contain exactly one inventory marker pair")
+    start = skill.index(begin) + len(begin)
+    stop = skill.index(end)
+    if stop < start:
+        raise ValueError("Inventory markers are reversed")
+    inventory = "\n".join(out)
+    inventory = re.sub(r"^(#{1,5}) ", r"#\1 ", inventory, flags=re.MULTILINE)
+    io.open(OUT, "w", encoding="utf-8", newline="\r\n").write(
+        skill[:start] + "\n\n" + inventory + "\n" + skill[stop:])
     return {"total": total, "writes": writes, "off": off, "noDry": len(no_dry),
             "noDryArchi": len(no_dry_archi), "generic": len(generic),
             "confirmed": len(confirmed), "signals": len(signals)}

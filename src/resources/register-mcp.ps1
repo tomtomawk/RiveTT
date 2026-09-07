@@ -54,7 +54,7 @@
     The user still imports this archive through Claude's Skills interface.
 
 .PARAMETER DocumentationPath
-    Installed documentation containing SKILL.md and references.
+    Installed standalone SKILL.md.
 
 .PARAMETER SkillArchivePath
     Destination ZIP for the Claude skill. Used only with -PrepareSkill.
@@ -384,17 +384,10 @@ function New-ClaudeSkillArchive {
     }
     $sourceRoot = [IO.Path]::GetFullPath($DocumentationPath)
     $skillFile = Join-Path $sourceRoot 'SKILL.md'
-    $references = Join-Path $sourceRoot 'references'
-    if (-not (Test-Path -LiteralPath $skillFile -PathType Leaf) -or
-        -not (Test-Path -LiteralPath $references -PathType Container)) {
-        throw 'Skill incomplet : SKILL.md et references sont requis.'
+    if (-not (Test-Path -LiteralPath $skillFile -PathType Leaf)) {
+        throw 'Skill incomplet : SKILL.md est requis.'
     }
     $files = @((Get-Item -LiteralPath $skillFile))
-    $readme = Join-Path $sourceRoot 'README.md'
-    if (Test-Path -LiteralPath $readme -PathType Leaf) {
-        $files += Get-Item -LiteralPath $readme
-    }
-    $files += @(Get-ChildItem -LiteralPath $references -File -Recurse)
     $target = [IO.Path]::GetFullPath($SkillArchivePath)
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
     $temporaryArchive = $target + '.' + [guid]::NewGuid().ToString('N') + '.tmp'

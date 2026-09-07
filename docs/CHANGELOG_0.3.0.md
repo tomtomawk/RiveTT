@@ -6,7 +6,7 @@ Ce document remplace `AUDIT_OUTILS.md`, `CONSOLIDATION_SURFACE.md`, `CONVENTION_
 maintenant exécutés. Ce qui suit condense les décisions et l'état livré ; le détail de mesure
 (appels exacts, réponses JSON, tableaux ligne à ligne) reste dans l'historique git de ces
 fichiers si besoin de le retrouver.
-`src/resources/documentation/references/inventaire-des-outils.md`, généré par
+`src/resources/documentation/SKILL.md`, généré par
 `tools/audit-tool-surface.py`, reste la source de vérité vivante sur la surface actuelle.
 
 ---

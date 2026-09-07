@@ -83,9 +83,9 @@ to uninstall.
   file as Windows-1252 and multi-byte characters decode into curly quotes, which it
   honours as string delimiters — that silently stripped `$LASTEXITCODE` out of a
   guard. `BuildScriptEncodingTests` fails the suite if the BOM goes missing.
-- `src/resources/documentation/README.md` reflects changed user-facing tools,
+- `src/resources/documentation/SKILL.md` reflects changed user-facing tools,
   and `python tools/audit-tool-surface.py` has been re-run so
-  `src/resources/documentation/references/inventaire-des-outils.md` matches the
+  `src/resources/documentation/SKILL.md` matches the
   surface being shipped. Both are installed on the workstation.
 - `send_code_to_revit` sandbox tests pass.
 - `python tools/audit-tool-surface.py` leaves no diff.

@@ -46,13 +46,10 @@ installée sous `%LOCALAPPDATA%\RiveTT\documentation`
 
 | Document | Quand |
 |---|---|
-| [README.md](src/resources/documentation/README.md) | **Le guide.** Installation, verrou d'écriture, sécurité, gestes courants, contrat de réponse |
-| [SKILL.md](src/resources/documentation/SKILL.md) | Routeur pour l'agent : les règles permanentes, et quelle référence charger |
-| [references/](src/resources/documentation/references/) | Le détail, opération par opération |
+| [SKILL.md](src/resources/documentation/SKILL.md) | Guide unifié autonome : installation, configuration Claude/ChatGPT, sécurité, workflows et inventaire intégré des outils |
 
-Un seul jeu de fichiers, lu par l'humain **et** par l'agent. Il n'y a pas une
-documentation utilisateur d'un côté et une documentation IA de l'autre : c'est ce
-qui les empêche de décrire la même opération de deux façons.
+Un seul fichier est livré, lu par l'humain et par l'agent. Aucun dossier de
+références ni variante de skill n'est installé.
 
 **Pour développer dessus** — jamais installée
 
@@ -68,7 +65,7 @@ qui les empêche de décrire la même opération de deux façons.
 
 **Référence commune**
 
-[references/inventaire-des-outils.md](src/resources/documentation/references/inventaire-des-outils.md)
+[Inventaire intégré au skill](src/resources/documentation/SKILL.md#inventaire-des-outils-rivett)
 — les outils, effet par effet, avec les défauts connus et les capacités API non
 outillées. Généré par `tools/audit-tool-surface.py`, jamais édité à la main.
 
@@ -183,7 +180,7 @@ L'installation est par utilisateur dans
 `%LOCALAPPDATA%\RiveTT\server`, la documentation dans
 `%LOCALAPPDATA%\RiveTT\documentation`.
 
-L'installateur propose deux cases : **Configurer pour Claude (config + skill)** et **Configurer pour ChatGPT (config + skill)**. Claude reçoit un ZIP à importer ; ChatGPT Desktop reçoit le skill local avec la connexion. Voir [les emplacements et étapes](src/resources/documentation/configuration-clients.md).
+L'installateur propose deux cases : **Configurer pour Claude (config + skill)** et **Configurer pour ChatGPT (config + skill)**. Claude reçoit un ZIP à importer ; ChatGPT Desktop reçoit le skill local avec la connexion. Voir [les emplacements et étapes](src/resources/documentation/SKILL.md).
 
 Pour enregistrer le serveur dans Codex :
 

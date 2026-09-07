@@ -34,6 +34,16 @@ du code des comportements qui restent à vérifier dans Revit.
 
 ## Recettes et correctifs
 
+### Skill unifié installé
+
+La documentation produit est désormais un seul SKILL.md autonome, issu de la
+version unifiée. Les variantes LITE et UNIFIED, le routeur et les références
+séparées sont supprimés. La configuration des clients et l'inventaire des outils
+sont intégrés ; l'audit actualise sa section balisée sans recréer de dossier.
+Le ZIP Claude contient uniquement rivett/SKILL.md ; les mises à jour retirent
+les anciens fichiers documentaires connus sans effacer le dossier personnel.
+Préparation du ZIP vérifiée directement, sans recompilation ni packaging global.
+
 ### Bloc architecture du 7 septembre 2026
 
 Premier lot : paramètres JSON optionnels, niveaux des surfaces et résultat appliqué,
