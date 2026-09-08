@@ -22,7 +22,7 @@ code source. Ils ne prouvent pas la géométrie ni les transactions en session r
 | D-16 | Une pièce non fermée retourne son aire mesurée de zéro, cohérente avec le message. | Relecture de R99. |
 | D-17 | Volume null lorsque le calcul des volumes est désactivé ; état explicite par pièce et dans le résultat global. | Export avec calcul désactivé, puis activé par l'utilisateur. |
 | D-18 | Épaisseur des types de sols, plafonds et toitures lue dans leur structure composée. | Comparer avec get_compound_structure, dont le sol de 260 mm. |
-| D-19, D-20 | Surface : baseLevelId (ou ancien baseLevel non nul) est un ID ; baseElevationMm est une altitude absolue en mm. Résultat enrichi du type, niveau, décalage réellement lu, altitude et pente. IDs ajoutés seulement après validation de transaction. | Toiture sur niveau 512913 à 2890 mm, plafond RDC + 2500 mm, niveau inexistant, entrée invalide et lot mixte. Vérifier la géométrie indépendamment. |
+| D-19, D-20 | Surface : `baseLevelId` est un ID ; `baseElevationMm` est une altitude absolue en mm. L'ancien `baseLevel` est refusé sans compatibilité. Résultat enrichi du type, niveau, décalage réellement lu, altitude et pente. IDs ajoutés seulement après validation de transaction. | Toiture sur niveau 512913 à 2890 mm, plafond RDC + 2500 mm, niveau inexistant, ancien nom refusé, entrée invalide et lot mixte. Vérifier la géométrie indépendamment. |
 | D-22, D-23, D-24 | Axes : séquences alphabétiques multi-lettres, nombres et zéros initiaux préservés ; styles publiés ; labels JSON texte ou entier acceptés. Entrée non prise en charge refusée sans repli silencieux. | RK/RL/RM, 01/02/03, nombres JSON et étiquettes invalides en aperçu puis réel. |
 | D-25 | Renommage d'axe prévisualisé par transaction annulée, avec nom effectivement obtenu. | Vérifier que le nom reste inchangé après aperçu et change après exécution. |
 | D-27 | Le compactage conserve execution et les compteurs originaux, notamment pour list_family_types. | Comparer réponses complète et compacte. |
@@ -31,10 +31,9 @@ code source. Ils ne prouvent pas la géométrie ni les transactions en session r
 | D-30 | Dimensions des ouvertures complétées par des mesures structurées avec unité, valeur affichée et valeur interne. Anciennes chaînes conservées pour compatibilité. | Comparer largeur, hauteur, allège et tête avec les paramètres Revit. |
 | D-33 | Politique globale d'unités corrigée : les nombres nus de set_element_parameters suivent le stockage interne ; les chaînes unitaires explicites sont recommandées. | Lire la politique ; comparer une chaîne avec unité et un nombre interne sans changer le contrat existant. |
 
-Migration D-20 : un ancien appel qui utilisait baseLevel comme altitude doit
-désormais utiliser baseElevationMm. Ne pas rejouer tel quel l'ancien contournement
-du rapport. Le défaut historique baseLevel: 0 reste pris en charge. L'outil surface
-ne gagne pas de dryRun : un aperçu demandé reste refusé avant exécution.
+Migration D-20 : tout appel utilisant `baseLevel` est désormais refusé. Utiliser
+`baseLevelId` pour un niveau Revit, ou `baseElevationMm` pour une altitude absolue.
+L'outil surface ne gagne pas de dryRun : un aperçu demandé reste refusé avant exécution.
 
 ## Défauts encore ouverts ou à qualifier
 

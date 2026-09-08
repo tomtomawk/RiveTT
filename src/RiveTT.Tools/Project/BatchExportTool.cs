@@ -14,7 +14,7 @@ namespace RiveTT.Tools.Project;
 /// Exports multiple views/sheets to DWG, DXF, DGN, or image formats.
 /// PDF export requires Revit 2023+ PDF export API.
 /// </summary>
-[ToolSafety(true, false)]
+[ToolSafety(false, false)]
 public class BatchExportTool : IRiveTTTool
 {
     public string Name => "batch_export";

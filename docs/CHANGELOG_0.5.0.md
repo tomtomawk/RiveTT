@@ -96,11 +96,9 @@ Aucun installateur n'a été reconstruit pour cette modification.
 
 ### Migration de `create_line_based_element`
 
-Utiliser `baseLevelId` pour un identifiant Revit et `baseOffset` pour le décalage
-relatif en mm. `baseLevel` non nul est désormais un alias d'identifiant, jamais
-une altitude implicite. Un ancien appel qui utilisait `baseLevel` comme altitude
-doit migrer vers `baseElevationMm` (Z absolu projet, en mm). Le défaut historique
-`baseLevel:0` conserve l'altitude zéro. Ne pas combiner identifiant et altitude.
+Cette migration est remplacée par la rupture de contrat documentée dans
+`CHANGELOG_0.5.1.md` : `baseLevel` est refusé. Utiliser `baseLevelId` pour un
+identifiant Revit et `baseElevationMm` (Z absolu projet, en mm) pour une altitude.
 
 ## Corrections issues de la documentation API
 

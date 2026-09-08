@@ -13,10 +13,8 @@ namespace RiveTT.Tests.Tools;
 public class Recipe050RegressionTests
 {
     [Theory]
-    [InlineData("{\"baseLevel\":608,\"baseOffset\":0}", 0, 0)]
     [InlineData("{\"baseLevelId\":608,\"baseOffset\":100}", 3000, 100)]
     [InlineData("{\"baseElevationMm\":3500,\"baseOffset\":100}", 3000, 600)]
-    [InlineData("{\"baseLevel\":0,\"baseOffset\":0}", 3000, -3000)]
     public void LevelIdIsNeverConvertedIntoMillimetres(string json, double levelElevation, double expectedOffset)
         => Assert.Equal(expectedOffset, LineBaseConstraint.Parse(JObject.Parse(json)).RelativeOffsetMm(levelElevation));
 
@@ -26,6 +24,8 @@ public class Recipe050RegressionTests
     [InlineData("{\"baseLevelId\":608,\"baseElevationMm\":0}")]
     [InlineData("{\"baseLevelId\":-1}")]
     [InlineData("{\"baseLevelId\":608.5}")]
+    [InlineData("{\"baseLevel\":608}")]
+    [InlineData("{\"baseLevel\":0}")]
     public void AmbiguousLevelInputsAreRejected(string json)
         => Assert.Throws<ArgumentException>(() => LineBaseConstraint.Parse(JObject.Parse(json)));
 

@@ -461,9 +461,9 @@ contexte-là et non un gestionnaire d'événement API ou un éditeur modal.
 
 ---
 
-## Conventions corrigées en 0.5.0
+## Conventions corrigées en 0.5.1
 
-- Surfaces : `baseLevelId` (ou ancien `baseLevel` non nul) désigne un ID de niveau ; une altitude absolue en mm se passe par `baseElevationMm`. `baseOffset` est en mm. Ne pas employer une altitude comme ID. Relire le niveau et le décalage appliqués dans la réponse.
+- Surfaces et éléments linéaires : `baseLevelId` désigne un ID de niveau ; une altitude absolue en mm se passe par `baseElevationMm`. `baseOffset` est en mm. `baseLevel` est refusé : ne pas employer une altitude comme ID. Relire le niveau et le décalage appliqués dans la réponse.
 - Les nombres nus de `set_element_parameters` suivent les unités internes Revit ; préférer les chaînes avec unité, par exemple `"2500 mm"`. La convention mm des outils de géométrie ne s'applique pas implicitement aux paramètres.
 - Les lots peuvent retourner des éléments ignorés : contrôler `skipped`, `warnings` et les IDs effectivement créés.
 - Pour les pièces, un volume null avec calcul désactivé n'est pas un volume mesuré à zéro. Les totaux d'ouvertures distinctes diffèrent de leurs occurrences par pièce.
@@ -949,7 +949,7 @@ Sources vérifiées le 7 septembre 2026 :
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-09-07 — connecteur 0.5.0 — **200 outils publiés**, 197 classes runtime.
+Relevé du 2026-09-08 — connecteur 0.5.1 — **200 outils publiés**, 197 classes runtime.
 
 ### Comment lire ce document
 
@@ -971,13 +971,13 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 | Mesure | Valeur |
 |---|---|
 | Outils publiés | **200** |
-| Dont écriture | **136** (68 %) — c'est la part que le verrou du ruban gouverne |
-| Écritures sans `dryRun` | **36** sur 136 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
+| Dont écriture | **137** (68 %) — c'est la part que le verrou du ruban gouverne |
+| Écritures sans `dryRun` | **37** sur 137 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
 | Défauts critiques et majeurs corrigés | **8**, gardés par `ConfirmedDefectFixSourceTests` |
 | Lacunes API comblées depuis le relevé précédent | **16** sur 19 |
 | Erreurs génériques `Failed: …` sans suggestion | **0** |
 | Géométrie par boîte englobante | **14** |
-| Classement `[ToolSafety]` en désaccord avec le nom | **15** |
+| Classement `[ToolSafety]` en désaccord avec le nom | **14** |
 | Défauts confirmés / signaux à vérifier | **0** / **12** |
 
 ### Répartition par catégorie
@@ -1026,11 +1026,11 @@ que personne le reconnaisse. `ConfirmedDefectFixSourceTests` échoue si l'un rev
 Aucun défaut critique ou majeur ouvert.
 
 
-#### Arbitrages ouverts
+#### Arbitrage ouvert
 
-Deux outils classés lecture seule écrivent sur le disque. Le modèle n'est pas touché,
-donc le classement se défend — mais le verrou du ruban ne les arrête pas, et c'est une
-décision à prendre, pas un oubli : `batch_export` et `workflow_data_roundtrip`.
+`workflow_data_roundtrip` est classé lecture seule mais écrit un fichier .xlsx.
+Le modèle n'est pas touché, mais le verrou du ruban ne l'arrête pas : la politique
+de cet export reste à décider.
 
 ### Signaux à vérifier
 
@@ -1130,7 +1130,7 @@ documentation.
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
 | `duplicate_storey` | écriture destructif | oui | 5 | Preview or transactionally duplicate model elements from one level to a target elevation. Reports view-specific, grouped, and constrained dependencies… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
-| `batch_export` | lecture | — | 5 | Export views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats. | **mineur** — classé lecture seule et écrit sur le disque. Volontaire (le modèle n'est pas touché) mais à arbitrer : le verrou n'empêche pas cet écrit. |
+| `batch_export` | écriture | — | 5 | Export views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats. This writes files and requires the RiveTT ribbon write lock to be open. | **mineur** — pas de dryRun |
 | `create_revision` | écriture | — | 5 | List, create, update, or assign revisions to sheets, and draw revision clouds. action=list\|create\|set\|add_to_sheets\|create_cloud. 'set' updates an exi… | **mineur** — pas de dryRun |
 | `export_schedule` | écriture | — | 5 | Export a schedule as JSON, or write it to a CSV/TSV file. Without exportPath the data comes back inline; with exportPath the file is written using del… | **mineur** — pas de dryRun ; classement déclaré (écriture) différent du préfixe du nom |
 | `check_model_health` | lecture | — | 5 | Run a model health check and return a health score. | — |
@@ -1302,7 +1302,7 @@ documentation.
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
 | `show_clashes` | écriture | — | 4 | Detect clashes between two categories and create a 3D section-boxed view for visual review. Uses the same true solid-geometry intersection as detect_c… | **mineur** — pas de dryRun |
-| `workflow_data_roundtrip` | lecture | — | 4 | Export parameters to Excel for external editing, then re-import once the file has been saved. | **mineur** — même cas que `batch_export` : écrit un .xlsx en mode lecture seule. |
+| `workflow_data_roundtrip` | lecture | — | 4 | Export parameters to Excel for external editing, then re-import once the file has been saved. | **mineur** — écrit un .xlsx en mode lecture seule. |
 | `workflow_model_audit` | lecture | — | 4 | Run a complete model audit workflow. | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `workflow_room_documentation` | écriture | oui | 4 | Auto-generate callout views (and optionally sections) for every room on a level. | **mineur** — géométrie par boîte englobante |
 

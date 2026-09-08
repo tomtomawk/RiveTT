@@ -61,9 +61,8 @@ public class ArchitectureRecipeRegressionTests
         var surfaceSource = File.ReadAllText(RepositoryFile.Path("src", "RiveTT.Tools", "Elements", "CreateSurfaceBasedElementTool.cs"));
         Assert.Contains("LineBaseConstraint.Parse(item)", surfaceSource);
         Assert.DoesNotContain("baseLevelMm", surfaceSource);
-        var constraint = LineBaseConstraint.Parse(JObject.Parse("""{"baseLevel":512913,"baseOffset":2500}"""));
-        Assert.Equal(512913L, constraint.LevelId);
-        Assert.Equal(2500, constraint.RelativeOffsetMm(2890));
+        Assert.Throws<ArgumentException>(() => LineBaseConstraint.Parse(
+            JObject.Parse("""{"baseLevel":512913,"baseOffset":2500}""")));
         var absolute = LineBaseConstraint.Parse(JObject.Parse("""{"baseElevationMm":2890,"baseOffset":2500}"""));
         Assert.Null(absolute.LevelId);
         Assert.Equal(2500, absolute.RelativeOffsetMm(2890));

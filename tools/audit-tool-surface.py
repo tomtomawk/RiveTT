@@ -242,13 +242,10 @@ OUT_OF_SCOPE = ()
 #
 # Les huit defauts critiques et majeurs du releve du 2026-08-24 sont corriges ; ils
 # sont listes dans FIXED plus bas plutot que supprimes, pour que la regression soit
-# visible si l'un d'eux revient. Ne restent ici que les deux arbitrages ouverts.
+# visible si l'un d'eux revient. Ne reste ici que l'arbitrage ouvert.
 CONFIRMED = {
-    "batch_export": ("mineur",
-        "classé lecture seule et écrit sur le disque. Volontaire (le modèle n'est pas "
-        "touché) mais à arbitrer : le verrou n'empêche pas cet écrit."),
     "workflow_data_roundtrip": ("mineur",
-        "même cas que `batch_export` : écrit un .xlsx en mode lecture seule."),
+        "écrit un .xlsx en mode lecture seule."),
 }
 
 # ── defauts corriges, gardes par src/RiveTT.Tests/Tools/ConfirmedDefectFixSourceTests.cs
@@ -570,10 +567,10 @@ def emit(rows):
         add("Aucun défaut critique ou majeur ouvert.\n")
     add("")
 
-    add("### Arbitrages ouverts\n")
-    add("Deux outils classés lecture seule écrivent sur le disque. Le modèle n'est pas touché,\n"
-        "donc le classement se défend — mais le verrou du ruban ne les arrête pas, et c'est une\n"
-        "décision à prendre, pas un oubli : `batch_export` et `workflow_data_roundtrip`.\n")
+    add("### Arbitrage ouvert\n")
+    add("`workflow_data_roundtrip` est classé lecture seule mais écrit un fichier .xlsx.\n"
+        "Le modèle n'est pas touché, mais le verrou du ruban ne l'arrête pas : la politique\n"
+        "de cet export reste à décider.\n")
 
     add("## Signaux à vérifier\n")
     add("Détection automatique. Un signal n'est pas un défaut : la lecture passe peut-être\n"

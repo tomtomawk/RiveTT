@@ -9,10 +9,10 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class CreationTools
 {
-    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs — a roof is a real FootPrintRoof, Document.Create.NewFootPrintRoof). Pass [{category, boundary:{outerLoop:[{p0,p1}, ...]}, typeId?, baseLevelId?, baseElevationMm?, baseOffset?, roofSlopeDegrees?}]. roofSlopeDegrees (OST_Roofs only) applies the same pitch to every footprint edge, producing a hip roof; omit for a flat roof. baseLevelId (or nonzero baseLevel alias) is a level ID, never an altitude. baseElevationMm is absolute project Z in mm; baseOffset is relative mm. The response reports applied IDs, levels and offsets.")]
+    [McpServerTool(Name = "create_surface_based_element"), Description("Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs — a roof is a real FootPrintRoof, Document.Create.NewFootPrintRoof). Pass [{category, boundary:{outerLoop:[{p0,p1}, ...]}, typeId?, baseLevelId?, baseElevationMm?, baseOffset?, roofSlopeDegrees?}]. baseLevelId is a level ID, never an altitude. baseElevationMm is absolute project Z in mm; baseOffset is relative mm. The obsolete baseLevel key is refused. The response reports applied IDs, levels and offsets.")]
     public static async Task<string> CreateSurfaceBasedElement(
         RevitConnectionManager revit,
-        [Description("JSON array of creation specs: [{category, boundary:{outerLoop:[{p0:{x,y,z},p1:{x,y,z}}, ...]}, typeId?, baseLevelId?, baseElevationMm?, baseOffset?, roofSlopeDegrees?}]. baseLevelId (or nonzero baseLevel alias) is a Revit level ID; baseOffset is relative mm. Alternatively baseElevationMm is absolute project Z in mm. Do not combine ID and elevation. Legacy baseLevel:0 means absolute Z zero. roofSlopeDegrees applies to OST_Roofs only, in [0,90).")] string specs,
+        [Description("JSON array of creation specs: [{category, boundary:{outerLoop:[{p0:{x,y,z},p1:{x,y,z}}, ...]}, typeId?, baseLevelId?, baseElevationMm?, baseOffset?, roofSlopeDegrees?}]. baseLevelId is a Revit level ID; baseOffset is relative mm. Alternatively baseElevationMm is absolute project Z in mm. Do not combine ID and elevation. The obsolete baseLevel key is refused. roofSlopeDegrees applies to OST_Roofs only, in [0,90).")] string specs,
         [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
@@ -97,7 +97,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_line_based_element"), Description("Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?, topLevelId?, topOffset?}]. Add pMid to make a curved (arc) wall/beam. Coordinates in mm. baseLevelId (or baseLevel alias) is an element ID; baseOffset is relative to it in mm. Alternatively baseElevationMm is absolute project Z in mm. topLevelId is a top level ID for walls; topOffset is relative mm and this constraint takes precedence over height.")]
+    [McpServerTool(Name = "create_line_based_element"), Description("Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?, topLevelId?, topOffset?}]. Add pMid to make a curved (arc) wall/beam. Coordinates in mm. baseLevelId is an element ID; baseOffset is relative to it in mm. Alternatively baseElevationMm is absolute project Z in mm. The obsolete baseLevel key is refused. topLevelId is a top level ID for walls; topOffset is relative mm and this constraint takes precedence over height.")]
     public static async Task<string> CreateLineBasedElement(
         RevitConnectionManager revit,
         [Description("JSON array of specs: [{category, locationLine:{p0, p1, pMid?}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?, topLevelId?, topOffset?}]")] string specs,
@@ -647,7 +647,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "batch_export"), Description("Export views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats.")]
+    [McpServerTool(Name = "batch_export"), Description("Export views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats. This writes files and requires the RiveTT ribbon write lock to be open.")]
     public static async Task<string> BatchExport(
         RevitConnectionManager revit,
         [Description("Output directory")] string outputDirectory,

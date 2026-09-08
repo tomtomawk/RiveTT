@@ -13,24 +13,16 @@ public sealed class LineBaseConstraint
     public double OffsetMm { get; }
     public static LineBaseConstraint Parse(JObject spec)
     {
+        // `baseLevel` was ambiguous between an ID and an elevation. Reject it
+        // rather than preserve a path that can silently corrupt geometry (D-20).
+        if (spec["baseLevel"] is { Type: not JTokenType.Null })
+            throw new ArgumentException("baseLevel is no longer supported. Use baseLevelId for a Revit level ID, or baseElevationMm for an absolute elevation in mm.");
         if (spec["baseLevelId"] is { Type: not JTokenType.Null } levelToken
             && levelToken.Type != JTokenType.Integer)
             throw new ArgumentException("baseLevelId must be an integer Revit level ID.");
         long? id = spec["baseLevelId"]?.Value<long?>();
-        var legacy = spec["baseLevel"]?.Value<double?>();
         var elevation = spec["baseElevationMm"]?.Value<double?>();
         var offset = spec["baseOffset"]?.Value<double?>() ?? 0;
-        // baseLevel was unitless in the public schema. Accept it as an ID alias,
-        // never convert an element ID to millimetres. The old zero default survives.
-        if (legacy.HasValue && legacy.Value != 0)
-        {
-            if (!double.IsFinite(legacy.Value) || legacy <= 0 || legacy != Math.Truncate(legacy.Value)
-                || legacy >= long.MaxValue)
-                throw new ArgumentException("baseLevel is a level ID alias. Use baseElevationMm for an absolute elevation in mm.");
-            if (id.HasValue && id != (long)legacy.Value)
-                throw new ArgumentException("baseLevel and baseLevelId identify different levels.");
-            id = (long)legacy.Value;
-        }
         if (id.HasValue && id <= 0)
             throw new ArgumentException("baseLevelId must be a positive level ID.");
         if (id.HasValue && elevation.HasValue)
