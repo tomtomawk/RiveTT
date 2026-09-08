@@ -80,9 +80,11 @@ revient à modifier la configuration d'un autre logiciel, c'est à vous de le de
 Les emplacements exacts et les étapes figurent dans
 la section **Configuration de Claude et ChatGPT Desktop** ci-dessous.
 
-La page finale dit, pour chaque case cochée, si la déclaration a réussi. Si Claude
-n'est pas détecté, elle donne aussi le chemin du script et du journal. À la main,
-sinon :
+La page finale vérifie toujours les deux applications, même lorsqu'une case reste
+décochée. Elle distingue « MCP déjà configuré », « configuré maintenant » et « non
+configuré (option non cochée) ». Une zone défilable affiche aussi les chemins complets
+des skills Claude et ChatGPT. Si une application n'est pas détectée, elle indique le
+chemin du script et du journal. À la main, sinon :
 
     codex mcp add RiveTT -- "%LOCALAPPDATA%\RiveTT\server\RiveTT.Server.exe"
 
@@ -893,9 +895,9 @@ intégration de skill décidée séparément par votre organisation. Il provient
 l'unique source `src\resources\documentation\SKILL.md`, renommée seulement lors de
 l'installation générale.
 
-Après une connexion Claude réussie, la page finale rappelle d'ajouter la compétence
-RiveTT dans **Personnaliser** si elle n'existe pas encore, et indique le chemin de
-`skills_RiveTT.md`. Ce rappel n'affirme pas qu'elle a été activée dans Claude.
+La page finale indique toujours le chemin complet de `skills_RiveTT.md` pour un
+import manuel dans **Personnaliser**, si votre organisation souhaite utiliser le
+guide comme skill Claude. Elle n'affirme jamais que ce skill a été activé dans Claude.
 
 ## Configurer pour ChatGPT (config + skill)
 
@@ -950,7 +952,7 @@ Sources vérifiées le 7 septembre 2026 :
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-09-08 — connecteur 0.5.3 — **200 outils publiés**, 197 classes runtime.
+Relevé du 2026-09-09 — connecteur 0.5.4 — **200 outils publiés**, 197 classes runtime.
 
 ### Comment lire ce document
 

@@ -62,19 +62,19 @@
     Thomas Thébault. Developers without the certificate can still compile and test
     with -SkipInstaller -SkipSigning.
 
-    Create one with builder\New-SigningCertificate.ps1. Nothing here is specific to a
-    self-signed certificate: a CA-issued one has a thumbprint too, so moving to a real
-    certificate later changes this parameter's VALUE and nothing else.
+    Create the temporary self-signed certificate with
+    builder\New-SigningCertificate.ps1. A CA-issued certificate also uses this
+    parameter, but adopting one must additionally restore payload signing.
 
 .PARAMETER TimestampUrl
     RFC 3161 timestamp server. Countersigning is what keeps a signature valid after the
-    certificate expires; without it every binary shipped becomes untrusted on the
-    expiry date, retroactively. Signing falls back to no timestamp with a warning when
-    the server is unreachable, rather than failing a build over an offline machine.
+    certificate expires; without it the installer becomes untrusted on the expiry
+    date, retroactively.
 
 .PARAMETER SkipSigning
-    Build the staging payload without signing. Accepted only with -SkipInstaller,
-    because an installer is never allowed into dist unsigned.
+    Allow a development payload build without access to the installer-signing
+    certificate. Accepted only with -SkipInstaller, because an installer is never
+    allowed into dist unsigned.
 #>
 [CmdletBinding()]
 param(
@@ -167,19 +167,6 @@ function Resolve-SignTool {
 }
 
 function Invoke-SignTool {
-    <#
-        One signtool invocation over a batch of files. Returns $true on success.
-
-        The timestamp is attempted first and dropped on failure rather than aborting:
-        an unreachable RFC 3161 server is a network condition, not a build defect, and
-        a signature without a countersignature is still a valid signature -- it just
-        stops being one when the certificate expires. The warning says so, because that
-        is a fact about a build that has already been produced.
-
-        stderr handling mirrors Invoke-Dotnet: PowerShell 5.1 wraps a native command's
-        stderr in a terminating ErrorRecord under $ErrorActionPreference = 'Stop', and
-        signtool prints its progress there even when it succeeds.
-    #>
     param(
         [Parameter(Mandatory = $true)][string] $SignTool,
         [Parameter(Mandatory = $true)][string] $Thumbprint,
@@ -198,22 +185,16 @@ function Invoke-SignTool {
     return ($LASTEXITCODE -eq 0)
 }
 
-function Invoke-SignPayload {
+function Resolve-InstallerSigning {
     <#
-        Signs the binaries RiveTT itself produces, in builder\staging\, BEFORE ISCC
-        compresses them into the installer. Signing the setup alone would leave every
-        file it drops on the workstation unsigned -- and an antivirus scanning
-        %APPDATA% after the install looks at those, not at the installer that is by
-        then long gone.
+        Validates the configured publisher identity and prepares Inno Setup signing.
 
-        Third-party DLLs are deliberately left alone. They arrive already signed by
-        their own publishers and signtool would REPLACE that signature, which turns a
-        certificate the world trusts into one only this agency does.
-
-        register-mcp.ps1 is signed too, through Set-AuthenticodeSignature. The
-        installer runs it with -ExecutionPolicy Bypass so it does not need to be, but
-        it is installed on the workstation and a user reading or re-running it under an
-        AllSigned policy should not be told it is untrusted.
+        The current certificate is self-signed. It is suitable for identifying local
+        build ownership but Windows cannot chain it to a trusted public root. Revit
+        therefore reports a signed plugin as having an invalid signature, which is
+        worse than its normal unsigned-add-in prompt. Until a CA-issued code-signing
+        certificate replaces it, Revit-side DLLs remain unsigned. The MCP server and
+        registration script can still be signed because Revit never loads them.
     #>
     param(
         [Parameter(Mandatory = $true)][string] $Thumbprint,
@@ -246,58 +227,47 @@ function Invoke-SignPayload {
                "(winget install Microsoft.WindowsSDK), ou relancez avec -SkipSigning.")
     }
 
-    # Only what this project builds: RiveTT.*.dll and RiveTT.*.exe, wherever they
-    # landed in staging (server\, 2026\plugin\, 2027\plugin\).
-    $binaries = Get-ChildItem -Path $StagingRoot -Recurse -File |
-        Where-Object { $_.Name -like 'RiveTT.*' -and $_.Extension -in @('.dll', '.exe') } |
-        Select-Object -ExpandProperty FullName
-
-    if (-not $binaries) { throw "Aucun binaire RiveTT a signer dans $StagingRoot." }
+    $serverBinary = Join-Path $StagingRoot 'server\RiveTT.Server.exe'
+    if (-not (Test-Path -LiteralPath $serverBinary)) {
+        throw "Executable du serveur MCP introuvable dans $StagingRoot\server."
+    }
 
     $signed = Invoke-SignTool -SignTool $signTool -Thumbprint $Thumbprint `
-                              -Paths $binaries -Timestamp $Timestamp
+                              -Paths @($serverBinary) -Timestamp $Timestamp
     $timestamped = $signed
     if (-not $signed -and $Timestamp) {
         Write-Warning ("Horodatage impossible ($Timestamp injoignable) : signature sans " +
-                       "horodatage. Ces binaires deviendront non approuves a l'expiration " +
-                       "du certificat, le $($certificate.NotAfter.ToString('yyyy-MM-dd')).")
-        $signed = Invoke-SignTool -SignTool $signTool -Thumbprint $Thumbprint -Paths $binaries
+                       "horodatage. Elle expirera le " +
+                       "$($certificate.NotAfter.ToString('yyyy-MM-dd')).")
+        $signed = Invoke-SignTool -SignTool $signTool -Thumbprint $Thumbprint `
+                                  -Paths @($serverBinary)
         $timestamped = $false
     }
     if (-not $signed) { throw "signtool a echoue (code $LASTEXITCODE)." }
 
     $script = Join-Path $StagingRoot 'register-mcp.ps1'
-    if (Test-Path $script) {
-        $signature = if ($timestamped) {
-            Set-AuthenticodeSignature -FilePath $script -Certificate $certificate `
-                                      -HashAlgorithm SHA256 -TimestampServer $Timestamp
-        } else {
-            Set-AuthenticodeSignature -FilePath $script -Certificate $certificate `
-                                      -HashAlgorithm SHA256
-        }
-        # 'Valid' is NOT the bar to hold this to, and insisting on it broke the first
-        # signed build. Set-AuthenticodeSignature reports the result of VERIFYING what
-        # it just wrote, on this machine, against this machine's trust stores -- and a
-        # self-signed certificate is untrusted on the build machine by design, so it
-        # comes back UnknownError ("chain terminated in an untrusted root") over a
-        # signature that was applied perfectly well. A CA-issued certificate will
-        # return Valid here; both must pass.
-        #
-        # What actually distinguishes the two is SignerCertificate: null when nothing
-        # was written (NotSigned, HashMismatch), populated when it was.
-        $applied = $signature.SignerCertificate -and
-                   ($signature.Status -in @('Valid', 'UnknownError'))
-        if (-not $applied) {
-            throw ("Signature de register-mcp.ps1 en echec ($($signature.Status)) : " +
-                   $signature.StatusMessage)
-        }
+    if (-not (Test-Path -LiteralPath $script)) {
+        throw "Script MCP introuvable dans $StagingRoot."
+    }
+    $signature = if ($timestamped) {
+        Set-AuthenticodeSignature -FilePath $script -Certificate $certificate `
+                                  -HashAlgorithm SHA256 -TimestampServer $Timestamp
+    } else {
+        Set-AuthenticodeSignature -FilePath $script -Certificate $certificate `
+                                  -HashAlgorithm SHA256
+    }
+    $applied = $signature.SignerCertificate -and
+               ($signature.Status -in @('Valid', 'UnknownError'))
+    if (-not $applied) {
+        throw ("Signature de register-mcp.ps1 en echec ($($signature.Status)) : " +
+               $signature.StatusMessage)
     }
 
-    $subject = $certificate.Subject
-    Write-Host "$($binaries.Count) binaires signes ($subject)." -ForegroundColor Green
+    Write-Host ("Serveur MCP et script signes. DLL Revit non signees pour eviter " +
+                "l'alerte de signature incorrecte.") -ForegroundColor Green
 
-    # Returned so the caller can hand ISCC the same tool, certificate and timestamp:
-    # the setup and its uninstaller must carry the same signature as their payload.
+    # Returned so the caller can hand ISCC the tool, certificate and timestamp for
+    # setup and the generated uninstaller only.
     return [pscustomobject]@{
         SignTool  = $signTool
         Timestamp = if ($timestamped) { $Timestamp } else { '' }
@@ -408,8 +378,9 @@ try {
     Write-Host "Charge utile prete dans builder\staging\ ($sizeMb Mo)." -ForegroundColor Green
 
     # --- Signature ---
-    # Runs before the -SkipInstaller exit: a payload staged for inspection should be
-    # the same bytes that would have been packaged, signatures included.
+    # Temporary trust policy: leave Revit-side DLLs unsigned because the current
+    # self-signed certificate makes Revit display "Signature incorrecte". The MCP
+    # server/script are safe to sign; setup and uninstaller are signed by ISCC below.
     $signing = $null
     if ($SkipSigning) {
         if (-not $SkipInstaller) {
@@ -426,9 +397,10 @@ try {
         Write-Warning 'Charge utile de developpement non signee (-SkipInstaller).'
     }
     else {
-        Write-Host 'Signature des binaires...' -ForegroundColor Cyan
-        $signing = Invoke-SignPayload -Thumbprint $CertificateThumbprint `
-                                      -StagingRoot $stagingRoot -Timestamp $TimestampUrl
+        Write-Host 'Preparation de la signature de l installateur...' -ForegroundColor Cyan
+        $signing = Resolve-InstallerSigning -Thumbprint $CertificateThumbprint `
+                                            -StagingRoot $stagingRoot `
+                                            -Timestamp $TimestampUrl
     }
 
     # --- Installer ---

@@ -152,6 +152,13 @@ public class SigningPolicySourceTests
         Assert.Contains("-SkipSigning exige -SkipInstaller", build);
         Assert.Contains("Signature obligatoire", build);
         Assert.Contains("Get-AuthenticodeSignature -FilePath $setup", build);
+        Assert.Contains("Resolve-InstallerSigning", build);
+        Assert.Contains("$serverBinary = Join-Path $StagingRoot 'server\\RiveTT.Server.exe'", build);
+        Assert.Contains("Set-AuthenticodeSignature -FilePath $script", build);
+        Assert.Contains("DLL Revit non signees", build);
+        Assert.DoesNotContain("Invoke-SignPayload", build);
+        Assert.DoesNotContain("Where-Object { $_.Name -like 'RiveTT.*'", build);
+        Assert.DoesNotContain("server\\RiveTT.Server.dll", build);
         Assert.DoesNotContain("Write-Host 'NON SIGNE.'", build);
     }
 

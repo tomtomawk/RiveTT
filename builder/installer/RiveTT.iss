@@ -256,6 +256,7 @@ var
   Detected2026, Detected2027: Boolean;
   Found2026Version, Found2027Version: String;
   McpReport: String;           { one line per client the finish page has to report on }
+  FinishSummaryMemo: TNewMemo; { scrollable: the stock label clipped paths at the bottom }
   Stale2026: Boolean;          { Revit 2026 present but older than 2026.5 }
   ForcedYears: String;         { /REVIT=2026,2027 — for unattended IT deployment }
 
@@ -520,7 +521,8 @@ end;
   the finish page will show. Driven from code rather than a plain Run entry for one
   reason: a Run entry discards the exit code, and a registration that silently did
   nothing is the exact failure this installer spent a version learning to catch. }
-function RegisterMcpClient(ClientName, DisplayName: String): String;
+function InspectOrRegisterMcpClient(ClientName, DisplayName: String;
+                                    Configure: Boolean): String;
 var
   Code: Integer;
   Params: String;
@@ -528,6 +530,8 @@ begin
   Params := '-NoProfile -ExecutionPolicy Bypass -File "'
           + ExpandConstant('{app}\register-mcp.ps1') + '" -Client ' + ClientName
           + ' -ServerPath "' + ExpandConstant('{app}\server\RiveTT.Server.exe') + '"';
+  if not Configure then
+    Params := Params + ' -CheckOnly';
 
   if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Params,
               '', SW_HIDE, ewWaitUntilTerminated, Code) then
@@ -538,16 +542,15 @@ begin
 
   if Code = 0 then
   begin
-    Result := '  • ' + DisplayName + ' : déclaré.' + #13#10
+    Result := '  • ' + DisplayName + ' : MCP configuré maintenant.' + #13#10
             + '    Script : ' + ExpandConstant('{app}\register-mcp.ps1') + #13#10
             + '    Journal : ' + ExpandConstant('{localappdata}\RiveTT\register-mcp-')
             + ClientName + '.log';
-    if ClientName = 'Claude' then
-      Result := Result + #13#10
-              + '    Compétence Claude : si RiveTT n''existe pas encore dans'
-              + ' Personnaliser, ajoutez-la depuis '
-              + ExpandConstant('{app}\documentation\skills_RiveTT.md');
   end
+  else if Code = 4 then
+    Result := '  • ' + DisplayName + ' : MCP déjà configuré avec le bon chemin.'
+  else if Code = 5 then
+    Result := '  • ' + DisplayName + ' : MCP non configuré (option non cochée).'
   else if Code = 3 then
   begin
     if ClientName = 'Claude' then
@@ -567,17 +570,57 @@ end;
 procedure RegisterSelectedMcpClients();
 begin
   McpReport := '';
-  if WizardIsTaskSelected('mcpclaude') then
-    McpReport := McpReport + RegisterMcpClient('Claude', 'Claude Desktop') + #13#10;
+  McpReport := McpReport + InspectOrRegisterMcpClient(
+      'Claude', 'Claude Desktop', WizardIsTaskSelected('mcpclaude')) + #13#10;
+  McpReport := McpReport + InspectOrRegisterMcpClient(
+      'Codex', 'ChatGPT Desktop', WizardIsTaskSelected('mcpcodex')) + #13#10;
+end;
+
+function SkillSection(): String;
+var
+  ChatGptSkill: String;
+begin
+  ChatGptSkill := AddBackslash(CodexSkillDir('')) + 'SKILL.md';
+  Result := 'Fichiers de skill :' + #13#10
+          + '  • Claude (import manuel si souhaité) : ' + #13#10
+          + '    ' + ExpandConstant('{app}\documentation\skills_RiveTT.md') + #13#10;
   if WizardIsTaskSelected('mcpcodex') then
   begin
-    McpReport := McpReport + RegisterMcpClient('Codex', 'ChatGPT Desktop') + #13#10;
-    if FileExists(AddBackslash(CodexSkillDir('')) + 'SKILL.md') then
-      McpReport := McpReport + '  • ChatGPT : skill installé dans '
-                + CodexSkillDir('') + '. Redémarrez ChatGPT.' + #13#10
+    if FileExists(ChatGptSkill) then
+      Result := Result + '  • ChatGPT (détection automatique) : ' + #13#10
+                + '    ' + ChatGptSkill + #13#10
     else
-      McpReport := McpReport + '  • ChatGPT : ÉCHEC, skill introuvable.' + #13#10;
+      Result := Result + '  • ChatGPT : ÉCHEC, skill introuvable au chemin :' + #13#10
+                + '    ' + ChatGptSkill + #13#10;
   end;
+  if not WizardIsTaskSelected('mcpcodex') then
+  begin
+    if FileExists(ChatGptSkill) then
+      Result := Result + '  • ChatGPT (déjà présent, détection automatique) : ' + #13#10
+                + '    ' + ChatGptSkill + #13#10
+    else
+      Result := Result + '  • ChatGPT (non installé, option non cochée) :' + #13#10
+                + '    ' + ChatGptSkill + #13#10;
+  end;
+end;
+
+procedure SetFinishedSummary(Summary: String);
+begin
+  WizardForm.FinishedLabel.Visible := False;
+  if FinishSummaryMemo = nil then
+  begin
+    FinishSummaryMemo := TNewMemo.Create(WizardForm);
+    FinishSummaryMemo.Parent := WizardForm.FinishedPage;
+    FinishSummaryMemo.Left := WizardForm.FinishedLabel.Left;
+    FinishSummaryMemo.Top := WizardForm.FinishedLabel.Top;
+    FinishSummaryMemo.Width := WizardForm.FinishedLabel.Width;
+    FinishSummaryMemo.Height := WizardForm.FinishedPage.ClientHeight
+                              - FinishSummaryMemo.Top - ScaleY(8);
+    FinishSummaryMemo.ReadOnly := True;
+    FinishSummaryMemo.ScrollBars := ssVertical;
+    FinishSummaryMemo.WordWrap := True;
+  end;
+  FinishSummaryMemo.Text := Summary;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -664,7 +707,7 @@ begin
   begin
     if ServerFound = '' then
       ServerFound := 'aucun fichier lisible';
-    WizardForm.FinishedLabel.Caption :=
+    SetFinishedSummary(
         'ATTENTION : la mise à jour est incomplète.' + #13#10#13#10
       + 'RiveTT n''a été mis à jour qu''en partie. Utilisé tel quel, il répondra que'
       + ' certaines commandes n''existent pas.' + #13#10#13#10
@@ -674,20 +717,20 @@ begin
       + '  2. Relancez cet installateur.' + #13#10#13#10
       + 'Revit peut rester ouvert.' + #13#10#13#10
       + 'Détail technique : serveur attendu en {#AppVersion}, trouvé en '
-      + ServerFound + '. Journal : ' + ExpandConstant('{log}');
+      + ServerFound + '. Journal : ' + ExpandConstant('{log}'));
     Exit;
   end;
 
   VirtualizedCopies := FindVirtualizedServerCopies();
   if VirtualizedCopies <> '' then
   begin
-    WizardForm.FinishedLabel.Caption :=
+    SetFinishedSummary(
         'ATTENTION : une ancienne copie isolée du serveur peut masquer cette mise à jour.'
       + #13#10#13#10 + 'La version {#AppVersion} est installée, mais une application '
       + 'packagée peut continuer à utiliser sa propre copie. Fermez cette application '
       + 'et faites retirer uniquement son ancien dossier RiveTT\server indiqué ci-dessous, '
       + 'puis relancez-la. Les copies ne sont pas supprimées automatiquement.'
-      + #13#10#13#10 + VirtualizedCopies;
+      + #13#10#13#10 + VirtualizedCopies);
     Exit;
   end;
 
@@ -697,14 +740,13 @@ begin
   if WantsRevit('2027') then
     Summary := Summary + '  • Revit 2027 (' + Found2027Version + ')' + #13#10;
 
-  WizardForm.FinishedLabel.Caption :=
+  SetFinishedSummary(
       'RiveTT ' + '{#AppVersion}' + ' est installé pour :' + #13#10 + Summary + #13#10
     + 'Redémarrez Revit : la connexion par pipe local démarre automatiquement, sans'
     + ' port TCP. Chaque session s''ouvre en LECTURE SEULE — pressez Écriture dans le'
     + ' panneau RiveTT (onglet Compléments) pour autoriser les modifications.' + #13#10#13#10
     + McpSection() + #13#10
-    + 'Skill unifié (guide, sécurité, IFC et outils) :' + #13#10
-    + ExpandConstant('{app}\documentation\skills_RiveTT.md');
+    + SkillSection());
 end;
 
 { Revit holds the plugin DLLs open; removing them while it runs would leave a partial

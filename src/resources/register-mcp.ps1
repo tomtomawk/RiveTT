@@ -48,16 +48,23 @@
     Delete the RiveTT entry instead of writing it. Used at uninstall, so the client is
     not left launching an executable that no longer exists.
 
+.PARAMETER CheckOnly
+    Inspect whether the expected RiveTT entry is already present without changing the
+    client configuration. Used by the installer for options the user left unchecked.
+
 .OUTPUTS
-    Exit code 0 registered, updated, already correct, or removed.
+    Exit code 0 registered, updated, or removed.
                1 failure -- the config was restored from the rolling backup.
                3 client not installed, nothing done.
+               4 already configured with the expected server path.
+               5 client installed but RiveTT not configured with the expected path.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][ValidateSet('Claude', 'Codex')][string] $Client,
     [string] $ServerPath,
-    [switch] $Remove
+    [switch] $Remove,
+    [switch] $CheckOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -177,9 +184,10 @@ function Update-ClaudeConfig {
         try { $config = $raw | ConvertFrom-Json } catch {
             Stop-WithFailure "le fichier $path n'est pas un JSON lisible. Aucune modification."
         }
-        $backup = Backup-Config -Path $path
+        if (-not $CheckOnly) { $backup = Backup-Config -Path $path }
     } else {
         if ($Remove) { Write-Log 'Aucun fichier de configuration. Rien a retirer.'; exit 0 }
+        if ($CheckOnly) { Write-Log 'MCP RiveTT non configure : fichier absent.'; exit 5 }
         Write-Log "Aucun fichier de configuration : creation de $path"
         $config = [pscustomobject]@{}
         $raw = ''
@@ -195,6 +203,7 @@ function Update-ClaudeConfig {
 
     if (-not ($config.PSObject.Properties.Name -contains 'mcpServers') -or -not $config.mcpServers) {
         if ($Remove) { Write-Log 'Aucune section mcpServers. Rien a retirer.'; exit 0 }
+        if ($CheckOnly) { Write-Log 'MCP RiveTT non configure : section absente.'; exit 5 }
         $config | Add-Member -NotePropertyName 'mcpServers' -NotePropertyValue ([pscustomobject]@{}) -Force
     }
 
@@ -209,7 +218,11 @@ function Update-ClaudeConfig {
         $existing = $config.mcpServers.RiveTT
         if ($existing -and $existing.command -eq $ServerPath) {
             Write-Log "Entree RiveTT deja correcte ($ServerPath). Aucune ecriture."
-            exit 0
+            exit 4
+        }
+        if ($CheckOnly) {
+            Write-Log "MCP RiveTT non configure avec le chemin attendu : $ServerPath"
+            exit 5
         }
         $config.mcpServers | Add-Member -NotePropertyName 'RiveTT' `
             -NotePropertyValue ([pscustomobject]@{ command = $ServerPath }) -Force
@@ -346,9 +359,10 @@ function Update-CodexConfig {
     $backup = $null
     if (Test-Path -LiteralPath $path) {
         $raw = [System.IO.File]::ReadAllText($path)
-        $backup = Backup-Config -Path $path
+        if (-not $CheckOnly) { $backup = Backup-Config -Path $path }
     } else {
         if ($Remove) { Write-Log 'Aucun fichier de configuration. Rien a retirer.'; exit 0 }
+        if ($CheckOnly) { Write-Log 'MCP RiveTT non configure : fichier absent.'; exit 5 }
         Write-Log "Aucun fichier de configuration : creation de $path"
         $raw = ''
     }
@@ -374,7 +388,11 @@ function Update-CodexConfig {
 
         if ($raw -match [regex]::Escape($block)) {
             Write-Log "Entree RiveTT deja correcte ($ServerPath). Aucune ecriture."
-            exit 0
+            exit 4
+        }
+        if ($CheckOnly) {
+            Write-Log "MCP RiveTT non configure avec le chemin attendu : $ServerPath"
+            exit 5
         }
 
         $body = $stripped.TrimEnd("`n")
@@ -403,8 +421,12 @@ function Update-CodexConfig {
 
 # ------------------------------------------------------------------------------ main
 
-Write-Log "--- $Client / $(if ($Remove) { 'retrait' } else { 'enregistrement' }) ---"
+$operation = if ($Remove) { 'retrait' } elseif ($CheckOnly) { 'verification' } else { 'enregistrement' }
+Write-Log "--- $Client / $operation ---"
 
+if ($Remove -and $CheckOnly) {
+    Stop-WithFailure '-Remove et -CheckOnly sont incompatibles.'
+}
 if (-not $Remove -and -not $ServerPath) {
     Stop-WithFailure '-ServerPath est requis pour un enregistrement.'
 }

@@ -53,8 +53,23 @@ public class InstallerClientSetupTests
         Assert.Contains("Lancez Claude une fois", installer);
         Assert.Contains("Script : ", installer);
         Assert.Contains("register-mcp-Claude.log", installer);
-        Assert.Contains("si RiveTT n''existe pas encore dans", installer);
+        Assert.Contains("Claude (import manuel si souhaité)", installer);
         Assert.Contains("{app}\\documentation\\skills_RiveTT.md", installer);
+    }
+
+    [Fact]
+    public void FinishPage_AlwaysReportsBothMcpStatesAndFullSkillPaths()
+    {
+        var installer = File.ReadAllText(RepositoryFile.Path("builder", "installer", "RiveTT.iss"));
+        Assert.Contains("WizardIsTaskSelected('mcpclaude'))", installer);
+        Assert.Contains("WizardIsTaskSelected('mcpcodex'))", installer);
+        Assert.Contains("MCP déjà configuré avec le bon chemin", installer);
+        Assert.Contains("MCP non configuré (option non cochée)", installer);
+        Assert.Contains("Claude (import manuel si souhaité)", installer);
+        Assert.Contains("ChatGPT (détection automatique)", installer);
+        Assert.Contains("AddBackslash(CodexSkillDir('')) + 'SKILL.md'", installer);
+        Assert.Contains("TNewMemo.Create", installer);
+        Assert.Contains("ScrollBars := ssVertical", installer);
     }
 
     [Fact]
@@ -67,6 +82,34 @@ public class InstallerClientSetupTests
         Assert.Contains("\"RiveTT\"", config);
         Assert.Contains(fixture.ServerPath.Replace("\\", "\\\\"), config);
         Assert.False(Directory.Exists(Path.Combine(fixture.AppData, "Claude")));
+    }
+
+    [Fact]
+    public void ClaudeCheckOnly_ReportsAlreadyConfiguredWithoutWriting()
+    {
+        using var fixture = new StoreClaudeFixture();
+        Assert.Equal(0, fixture.Run());
+        var before = File.ReadAllBytes(fixture.Config);
+        var backup = fixture.Config + ".bak-rivett";
+        if (File.Exists(backup)) File.Delete(backup);
+
+        Assert.Equal(4, fixture.Run("-CheckOnly"));
+        Assert.Equal(before, File.ReadAllBytes(fixture.Config));
+        Assert.False(File.Exists(backup));
+    }
+
+    [Fact]
+    public void CodexCheckOnly_ReportsAlreadyConfiguredWithoutWriting()
+    {
+        using var fixture = new CodexFixture();
+        Assert.Equal(0, fixture.Run());
+        var before = File.ReadAllBytes(fixture.Config);
+        var backup = fixture.Config + ".bak-rivett";
+        if (File.Exists(backup)) File.Delete(backup);
+
+        Assert.Equal(4, fixture.Run("-CheckOnly"));
+        Assert.Equal(before, File.ReadAllBytes(fixture.Config));
+        Assert.False(File.Exists(backup));
     }
 
     private sealed class StoreClaudeFixture : IDisposable
@@ -85,7 +128,7 @@ public class InstallerClientSetupTests
             File.WriteAllText(ServerPath, "test server");
         }
 
-        internal int Run()
+        internal int Run(params string[] additionalArguments)
         {
             var start = new ProcessStartInfo
             {
@@ -100,6 +143,8 @@ public class InstallerClientSetupTests
                          RepositoryFile.Path("src", "resources", "register-mcp.ps1"),
                          "-Client", "Claude", "-ServerPath", ServerPath })
                 start.ArgumentList.Add(arg);
+            foreach (var arg in additionalArguments)
+                start.ArgumentList.Add(arg);
             start.Environment["LOCALAPPDATA"] = LocalAppData;
             start.Environment["APPDATA"] = AppData;
             start.Environment["USERPROFILE"] = root;
@@ -110,6 +155,54 @@ public class InstallerClientSetupTests
             {
                 process.Kill(entireProcessTree: true);
                 throw new TimeoutException("Store Claude registration exceeded 30 seconds.");
+            }
+            Task.WaitAll(output, error);
+            return process.ExitCode;
+        }
+
+        public void Dispose() => Directory.Delete(root, recursive: true);
+    }
+
+    private sealed class CodexFixture : IDisposable
+    {
+        private readonly string root = Path.Combine(Path.GetTempPath(), "RiveTT-codex-" + Guid.NewGuid().ToString("N"));
+        internal string Config => Path.Combine(root, ".codex", "config.toml");
+        private string ServerPath => Path.Combine(root, "RiveTT.Server.exe");
+
+        internal CodexFixture()
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Config)!);
+            File.WriteAllText(Config, "model = \"gpt-5.6-terra\"\n");
+            File.WriteAllText(ServerPath, "test server");
+        }
+
+        internal int Run(params string[] additionalArguments)
+        {
+            var start = new ProcessStartInfo
+            {
+                FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
+                    "WindowsPowerShell", "v1.0", "powershell.exe"),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            foreach (var arg in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                         RepositoryFile.Path("src", "resources", "register-mcp.ps1"),
+                         "-Client", "Codex", "-ServerPath", ServerPath })
+                start.ArgumentList.Add(arg);
+            foreach (var arg in additionalArguments)
+                start.ArgumentList.Add(arg);
+            start.Environment["LOCALAPPDATA"] = Path.Combine(root, "local");
+            start.Environment["USERPROFILE"] = root;
+            start.Environment.Remove("CODEX_HOME");
+            using var process = Process.Start(start)!;
+            var output = process.StandardOutput.ReadToEndAsync();
+            var error = process.StandardError.ReadToEndAsync();
+            if (!process.WaitForExit(30000))
+            {
+                process.Kill(entireProcessTree: true);
+                throw new TimeoutException("Codex registration exceeded 30 seconds.");
             }
             Task.WaitAll(output, error);
             return process.ExitCode;
