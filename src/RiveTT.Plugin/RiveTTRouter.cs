@@ -482,8 +482,13 @@ public class RiveTTRouter
     {
         try
         {
-            return (_session.Store.Get<object>("activeDocument") as Autodesk.Revit.DB.Document)
-                ?.Application?.VersionNumber ?? "unknown";
+            // Keep this enrichment path free of a static RevitAPI reference. It runs for
+            // every successful route, including router-only tests with a fake tool; a
+            // direct Document cast made those tests fail on CI where Revit is absent.
+            var document = _session.Store.Get<object>("activeDocument");
+            var application = document?.GetType().GetProperty("Application")?.GetValue(document);
+            return application?.GetType().GetProperty("VersionNumber")?.GetValue(application)?.ToString()
+                ?? "unknown";
         }
         catch
         {
@@ -500,8 +505,10 @@ public class RiveTTRouter
     {
         try
         {
-            var document = _session.Store.Get<object>("activeDocument") as Autodesk.Revit.DB.Document;
-            return document == null ? "none" : document.Title;
+            var document = _session.Store.Get<object>("activeDocument");
+            return document == null
+                ? "none"
+                : document.GetType().GetProperty("Title")?.GetValue(document)?.ToString() ?? "unknown";
         }
         catch
         {

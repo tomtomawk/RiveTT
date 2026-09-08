@@ -654,9 +654,10 @@ public static class CreationTools
         [Description("Export format: DWG | DXF | DGN | PDF | IMAGE. Default: DWG")] string? format = null,
         [Description("Sheet IDs to export. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? sheetIds = null,
         [Description("View IDs to export. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? viewIds = null,
+        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["outputDirectory"] = outputDirectory };
+        var p = new JObject { ["outputDirectory"] = outputDirectory, ["dryRun"] = dryRun };
         if (format != null) p["format"] = format;
         if (JsonOptionalParam.IsProvided(sheetIds))
         {

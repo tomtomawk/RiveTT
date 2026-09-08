@@ -61,7 +61,7 @@ références ni variante de skill n'est installé.
 | [docs/CHANGELOG_0.4.0.md](docs/CHANGELOG_0.4.0.md) | Verrou d'écriture, contrat `dryRun`, défauts de l'audit du 31/08, ce qui reste ouvert |
 | [docs/CHANGELOG_0.3.0.md](docs/CHANGELOG_0.3.0.md) | Défauts corrigés, renommage et consolidation de la surface, ce qui reste à vérifier sur maquette |
 | [docs/recettes/](docs/recettes/) | Modèle de rapport et résultats des nouvelles campagnes |
-| [docs/CHANGELOG_0.5.1.md](docs/CHANGELOG_0.5.1.md) | Changements actuels et régressions à vérifier |
+| [docs/CHANGELOG_0.5.2.md](docs/CHANGELOG_0.5.2.md) | Changements actuels et régressions à vérifier |
 
 **Référence commune**
 

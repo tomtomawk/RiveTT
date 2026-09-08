@@ -81,6 +81,15 @@ public class ReadOnlyActionsTests
     }
 
     [Fact]
+    public void RouterResponseEnrichmentDoesNotRequireRevitApiForAnEmptySession()
+    {
+        var source = File.ReadAllText(RepositoryFile.Path("src", "RiveTT.Plugin", "RiveTTRouter.cs"));
+        var start = source.IndexOf("private string GetActiveRevitVersion()", StringComparison.Ordinal);
+        var end = source.IndexOf("private string GetActiveDocumentTitle()", start, StringComparison.Ordinal);
+        Assert.DoesNotContain("Autodesk.Revit.DB.Document", source[start..end]);
+    }
+
+    [Fact]
     public void ActualNavigationToolsAreDeclaredReadOnlyAndNeverCached()
     {
         foreach (var type in new[] { typeof(OpenFileTool), typeof(OpenDocumentTool), typeof(OpenFamilyTool), typeof(OpenTemplateTool), typeof(ActivateViewTool) })
