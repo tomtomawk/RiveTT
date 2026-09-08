@@ -36,13 +36,14 @@ du code des comportements qui restent à vérifier dans Revit.
 
 ### Skill unifié installé
 
-La documentation produit est désormais un seul SKILL.md autonome, issu de la
-version unifiée. Les variantes LITE et UNIFIED, le routeur et les références
-séparées sont supprimés. La configuration des clients et l'inventaire des outils
-sont intégrés ; l'audit actualise sa section balisée sans recréer de dossier.
-Le ZIP Claude contient uniquement rivett/SKILL.md ; les mises à jour retirent
-les anciens fichiers documentaires connus sans effacer le dossier personnel.
-Préparation du ZIP vérifiée directement, sans recompilation ni packaging global.
+La documentation produit est désormais issue d'un seul `SKILL.md` autonome dans
+les sources. Les variantes LITE et UNIFIED, le routeur et les références séparées
+sont supprimés. La configuration des clients et l'inventaire des outils sont
+intégrés ; l'audit actualise sa section balisée sans recréer de dossier.
+L'installateur copie cette source sous le nom `skills_RiveTT.md` dans sa
+documentation générale et conserve le nom obligatoire `SKILL.md` dans
+`%USERPROFILE%\.agents\skills\rivett`, le dossier personnel auto-détecté par
+ChatGPT et Codex. Aucun doublon source ni ZIP Claude n'est maintenu.
 
 ### Bloc architecture du 7 septembre 2026
 

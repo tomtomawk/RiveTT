@@ -42,10 +42,11 @@ The versioned build SOURCES are `builder/build.ps1` and
 `builder/installer/RiveTT.iss`.
 
 `src/resources/documentation/` is part of the PRODUCT, not of the repository's own
-notes: build.ps1 copies it through staging and the installer lays it down in
-`%LOCALAPPDATA%\RiveTT\documentation`. The standalone `SKILL.md` is the only file
-there and is read by humans and agents alike, so a stale sentence in it reaches
-a workstation. Developer references — writing a tool, response contracts, release
+notes: build.ps1 copies its single `SKILL.md` through staging. The installer renames
+that source to `%LOCALAPPDATA%\RiveTT\documentation\skills_RiveTT.md` for the general
+installed guide and keeps the required `SKILL.md` name only in ChatGPT's
+`%USERPROFILE%\.agents\skills\rivett` auto-discovery folder. Do not create a second
+source copy for another client. Developer references — writing a tool, response contracts, release
 checklist — stay in `docs/references/` and are never installed. The tool audit
 updates the marked inventory section inside SKILL.md; do not recreate references/.
 

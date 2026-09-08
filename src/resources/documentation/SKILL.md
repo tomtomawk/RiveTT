@@ -72,15 +72,16 @@ mise à jour 2026.5 depuis Autodesk Access.
 L'installateur le propose, par deux cases à cocher **décochées par défaut** — cocher
 revient à modifier la configuration d'un autre logiciel, c'est à vous de le demander :
 
-- *Configurer pour Claude (config + skill)* : connexion déclarée et ZIP du skill
-  préparé ; il reste à l'importer dans Personnaliser → Skills ;
+- *Configurer la connexion MCP pour Claude* : connexion déclarée ; aucun ZIP ou
+  skill Claude n'est nécessaire au fonctionnement du MCP ;
 - *Configurer pour ChatGPT (config + skill)* : connexion et skill local installés
   ensemble pour ChatGPT Desktop.
 
 Les emplacements exacts et les étapes figurent dans
 la section **Configuration de Claude et ChatGPT Desktop** ci-dessous.
 
-La page finale dit, pour chaque case cochée, si la déclaration a réussi. À la main,
+La page finale dit, pour chaque case cochée, si la déclaration a réussi. Si Claude
+n'est pas détecté, elle donne aussi le chemin du script et du journal. À la main,
 sinon :
 
     codex mcp add RiveTT -- "%LOCALAPPDATA%\RiveTT\server\RiveTT.Server.exe"
@@ -871,29 +872,30 @@ cocher les deux. Les cases sont décochées au départ ; la documentation est to
 installée. Quittez complètement votre application d'IA avant l'installation, puis
 rouvrez-la après. Aucun droit administrateur n'est nécessaire.
 
-## Configurer pour Claude (config + skill)
+## Configurer la connexion MCP pour Claude
 
 L'installateur déclare la connexion Revit dans la configuration de Claude Desktop,
-en conservant les autres réglages et serveurs. Il prépare aussi un ZIP contenant
-le seul fichier rivett/SKILL.md, autonome.
+en conservant les autres réglages et serveurs. La connexion MCP ne dépend pas d'un
+skill Claude : l'installateur ne crée ni ZIP ni skill de compte.
 
 | Élément | Emplacement Windows |
 |---|---|
-| Configuration Claude | %APPDATA%\Claude\claude_desktop_config.json |
-| Skill prêt à importer | %LOCALAPPDATA%\RiveTT\integrations\Claude\rivett.zip |
+| Configuration Claude classique | %APPDATA%\Claude\claude_desktop_config.json |
+| Configuration Claude MSIX (si la vue classique n'existe pas) | %LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\claude_desktop_config.json (`Claude_*` est détecté automatiquement) |
+| Script de configuration | %LOCALAPPDATA%\RiveTT\register-mcp.ps1 |
+| Journal | %LOCALAPPDATA%\RiveTT\register-mcp-Claude.log |
 
-Après l'installation, ouvrez **Personnaliser → Skills → + → Importer un skill**
-(Customize → Skills → + → Create skill → Upload a skill selon la langue/version).
-Choisissez rivett.zip au chemin ci-dessus, puis activez le skill. Lors d'une mise à
-jour, remplacez également le skill importé : recréer le ZIP local ne met pas à jour
-la copie de votre compte Claude.
+Si Claude n'est pas détecté, l'installateur n'écrit rien : il affiche le chemin du
+script et du journal. Lancez Claude une fois, fermez-le, puis relancez l'installateur.
+Le guide installé dans
+%LOCALAPPDATA%\RiveTT\documentation\skills_RiveTT.md reste disponible pour une
+intégration de skill décidée séparément par votre organisation. Il provient de
+l'unique source `src\resources\documentation\SKILL.md`, renommée seulement lors de
+l'installation générale.
 
-Le skill de Claude Desktop s'importe dans l'application. Copier un fichier dans
-un dossier local de Claude Code ne l'active pas dans les conversations Claude.
-La page finale indique donc « prêt à importer », jamais « activé ». Si les skills
-sont désactivés par votre organisation, leur activation appartient à son administrateur.
-La désinstallation de RiveTT ne retire pas le skill déjà importé dans votre compte ;
-vous pouvez le supprimer dans la même page Skills.
+Après une connexion Claude réussie, la page finale rappelle d'ajouter la compétence
+RiveTT dans **Personnaliser** si elle n'existe pas encore, et indique le chemin de
+`skills_RiveTT.md`. Ce rappel n'affirme pas qu'elle a été activée dans Claude.
 
 ## Configurer pour ChatGPT (config + skill)
 
@@ -907,24 +909,23 @@ L'installateur déclare la connexion Revit et installe le fichier personnel SKIL
 | Skill personnel, nouvelle installation | %USERPROFILE%\.agents\skills\rivett\SKILL.md |
 
 Si CODEX_HOME est défini, la configuration est dans CODEX_HOME\config.toml.
-Si un ancien skill RiveTT existe déjà dans CODEX_HOME\skills\rivett (par défaut
-%USERPROFILE%\.codex\skills\rivett), l'installateur le met à jour sur place pour
-éviter un doublon. La page finale affiche le dossier réellement utilisé.
+Le skill est toujours copié dans `%USERPROFILE%\.agents\skills\rivett`, le dossier
+personnel lu automatiquement par ChatGPT et Codex. Son nom reste `SKILL.md`.
 
 Sur le poste de Thomas, les chemins par défaut sont :
 
 - Claude : C:\Users\theba\AppData\Roaming\Claude\claude_desktop_config.json
-- ZIP Claude : C:\Users\theba\AppData\Local\RiveTT\integrations\Claude\rivett.zip
+- Script Claude : C:\Users\theba\AppData\Local\RiveTT\register-mcp.ps1
+- Journal Claude : C:\Users\theba\AppData\Local\RiveTT\register-mcp-Claude.log
 - ChatGPT : C:\Users\theba\.codex\config.toml
-- Nouveau skill ChatGPT : C:\Users\theba\.agents\skills\rivett\SKILL.md
-- Ancien skill ChatGPT conservé s'il existe : C:\Users\theba\.codex\skills\rivett\SKILL.md
+- Skill ChatGPT : C:\Users\theba\.agents\skills\rivett\SKILL.md
 
 ## Vérifier la connexion
 
-La page finale distingue le résultat de la configuration et celui du skill. Si
-l'application n'est pas détectée, lancez-la une première fois puis relancez la
-configuration avec l'installateur. Un skill présent ne prouve pas que la connexion
-Revit est configurée.
+La page finale indique le résultat de la configuration et les chemins du script et
+du journal. Si l'application n'est pas détectée, lancez-la une première fois puis
+relancez la configuration avec l'installateur. Un skill présent ne prouve pas que la
+connexion Revit est configurée.
 
 Ouvrez Revit et demandez à votre assistant de vérifier les capacités RiveTT.
 Vérifiez les versions du plugin et du serveur, le document actif, puis le verrou.
@@ -949,7 +950,7 @@ Sources vérifiées le 7 septembre 2026 :
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-09-08 — connecteur 0.5.2 — **200 outils publiés**, 197 classes runtime.
+Relevé du 2026-09-08 — connecteur 0.5.3 — **200 outils publiés**, 197 classes runtime.
 
 ### Comment lire ce document
 

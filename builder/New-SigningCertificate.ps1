@@ -29,10 +29,6 @@
     missing. Comments and code stay ASCII; only user-facing French strings use
     accents.
 
-.PARAMETER Subject
-    The publisher name Windows will show. Use the legal identity that will appear on
-    the real certificate later, so the two do not disagree.
-
 .PARAMETER OutputDirectory
     Where the exportable files land. Defaults OUTSIDE the repository on purpose: a
     .pfx holds the private key, and the one place it must never end up is a git
@@ -48,13 +44,10 @@
     certificate straight out of the user's store and never touches the .pfx.
 
 .EXAMPLE
-    .\builder\New-SigningCertificate.ps1 -Subject 'Thomas Thebault'
+    .\builder\New-SigningCertificate.ps1
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
-    [string] $Subject,
-
     [string] $OutputDirectory = (Join-Path $env:USERPROFILE 'RiveTT-signing'),
 
     [ValidateRange(1, 10)]
@@ -64,19 +57,20 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$subject = 'Thomas Thébault'
 
 # CurrentUser\My, not LocalMachine\My: the private key then belongs to the account
 # that builds, needs no elevation to create or to use, and cannot be read by another
 # user of the same workstation.
 $storePath = 'Cert:\CurrentUser\My'
 
-Write-Host "Creation du certificat de signature pour : $Subject" -ForegroundColor Cyan
+Write-Host "Creation du certificat de signature pour : $subject" -ForegroundColor Cyan
 
 # HashAlgorithm SHA256 explicitly: the default follows the OS and SHA1 signatures are
 # rejected outright by current Windows versions.
 $certificate = New-SelfSignedCertificate `
     -Type CodeSigningCert `
-    -Subject "CN=$Subject" `
+    -Subject "CN=$subject" `
     -KeyUsage DigitalSignature `
     -KeyAlgorithm RSA `
     -KeyLength 3072 `

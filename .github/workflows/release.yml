@@ -7,8 +7,8 @@ on:
     tags:
       - 'v*'
 
-# Required for `gh release create` and for uploading the installer asset through the
-# repository-scoped GITHUB_TOKEN. No other credential is needed for an unsigned build.
+# Required for `gh release create` and for uploading the signed installer asset through
+# the repository-scoped GITHUB_TOKEN. The signing key comes from repository secrets.
 permissions:
   contents: write
 
@@ -35,6 +35,38 @@ jobs:
           winget install --id JRSoftware.InnoSetup --exact --silent
           --accept-package-agreements --accept-source-agreements
 
+      - name: Import the Thomas Thébault signing certificate
+        shell: pwsh
+        env:
+          RIVETT_SIGN_PFX_BASE64: ${{ secrets.RIVETT_SIGN_PFX_BASE64 }}
+          RIVETT_SIGN_PFX_PASSWORD: ${{ secrets.RIVETT_SIGN_PFX_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:RIVETT_SIGN_PFX_BASE64) -or
+              [string]::IsNullOrWhiteSpace($env:RIVETT_SIGN_PFX_PASSWORD)) {
+            throw 'Secrets RIVETT_SIGN_PFX_BASE64 et RIVETT_SIGN_PFX_PASSWORD requis.'
+          }
+
+          $pfxPath = Join-Path $env:RUNNER_TEMP 'RiveTT-CodeSigning.pfx'
+          try {
+            [IO.File]::WriteAllBytes(
+              $pfxPath, [Convert]::FromBase64String($env:RIVETT_SIGN_PFX_BASE64))
+            $password = ConvertTo-SecureString $env:RIVETT_SIGN_PFX_PASSWORD -AsPlainText -Force
+            $imported = @(Import-PfxCertificate -FilePath $pfxPath `
+              -CertStoreLocation Cert:\CurrentUser\My -Password $password)
+            $certificate = $imported | Where-Object HasPrivateKey | Select-Object -First 1
+            if (-not $certificate) { throw 'Le PFX ne contient aucune clé privée.' }
+            $signer = $certificate.GetNameInfo(
+              [Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+            if ($signer -ne 'Thomas Thébault') {
+              throw "Mauvais signataire dans le PFX : '$signer'."
+            }
+            "RIVETT_SIGN_THUMBPRINT=$($certificate.Thumbprint)" |
+              Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
+          finally {
+            if (Test-Path -LiteralPath $pfxPath) { Remove-Item -LiteralPath $pfxPath -Force }
+          }
+
       - name: Check that the tag matches the product version
         shell: pwsh
         run: |
@@ -45,7 +77,7 @@ jobs:
           }
 
       # Builds both Revit targets, runs the test suite, regenerates the staging tree
-      # and invokes ISCC. The script fails if a test or the installer build fails.
+      # and invokes ISCC. The script fails if tests, signing or installer build fails.
       - name: Build the release installer
         shell: pwsh
         run: .\builder\build.ps1

@@ -48,7 +48,10 @@ trees, both ignored, and the split is the rule to remember:
     dist/RiveTT-Setup-<version>.exe
 
 ISCC reads `builder/staging/` and writes `dist/`. Everything in `dist/` is
-publishable as it stands — nothing else belongs there.
+publishable as it stands — nothing else belongs there. Installer production is
+refused unless the payload, setup and uninstaller are signed by `Thomas Thébault`.
+GitHub releases import the PFX from the repository secrets
+`RIVETT_SIGN_PFX_BASE64` and `RIVETT_SIGN_PFX_PASSWORD`.
 
 The server has no Revit API reference, so it is built once and shared. It is
 self-contained on purpose: framework-dependent it would need the .NET 10 runtime
@@ -79,6 +82,9 @@ to uninstall.
   are `builder/build.ps1` and `builder/installer/RiveTT.iss`.
 - The installer manifest is `asInvoker`. Anything that makes it request elevation
   is a regression, not a detail.
+- The installer, uninstaller and RiveTT payload are Authenticode-signed by
+  `Thomas Thébault`; a missing or differently named certificate stops local and
+  GitHub release builds.
 - `builder/build.ps1` stays UTF-8 WITH BOM. Without it PowerShell 5.1 reads the
   file as Windows-1252 and multi-byte characters decode into curly quotes, which it
   honours as string delimiters — that silently stripped `$LASTEXITCODE` out of a

@@ -24,7 +24,7 @@
 
     1. Claude Desktop is an MSIX package. Its config exists at two paths that are a
        HARD LINK to one file: %APPDATA%\Claude\... and
-       %LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\...
+       %LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\...
        Writing in place keeps the link. Writing a temp file and renaming over the
        target -- the usual "safe" pattern -- BREAKS it: the packaged app would go on
        reading the old content and the registration would appear to succeed while doing
@@ -48,17 +48,6 @@
     Delete the RiveTT entry instead of writing it. Used at uninstall, so the client is
     not left launching an executable that no longer exists.
 
-.PARAMETER PrepareSkill
-    Prepare the Claude skill ZIP only, without touching client configuration.
-    Requires -Client Claude, -DocumentationPath and -SkillArchivePath.
-    The user still imports this archive through Claude's Skills interface.
-
-.PARAMETER DocumentationPath
-    Installed standalone SKILL.md.
-
-.PARAMETER SkillArchivePath
-    Destination ZIP for the Claude skill. Used only with -PrepareSkill.
-
 .OUTPUTS
     Exit code 0 registered, updated, already correct, or removed.
                1 failure -- the config was restored from the rolling backup.
@@ -68,10 +57,7 @@
 param(
     [Parameter(Mandatory = $true)][ValidateSet('Claude', 'Codex')][string] $Client,
     [string] $ServerPath,
-    [switch] $Remove,
-    [switch] $PrepareSkill,
-    [string] $DocumentationPath,
-    [string] $SkillArchivePath
+    [switch] $Remove
 )
 
 $ErrorActionPreference = 'Stop'
@@ -143,9 +129,21 @@ function ConvertTo-OriginalNewlines {
 # ---------------------------------------------------------------------------- Claude
 
 function Get-ClaudeConfigPath {
-    $dir = Join-Path $env:APPDATA 'Claude'
-    if (-not (Test-Path -LiteralPath $dir)) { return $null }
-    return Join-Path $dir 'claude_desktop_config.json'
+    # The unpackaged client exposes this directory directly.  The Store/MSIX client
+    # normally presents it as a hard-linked view, but a fresh or policy-managed
+    # installation can expose only its package-local view.  In that case it is still
+    # Claude -- do not report it as absent just because the roaming view is missing.
+    $classicDir = Join-Path $env:APPDATA 'Claude'
+    if (Test-Path -LiteralPath $classicDir) {
+        return Join-Path $classicDir 'claude_desktop_config.json'
+    }
+
+    foreach ($packagedPath in @(Get-ClaudeMirrorPaths)) {
+        if (Test-Path -LiteralPath (Split-Path -Parent $packagedPath)) {
+            return $packagedPath
+        }
+    }
+    return $null
 }
 
 <#
@@ -165,9 +163,13 @@ function Get-JsonFingerprint {
 function Update-ClaudeConfig {
     $path = Get-ClaudeConfigPath
     if (-not $path) {
-        Write-Log 'Claude Desktop non detecte (aucun dossier %APPDATA%\Claude). Rien fait.'
+        $classicPath = Join-Path (Join-Path $env:APPDATA 'Claude') 'claude_desktop_config.json'
+        $packagedPaths = @(Get-ClaudeMirrorPaths)
+        $packagedDescription = if ($packagedPaths.Count) { $packagedPaths -join '; ' } else { 'aucun package Claude_* trouve' }
+        Write-Log "Claude Desktop non detecte. Chemins verifies : $classicPath ; $packagedDescription. Rien fait."
         exit 3
     }
+    Write-Log "Configuration Claude cible : $path"
 
     $backup = $null
     if (Test-Path -LiteralPath $path) {
@@ -242,18 +244,35 @@ function Update-ClaudeConfig {
     packaged app is reading the copy we did not write, so the content is pushed there
     too -- in place, same rule.
 #>
-function Get-ClaudeMirrorPath {
-    return (Join-Path $env:LOCALAPPDATA `
-        'Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json')
+function Get-ClaudeMirrorPaths {
+    $packagesRoot = Join-Path $env:LOCALAPPDATA 'Packages'
+    if (-not (Test-Path -LiteralPath $packagesRoot -PathType Container)) { return @() }
+
+    return @(Get-ChildItem -LiteralPath $packagesRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like 'Claude_*' } |
+        ForEach-Object {
+            Join-Path $_.FullName 'LocalCache\Roaming\Claude\claude_desktop_config.json'
+        })
 }
 
 function Test-ClaudeMirrorMatches {
     param([string] $Path)
-    $mirror = Get-ClaudeMirrorPath
-    if (-not (Test-Path -LiteralPath $mirror)) { return $false }
     if (-not (Test-Path -LiteralPath $Path)) { return $false }
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash -eq
-           (Get-FileHash -LiteralPath $mirror -Algorithm SHA256).Hash
+    foreach ($mirror in @(Get-ClaudeMirrorPaths)) {
+        # When the Store path itself is the selected configuration, there is no second
+        # view to compare. Treating a file as its own mirror would produce a misleading
+        # "hard link intact" assertion.
+        if ([System.StringComparer]::OrdinalIgnoreCase.Equals(
+                [IO.Path]::GetFullPath($Path), [IO.Path]::GetFullPath($mirror))) {
+            continue
+        }
+        if (-not (Test-Path -LiteralPath $mirror)) { continue }
+        if ((Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash -eq
+            (Get-FileHash -LiteralPath $mirror -Algorithm SHA256).Hash) {
+            return $true
+        }
+    }
+    return $false
 }
 
 function Assert-ClaudeHardLink {
@@ -267,8 +286,15 @@ function Assert-ClaudeHardLink {
         return
     }
 
-    Write-Log 'Vue packagee differente : le lien dur a ete rompu, recopie en place.'
-    Write-InPlace -Path (Get-ClaudeMirrorPath) -Text ([System.IO.File]::ReadAllText($Path))
+    foreach ($mirror in @(Get-ClaudeMirrorPaths)) {
+        if ([System.StringComparer]::OrdinalIgnoreCase.Equals(
+                [IO.Path]::GetFullPath($Path), [IO.Path]::GetFullPath($mirror))) {
+            continue
+        }
+        if (-not (Test-Path -LiteralPath (Split-Path -Parent $mirror))) { continue }
+        Write-Log "Vue packagee differente : le lien dur a ete rompu, recopie en place : $mirror"
+        Write-InPlace -Path $mirror -Text ([System.IO.File]::ReadAllText($Path))
+    }
 }
 
 # ----------------------------------------------------------------------------- Codex
@@ -375,49 +401,7 @@ function Update-CodexConfig {
     Write-Log 'Termine.'
 }
 
-function New-ClaudeSkillArchive {
-    if ($Client -ne 'Claude' -or $Remove) {
-        throw '-PrepareSkill est reserve a Claude, sans -Remove.'
-    }
-    if (-not $DocumentationPath -or -not $SkillArchivePath) {
-        throw '-DocumentationPath et -SkillArchivePath sont requis.'
-    }
-    $sourceRoot = [IO.Path]::GetFullPath($DocumentationPath)
-    $skillFile = Join-Path $sourceRoot 'SKILL.md'
-    if (-not (Test-Path -LiteralPath $skillFile -PathType Leaf)) {
-        throw 'Skill incomplet : SKILL.md est requis.'
-    }
-    $files = @((Get-Item -LiteralPath $skillFile))
-    $target = [IO.Path]::GetFullPath($SkillArchivePath)
-    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
-    $temporaryArchive = $target + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
-    Add-Type -AssemblyName System.IO.Compression
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    try {
-        $archive = [IO.Compression.ZipFile]::Open($temporaryArchive, 'Create')
-        try {
-            foreach ($file in $files) {
-                $relative = $file.FullName.Substring($sourceRoot.TrimEnd('\').Length + 1)
-                $entry = 'rivett/' + $relative.Replace('\', '/')
-                [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
-                    $archive, $file.FullName, $entry) | Out-Null
-            }
-        } finally { $archive.Dispose() }
-        Copy-Item -LiteralPath $temporaryArchive -Destination $target -Force
-    } finally {
-        if (Test-Path -LiteralPath $temporaryArchive) {
-            Remove-Item -LiteralPath $temporaryArchive
-        }
-    }
-    Write-Log "Skill prepare : $target. Importer le ZIP dans Claude > Personnaliser > Skills."
-}
-
 # ------------------------------------------------------------------------------ main
-
-if ($PrepareSkill) {
-    try { New-ClaudeSkillArchive } catch { Stop-WithFailure $_.Exception.Message }
-    exit 0
-}
 
 Write-Log "--- $Client / $(if ($Remove) { 'retrait' } else { 'enregistrement' }) ---"
 

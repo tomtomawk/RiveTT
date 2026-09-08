@@ -19,3 +19,12 @@ Correctif de la release automatisée de `v0.5.1`.
 Suite de tests exécutée avec `REVIT_INSTALL_DIR` pointant vers un dossier sans Revit :
 **571 réussis, 20 ignorés, 0 échec**. Le tag `v0.5.2` déclenche la construction et la
 publication de l’installateur dans GitHub Actions.
+
+## Signature obligatoire
+
+- `builder\build.ps1` refuse désormais de produire un installateur sans certificat
+  Authenticode dont le signataire est exactement `Thomas Thébault`.
+- Le désinstalleur et les binaires RiveTT sont signés avec le même certificat.
+- Le workflow de release GitHub importe le PFX depuis les secrets
+  `RIVETT_SIGN_PFX_BASE64` et `RIVETT_SIGN_PFX_PASSWORD`; leur absence arrête la
+  release avant publication.

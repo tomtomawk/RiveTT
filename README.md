@@ -119,22 +119,26 @@ retenir :
 
 ### Signer les binaires
 
-Non signé, l'installateur déclenche « éditeur inconnu » à chaque exécution et se
-fait signaler par les antivirus heuristiques. La signature est **facultative** :
-sans certificat le build passe et avertit, pour qu'un développeur puisse compiler
-et lancer les tests sans rien mettre en place.
+L'installateur, son désinstalleur et les binaires RiveTT sont toujours signés par
+**Thomas Thébault**. La production de `dist\RiveTT-Setup-<version>.exe` échoue si le
+certificat est absent ou porte une autre identité. Un développeur sans certificat
+peut encore compiler et tester avec `-SkipInstaller -SkipSigning`.
 
 ```powershell
 # une fois : créer le certificat, dans le magasin de l'utilisateur
-.\builder\New-SigningCertificate.ps1 -Subject 'Nom Prenom'
+.\builder\New-SigningCertificate.ps1
 
 # une fois : mémoriser son empreinte pour tous les builds à venir
 [Environment]::SetEnvironmentVariable('RIVETT_SIGN_THUMBPRINT', '<empreinte>', 'User')
 
 # ensuite, rien de plus : build.ps1 signe binaires, installateur et désinstalleur
 .\builder\build.ps1
-.\builder\build.ps1 -SkipSigning       # forcer un build non signé
+.\builder\build.ps1 -SkipInstaller -SkipSigning  # développement uniquement
 ```
+
+La release GitHub importe le même certificat depuis les secrets
+`RIVETT_SIGN_PFX_BASE64` et `RIVETT_SIGN_PFX_PASSWORD`. Leur absence fait échouer
+le workflow avant la compilation de l'installateur.
 
 Le certificat produit est **auto-signé**, et sa portée est exactement celle-là :
 
@@ -178,9 +182,9 @@ qui aurait imposé des droits administrateur.
 L'installation est par utilisateur dans
 `%APPDATA%\Autodesk\Revit\Addins\<2026|2027>\RiveTT`, le serveur dans
 `%LOCALAPPDATA%\RiveTT\server`, la documentation dans
-`%LOCALAPPDATA%\RiveTT\documentation`.
+`%LOCALAPPDATA%\RiveTT\documentation\skills_RiveTT.md`.
 
-L'installateur propose deux cases : **Configurer pour Claude (config + skill)** et **Configurer pour ChatGPT (config + skill)**. Claude reçoit un ZIP à importer ; ChatGPT Desktop reçoit le skill local avec la connexion. Voir [les emplacements et étapes](src/resources/documentation/SKILL.md).
+L'installateur propose deux cases : **Configurer la connexion MCP pour Claude** et **Configurer pour ChatGPT (config + skill)**. Claude reçoit uniquement la connexion MCP ; ChatGPT Desktop reçoit aussi le skill local. Une seule source est versionnée, [SKILL.md](src/resources/documentation/SKILL.md) : l'installation générale la renomme en `skills_RiveTT.md`, tandis que la copie destinée à ChatGPT conserve le nom obligatoire `SKILL.md`. Voir [les emplacements et étapes](src/resources/documentation/SKILL.md).
 
 Pour enregistrer le serveur dans Codex :
 

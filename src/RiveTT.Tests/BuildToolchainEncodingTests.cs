@@ -140,3 +140,41 @@ public class IssEncodingTests
         }
     }
 }
+
+public class SigningPolicySourceTests
+{
+    [Fact]
+    public void InstallerBuild_RequiresThomasThebaultSignature()
+    {
+        var build = File.ReadAllText(RepositoryFile.Path("builder", "build.ps1"));
+
+        Assert.Contains("$expectedSigner = 'Thomas Thébault'", build);
+        Assert.Contains("-SkipSigning exige -SkipInstaller", build);
+        Assert.Contains("Signature obligatoire", build);
+        Assert.Contains("Get-AuthenticodeSignature -FilePath $setup", build);
+        Assert.DoesNotContain("Write-Host 'NON SIGNE.'", build);
+    }
+
+    [Fact]
+    public void CertificateGenerator_FixesThePublisherIdentity()
+    {
+        var generator = File.ReadAllText(
+            RepositoryFile.Path("builder", "New-SigningCertificate.ps1"));
+
+        Assert.Contains("$subject = 'Thomas Thébault'", generator);
+        Assert.DoesNotContain("[string] $Subject", generator);
+    }
+
+    [Fact]
+    public void GitHubRelease_ImportsMandatorySigningSecrets()
+    {
+        var workflow = File.ReadAllText(
+            RepositoryFile.Path(".github", "workflows", "release.yml"));
+
+        Assert.Contains("RIVETT_SIGN_PFX_BASE64: ${{ secrets.RIVETT_SIGN_PFX_BASE64 }}", workflow);
+        Assert.Contains("RIVETT_SIGN_PFX_PASSWORD: ${{ secrets.RIVETT_SIGN_PFX_PASSWORD }}", workflow);
+        Assert.Contains("Import-PfxCertificate", workflow);
+        Assert.Contains("if ($signer -ne 'Thomas Thébault')", workflow);
+        Assert.Contains("RIVETT_SIGN_THUMBPRINT=", workflow);
+    }
+}

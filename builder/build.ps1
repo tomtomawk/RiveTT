@@ -57,9 +57,10 @@
 
 .PARAMETER CertificateThumbprint
     Authenticode certificate to sign with, by thumbprint, looked up in the current
-    user's certificate store. Defaults to $env:RIVETT_SIGN_THUMBPRINT. With neither
-    set the build produces UNSIGNED binaries and says so -- signing is opt-in because
-    a developer without the certificate must still be able to build.
+    user's certificate store. Defaults to $env:RIVETT_SIGN_THUMBPRINT. An installer
+    build fails when this is missing: every deliverable in dist must be signed by
+    Thomas Thébault. Developers without the certificate can still compile and test
+    with -SkipInstaller -SkipSigning.
 
     Create one with builder\New-SigningCertificate.ps1. Nothing here is specific to a
     self-signed certificate: a CA-issued one has a thumbprint too, so moving to a real
@@ -72,7 +73,8 @@
     the server is unreachable, rather than failing a build over an offline machine.
 
 .PARAMETER SkipSigning
-    Build without signing even when a thumbprint is available.
+    Build the staging payload without signing. Accepted only with -SkipInstaller,
+    because an installer is never allowed into dist unsigned.
 #>
 [CmdletBinding()]
 param(
@@ -90,6 +92,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$expectedSigner = 'Thomas Thébault'
 
 # This script lives in builder\, one level BELOW the repository root, so the root is
 # its grandparent and not its own folder. Every relative path below (.\src\...) is
@@ -226,6 +229,15 @@ function Invoke-SignPayload {
     }
     if ($certificate.NotAfter -lt (Get-Date)) {
         throw "Le certificat $Thumbprint a expire le $($certificate.NotAfter.ToString('yyyy-MM-dd'))."
+    }
+    if (-not $certificate.HasPrivateKey) {
+        throw "Le certificat $Thumbprint ne contient pas de cle privee."
+    }
+    $signerName = $certificate.GetNameInfo(
+        [System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+    if ($signerName -ne $expectedSigner) {
+        throw ("Mauvais certificat de signature : '$signerName'. " +
+               "L'installateur RiveTT doit etre signe par '$expectedSigner'.")
     }
 
     $signTool = Resolve-SignTool
@@ -400,17 +412,18 @@ try {
     # the same bytes that would have been packaged, signatures included.
     $signing = $null
     if ($SkipSigning) {
-        Write-Warning 'Signature ignoree (-SkipSigning) : binaires et installateur non signes.'
+        if (-not $SkipInstaller) {
+            throw '-SkipSigning exige -SkipInstaller : un installateur RiveTT ne peut jamais etre non signe.'
+        }
+        Write-Warning 'Signature ignoree pour la charge utile de developpement (-SkipInstaller).'
     }
     elseif (-not $CertificateThumbprint) {
-        # A warning, not an error. Someone building to run the tests has no certificate
-        # and does not need one; someone building a RELEASE does, and this is where they
-        # find out -- before the installer is handed to anyone.
-        Write-Warning ("Aucun certificat : binaires et installateur NON SIGNES. Windows " +
-                       "affichera un avertissement d'editeur inconnu a l'installation, et " +
-                       "les antivirus heuristiques signaleront le paquet. Pour une " +
-                       "diffusion, creez un certificat (.\builder\New-SigningCertificate.ps1) " +
-                       "puis definissez RIVETT_SIGN_THUMBPRINT.")
+        if (-not $SkipInstaller) {
+            throw ("Signature obligatoire : aucun certificat '$expectedSigner' configure. " +
+                   "Executez .\builder\New-SigningCertificate.ps1 puis definissez " +
+                   "RIVETT_SIGN_THUMBPRINT.")
+        }
+        Write-Warning 'Charge utile de developpement non signee (-SkipInstaller).'
     }
     else {
         Write-Host 'Signature des binaires...' -ForegroundColor Cyan
@@ -478,14 +491,20 @@ try {
 
     $setup = Join-Path $distRoot "RiveTT-Setup-$version.exe"
     if (Test-Path $setup) {
+        $setupSignature = Get-AuthenticodeSignature -FilePath $setup
+        $setupSigner = if ($setupSignature.SignerCertificate) {
+            $setupSignature.SignerCertificate.GetNameInfo(
+                [System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+        } else { '' }
+        if (($setupSigner -ne $expectedSigner) -or
+            ($setupSignature.Status -notin @('Valid', 'UnknownError'))) {
+            throw ("Signature de l'installateur invalide : signataire '$setupSigner', " +
+                   "etat $($setupSignature.Status). Attendu : '$expectedSigner'.")
+        }
         $setupMb = [math]::Round((Get-Item $setup).Length / 1MB, 1)
         Write-Host "Installateur pret : $setup ($setupMb Mo)" -ForegroundColor Green
         Write-Host 'Aucune elevation administrateur requise a son execution.'
-        if ($signing) {
-            Write-Host 'Signe, desinstalleur compris.'
-        } else {
-            Write-Host 'NON SIGNE.' -ForegroundColor Yellow
-        }
+        Write-Host "Signe par $expectedSigner, desinstalleur compris."
         # Said at the END, where it is read. A warning printed 200 lines earlier,
         # between two dotnet builds, is a warning nobody sees.
         if ($script:shippedOverFailingTests) {
