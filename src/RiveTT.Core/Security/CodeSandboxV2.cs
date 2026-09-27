@@ -72,12 +72,60 @@ public static class CodeSandboxV2
     // After stripping, both look like `obj.GetType(...whitespace...)` and we can't tell them apart.
     private static readonly Regex[] ReflectionWithArgumentPatterns = new[]
     {
-        // .GetType( <something non-whitespace> ) — covers Assembly.GetType("..."), .GetType(name),
+        // .GetType( <argument> ) — covers Assembly.GetType("..."), .GetType(name),
         // .GetType(ns + "." + cls). Excludes .GetType() (zero-arg, harmless).
-        new Regex(@"\.\s*GetType\s*\(\s*\S[^)]*\)", RegexOptions.Compiled),
-        // .GetMethod( <something non-whitespace> ) etc. — same rationale; excludes zero-arg overloads.
-        new Regex(@"\.\s*(GetMethod|GetField|GetProperty|GetMember|GetConstructor|InvokeMember)\s*\(\s*\S[^)]*\)", RegexOptions.Compiled),
+        //
+        // The first argument character is [^\s)], not \S: \S also matches the closing
+        // parenthesis, so `log.Add(c.GetType().Name)` read as `.GetType(` + `)` + `.Name`
+        // + the `)` of Add, and a harmless type-name log line was refused as reflection
+        // (field report of 2026-09-24, bug 1.4).
+        new Regex(@"\.\s*GetType\s*\(\s*[^\s)][^)]*\)", RegexOptions.Compiled),
+        // .GetMethod( <argument> ) etc. — same rationale; excludes zero-arg overloads.
+        new Regex(@"\.\s*(GetMethod|GetField|GetProperty|GetMember|GetConstructor|InvokeMember)\s*\(\s*[^\s)][^)]*\)", RegexOptions.Compiled),
     };
+
+    // Calls that act OUTSIDE the model and therefore survive the rollback that makes
+    // transactionMode "readonly" safe: files written (exports, saves, prints), documents
+    // opened or closed, central-model traffic, UI navigation. A model change needs no
+    // entry here: readonly runs inside a TransactionGroup that is always rolled back.
+    private static readonly Regex ReadOnlyScriptForbiddenCall = new(
+        @"\.\s*(Save|SaveAs|SaveCloudModel|SaveAsCloudModel|SaveLocalSharedModel|SaveToProjectAsImage|" +
+        @"Close|Export|ExportImage|Print|SubmitPrint|SynchronizeWithCentral|ReloadLatest|Reload|ReloadFrom|" +
+        @"RelinquishOwnership|EditFamily|OpenDocumentFile|OpenAndActivateDocument|OpenIFCDocument|" +
+        @"NewProjectDocument|NewFamilyDocument|NewProjectTemplateDocument|PostCommand|RequestViewChange)\s*\(",
+        RegexOptions.Compiled);
+
+    private static readonly Regex ActiveViewAssignment =
+        new(@"\bActiveView\s*=(?!=)", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Extra check for <c>transactionMode: "readonly"</c>, the one mode the router lets
+    /// through while the ribbon lock is closed. The mode's guarantee over the MODEL is the
+    /// always-rolled-back TransactionGroup, not this text match; this refuses the calls a
+    /// rollback cannot undo. Same caveat as <see cref="Validate"/>: a text filter, not a
+    /// boundary. Returns null when the script may run.
+    /// </summary>
+    public static RiveTTResult<object>? ValidateReadOnlyScript(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return null;
+        var cleaned = StripCommentsAndStrings(DecodeIdentifierEscapes(code));
+
+        var violations = new List<string>();
+        foreach (Match match in ReadOnlyScriptForbiddenCall.Matches(cleaned))
+        {
+            var call = match.Groups[1].Value + "(...)";
+            if (!violations.Contains(call)) violations.Add(call);
+        }
+        if (ActiveViewAssignment.IsMatch(cleaned)) violations.Add("ActiveView = ...");
+
+        if (violations.Count == 0) return null;
+        return RiveTTResult<object>.Fail(
+            RiveTTErrorCode.PermissionDenied,
+            $"transactionMode \"readonly\" refuses calls that act outside the model: {string.Join(", ", violations)}",
+            suggestion: "readonly rolls back every model change, but it cannot undo a file written, a document " +
+                        "opened or closed, or a view switched. Remove these calls, or run the script with " +
+                        "transactionMode \"auto\" once the ribbon lock is open.");
+    }
 
     public static RiveTTResult<object>? Validate(string code)
     {
@@ -187,87 +235,172 @@ public static class CodeSandboxV2
     /// Replace every comment and string literal with whitespace of the same length,
     /// preserving line numbers and non-string source structure. Not a full C# lexer —
     /// good enough to defeat comment/string-based evasion of the pattern matcher.
+    ///
+    /// The HOLES of an interpolated string ($"...{expr}...", $@"", raw $"""...""") are code,
+    /// and are kept as code. They used to be blanked with the rest of the literal, so
+    /// $"{System.IO.File.ReadAllText(p)}" passed Validate and $"{document.Export(...)}" passed
+    /// the readonly check (review of 0.6.0). Nested strings inside a hole are handled
+    /// recursively.
     /// </summary>
     public static string StripCommentsAndStrings(string code)
     {
         var sb = new StringBuilder(code.Length);
-        int i = 0;
+        var i = 0;
+        ScanCode(code, ref i, sb, stopAtUnmatchedBrace: false);
+        // A hole left open at the end of the input: copy what remains as code.
+        while (sb.Length < code.Length) sb.Append(code[sb.Length]);
+        return sb.ToString();
+    }
+
+    private static void Blank(StringBuilder sb, char c) => sb.Append(c == '\n' ? '\n' : ' ');
+
+    /// <summary>
+    /// Copies code, blanking comments and literal text. With
+    /// <paramref name="stopAtUnmatchedBrace"/> (inside an interpolation hole) it returns on
+    /// the '}' that closes the hole, without consuming it.
+    /// </summary>
+    private static void ScanCode(string code, ref int i, StringBuilder sb, bool stopAtUnmatchedBrace)
+    {
+        var depth = 0;
         while (i < code.Length)
         {
-            char c = code[i];
+            var c = code[i];
+            var next = i + 1 < code.Length ? code[i + 1] : '\0';
 
-            // Line comment //...
-            if (c == '/' && i + 1 < code.Length && code[i + 1] == '/')
+            if (c == '/' && next == '/')
             {
                 while (i < code.Length && code[i] != '\n') { sb.Append(' '); i++; }
                 continue;
             }
-
-            // Block comment /* ... */
-            if (c == '/' && i + 1 < code.Length && code[i + 1] == '*')
+            if (c == '/' && next == '*')
             {
                 sb.Append("  ");
                 i += 2;
-                while (i + 1 < code.Length && !(code[i] == '*' && code[i + 1] == '/'))
-                {
-                    sb.Append(code[i] == '\n' ? '\n' : ' ');
-                    i++;
-                }
+                while (i + 1 < code.Length && !(code[i] == '*' && code[i + 1] == '/')) { Blank(sb, code[i]); i++; }
                 if (i + 1 < code.Length) { sb.Append("  "); i += 2; }
+                else while (i < code.Length) { Blank(sb, code[i]); i++; }
                 continue;
             }
 
-            // Verbatim string @"..."  (escapes are "")
-            if (c == '@' && i + 1 < code.Length && code[i + 1] == '"')
+            if (c == '$' || c == '@' || c == '"')
             {
-                sb.Append("  "); i += 2;
-                while (i < code.Length)
+                var j = i;
+                var dollars = 0;
+                var verbatim = false;
+                while (j < code.Length && (code[j] == '$' || code[j] == '@'))
                 {
-                    if (code[i] == '"')
-                    {
-                        if (i + 1 < code.Length && code[i + 1] == '"')
-                        {
-                            sb.Append("  "); i += 2; continue; // escaped quote
-                        }
-                        sb.Append(' '); i++; break;
-                    }
-                    sb.Append(code[i] == '\n' ? '\n' : ' '); i++;
+                    if (code[j] == '$') dollars++; else verbatim = true;
+                    j++;
                 }
-                continue;
+                if (j < code.Length && code[j] == '"')
+                {
+                    for (; i < j; i++) sb.Append(' ');
+                    ScanString(code, ref i, sb, dollars, verbatim);
+                    continue;
+                }
             }
 
-            // Regular string "..."  (backslash escapes)
-            if (c == '"')
-            {
-                sb.Append(' '); i++;
-                while (i < code.Length && code[i] != '"')
-                {
-                    if (code[i] == '\\' && i + 1 < code.Length)
-                    {
-                        sb.Append("  "); i += 2; continue;
-                    }
-                    sb.Append(code[i] == '\n' ? '\n' : ' '); i++;
-                }
-                if (i < code.Length) { sb.Append(' '); i++; }
-                continue;
-            }
-
-            // Char literal '.'
             if (c == '\'')
             {
-                sb.Append(' '); i++;
-                while (i < code.Length && code[i] != '\'')
+                sb.Append(' ');
+                i++;
+                while (i < code.Length && code[i] != '\'' && code[i] != '\n')
                 {
                     if (code[i] == '\\' && i + 1 < code.Length) { sb.Append("  "); i += 2; continue; }
-                    sb.Append(' '); i++;
+                    sb.Append(' ');
+                    i++;
                 }
-                if (i < code.Length) { sb.Append(' '); i++; }
+                if (i < code.Length && code[i] == '\'') { sb.Append(' '); i++; }
                 continue;
+            }
+
+            if (stopAtUnmatchedBrace)
+            {
+                if (c == '{') depth++;
+                else if (c == '}')
+                {
+                    if (depth == 0) return;
+                    depth--;
+                }
             }
 
             sb.Append(c);
             i++;
         }
-        return sb.ToString();
+    }
+
+    /// <summary>A string literal starting at code[i] == '"', prefix already consumed.</summary>
+    private static void ScanString(string code, ref int i, StringBuilder sb, int dollars, bool verbatim)
+    {
+        var quotes = 0;
+        while (i + quotes < code.Length && code[i + quotes] == '"') quotes++;
+
+        // A verbatim string never opens a raw literal: @""" is a quote escaped inside @"...".
+        if (quotes >= 3 && !verbatim)
+        {
+            // Raw string literal: ends at a run of the same number of quotes.
+            for (var k = 0; k < quotes; k++) sb.Append(' ');
+            i += quotes;
+            while (i < code.Length)
+            {
+                if (code[i] == '"')
+                {
+                    var run = 0;
+                    while (i + run < code.Length && code[i + run] == '"') run++;
+                    for (var k = 0; k < run; k++) sb.Append(' ');
+                    i += run;
+                    if (run >= quotes) return;
+                    continue;
+                }
+                if (dollars > 0 && code[i] == '{')
+                {
+                    var run = 0;
+                    while (i + run < code.Length && code[i + run] == '{') run++;
+                    for (var k = 0; k < run; k++) sb.Append(' ');
+                    i += run;
+                    if (run >= dollars)
+                    {
+                        ScanCode(code, ref i, sb, stopAtUnmatchedBrace: true);
+                        for (var k = 0; k < dollars && i < code.Length && code[i] == '}'; k++) { sb.Append(' '); i++; }
+                    }
+                    continue;
+                }
+                Blank(sb, code[i]);
+                i++;
+            }
+            return;
+        }
+
+        if (quotes == 2 && !(verbatim && i + 2 < code.Length && code[i + 2] == '"'))
+        {
+            // "" : an empty string.
+            sb.Append("  ");
+            i += 2;
+            return;
+        }
+
+        sb.Append(' ');
+        i++;
+        while (i < code.Length)
+        {
+            var c = code[i];
+            var next = i + 1 < code.Length ? code[i + 1] : '\0';
+            if (!verbatim && c == '\\' && i + 1 < code.Length) { sb.Append("  "); i += 2; continue; }
+            if (verbatim && c == '"' && next == '"') { sb.Append("  "); i += 2; continue; }
+            if (c == '"') { sb.Append(' '); i++; return; }
+            if (dollars > 0 && c == '{')
+            {
+                if (next == '{') { sb.Append("  "); i += 2; continue; }
+                sb.Append(' ');
+                i++;
+                ScanCode(code, ref i, sb, stopAtUnmatchedBrace: true);
+                if (i < code.Length && code[i] == '}') { sb.Append(' '); i++; }
+                continue;
+            }
+            if (dollars > 0 && c == '}' && next == '}') { sb.Append("  "); i += 2; continue; }
+            if (!verbatim && c == '\n') return; // unterminated: the line ends the literal
+            Blank(sb, c);
+            i++;
+        }
     }
 }

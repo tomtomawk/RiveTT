@@ -10,6 +10,10 @@ namespace RiveTT.Core.Tools;
 /// A nested action must never mask a write in a differently shaped runtime.
 /// DefaultAction must match the runtime's default, and reads must not use a transaction
 /// that commits changes. This is part of the same permission boundary as ToolSafety.
+///
+/// <see cref="Key"/> names the selector, "action" unless stated. send_code_to_revit is
+/// the one tool whose read branch is chosen by another key (transactionMode), and it
+/// states it here rather than getting a second, parallel mechanism in the router.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, Inherited = false)]
 public sealed class ReadOnlyActionsAttribute : Attribute
@@ -24,12 +28,15 @@ public sealed class ReadOnlyActionsAttribute : Attribute
     public string[] Actions { get; }
     public bool UseDataEnvelope { get; set; }
 
+    /// <summary>The input key whose value selects the branch. Default: "action".</summary>
+    public string Key { get; set; } = "action";
+
     public bool Matches(JObject input)
     {
         // Only opt in when the runtime uses precisely the same envelope precedence.
         if (!UseDataEnvelope && input["data"] is JObject) return false;
         var source = UseDataEnvelope ? input["data"] as JObject ?? input : input;
-        var token = source["action"];
+        var token = source[Key];
         if (token != null && token.Type != JTokenType.Null && token.Type != JTokenType.String)
             return false;
         var action = token?.Value<string>() ?? DefaultAction;

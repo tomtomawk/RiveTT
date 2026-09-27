@@ -131,7 +131,11 @@ public sealed class GetServerCapabilitiesTool : IRiveTTTool
                 "To split a room without a physical wall, use create_room_separation_line.",
                 "Instances of ONE group type may legitimately differ: an excluded member, or a grouped wall whose height follows its own level constraints. manage_model_groups reports memberCount and hasExcludedMembers per instance — never assume the first instance holds the full definition.",
                 "Each group instance owns its OWN copies of the members, with their own element ids: ids read from one instance mean nothing in another.",
-                "Category labels are localized and sometimes ambiguous (French Revit names the viewport category 'Fenetres ', like windows): prefer the OST_* codes returned as categoryBic."
+                "Category labels are localized and sometimes ambiguous (French Revit names the viewport category 'Fenetres ', like windows): prefer the OST_* codes returned as categoryBic.",
+                "To SEE a view, capture_view returns it as an image with the pixel-to-mm mapping; test_image_relay checks, without Revit, that the client relays images.",
+                "Before placing furniture, describe_family gives the origin, the visible footprint (never the bounding box) and the Z rule; place_in_room places by that footprint against the walls named.",
+                "A dwelling design is checked BEFORE modelling with validate_spec (JSON, no Revit) and after with validate_dwelling; both carry the source of each rule.",
+                "send_code_to_revit with transactionMode readonly is allowed while RiveTT is locked: every model change is rolled back."
             }
         });
     }

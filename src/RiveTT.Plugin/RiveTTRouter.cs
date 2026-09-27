@@ -38,6 +38,7 @@ public class RiveTTRouter
         "get_", "list_", "find_", "analyze_", "check_",
         "measure_", "audit_", "export_", "ping_revit",
         "detect_clashes", "count_lines_per_view",
+        "describe_", "validate_", "capture_view",
         "ifc_get_", "ifc_list_", "ifc_export_", "ifc_validate_",
         "ifc_analyze_", "ifc_compare_"
     };
@@ -127,6 +128,10 @@ public class RiveTTRouter
                 tool = t.Name, category = t.Category,
                 actions = IsToolReadOnly(t.Name) ? new[] { "*" }
                     : t.GetType().GetCustomAttribute<ReadOnlyActionsAttribute>()!.Actions,
+                // Which input key carries the action: "action" for all but
+                // send_code_to_revit, whose read branch is transactionMode "readonly".
+                selector = IsToolReadOnly(t.Name) ? null
+                    : t.GetType().GetCustomAttribute<ReadOnlyActionsAttribute>()!.Key,
                 requiresDocument = t.RequiresDocument,
                 requiresDocumentCapabilities = t.IsDynamic
             }).ToArray();
@@ -438,6 +443,11 @@ public class RiveTTRouter
         {
             obj["dryRun"] = true;
             obj["mutated"] = false;
+            // What the preview could NOT see. create_stair's preview promised "1 automatic
+            // landing, 17 risers" and the real call built 9 risers and no landing (field report
+            // 2026-09-24): a preview that does not say where it stops reads as a guarantee.
+            if (obj["previewLimits"] == null)
+                obj["previewLimits"] = DescribePreviewLimits(obj["previewMethod"]?.Value<string>());
         }
 
         enrichedData = obj;
@@ -471,6 +481,22 @@ public class RiveTTRouter
         };
         return RiveTTResult<object>.Ok(obj);
     }
+
+    /// <summary>
+    /// The honest scope of a preview, by the way it was produced (ChangePreview.previewMethod).
+    /// </summary>
+    internal static string DescribePreviewLimits(string? previewMethod) => previewMethod switch
+    {
+        "probe-and-rollback" =>
+            "The operation really ran, then was rolled back BEFORE commit: the checks Revit runs at commit " +
+            "(joins, attachments, cuts of hosted openings, disconnected components) did not run, so the real " +
+            "call can still be refused. Element ids are not kept.",
+        "declared" =>
+            "Nothing was executed: only the target and the preconditions that can be checked from here were resolved.",
+        _ =>
+            "Computed by the tool without running the operation in Revit: regeneration, joins, commit-time failures " +
+            "and warnings only appear on the real call. Read notVerified when the tool lists it."
+    };
 
     /// <summary>
     /// Reads the real Revit version from the active document's Application, so this

@@ -56,9 +56,13 @@ jobs:
           # `git diff`, not `git status`: status trusts its stat cache and reports a file
           # rewritten with identical content as modified. diff compares the content through
           # the .gitattributes filters, which is the question being asked.
-          git --no-pager diff --exit-code -- src/resources/documentation/references/inventaire-des-outils.md
+          # The inventory lives in the marked section of SKILL.md since references/ was
+          # folded into it; the old path no longer exists, so diffing it checked nothing.
+          # -I skips the one line that changes every day by construction (the date of the
+          # survey); any other difference is a stale inventory.
+          git --no-pager diff --exit-code -I '^Relevé du ' -- src/resources/documentation/SKILL.md
           if ($LASTEXITCODE -ne 0) {
-            Write-Host '::error::inventaire-des-outils.md is stale. Run: python tools/audit-tool-surface.py'
+            Write-Host '::error::The tool inventory in SKILL.md is stale. Run: python tools/audit-tool-surface.py'
             exit 1
           }
 

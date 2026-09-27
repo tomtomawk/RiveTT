@@ -1,5 +1,6 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using Newtonsoft.Json.Linq;
 
 namespace RiveTT.Tools.CodeExecution;
 
@@ -13,4 +14,10 @@ public class ScriptGlobals
     public Document document { get; set; } = null!;
     public UIDocument uiDocument { get; set; } = null!;
     public Autodesk.Revit.ApplicationServices.Application app { get; set; } = null!;
+
+    /// <summary>
+    /// The caller's scriptArgs object, never null. Lets a saved script run again with other
+    /// values instead of being re-sent with the numbers edited in.
+    /// </summary>
+    public JObject scriptArgs { get; set; } = new JObject();
 }

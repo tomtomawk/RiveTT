@@ -312,3 +312,46 @@ serveur et du plugin (aucune validation live effectuée lors du développement) 
 - Installateur depuis Explorateur et contexte MSIX, copies virtualisées signalées.
 
 Détail des changements et sources Autodesk : `CHANGELOG_0.5.0.md`.
+
+### Complément 0.6.0 (retour de la session de test du 24/09/2026)
+
+Tout ce qui suit touche l'API Revit et n'a été vérifié que par compilation contre
+`RevitAPI.dll` 2027 et par tests hors Revit. À rejouer dans Revit 2026.5 **et** 2027, avec
+serveur et plugin 0.6.0, et à consigner dans la PR (détail : `CHANGELOG_0.6.0.md`) :
+
+- **`create_stair` à deux volées** (RDC → R+1, 2 890 mm, escalier en U) : la 2ᵉ volée part
+  du haut de la 1ʳᵉ, un palier est créé, `actualRiserCount == desiredRiserCount == 17`.
+  Rejouer depuis un niveau de base non nul (R+1 → R+2). Vérifier qu'une jonction
+  impossible annule tout sans laisser d'escalier (`requireLandings: true`).
+- **`create_point_based_element`** : lit posé au R+1 avec `zMode: absolute` et
+  `z = altitude du R+1` → à l'altitude du niveau, `zCorrectedByMm` renseigné si Revit
+  l'avait doublée ; même pose avec `zMode: relativeToLevel`, `z = 0` ; porte avec
+  `findHost: true`.
+- **`send_code_to_revit`** : un script appelant `Mm`, `LevelByName`, `PlaceOnLevel`,
+  `Section` compile et s'exécute (chargement dans le contexte du plugin) ;
+  `transactionMode: readonly` verrou fermé ne laisse aucune trace (aucune entrée
+  d'annulation ajoutée, `document.IsModified` inchangé) ; `none` permet un `StairsEditScope` ;
+  une exception donne sa ligne ; `scriptRun.changes` liste les ids créés
+  (événement `DocumentChanged` synchrone) ; `fromScript` + `edits` rejoue un script.
+- **`capture_view`** : plan sans option (aucune transaction), plan avec `bboxMm` (vue
+  temporaire annulée : aucune vue en trop dans le navigateur de projet),
+  `highlightIds`, `isolateCategories`, 3D en `Realistic`. Vérifier que
+  `Document.ExportImage` est accepté pendant un `TransactionGroup` ouvert, que
+  la correspondance pixels/mm d'un plan recadré tombe juste (élément de position connue passé en
+  `highlightIds`), qu'un plan à cadrage non rectangulaire accepte `bboxMm`, et que le client
+  affiche l'image.
+  `test_image_relay` d'abord.
+- **`describe_family`** sur `MOB_Lit · 140 x 190 cm` : `visibleExtentMm` ≈ 1 495 × 1 900,
+  `boundingBoxMm` plus grande, avertissement « origine décalée ».
+- **`place_in_room`** : WC PMR plaqué `E` + `S` dans une Sde, lit PMR dans une chambre
+  trop petite (`tooLargeForRoom: true`), collisions rapportées.
+- **`attach_walls`** : les quatre murs d'un plot au toit ; avec un débord pénétrant un
+  mur plus haut, le mur refusé est nommé avec les éléments en cause.
+- **`validate_dwelling`** sur les logements A1 à A6 du projet test : contours de pièces
+  au nu fini, entrée ouverte reconnue par ligne de séparation, ETEL et équipements
+  trouvés, emprises visibles cohérentes ; `includeSpec` relu par `validate_spec`
+  donne le même verdict.
+- **`tag_rooms`** avec `tagTypeId` et `onePerParameter: ARC_PAR_NUMERO_LOGEMENT` : une
+  étiquette `ETQ_Pièce typo` par logement, sur le séjour.
+- **`get_selected_elements`** verrou fermé sur quatre lignes de détail fermées :
+  `curveAnalysis.reading` annonce un contour.

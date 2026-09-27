@@ -42,18 +42,45 @@ public class CreatePointBasedElementTool : IRiveTTTool
         var createdIds = new List<long>();
         var warnings   = new List<string>();
         var details = new List<object>();
+        // One entry per item that produced nothing, with the caller's key: a batch of 160
+        // doors where 3 fail must say WHICH 3, so that only those are sent again.
+        var failed = new List<object>();
         var dryRun = ToolHelpers.GetDryRun(input);
 
+        var index = 0;
         foreach (var item in dataToken)
         {
+            var key = item is JObject keyed && keyed["key"]?.Type == JTokenType.String
+                ? keyed["key"]!.Value<string>()
+                : null;
+            var warningsBefore = warnings.Count;
+            var createdBefore = createdIds.Count;
+            var detailsBefore = details.Count;
             try
             {
-                ProcessPointElement(doc, (JObject)item, createdIds, warnings, details, dryRun);
+                if (item is not JObject spec)
+                    warnings.Add($"Item {index} is not a JSON object.");
+                else
+                    ProcessPointElement(doc, spec, createdIds, warnings, details, dryRun, key);
             }
             catch (Exception ex)
             {
                 warnings.Add($"Failed to create element: {ex.Message}");
             }
+
+            var produced = dryRun ? details.Count > detailsBefore : createdIds.Count > createdBefore;
+            if (!produced)
+            {
+                failed.Add(new
+                {
+                    index,
+                    key,
+                    error = warnings.Count > warningsBefore
+                        ? string.Join(" ", warnings.Skip(warningsBefore))
+                        : "No element was produced for this item."
+                });
+            }
+            index++;
         }
 
         var message = dryRun
@@ -70,13 +97,14 @@ public class CreatePointBasedElementTool : IRiveTTTool
             created = createdIds.Count,
             skipped = dataToken.Count() - (dryRun ? details.Count : createdIds.Count),
             warnings,
+            failed,
             createdElementIds = createdIds,
             details
         });
     }
 
     private static void ProcessPointElement(Document doc, JObject item, List<long> createdIds,
-        List<string> warnings, List<object> details, bool dryRun)
+        List<string> warnings, List<object> details, bool dryRun, string? key)
     {
         // Parse category (optional — inferred from typeId)
         var categoryStr = item["category"]?.Value<string>() ?? "";
@@ -103,6 +131,12 @@ public class CreatePointBasedElementTool : IRiveTTTool
         var facingFlipped   = item["facingFlipped"]?.Value<bool?>() ?? false;
         var handFlipped     = item["handFlipped"]?.Value<bool?>() ?? false;
         var strictType      = item["strictType"]?.Value<bool?>() ?? false;
+        var levelName       = item["levelName"]?.Value<string>();
+        var familyName      = item["familyName"]?.Value<string>();
+        var typeName        = item["typeName"]?.Value<string>();
+        // Find the host wall from the insertion point instead of requiring its id: what a
+        // batch of doors placed from a plan actually knows is where each door goes.
+        var findHost        = item["findHost"]?.Value<bool?>() ?? false;
         // z semantics were the single most expensive ambiguity of the connector:
         // create_wall ignores locationLine.z (baseLevelId governs) while a hosted
         // insertion point needs an ABSOLUTE project elevation. Passing z=0 by
@@ -117,9 +151,32 @@ public class CreatePointBasedElementTool : IRiveTTTool
 
         // Resolve levels
         var baseLevelFt = baseLevelMm / MmPerFoot;
-        var baseLevel   = levelId > 0
-            ? doc.GetElement(ToolHelpers.ToElementId(levelId)) as Level
-            : FindNearestLevel(doc, baseLevelFt);
+        Level? baseLevel;
+        if (levelId > 0)
+        {
+            baseLevel = doc.GetElement(ToolHelpers.ToElementId(levelId)) as Level;
+            if (baseLevel == null)
+            {
+                warnings.Add($"levelId {levelId} is not a Level.");
+                return;
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(levelName))
+        {
+            var levels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().ToList();
+            baseLevel = levels.FirstOrDefault(l => l.Name == levelName)
+                ?? levels.FirstOrDefault(l => string.Equals(l.Name, levelName, StringComparison.OrdinalIgnoreCase));
+            if (baseLevel == null)
+            {
+                warnings.Add($"No level named '{levelName}'. Levels: " +
+                             string.Join(", ", levels.OrderBy(l => l.Elevation).Select(l => $"'{l.Name}'")));
+                return;
+            }
+        }
+        else
+        {
+            baseLevel = FindNearestLevel(doc, baseLevelFt);
+        }
         if (baseLevel == null)
         {
             warnings.Add("No levels found in document");
@@ -134,7 +191,37 @@ public class CreatePointBasedElementTool : IRiveTTTool
 
         // Resolve family symbol
         FamilySymbol? symbol = null;
-        if (requestedTypeId > 0)
+        var byName = !string.IsNullOrWhiteSpace(familyName) || !string.IsNullOrWhiteSpace(typeName);
+        if (requestedTypeId <= 0 && byName)
+        {
+            // Half a name used to fall through to "the first active symbol of the category",
+            // silently: a family asked for, another one placed.
+            if (string.IsNullOrWhiteSpace(familyName))
+            {
+                warnings.Add($"typeName '{typeName}' needs its familyName. Nothing was placed.");
+                return;
+            }
+            var inFamily = new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
+                .Where(s => string.Equals(s.FamilyName, familyName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            symbol = string.IsNullOrWhiteSpace(typeName)
+                ? (inFamily.Count == 1 ? inFamily[0] : null)
+                : inFamily.FirstOrDefault(s => s.Name == typeName)
+                  ?? inFamily.FirstOrDefault(s => string.Equals(s.Name, typeName, StringComparison.OrdinalIgnoreCase));
+            if (symbol == null)
+            {
+                warnings.Add(inFamily.Count == 0
+                    ? $"No loaded family named '{familyName}'."
+                    : string.IsNullOrWhiteSpace(typeName)
+                        ? $"Family '{familyName}' has {inFamily.Count} types: pass typeName. Types: " +
+                          string.Join(", ", inFamily.Select(s => $"'{s.Name}'"))
+                        : $"Family '{familyName}' has no type '{typeName}'. Types: " +
+                          string.Join(", ", inFamily.Select(s => $"'{s.Name}'")));
+                return;
+            }
+            builtInCategory = (BuiltInCategory)symbol.Category.Id.Value;
+        }
+        else if (requestedTypeId > 0)
         {
             var typeElemId = new ElementId(requestedTypeId);
             var typeElem = doc.GetElement(typeElemId);
@@ -182,13 +269,45 @@ public class CreatePointBasedElementTool : IRiveTTTool
         // Resolve the requested host now: both the preview and the real call must
         // validate the insertion point against it.
         Wall? hostWall = null;
+        double? hostDistanceMm = null;
         if (hostWallId > 0)
         {
             var hostElem = doc.GetElement(ToolHelpers.ToElementId(hostWallId));
             if (hostElem is Wall resolvedWall)
                 hostWall = resolvedWall;
             else
-                warnings.Add($"Requested hostWallId {hostWallId} is not a valid wall. Using auto-detection.");
+            {
+                // It used to say "Using auto-detection" and place the instance with no host at
+                // all: a door asked in wall X came out free-standing, reported as created.
+                warnings.Add($"Requested hostWallId {hostWallId} is not a wall. Nothing was placed: pass a wall id, " +
+                             "or findHost=true to take the wall found at the insertion point.");
+                return;
+            }
+        }
+        else if (findHost)
+        {
+            hostWall = HostWallFinder.Find(doc, locationPoint, baseLevel, 20, out var distance);
+            if (hostWall == null)
+            {
+                warnings.Add($"findHost: no wall based on '{baseLevel.Name}' passes through " +
+                             $"({locationPoint.X * MmPerFoot:F0}, {locationPoint.Y * MmPerFoot:F0}, " +
+                             $"{locationPoint.Z * MmPerFoot:F0}) mm (tolerance: half the wall width + 20 mm). Nothing was placed.");
+                return;
+            }
+            hostDistanceMm = Math.Round(distance, 1);
+        }
+
+        // A level-based family placed a full storey under its own level is the "floating /
+        // sunken furniture" of the 2026-09-24 session in reverse: a z meant relative to the
+        // level, sent as absolute. Nothing in a dwelling sits 1 m under its level.
+        var levelBased = hostWall == null && symbol.Family?.FamilyPlacementType == FamilyPlacementType.OneLevelBased;
+        var offsetFromLevelMm = (locationPoint.Z - baseLevel.Elevation) * MmPerFoot;
+        if (levelBased && zMode == "absolute" && offsetFromLevelMm <= -1000)
+        {
+            warnings.Add($"locationPoint.z = {locationPoint.Z * MmPerFoot:F0} mm is ABSOLUTE and puts this level-based family " +
+                         $"{-offsetFromLevelMm:F0} mm below its level '{baseLevel.Name}' ({baseLevel.Elevation * MmPerFoot:F0} mm). " +
+                         "Nothing was placed. Pass zMode=\"relativeToLevel\" with z = 0 for a family standing on the level.");
+            return;
         }
 
         if (hostWall != null)
@@ -206,13 +325,17 @@ public class CreatePointBasedElementTool : IRiveTTTool
             details.Add(new
             {
                 kind = "point_based_family_instance",
+                key,
+                hostDistanceMm,
+                levelBased,
+                offsetFromLevelMm = Math.Round(offsetFromLevelMm, 1),
                 typeId = ToolHelpers.GetElementIdValue(symbol.Id),
                 familyName = symbol.FamilyName,
                 typeName = symbol.Name,
                 category = builtInCategory.ToString(),
                 levelId = ToolHelpers.GetElementIdValue(baseLevel.Id),
                 levelElevationMm = Math.Round(baseLevel.Elevation * MmPerFoot, 1),
-                hostWallId = hostWallId > 0 ? (long?)hostWallId : null,
+                hostWallId = hostWall != null ? (long?)ToolHelpers.GetElementIdValue(hostWall.Id) : null,
                 locationPointMm = locationPtToken.DeepClone(),
                 zMode,
                 resolvedZmm = Math.Round(locationPoint.Z * MmPerFoot, 1),
@@ -235,6 +358,7 @@ public class CreatePointBasedElementTool : IRiveTTTool
             }
 
             FamilyInstance? instance = null;
+            var zCorrectionFt = 0.0;
 
             // Create instance
             if (hostWall != null)
@@ -311,6 +435,14 @@ public class CreatePointBasedElementTool : IRiveTTTool
                     ElementTransformUtils.RotateElement(doc, instance.Id, rotAxis, angleRad);
                 }
 
+                // Measure where Revit put a level-based instance and move it to the asked
+                // elevation: the level overload of NewFamilyInstance counted the level
+                // elevation twice for furniture on upper floors (field report 2026-09-24).
+                if (levelBased)
+                {
+                    doc.Regenerate();
+                    zCorrectionFt = ElevationCorrection.Apply(doc, instance, locationPoint.Z);
+                }
             }
 
             if (tx.Commit() != TransactionStatus.Committed)
@@ -319,14 +451,23 @@ public class CreatePointBasedElementTool : IRiveTTTool
             {
                 var instanceId = ToolHelpers.GetElementIdValue(instance.Id);
                 createdIds.Add(instanceId);
+                var appliedZ = (instance.Location as LocationPoint)?.Point.Z;
                 details.Add(new
                 {
                     kind = "point_based_family_instance",
+                    key,
                     elementId = instanceId,
                     levelId = ToolHelpers.GetElementIdValue(instance.LevelId),
                     hostId = ToolHelpers.GetElementIdValue(instance.Host?.Id),
+                    hostDistanceMm,
                     facingFlipped = instance.FacingFlipped,
-                    handFlipped = instance.HandFlipped
+                    handFlipped = instance.HandFlipped,
+                    // What was applied, not what was asked.
+                    appliedZmm = appliedZ.HasValue ? Math.Round(appliedZ.Value * MmPerFoot, 1) : (double?)null,
+                    offsetFromLevelMm = appliedZ.HasValue
+                        ? Math.Round((appliedZ.Value - baseLevel.Elevation) * MmPerFoot, 1)
+                        : (double?)null,
+                    zCorrectedByMm = Math.Abs(zCorrectionFt) > 0 ? Math.Round(zCorrectionFt * MmPerFoot, 1) : (double?)null
                 });
             }
         }

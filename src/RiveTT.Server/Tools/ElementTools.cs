@@ -87,12 +87,15 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_selected_elements"), Description("Get currently selected elements in Revit.")]
+    [McpServerTool(Name = "get_selected_elements"), Description("Get the elements currently selected in Revit, with their geometry in mm: curve end points and length, location point, bounding box, type and level. curveAnalysis says whether the selected curves form closed loops (a contour) or open chains (an axis) - read it before interpreting a sketch. Works while RiveTT is locked.")]
     public static async Task<string> GetSelectedElements(
         RevitConnectionManager revit,
+        [Description("Maximum elements returned. Default: 500. selectedCount always counts the whole selection")] int limit = 500,
+        [Description("Include curves, points and bounding boxes in mm, plus the closed-loop analysis. Default: true")] bool includeGeometry = true,
         CancellationToken ct = default)
     {
-        var result = await revit.ExecuteAsync("get_selected_elements", new JObject(), ct);
+        var p = new JObject { ["limit"] = limit, ["includeGeometry"] = includeGeometry };
+        var result = await revit.ExecuteAsync("get_selected_elements", p, ct);
         return result.ToString();
     }
 

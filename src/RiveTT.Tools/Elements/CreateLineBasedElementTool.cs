@@ -41,18 +41,53 @@ public class CreateLineBasedElementTool : IRiveTTTool
         var createdIds = new List<long>();
         var warnings = new List<string>();
         var details = new List<object>();
+        // One entry per item that produced nothing, with the caller's key, so a batch of 300
+        // walls where one fails can be corrected by re-sending that one (field report 2026-09-24).
+        var failed = new List<object>();
         var dryRun = ToolHelpers.GetDryRun(input);
 
+        var index = 0;
         foreach (var item in dataToken)
         {
+            var key = item is JObject keyed && keyed["key"]?.Type == JTokenType.String
+                ? keyed["key"]!.Value<string>()
+                : null;
+            var warningsBefore = warnings.Count;
+            var createdBefore = createdIds.Count;
+            var detailsBefore = details.Count;
             try
             {
-                ProcessLineElement(doc, (JObject)item, createdIds, warnings, details, dryRun);
+                if (item is not JObject spec)
+                    warnings.Add($"Item {index} is not a JSON object.");
+                else
+                    ProcessLineElement(doc, spec, createdIds, warnings, details, dryRun);
             }
             catch (Exception ex)
             {
                 warnings.Add($"Failed to create element: {ex.Message}");
             }
+
+            if (details.Count > detailsBefore && key != null)
+            {
+                // Tag what this item produced with its key.
+                for (var d = detailsBefore; d < details.Count; d++)
+                {
+                    var tagged = JObject.FromObject(details[d]);
+                    tagged["key"] = key;
+                    details[d] = tagged;
+                }
+            }
+            var produced = dryRun ? details.Count > detailsBefore : createdIds.Count > createdBefore;
+            if (!produced)
+                failed.Add(new
+                {
+                    index,
+                    key,
+                    error = warnings.Count > warningsBefore
+                        ? string.Join(" ", warnings.Skip(warningsBefore))
+                        : "No element was produced for this item."
+                });
+            index++;
         }
 
         var message = dryRun
@@ -65,7 +100,7 @@ public class CreateLineBasedElementTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No valid line-based element specification could be applied.",
                 suggestion: "Correct the reported specifications. Use baseLevelId for a level ID and baseElevationMm for an absolute elevation.",
-                context: new Dictionary<string, object> { ["warnings"] = warnings });
+                context: new Dictionary<string, object> { ["warnings"] = warnings, ["failed"] = failed });
 
         return RiveTTResult<object>.Ok(new
         {
@@ -76,6 +111,7 @@ public class CreateLineBasedElementTool : IRiveTTTool
             skipped = warnings.Count,
             createdElementIds = createdIds,
             details,
+            failed,
             warnings
         });
     }

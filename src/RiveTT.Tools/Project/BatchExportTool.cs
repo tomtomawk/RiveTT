@@ -151,7 +151,15 @@ public class BatchExportTool : IRiveTTTool
                             };
                             imgOptions.SetViewsAndSheets(new List<ElementId> { id });
                             doc.ExportImage(imgOptions);
-                            results.Add(new { name = view.Name, file = $"{name}.png", success = true });
+                            // Revit appends the view type and name to FilePath: "{name}.png"
+                            // named a file that did not exist. Ask Revit what it produced.
+                            results.Add(new
+                            {
+                                name = view.Name,
+                                file = ProducedImageName(doc, id, outputDir, name),
+                                success = true,
+                                note = "The image is on this machine's disk; capture_view returns it to the agent."
+                            });
                         }
                         catch (Exception ex)
                         {
@@ -239,12 +247,45 @@ public class BatchExportTool : IRiveTTTool
                 info.Name.EndsWith(expectedName + extension, System.StringComparison.OrdinalIgnoreCase));
             if (suffixed != null) return suffixed.Name;
 
+            // Image export: "<name> - <view type> - <view name>.png".
+            var prefixed = candidates.FirstOrDefault(info =>
+                info.Name.StartsWith(expectedName + " - ", System.StringComparison.OrdinalIgnoreCase));
+            if (prefixed != null) return prefixed.Name;
+
             return candidates.Count > 0 ? candidates[0].Name : expectedName + extension;
         }
         catch
         {
             return expectedName + extension;
         }
+    }
+
+    /// <summary>
+    /// The file an image export wrote, from ImageExportOptions.GetFileName when Revit can
+    /// say, else from what appeared in the folder.
+    /// </summary>
+    private static string ProducedImageName(Document doc, ElementId viewId,
+        string outputDir, string expectedName)
+    {
+        try
+        {
+            // Static: the view-dependent part of the name Revit generates ("Floor Plan - L1").
+            var produced = ImageExportOptions.GetFileName(doc, viewId);
+            if (!string.IsNullOrWhiteSpace(produced))
+            {
+                var match = Directory.GetFiles(outputDir, "*.png")
+                    .Select(Path.GetFileName)
+                    .FirstOrDefault(file => file != null
+                        && file.StartsWith(expectedName, StringComparison.OrdinalIgnoreCase)
+                        && file.IndexOf(Path.GetFileNameWithoutExtension(produced), StringComparison.OrdinalIgnoreCase) >= 0);
+                if (match != null) return match;
+            }
+        }
+        catch
+        {
+            // Fall through to the folder scan.
+        }
+        return ResolveWrittenFile(outputDir, expectedName, ".png");
     }
 
     private static string SanitizeFileName(string name)

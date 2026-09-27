@@ -449,18 +449,26 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "tag_rooms"), Description("Tag rooms in a view. Pass viewId to target a specific view; without it the active view is used. Nothing in this surface can activate a view, so viewId is the only way to tag a view the user is not currently looking at.")]
+    [McpServerTool(Name = "tag_rooms"), Description("Tag rooms in a view with a chosen room tag type. Pass viewId to target a specific view; without it the active view is used. tagTypeId or tagTypeName picks the type (default: the view's default). roomNameContains keeps rooms whose name contains the text (accents and case ignored); onePerParameter keeps ONE room per value of a parameter, the largest — e.g. onePerParameter=ARC_PAR_NUMERO_LOGEMENT + roomNameContains=Séjour puts one typology tag per dwelling. With a tag type, only a tag of that type counts as already tagged. Every untagged room is listed in skipped with its reason.")]
     public static async Task<string> TagRooms(
         RevitConnectionManager revit,
         [Description("Use leader on tags. Default: false")] bool useLeader = false,
         [Description("Room IDs to tag (optional; tags all rooms in view when omitted). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? roomIds = null,
         [Description("View to tag in. Omit to use the currently active view.")] long? viewId = null,
+        [Description("Room tag type id (FamilySymbol of OST_RoomTags). Omit for the default type")] long? tagTypeId = null,
+        [Description("Room tag type as \"Family : Type\" or type name, when the id is not known")] string? tagTypeName = null,
+        [Description("Keep only rooms whose name contains this text (accent- and case-insensitive), e.g. \"Séjour\"")] string? roomNameContains = null,
+        [Description("Keep one room per distinct value of this parameter (the largest), e.g. ARC_PAR_NUMERO_LOGEMENT")] string? onePerParameter = null,
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject();
         p["useLeader"] = useLeader;
         if (viewId != null) p["viewId"] = viewId;
+        if (tagTypeId != null) p["tagTypeId"] = tagTypeId;
+        if (tagTypeName != null) p["tagTypeName"] = tagTypeName;
+        if (roomNameContains != null) p["roomNameContains"] = roomNameContains;
+        if (onePerParameter != null) p["onePerParameter"] = onePerParameter;
         if (JsonOptionalParam.IsProvided(roomIds))
         {
             if (!JsonArrayParam.TryParse(roomIds, out var roomIdsArray))
@@ -573,17 +581,34 @@ public static class ProjectTools
     [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / batch_modify_parameter_values; queries & filtering -> filter_elements / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views and schedules -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) — never for family editing, which open_family (visual) and edit_family (background type-parameter values) already cover — and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed and frequently fail on add-in DLL conflicts. There is NO in-Revit confirmation dialog: nothing stops a script once dryRun=false, so the dry run (the default) is the only review step — it runs the sandbox check and reports what would execute without executing it.")]
     public static async Task<string> SendCodeToRevit(
         RevitConnectionManager revit,
-        [Description("C# code to execute. Globals available: document (Document), uiDocument (UIDocument), app (Application).")] string code,
+        [Description("C# method body to execute (end with an explicit return). Globals: document (Document), uiDocument (UIDocument), app (Application), scriptArgs (JObject). Namespaces DB, DB.Architecture (Room, Stairs), DB.Structure, UI, Linq and JObject are imported. Helpers callable without prefix, lengths IN MILLIMETRES: Mm(mm)->feet, ToMm(feet), Pt(xMm,yMm,zMm), Log(text), LevelByName(name), TypeByName<WallType|FloorType|RoofType|...>(name) (exact, then unique prefix, logged), SymbolByName(family,type), FindHostWall(pointFt, level?), PlaceOnLevel(symbol, pointFt, level, rotationDeg, offsetMm) (measures and corrects the elevation), PlaceInWall(symbol, pointFt, wall, level, sillMm) (absolute Z), Section(name, () => {...}) (best effort block reported in scriptRun.sections). Leave empty when fromScript is used.")] string code = "",
         [Description("Preview only: run the sandbox check and report what would execute, without running it or saving the script. Default: true")] bool dryRun = true,
-        [Description("Transaction mode: auto | manual | readonly. Default: auto")] string? transactionMode = "auto",
+        [Description("auto (default): one transaction around the script. none (alias manual): no transaction, the script opens its own — required for StairsEditScope. group: one undo entry, each Section(...) committed or rolled back on its own. readonly: every model change is rolled back after the run — the only mode allowed while RiveTT is locked; exports, saves, document opening and view switching are refused in it.")] string? transactionMode = "auto",
         [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously — see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool reusable = false,
-        [Description("Short human-readable name for the script file (no spaces, max 40 chars). Example: 'floor-thickness-audit'")] string? scriptName = null,
+        [Description("Short human-readable name for the script file (no spaces, max 40 chars). Example: 'floor-thickness-audit'. Reuse it with fromScript.")] string? scriptName = null,
+        [Description("JSON object exposed to the script as scriptArgs, e.g. {\"level\":\"R+1\",\"widthMm\":900}. Lets a saved script run again with other values.")] System.Text.Json.JsonElement? scriptArgs = null,
+        [Description("Name of a script saved earlier (its scriptName): runs its latest version instead of code. Combine with edits to correct a line without re-sending the whole script.")] string? fromScript = null,
+        [Description("With fromScript only: JSON array of exact replacements applied in order, [{\"oldText\":\"...\",\"newText\":\"...\"}]. Each oldText must occur exactly once. The edited script is saved as the new latest version.")] System.Text.Json.JsonElement? edits = null,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["code"] = code, ["dryRun"] = dryRun };
+        var p = new JObject { ["dryRun"] = dryRun };
+        if (!string.IsNullOrEmpty(code)) p["code"] = code;
         if (transactionMode != null) p["transactionMode"] = transactionMode;
         p["reusable"] = reusable;
         if (scriptName != null) p["scriptName"] = scriptName;
+        if (JsonOptionalParam.IsProvided(scriptArgs))
+        {
+            if (!JsonObjectParam.TryParse(scriptArgs, out var scriptArgsObj))
+                return JsonObjectParam.InvalidObjectResult("send_code_to_revit", "scriptArgs", scriptArgs);
+            p["scriptArgs"] = scriptArgsObj;
+        }
+        if (fromScript != null) p["fromScript"] = fromScript;
+        if (JsonOptionalParam.IsProvided(edits))
+        {
+            if (!JsonArrayParam.TryParse(edits, out var editsArray))
+                return JsonArrayParam.InvalidArrayResult("send_code_to_revit", "edits", edits);
+            p["edits"] = editsArray;
+        }
         var result = await revit.ExecuteAsync("send_code_to_revit", p, ct);
         return result.ToString();
     }

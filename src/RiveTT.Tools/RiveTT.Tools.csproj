@@ -38,4 +38,7 @@
   <ItemGroup>
     <ProjectReference Include="..\RiveTT.Core\RiveTT.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="RiveTT.Tests" />
+  </ItemGroup>
 </Project>

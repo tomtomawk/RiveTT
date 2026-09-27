@@ -97,7 +97,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_line_based_element"), Description("Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?, topLevelId?, topOffset?}]. Add pMid to make a curved (arc) wall/beam. Coordinates in mm. baseLevelId is an element ID; baseOffset is relative to it in mm. Alternatively baseElevationMm is absolute project Z in mm. The obsolete baseLevel key is refused. topLevelId is a top level ID for walls; topOffset is relative mm and this constraint takes precedence over height.")]
+    [McpServerTool(Name = "create_line_based_element"), Description("Create line-based elements (walls, beams) IN BATCH, one transaction per item: a failing item never cancels the others and comes back in failed[] with its key. Pass a JSON array of specs: [{key?, category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?, topLevelId?, topOffset?}]. Add pMid to make a curved (arc) wall/beam. Coordinates in mm. baseLevelId is an element ID; baseOffset is relative to it in mm. Alternatively baseElevationMm is absolute project Z in mm. The obsolete baseLevel key is refused. topLevelId is a top level ID for walls; topOffset is relative mm and this constraint takes precedence over height.")]
     public static async Task<string> CreateLineBasedElement(
         RevitConnectionManager revit,
         [Description("JSON array of specs: [{category, locationLine:{p0, p1, pMid?}, typeId?, height?, baseLevelId?, baseElevationMm?, baseOffset?, topLevelId?, topOffset?}]")] string specs,
@@ -109,10 +109,10 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "create_point_based_element"), Description("Create point-based elements. Pass [{category, locationPoint:{x,y,z}, typeId?, levelId?, baseLevel?, hostWallId?, facingFlipped?, handFlipped?, rotation?}]. Use create_door or create_window for hosted openings.")]
+    [McpServerTool(Name = "create_point_based_element"), Description("Create point-based family instances IN BATCH (furniture, sanitary, doors, windows, ETEL...), each item in its own transaction: one failing item never cancels the others. Pass [{key?, category?, locationPoint:{x,y,z}, typeId? | familyName+typeName, levelId? | levelName?, zMode?, hostWallId? | findHost?, facingFlipped?, handFlipped?, rotation?}]. key is echoed in details and failed[] so a failing item can be re-sent alone. Coordinates in mm. ELEVATION: z is ABSOLUTE by default; zMode=relativeToLevel makes it relative to the level (z=0 = on the floor), which is what furniture wants. A level-based family's elevation is measured after placement and corrected (zCorrectedByMm), and one placed 1 m or more under its own level is refused. findHost=true takes the wall found at the point on that level.")]
     public static async Task<string> CreatePointBasedElement(
         RevitConnectionManager revit,
-        [Description("JSON array of creation specs: [{category, locationPoint, typeId?, levelId?, baseLevel?, hostWallId?, facingFlipped?, handFlipped?, rotation?}]")] string specs,
+        [Description("JSON array of creation specs: [{key?, category?, locationPoint:{x,y,z}, typeId? | familyName+typeName, levelId? | levelName?, zMode?: absolute|relativeToLevel, hostWallId? | findHost?: true, facingFlipped?, handFlipped?, rotation? (degrees, non-hosted only)}]")] string specs,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {

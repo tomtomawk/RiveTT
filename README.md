@@ -61,7 +61,8 @@ références ni variante de skill n'est installé.
 | [docs/CHANGELOG_0.4.0.md](docs/CHANGELOG_0.4.0.md) | Verrou d'écriture, contrat `dryRun`, défauts de l'audit du 31/08, ce qui reste ouvert |
 | [docs/CHANGELOG_0.3.0.md](docs/CHANGELOG_0.3.0.md) | Défauts corrigés, renommage et consolidation de la surface, ce qui reste à vérifier sur maquette |
 | [docs/recettes/](docs/recettes/) | Modèle de rapport et résultats des nouvelles campagnes |
-| [docs/CHANGELOG_0.5.2.md](docs/CHANGELOG_0.5.2.md) | Changements actuels et régressions à vérifier |
+| [docs/CHANGELOG_0.6.0.md](docs/CHANGELOG_0.6.0.md) | Changements actuels : retour de la session de test du 24/09/2026, nouveaux outils (image des vues, validateur de logement), ce qui reste à vérifier |
+| [docs/retex/2026-09-24/](docs/retex/2026-09-24/00_README.md) | Retour d'expérience de la session de test : déroulé, bugs, règles de plan, familles du gabarit, protocole de l'agent |
 
 **Référence commune**
 

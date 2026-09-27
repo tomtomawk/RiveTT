@@ -101,6 +101,37 @@ public class ReadOnlyActionsTests
         }
     }
 
+    [ReadOnlyActions("auto", "readonly", Key = "transactionMode")]
+    [ToolSafety(false, true, supportsDryRun: true)]
+    private sealed class ScriptLikeTool : FakeTool { }
+
+    [Theory]
+    [InlineData("{\"transactionMode\":\"readonly\"}", true)]
+    [InlineData("{\"transactionMode\":\"ReadOnly\",\"dryRun\":true}", true)]
+    [InlineData("{}", false)]
+    [InlineData("{\"transactionMode\":\"auto\"}", false)]
+    [InlineData("{\"transactionMode\":\"group\"}", false)]
+    [InlineData("{\"action\":\"readonly\"}", false)]
+    public void LockedRouterHonoursACustomSelectorKey(string json, bool allowed)
+    {
+        // send_code_to_revit's read branch is chosen by transactionMode, not action: the
+        // selector key must be the one the attribute names, and nothing else.
+        var session = new RiveTTSession(new SessionStore());
+        session.WriteAccess.Set(false, "test");
+        var audit = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".jsonl");
+        try
+        {
+            var router = new RiveTTRouter(session, new FakeAnalyzer(), new AuditLogger(audit));
+            router.RegisterTool(new ScriptLikeTool { Name = "script_like" });
+            var result = router.Route("script_like", JObject.Parse(json));
+            Assert.Equal(allowed, result.Success);
+            if (!allowed) Assert.Equal(RiveTTErrorCode.PermissionDenied, result.Error!.Code);
+            else Assert.True(JObject.FromObject(result.Data!)["execution"]!["toolReadOnly"]!.Value<bool>());
+            Assert.False(session.WriteAccess.WritesAllowed);
+        }
+        finally { File.Delete(audit); }
+    }
+
     [Fact]
     public void SelectionEnvelopeCannotMaskANestedWrite()
     {

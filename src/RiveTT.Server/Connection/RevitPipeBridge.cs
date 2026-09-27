@@ -141,6 +141,7 @@ internal static class RevitSessionDiscovery
 public sealed class RevitConnectionManager
 {
     private readonly SemaphoreSlim _mutex = new(1, 1);
+    private readonly ExecutionBlockCompactor _compactor = new();
 
     public async Task<JToken> ExecuteAsync(string method, JObject parameters, CancellationToken cancellationToken = default,
         string? publicToolName = null)
@@ -157,8 +158,9 @@ public sealed class RevitConnectionManager
                 .ConfigureAwait(false);
             // Single choke point for every tool, which is why the version stamp goes
             // here: the server and the plugin are installed separately and can end up
-            // mismatched, and no individual tool is in a position to notice.
-            return ConnectorVersions.Stamp(response);
+            // mismatched, and no individual tool is in a position to notice. Compaction
+            // runs AFTER the stamp, so a mismatch is always seen before it could be trimmed.
+            return _compactor.Compact(publicToolName ?? method, ConnectorVersions.Stamp(response));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

@@ -18,6 +18,33 @@ public class ToolCatalogParitySourceTests
         "create_window"
     };
 
+    /// <summary>
+    /// MCP tools answered by the server alone, never forwarded to Revit. Each one needs a
+    /// reason; anything else without a plugin counterpart is a bug.
+    /// </summary>
+    private static readonly Dictionary<string, string> ServerOnlyTools = new(StringComparer.Ordinal)
+    {
+        ["test_image_relay"] = "checks that the MCP client relays images; must work with no Revit at all",
+        ["validate_spec"] = "checks a dwelling design (JSON) against the rules before anything is built; pure computation, no model"
+    };
+
+    [Fact]
+    public void ServerOnlyToolsNeverReachRevit()
+    {
+        var sources = ReadCsFiles("RiveTT.Server", "Tools").Select(File.ReadAllText).ToList();
+        foreach (var (tool, reason) in ServerOnlyTools)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(reason));
+            var body = sources
+                .Select(source => source.Split($"McpServerTool(Name = \"{tool}\")"))
+                .Where(parts => parts.Length > 1)
+                .Select(parts => parts[1].Split("[McpServerTool")[0])
+                .SingleOrDefault();
+            Assert.True(body != null, $"server-only tool {tool} is not published");
+            Assert.DoesNotContain("ExecuteAsync(", body!);
+        }
+    }
+
     private static string ProjectPath(string project, params string[] relativeParts)
     {
         var parts = new List<string> { "..", "..", "..", "..", project };
@@ -65,7 +92,8 @@ public class ToolCatalogParitySourceTests
         Assert.NotEmpty(pluginNames);
 
         var missing = mcpNames
-            .Where(name => !pluginNames.Contains(name) && !ComposedAliases.Contains(name))
+            .Where(name => !pluginNames.Contains(name) && !ComposedAliases.Contains(name)
+                           && !ServerOnlyTools.ContainsKey(name))
             .OrderBy(name => name)
             .ToList();
 

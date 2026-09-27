@@ -30,5 +30,11 @@
   <ItemGroup>
     <InternalsVisibleTo Include="RiveTT.Tests" />
   </ItemGroup>
+  <!-- RiveTT.Core carries no Revit API reference: the server shares its dwelling rules
+       (RiveTT.Core.Design) with the plugin, so validate_spec and validate_dwelling cannot
+       disagree about the same rule. -->
+  <ItemGroup>
+    <ProjectReference Include="..\RiveTT.Core\RiveTT.Core.csproj" />
+  </ItemGroup>
 
 </Project>

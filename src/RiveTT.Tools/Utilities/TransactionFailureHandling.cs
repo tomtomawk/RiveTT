@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -52,14 +53,20 @@ public static class TransactionFailureHandling
         return SuppressWarnings(tx, allowed);
     }
 
-    /// <summary>Compact "; "-joined summary of captured errors for Fail messages.</summary>
+    /// <summary>
+    /// Compact "; "-joined summary of captured errors for Fail messages. Identical
+    /// messages are counted, not repeated: 77 copies of "cannot cut instance out of wall"
+    /// used to read as three of them and "(+74 more)", which hid that it was ONE cause.
+    /// </summary>
     public static string Describe(FailureCapture capture)
     {
         if (capture.Errors.Count == 0)
             return "Revit rolled back the transaction (no error description available)";
-        var take = capture.Errors.Count > 3 ? 3 : capture.Errors.Count;
-        var head = string.Join("; ", capture.Errors.GetRange(0, take));
-        return capture.Errors.Count > take ? head + $"; (+{capture.Errors.Count - take} more)" : head;
+        var groups = capture.ErrorGroups;
+        var take = groups.Count > 3 ? 3 : groups.Count;
+        var head = string.Join("; ", groups.Take(take).Select(group =>
+            group.Count > 1 ? $"{group.Message} (x{group.Count})" : group.Message));
+        return groups.Count > take ? head + $"; (+{groups.Count - take} other message(s))" : head;
     }
 
     public static RiveTTResult<object> ToFailure(
@@ -69,15 +76,42 @@ public static class TransactionFailureHandling
             RiveTTErrorCode.TransactionFailed,
             $"{message}: {Describe(capture)}",
             suggestion: repairHint,
-            context: new Dictionary<string, object>
+            context: ToContext(capture, repairHint));
+    }
+
+    /// <summary>
+    /// The structured context of a rolled-back commit, shared by <see cref="ToFailure"/>
+    /// and callers that build their own message (send_code_to_revit). errorGroups carries
+    /// the ids PER MESSAGE: a flat failedElementIds cannot say which element raised which
+    /// error once two different failures are mixed.
+    /// </summary>
+    public static Dictionary<string, object> ToContext(FailureCapture capture, string? repairHint)
+    {
+        return new Dictionary<string, object>
+        {
+            ["warnings"] = capture.Warnings.ToArray(),
+            ["errors"] = capture.Errors.ToArray(),
+            ["errorGroups"] = capture.ErrorGroups.Select(group => (object)new
             {
-                ["warnings"] = capture.Warnings.ToArray(),
-                ["errors"] = capture.Errors.ToArray(),
-                ["rolledBack"] = true,
-                ["failedElementIds"] = capture.FailedElementIds.OrderBy(id => id).ToArray(),
-                ["repairHints"] = new[] { repairHint },
-                ["warningsSuppressed"] = capture.WarningsSuppressed
-            });
+                message = group.Message,
+                count = group.Count,
+                elementIds = group.ElementIds.Take(50).ToArray(),
+                elementIdsTruncated = group.ElementIds.Count > 50
+            }).ToArray(),
+            ["rolledBack"] = true,
+            ["failedElementIds"] = capture.FailedElementIds.OrderBy(id => id).ToArray(),
+            ["repairHints"] = string.IsNullOrWhiteSpace(repairHint) ? Array.Empty<string>() : new[] { repairHint! },
+            ["warningsSuppressed"] = capture.WarningsSuppressed
+        };
+    }
+
+    /// <summary>One distinct Revit error text, how often it was raised, and the elements it named.</summary>
+    public sealed class FailureGroup
+    {
+        public FailureGroup(string message) => Message = message;
+        public string Message { get; }
+        public int Count { get; internal set; }
+        public List<long> ElementIds { get; } = new List<long>();
     }
 
     public sealed class FailureCapture : IFailuresPreprocessor
@@ -93,6 +127,11 @@ public static class TransactionFailureHandling
         public HashSet<long> FailedElementIds { get; } = new HashSet<long>();
         public int WarningsSuppressed { get; private set; }
 
+        private readonly List<FailureGroup> _errorGroups = new List<FailureGroup>();
+
+        /// <summary>Errors grouped by text, in order of first appearance, with their element ids.</summary>
+        public IReadOnlyList<FailureGroup> ErrorGroups => _errorGroups;
+
         public FailureProcessingResult PreprocessFailures(FailuresAccessor failuresAccessor)
         {
             var hasError = false;
@@ -102,7 +141,7 @@ public static class TransactionFailureHandling
                 if (severity == FailureSeverity.Warning)
                 {
                     Warnings.Add(failure.GetDescriptionText());
-                    CaptureIds(failure);
+                    var ids = CaptureIds(failure);
                     var failureId = failure.GetFailureDefinitionId().Guid.ToString("D");
                     if (_allowedWarningIds == null || _allowedWarningIds.Contains(failureId))
                     {
@@ -112,15 +151,14 @@ public static class TransactionFailureHandling
                     else
                     {
                         hasError = true;
-                        Errors.Add($"Unapproved warning {failureId}: {failure.GetDescriptionText()}");
+                        RecordError($"Unapproved warning {failureId}: {failure.GetDescriptionText()}", ids);
                     }
                 }
                 else if (severity == FailureSeverity.Error
                          || severity == FailureSeverity.DocumentCorruption)
                 {
                     hasError = true;
-                    Errors.Add(failure.GetDescriptionText());
-                    CaptureIds(failure);
+                    RecordError(failure.GetDescriptionText(), CaptureIds(failure));
                 }
             }
 
@@ -129,12 +167,35 @@ public static class TransactionFailureHandling
                 : FailureProcessingResult.Continue;
         }
 
-        private void CaptureIds(FailureMessageAccessor failure)
+        /// <summary>
+        /// Records one error. Public so a caller that meets a failure outside Revit's
+        /// failure processing (an exception inside a script section) can report it in the
+        /// same shape.
+        /// </summary>
+        public void RecordError(string message, IEnumerable<long>? elementIds = null)
         {
+            Errors.Add(message);
+            var group = _errorGroups.FirstOrDefault(existing => existing.Message == message);
+            if (group == null)
+            {
+                group = new FailureGroup(message);
+                _errorGroups.Add(group);
+            }
+            group.Count++;
+            if (elementIds == null) return;
+            foreach (var id in elementIds)
+                if (!group.ElementIds.Contains(id)) group.ElementIds.Add(id);
+        }
+
+        private List<long> CaptureIds(FailureMessageAccessor failure)
+        {
+            var ids = new List<long>();
             foreach (var id in failure.GetFailingElementIds())
-                FailedElementIds.Add(ToolHelpers.GetElementIdValue(id));
+                ids.Add(ToolHelpers.GetElementIdValue(id));
             foreach (var id in failure.GetAdditionalElementIds())
-                FailedElementIds.Add(ToolHelpers.GetElementIdValue(id));
+                ids.Add(ToolHelpers.GetElementIdValue(id));
+            FailedElementIds.UnionWith(ids);
+            return ids;
         }
     }
 }

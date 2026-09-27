@@ -26,6 +26,14 @@ namespace RiveTT.Tools.Elements;
 /// Contract: StairsEditScope must be started with NO transaction open, runs are
 /// created in transactions INSIDE the scope, and the scope is committed with a
 /// failure preprocessor so a warning cannot open a modal dialog.
+///
+/// Multi-run stairs (field report 2026-09-24, bug 1.1): every run used to be created with
+/// its location line at the BASE elevation, so a second run started on the floor instead
+/// of on top of the first one — 9 risers instead of 17, no landing, while the preview had
+/// promised one. CreateStraightRun reads the Z of the location line as the run's base
+/// elevation in model coordinates; each run now starts at the top of the previous one, the
+/// landing is checked with CanCreateAutomaticLanding, and a junction Revit cannot land is
+/// refused with its geometry instead of leaving two disconnected runs.
 /// </summary>
 [ToolSafety(false, false, supportsDryRun: true)]
 public sealed class CreateStairTool : IRiveTTTool
@@ -39,8 +47,9 @@ public sealed class CreateStairTool : IRiveTTTool
     public string Description =>
         "Creates a native component stair between two levels from one or more straight runs. " +
         "runs is [{p0:{x,y}, p1:{x,y}}, ...] in mm (plan coordinates; the levels drive the elevation). " +
-        "Consecutive runs get an automatic landing. Optionally applies a stair type, a run width and a " +
-        "railing. The response reports the riser count Revit actually produced against the one it wanted.";
+        "Each run starts on top of the previous one and consecutive runs are joined by an automatic landing; " +
+        "a junction Revit cannot land is refused unless requireLandings=false. The response reports the " +
+        "risers Revit actually produced, run by run, against the ones the levels require.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -53,6 +62,7 @@ public sealed class CreateStairTool : IRiveTTTool
         var stairsTypeId = input["stairsTypeId"]?.Value<long>() ?? 0;
         var railingTypeId = input["railingTypeId"]?.Value<long>() ?? 0;
         var widthMm = input["widthMm"]?.Value<double>() ?? 0;
+        var requireLandings = input["requireLandings"]?.Value<bool>() ?? true;
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
 
         if (baseLevelId <= 0 || topLevelId <= 0)
@@ -71,7 +81,7 @@ public sealed class CreateStairTool : IRiveTTTool
                 $"topLevel '{topLevel.Name}' ({topLevel.Elevation * MmPerFoot:F0} mm) must be ABOVE baseLevel " +
                 $"'{baseLevel.Name}' ({baseLevel.Elevation * MmPerFoot:F0} mm)");
 
-        if (!TryReadRuns(input["runs"], baseLevel.Elevation, out var runLines, out var runError))
+        if (!TryReadRuns(input["runs"], out var runInputs, out var runError))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, runError);
 
         StairsType? stairsType = null;
@@ -85,36 +95,58 @@ public sealed class CreateStairTool : IRiveTTTool
         }
 
         var heightFt = topLevel.Elevation - baseLevel.Elevation;
-        var maxRiserFt = MaxRiserHeightFt(doc, stairsType);
-        var estimatedRisers = maxRiserFt > 0 ? (int)Math.Ceiling(heightFt / maxRiserFt) : 0;
+        var planningType = stairsType ?? DefaultStairsType(doc);
+        var maxRiserFt = ReadOrZero(() => planningType?.MaxRiserHeight ?? 0);
+        var treadFt = ReadOrZero(() => planningType?.MinTreadDepth ?? 0);
+        var typeWidthFt = ReadOrZero(() => planningType?.MinRunWidth ?? 0);
+        var plan = StairRunPlanner.Build(runInputs, heightFt * MmPerFoot, maxRiserFt * MmPerFoot,
+            treadFt * MmPerFoot, widthMm > 0 ? widthMm : typeWidthFt * MmPerFoot);
 
         if (dryRun)
         {
+            // A junction no landing can bridge fails the preview: the real call would refuse it
+            // (or, with requireLandings=false, leave two disconnected runs).
+            if (plan.Problems.Count > 0 && requireLandings)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                    "DryRun: this stair cannot be built as described: " + string.Join(" ", plan.Problems),
+                    suggestion: "Place each run so that it starts next to the end of the previous one: " +
+                                "U-shaped, offset by the run width plus the well; L-shaped, at the corner; straight, " +
+                                "one landing depth further along. Nothing was created.",
+                    context: new Dictionary<string, object>
+                    {
+                        ["stage"] = "preview",
+                        ["modelChanged"] = false,
+                        ["plan"] = DescribePlan(plan)
+                    });
+
             return RiveTTResult<object>.Ok(new
             {
-                message = $"DryRun: a {runLines.Count}-run stair would be created from '{baseLevel.Name}' to " +
-                          $"'{topLevel.Name}' ({heightFt * MmPerFoot:F0} mm)." +
-                          (runLines.Count > 1 ? $" {runLines.Count - 1} automatic landing(s)." : ""),
+                message = $"DryRun: a {runInputs.Count}-run stair would be created from '{baseLevel.Name}' to " +
+                          $"'{topLevel.Name}' ({heightFt * MmPerFoot:F0} mm), each run starting on top of the previous one" +
+                          (runInputs.Count > 1 ? $", joined by {runInputs.Count - 1} landing(s) if Revit accepts the junctions." : "."),
                 baseLevel = baseLevel.Name,
                 topLevel = topLevel.Name,
                 heightMm = Math.Round(heightFt * MmPerFoot, 1),
-                runCount = runLines.Count,
-                landingCount = Math.Max(0, runLines.Count - 1),
-                estimatedRiserCount = estimatedRisers,
+                runCount = runInputs.Count,
+                landingCount = Math.Max(0, runInputs.Count - 1),
+                requireLandings,
+                estimatedRiserCount = plan.EstimatedTotalRisers,
+                desiredRiserCount = plan.DesiredRisers,
                 maxRiserHeightMm = maxRiserFt > 0 ? Math.Round(maxRiserFt * MmPerFoot, 1) : (double?)null,
-                totalRunLengthMm = Math.Round(runLines.Sum(line => line.Length) * MmPerFoot, 1),
+                totalRunLengthMm = Math.Round(runInputs.Sum(run => run.Length), 1),
+                plan = DescribePlan(plan),
                 stairsTypeId = stairsTypeId > 0 ? (long?)stairsTypeId : null,
                 widthMm = widthMm > 0 ? (double?)widthMm : null,
                 railingTypeId = railingTypeId > 0 ? (long?)railingTypeId : null,
-                warnings = estimatedRisers > 0 && runLines.Count == 1 &&
-                           runLines[0].Length * MmPerFoot < estimatedRisers * 250
-                    ? new[]
-                    {
-                        $"The single run is {runLines[0].Length * MmPerFoot:F0} mm long for about " +
-                        $"{estimatedRisers} risers: Revit will not reach the top level and will report fewer " +
-                        "risers than needed. Lengthen the run or split it into several runs."
-                    }
-                    : Array.Empty<string>()
+                warnings = plan.Warnings.Concat(plan.Problems).ToArray(),
+                // What a preview of this tool cannot know: only Revit decides.
+                notVerified = new[]
+                {
+                    "whether Revit accepts each landing (checked with CanCreateAutomaticLanding on the real call)",
+                    "the exact riser count of each run (estimated from length / tread depth; the type's " +
+                    "begin/end-with-riser options can shift it by one)",
+                    "clashes with walls, floors and openings"
+                }
             });
         }
 
@@ -126,9 +158,12 @@ public sealed class CreateStairTool : IRiveTTTool
             scope = new StairsEditScope(doc, "RiveTT: Create Stair");
             var stairsId = scope.Start(baseLevel.Id, topLevel.Id);
 
-            var runIds = new List<long>();
+            var runs = new List<StairsRun>();
             var landingIds = new List<long>();
+            var landingProblems = new List<object>();
+            var landingMessages = new List<string>();
             var warnings = new List<string>();
+            warnings.AddRange(plan.Warnings);
 
             using (var tx = new Transaction(doc, "RiveTT: Stair Runs"))
             {
@@ -142,31 +177,89 @@ public sealed class CreateStairTool : IRiveTTTool
                         stairs.ChangeTypeId(stairsType.Id);
                 }
 
+                var stairsBaseFt = baseLevel.Elevation + BaseOffsetFt(doc.GetElement(stairsId));
                 StairsRun? previousRun = null;
-                foreach (var line in runLines)
+                for (var i = 0; i < runInputs.Count; i++)
                 {
+                    // StairsRun.TopElevation is relative to the stairs base; the location line
+                    // wants the run's base in MODEL coordinates.
+                    var runBaseFt = previousRun == null ? stairsBaseFt : stairsBaseFt + previousRun.TopElevation;
+                    var line = Line.CreateBound(
+                        new XYZ(runInputs[i].X0 / MmPerFoot, runInputs[i].Y0 / MmPerFoot, runBaseFt),
+                        new XYZ(runInputs[i].X1 / MmPerFoot, runInputs[i].Y1 / MmPerFoot, runBaseFt));
                     var run = StairsRun.CreateStraightRun(doc, stairsId, line, StairsRunJustification.Center);
                     if (widthMm > 0) run.ActualRunWidth = widthMm / MmPerFoot;
-                    runIds.Add(ToolHelpers.GetElementIdValue(run.Id));
+                    runs.Add(run);
 
                     if (previousRun != null)
                     {
+                        var junction = plan.Junctions[i - 1];
+                        string? problem = null;
                         try
                         {
-                            // Revit may produce several landings for one junction.
-                            var landings = StairsLanding.CreateAutomaticLanding(doc, previousRun.Id, run.Id);
-                            if (landings != null)
-                                landingIds.AddRange(landings.Select(ToolHelpers.GetElementIdValue));
+                            if (!StairsLanding.CanCreateAutomaticLanding(doc, previousRun.Id, run.Id))
+                            {
+                                problem = $"Revit cannot create an automatic landing between run {i} and run {i + 1} " +
+                                          $"({junction.Layout} layout, {junction.GapMm:F0} mm between the end of run {i} " +
+                                          $"and the start of run {i + 1}).";
+                            }
+                            else
+                            {
+                                // Revit may produce several landings for one junction.
+                                var landings = StairsLanding.CreateAutomaticLanding(doc, previousRun.Id, run.Id);
+                                if (landings == null || landings.Count == 0)
+                                    problem = $"Revit created no landing between run {i} and run {i + 1}.";
+                                else
+                                    landingIds.AddRange(landings.Select(ToolHelpers.GetElementIdValue));
+                            }
                         }
                         catch (Exception exception)
                         {
-                            // A landing Revit refuses is not a reason to lose the runs.
-                            warnings.Add($"Automatic landing between two runs failed: {exception.Message}");
+                            problem = $"Automatic landing between run {i} and run {i + 1} failed: {exception.Message}";
+                        }
+
+                        if (problem != null)
+                        {
+                            landingMessages.Add(problem);
+                            landingProblems.Add(new
+                            {
+                                betweenRuns = new[] { i, i + 1 },
+                                layout = junction.Layout,
+                                gapMm = junction.GapMm,
+                                angleDeg = junction.AngleDeg,
+                                problem
+                            });
                         }
                     }
 
                     previousRun = run;
                 }
+
+                if (landingProblems.Count > 0 && requireLandings)
+                {
+                    // Nothing half-built: a stair whose runs are not connected is what the
+                    // field session got, and it had to be rebuilt by hand.
+                    tx.RollBack();
+                    scope.Cancel();
+                    scope = null;
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                        "The stair was NOT created: Revit could not join the runs with a landing. " +
+                        string.Join(" ", landingMessages),
+                        suggestion: "Put the start of each run next to the end of the previous one (U-shaped: offset by " +
+                                    "the run width plus the well; L-shaped: at the corner), or pass requireLandings=false " +
+                                    "to keep the runs and draw the landing as a floor.",
+                        context: new Dictionary<string, object>
+                        {
+                            ["stage"] = "landing",
+                            ["modelChanged"] = false,
+                            ["rolledBack"] = true,
+                            ["landingProblems"] = landingProblems,
+                            ["plan"] = DescribePlan(plan)
+                        });
+                }
+                if (landingProblems.Count > 0)
+                    warnings.Add($"{landingProblems.Count} landing(s) could not be created (requireLandings=false): " +
+                                 "the runs are not connected; draw the landing as a floor.");
 
                 if (tx.Commit() != TransactionStatus.Committed)
                 {
@@ -182,7 +275,8 @@ public sealed class CreateStairTool : IRiveTTTool
                                     "(risers - 1); (2) the stair type is a catalogued precast type with a " +
                                     "fixed height and step count, which refuses an arbitrary level-to-level " +
                                     "height — pick a cast-in-place or assembled type from " +
-                                    "list_system_types(OST_Stairs).");
+                                    "list_system_types(OST_Stairs).",
+                        context: TransactionFailureHandling.ToContext(txFailures, null));
                 }
             }
 
@@ -192,9 +286,36 @@ public sealed class CreateStairTool : IRiveTTTool
             scope.Commit(scopeFailures);
             scope = null;
 
-            var created = doc.GetElement(ToolHelpers.ToElementId(ToolHelpers.GetElementIdValue(stairsId))) as Stairs;
-            var actualRisers = created?.ActualRisersNumber ?? 0;
-            var desiredRisers = created?.DesiredRisersNumber ?? 0;
+            var created = doc.GetElement(stairsId) as Stairs;
+            if (created == null)
+            {
+                // The scope's failure processing rolled the whole stair back.
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                    $"Revit rolled back the stair when closing the edit scope: {TransactionFailureHandling.Describe(scopeFailures)}",
+                    suggestion: "Nothing was created. Read errorGroups for the elements involved; the usual cause is a run " +
+                                "or landing that collides with another component of the stair.",
+                    context: TransactionFailureHandling.ToContext(scopeFailures, null));
+            }
+
+            var actualRisers = created.ActualRisersNumber;
+            var desiredRisers = created.DesiredRisersNumber;
+
+            // Read back what Revit built, run by run: the answer must report what was
+            // applied, not what was asked.
+            var runReports = new List<object>();
+            for (var i = 0; i < runs.Count; i++)
+            {
+                var run = doc.GetElement(runs[i].Id) as StairsRun;
+                runReports.Add(new
+                {
+                    runId = ToolHelpers.GetElementIdValue(runs[i].Id),
+                    baseElevationMm = run == null ? (double?)null : Math.Round(ReadOrZero(() => run.BaseElevation) * MmPerFoot, 1),
+                    topElevationMm = run == null ? (double?)null : Math.Round(ReadOrZero(() => run.TopElevation) * MmPerFoot, 1),
+                    actualRisers = run == null ? (int?)null : ReadIntOrNull(() => run.ActualRisersNumber),
+                    estimatedRisers = plan.Runs[i].EstimatedRisers,
+                    elevationsRelativeTo = "stairs base"
+                });
+            }
 
             // Railings are created OUTSIDE the edit scope, and Revit creates one per
             // side of the stair. Most stair types create their own, in which case
@@ -205,9 +326,7 @@ public sealed class CreateStairTool : IRiveTTTool
             var existingRailings = new List<long>();
             try
             {
-                if (created != null)
-                    existingRailings.AddRange(
-                        created.GetAssociatedRailings().Select(ToolHelpers.GetElementIdValue));
+                existingRailings.AddRange(created.GetAssociatedRailings().Select(ToolHelpers.GetElementIdValue));
             }
             catch
             {
@@ -226,12 +345,18 @@ public sealed class CreateStairTool : IRiveTTTool
                 {
                     using var railingTx = new Transaction(doc, "RiveTT: Stair Railing");
                     railingTx.Start();
-                    TransactionFailureHandling.SuppressWarnings(railingTx);
+                    var railingFailures = TransactionFailureHandling.SuppressWarnings(railingTx);
                     var railings = Railing.Create(doc, stairsId, ToolHelpers.ToElementId(railingTypeId),
                         RailingPlacementPosition.Treads);
-                    railingTx.Commit();
-                    if (railings != null)
-                        railingIds.AddRange(railings.Select(ToolHelpers.GetElementIdValue));
+                    if (railingTx.Commit() == TransactionStatus.Committed)
+                    {
+                        if (railings != null)
+                            railingIds.AddRange(railings.Select(ToolHelpers.GetElementIdValue));
+                    }
+                    else
+                    {
+                        railingError = "Revit rolled back the railing: " + TransactionFailureHandling.Describe(railingFailures);
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -248,33 +373,35 @@ public sealed class CreateStairTool : IRiveTTTool
                 // Direction matters: MORE risers than needed means the run is too
                 // long and overshoots the level. Telling the caller to lengthen a run
                 // that is already too long is worse than saying nothing.
-                var treadMm = created == null ? 0 : created.ActualTreadDepth * MmPerFoot;
+                var treadMm = created.ActualTreadDepth * MmPerFoot;
                 var deltaRisers = actualRisers - desiredRisers;
                 var correctionMm = treadMm > 0 ? Math.Abs(deltaRisers) * treadMm : 0;
 
                 warnings.Add(deltaRisers > 0
                     ? $"The stair has {actualRisers} risers but only {desiredRisers} are needed to reach " +
-                      $"'{topLevel.Name}': the run is too LONG and overshoots the level" +
-                      (correctionMm > 0 ? $" — shorten it by about {correctionMm:F0} mm" : "") +
+                      $"'{topLevel.Name}': the runs are too LONG and overshoot the level" +
+                      (correctionMm > 0 ? $" — shorten them by about {correctionMm:F0} mm in total" : "") +
                       ". Revit created the stair anyway."
                     : $"The stair has {actualRisers} risers but needs {desiredRisers} to reach " +
-                      $"'{topLevel.Name}': the run is too SHORT and stops below the level" +
-                      (correctionMm > 0 ? $" — lengthen it by about {correctionMm:F0} mm" : "") +
-                      ", or add a second run. Revit created the stair anyway.");
+                      $"'{topLevel.Name}': the runs are too SHORT and stop below the level" +
+                      (correctionMm > 0 ? $" — lengthen them by about {correctionMm:F0} mm in total" : "") +
+                      ", or add a run. Revit created the stair anyway.");
             }
 
             return RiveTTResult<object>.Ok(new
             {
                 message = $"Created a stair from '{baseLevel.Name}' to '{topLevel.Name}' " +
-                          $"({runIds.Count} run(s), {landingIds.Count} landing(s), {actualRisers} riser(s)).",
+                          $"({runs.Count} run(s), {landingIds.Count} landing(s), {actualRisers} riser(s) of {desiredRisers} required).",
                 stairsId = ToolHelpers.GetElementIdValue(stairsId),
-                runIds,
+                runIds = runs.Select(run => ToolHelpers.GetElementIdValue(run.Id)).ToList(),
+                runs = runReports,
                 landingIds,
+                landingProblems,
                 actualRiserCount = actualRisers,
                 desiredRiserCount = desiredRisers,
                 reachesTopLevel = desiredRisers == 0 || actualRisers == desiredRisers,
-                actualTreadDepthMm = created == null ? (double?)null : Math.Round(created.ActualTreadDepth * MmPerFoot, 1),
-                actualRiserHeightMm = created == null ? (double?)null : Math.Round(created.ActualRiserHeight * MmPerFoot, 1),
+                actualTreadDepthMm = Math.Round(created.ActualTreadDepth * MmPerFoot, 1),
+                actualRiserHeightMm = Math.Round(created.ActualRiserHeight * MmPerFoot, 1),
                 railingIds,
                 railingError,
                 scopeWarnings = scopeFailures.Warnings.Take(10).ToList(),
@@ -296,9 +423,38 @@ public sealed class CreateStairTool : IRiveTTTool
         }
     }
 
-    private static bool TryReadRuns(JToken? token, double baseElevationFt, out List<Line> runs, out string error)
+    private static object DescribePlan(StairRunPlanner.Plan plan) => new
     {
-        runs = new List<Line>();
+        heightMm = plan.HeightMm,
+        desiredRisers = plan.DesiredRisers,
+        riserHeightMm = plan.RiserHeightMm,
+        treadDepthMm = Math.Round(plan.TreadDepthMm, 1),
+        widthMm = Math.Round(plan.WidthMm, 1),
+        estimatedTotalRisers = plan.EstimatedTotalRisers,
+        runs = plan.Runs.Select(run => new
+        {
+            index = run.Index + 1,
+            lengthMm = run.LengthMm,
+            estimatedTreads = run.EstimatedTreads,
+            estimatedRisers = run.EstimatedRisers,
+            estimatedBaseMm = run.EstimatedBaseMm,
+            estimatedTopMm = run.EstimatedTopMm
+        }).ToArray(),
+        junctions = plan.Junctions.Select(junction => new
+        {
+            betweenRuns = new[] { junction.FromRun + 1, junction.ToRun + 1 },
+            layout = junction.Layout,
+            gapMm = junction.GapMm,
+            angleDeg = junction.AngleDeg,
+            bridgeable = junction.Bridgeable,
+            problem = junction.Problem
+        }).ToArray(),
+        elevationsRelativeTo = "base level"
+    };
+
+    private static bool TryReadRuns(JToken? token, out List<StairRunPlanner.RunInput> runs, out string error)
+    {
+        runs = new List<StairRunPlanner.RunInput>();
         error = "";
 
         if (token is not JArray array || array.Count == 0)
@@ -315,37 +471,68 @@ public sealed class CreateStairTool : IRiveTTTool
                 return false;
             }
 
-            // The run's location line must sit at the base level's elevation, not
-            // at the project's absolute Z = 0 — see P0.1 in PLAN_CORRECTION.md.
-            var startPoint = new XYZ(
-                (start["x"]?.Value<double>() ?? 0) / MmPerFoot,
-                (start["y"]?.Value<double>() ?? 0) / MmPerFoot,
-                baseElevationFt);
-            var endPoint = new XYZ(
-                (end["x"]?.Value<double>() ?? 0) / MmPerFoot,
-                (end["y"]?.Value<double>() ?? 0) / MmPerFoot,
-                baseElevationFt);
+            // Plan coordinates only: the elevation of every run is derived from the base
+            // level and the runs below it, never from a z the caller would have to compute.
+            var input = new StairRunPlanner.RunInput(
+                start["x"]?.Value<double>() ?? 0,
+                start["y"]?.Value<double>() ?? 0,
+                end["x"]?.Value<double>() ?? 0,
+                end["y"]?.Value<double>() ?? 0);
 
-            if (startPoint.DistanceTo(endPoint) < 1e-6)
+            if (input.Length < 1)
             {
                 error = "a run cannot have coincident start and end points";
                 return false;
             }
 
-            runs.Add(Line.CreateBound(startPoint, endPoint));
+            runs.Add(input);
         }
 
         return true;
     }
 
-    private static double MaxRiserHeightFt(Document doc, StairsType? stairsType)
+    /// <summary>
+    /// The type StairsEditScope.Start gives a new stair — the document default — so the preview
+    /// plans with the tread and riser of the stair that will really be built.
+    /// </summary>
+    private static StairsType? DefaultStairsType(Document doc)
     {
-        var type = stairsType ?? new FilteredElementCollector(doc)
+        try
+        {
+            var defaultId = doc.GetDefaultElementTypeId(ElementTypeGroup.StairsType);
+            if (defaultId != ElementId.InvalidElementId && doc.GetElement(defaultId) is StairsType byDefault)
+                return byDefault;
+        }
+        catch
+        {
+            // Fall back to any stair type: an estimate is better than none.
+        }
+        return new FilteredElementCollector(doc)
             .OfClass(typeof(StairsType))
             .Cast<StairsType>()
             .FirstOrDefault();
+    }
 
-        if (type == null) return 0;
-        try { return type.MaxRiserHeight; } catch { return 0; }
+    private static double BaseOffsetFt(Element? stairs)
+    {
+        try
+        {
+            var parameter = stairs?.get_Parameter(BuiltInParameter.STAIRS_BASE_OFFSET);
+            return parameter != null && parameter.HasValue ? parameter.AsDouble() : 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static double ReadOrZero(Func<double> read)
+    {
+        try { return read(); } catch { return 0; }
+    }
+
+    private static int? ReadIntOrNull(Func<int> read)
+    {
+        try { return read(); } catch { return null; }
     }
 }

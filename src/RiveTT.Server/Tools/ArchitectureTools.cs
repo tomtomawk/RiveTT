@@ -108,6 +108,93 @@ public static class ArchitectureTools
         return (await revit.ExecuteAsync("set_wall_host", request, ct)).ToString();
     }
 
+    [McpServerTool(Name = "attach_walls"), Description("Attach (or detach) the top or base of walls to a roof, floor, ceiling, toposolid or wall, ONE WALL PER TRANSACTION. Each refusal comes back in failed[] with Revit's message and relatedElements: the other elements Revit blamed, with their category (typically a roof overhang cutting into higher walls). mode bestEffort (default) keeps the walls that pass; atomic keeps none if one fails. The dry run really tries every wall, then rolls everything back — use it to find the wall that blocks.")]
+    public static async Task<string> AttachWalls(
+        RevitConnectionManager revit,
+        [Description("Wall ids, JSON array, e.g. [10639950, 10639951]")] System.Text.Json.JsonElement wallIds,
+        [Description("Roof, floor, ceiling, toposolid or wall id to attach to")] long targetId,
+        [Description("top (default) | base")] string location = "top",
+        [Description("attach (default) | detach")] string action = "attach",
+        [Description("bestEffort (default) | atomic")] string mode = "bestEffort",
+        [Description("Preview without changing the model. Default: true — each wall is really tried, then rolled back")] bool dryRun = true,
+        CancellationToken ct = default)
+    {
+        if (!JsonArrayParam.TryParse(wallIds, out var wallIdsArray))
+            return JsonArrayParam.InvalidArrayResult("attach_walls", "wallIds", wallIds);
+        var p = new JObject
+        {
+            ["wallIds"] = wallIdsArray,
+            ["targetId"] = targetId,
+            ["location"] = location,
+            ["action"] = action,
+            ["mode"] = mode,
+            ["dryRun"] = dryRun
+        };
+        return (await revit.ExecuteAsync("attach_walls", p, ct)).ToString();
+    }
+
+    [McpServerTool(Name = "describe_family"), Description("Measure a loadable family type around its insertion point BEFORE placing it: placement type and the Z rule that goes with it (level-based: relative; hosted: absolute), facing direction, and extents in family coordinates (mm) — visibleExtentMm (solids, the physical footprint), fullExtentMm (invisible clearances included), planViewExtentMm (with planViewId: what the plan draws) and boundingBoxMm (Revit's box, NOT a footprint). warnings say when the origin is off-centre or the box includes clearances. Pass instanceId, typeId, or familyName + typeName (a placed instance is measured when one exists). Read-only.")]
+    public static async Task<string> DescribeFamily(
+        RevitConnectionManager revit,
+        [Description("Placed family instance id to measure")] long? instanceId = null,
+        [Description("Family type (FamilySymbol) id")] long? typeId = null,
+        [Description("Family name, with typeName, when the ids are not known")] string? familyName = null,
+        [Description("Type name within familyName")] string? typeName = null,
+        [Description("Plan view id: also measure what that view draws (symbolic lines, clearance outlines)")] long? planViewId = null,
+        [Description("Coarse | Medium | Fine (default)")] string? detailLevel = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject();
+        if (instanceId != null) p["instanceId"] = instanceId;
+        if (typeId != null) p["typeId"] = typeId;
+        if (familyName != null) p["familyName"] = familyName;
+        if (typeName != null) p["typeName"] = typeName;
+        if (planViewId != null) p["planViewId"] = planViewId;
+        if (detailLevel != null) p["detailLevel"] = detailLevel;
+        return (await revit.ExecuteAsync("describe_family", p, ct)).ToString();
+    }
+
+    [McpServerTool(Name = "place_in_room"), Description("Place a level-based family (bed, WC, shower, sink, sofa, bike...) IN A ROOM by its VISIBLE footprint, not its insertion point: it is placed on the room's level (elevation measured and corrected), rotated (rotationDeg, counter-clockwise; agency families face -Y at 0, +X at 90), centred on anchorMm (default: centre of the room), pushed against the walls named in against (N = +Y, S = -Y, E = +X, W = -X) at marginMm from the finish face, and kept inside the room. The response gives the final footprint, insideRoom, tooLargeForRoom (for a clearance family: the room does not comply) and the collisions with other equipment. Preview first: the dry run really places it, then rolls back.")]
+    public static async Task<string> PlaceInRoom(
+        RevitConnectionManager revit,
+        [Description("Room element id")] long roomId,
+        [Description("Family type id (or familyName + typeName)")] long? typeId = null,
+        [Description("Family name, e.g. SAN_WC")] string? familyName = null,
+        [Description("Type name, e.g. Suspendu PMR")] string? typeName = null,
+        [Description("Rotation in degrees, counter-clockwise. Default: 0")] double rotationDeg = 0,
+        [Description("Walls to push against, JSON array of N | S | E | W, e.g. [\"E\",\"S\"]")] System.Text.Json.JsonElement? against = null,
+        [Description("Gap to the finish face in mm. Default: 15")] double marginMm = 15,
+        [Description("Target for the centre of the footprint, JSON [x, y] in mm. Default: centre of the room")] System.Text.Json.JsonElement? anchorMm = null,
+        [Description("Height above the level in mm. Default: 0")] double offsetMm = 0,
+        [Description("Preview without changing the model. Default: true")] bool dryRun = true,
+        CancellationToken ct = default)
+    {
+        var p = new JObject
+        {
+            ["roomId"] = roomId,
+            ["rotationDeg"] = rotationDeg,
+            ["marginMm"] = marginMm,
+            ["offsetMm"] = offsetMm,
+            ["dryRun"] = dryRun
+        };
+        if (typeId != null) p["typeId"] = typeId;
+        if (familyName != null) p["familyName"] = familyName;
+        if (typeName != null) p["typeName"] = typeName;
+        if (JsonOptionalParam.IsProvided(against))
+        {
+            if (!JsonArrayParam.TryParse(against, out var againstArray))
+                return JsonArrayParam.InvalidArrayResult("place_in_room", "against", against);
+            p["against"] = againstArray;
+        }
+        if (JsonOptionalParam.IsProvided(anchorMm))
+        {
+            if (!JsonArrayParam.TryParse(anchorMm, out var anchorArray))
+                return JsonArrayParam.InvalidArrayResult("place_in_room", "anchorMm", anchorMm);
+            p["anchorMm"] = anchorArray;
+        }
+        return (await revit.ExecuteAsync("place_in_room", p, ct)).ToString();
+    }
+
     private static async Task<string> CreateHostedOpening(
         RevitConnectionManager revit, string category, long typeId, long hostWallId,
         System.Text.Json.JsonElement locationPoint, long levelId, bool facingFlipped, bool handFlipped,

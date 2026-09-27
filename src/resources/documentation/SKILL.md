@@ -23,6 +23,29 @@ Ce document est autonome : les règles, procédures, conventions, signatures et 
 10. Lire toute valeur numérique avec son `unit` et son `internalValue`. Revit stocke les longueurs en pieds, les surfaces en pieds carrés et les volumes en pieds cubes.
 11. Énumérer les types système avec `list_system_types`. Pour inclure les familles chargeables, notamment cartouches et meneaux, passer `includeLoadable: true`.
 12. Si `execution.versionMismatch` apparaît, quitter complètement l'application d'IA, relancer l'installateur, puis rouvrir l'application. Redémarrer Revit seul ne corrige pas la moitié serveur restée ancienne.
+13. **Regarder ce qui a été construit.** Après chaque écriture importante : `capture_view` d'un plan par niveau modifié et d'une vue 3D, examinées avec un œil critique (éléments flottants, doublons, portes-fenêtres sans espace extérieur). Si l'image n'arrive pas, `test_image_relay` dit si le client relaie les images.
+14. **Concevoir avant de construire.** Un plan de logement se décrit d'abord en JSON et passe `validate_spec` ; seul un plan conforme est modélisé, puis contrôlé par `validate_dwelling`. Ne jamais inventer le programme : typologies, surfaces, part PMR se demandent ou se proposent explicitement.
+15. **Mesurer une famille avant de la poser.** `describe_family` donne l'origine, l'emprise visible et la règle de Z. La boîte englobante n'est jamais une emprise : elle inclut les gabarits invisibles.
+
+## Carte des outils par tâche
+
+Les outils sont chargés à la demande : les appeler par leur nom exact. Outil dédié d'abord ; `send_code_to_revit` pour une série ou ce qu'aucun outil ne couvre.
+
+| Tâche | Outils dédiés | `send_code_to_revit` si… |
+|---|---|---|
+| Projet | `create_document`, `get_project_info`, `save_document`, `activate_view` | — |
+| Voir | `capture_view` (image + correspondance pixels/mm), `get_selected_elements` (géométrie, contours fermés) | — |
+| Types, matériaux | `list_system_types`, `list_family_types`, `duplicate_system_type`, `set_compound_structure`, `create_material` | couche à modifier par index |
+| Murs | `create_wall`, `create_line_based_element` (lot, `key`), `attach_walls`, `detach_wall_constraint` | toit à pentes par côté |
+| Dalles, toits | `create_floor`, `create_surface_based_element` | — |
+| Menuiseries, équipements | `create_door`, `create_window`, `create_point_based_element` (lot : `key`, `levelName`, `familyName`+`typeName`, `findHost`, `zMode`) | — |
+| Mobilier dans une pièce | `describe_family` puis `place_in_room` (emprise visible, murs `N/S/E/O`, collisions) | — |
+| Escaliers | `create_stair` (volées empilées, paliers vérifiés) | recalage fin des volées |
+| Garde-corps | `create_railing` | série de balcons |
+| Pièces | `create_room`, `create_room_separation_line`, `tag_rooms` (`tagTypeId`, `onePerParameter`), `renumber_elements` | paramètres ARC_PAR_* en série |
+| Surfaces réglementaires | `manage_area_plans` — une somme de pièces n'est pas une SHAB | — |
+| Contrôles | `list_warnings`, `check_model_health`, `validate_dwelling`, `validate_spec`, `find_untagged_elements`, `get_room_openings`, `export_room_data`, `detect_clashes` | — |
+| Terrain | `create_toposolid` | déformation (noue, talus) |
 
 ## Organisation du guide
 
@@ -35,6 +58,8 @@ Ce document est autonome : les règles, procédures, conventions, signatures et 
 | Contrôler la santé, les conflits, les vues et les annotations | Contrôle du modèle, vues et annotations |
 | Lier, reconstruire ou exporter un IFC | IFC |
 | Connaître le contrat d'un outil | Signatures des outils ; Inventaire des outils |
+| Concevoir un logement et le contrôler | Concevoir et contrôler un logement |
+| Script C#, pièges de l'API Revit | Escalader vers send_code_to_revit |
 
 ---
 
@@ -191,7 +216,19 @@ sur disque. Il n'existe aucune boîte de confirmation dans Revit — la prévisu
 est la seule étape de relecture.
 
 `CodeSandbox` refuse les accès fichiers et réseau, la création de processus, le
-registre, l'interop native et les détours par la réflexion.
+registre, l'interop native et les détours par la réflexion. `obj.GetType()` et
+`obj.GetType().Name` restent permis, même dans un appel de journal ; `GetType("…")` avec
+un argument ne l'est pas.
+
+`transactionMode: "readonly"` est la seule forme de l'outil admise **verrou fermé** : le
+script tourne dans un groupe de transactions **toujours annulé**, rien de ce qu'il fait à
+la maquette n'est conservé. Ce qu'une annulation ne rattrape pas est refusé d'avance, sur
+l'arbre compilé du script et non sur son texte : enregistrement, export, impression,
+ouverture ou fermeture de document, synchronisation, changement de vue active, accès aux
+**autres** documents ouverts (`Application.Documents`), abonnement à un événement
+(`Idling`…), `ExternalEvent`, updaters, threads, tâches et minuteries — tout ce qui
+s'exécuterait après l'annulation —, ainsi que tout type ou membre déclaré hors du corps du
+script.
 
 **Ce n'est pas une frontière de sécurité**, et il ne faut pas s'en servir comme telle.
 C'est un filtre par motifs sur le texte du code : il arrête l'erreur et le geste
@@ -357,6 +394,11 @@ transactions Revit, erreurs structurées, vérification après coup.
 **Toute prévisualisation doit porter `mutated: false`.** Son absence est une rupture
 de contrat : ne pas enchaîner sur l'écriture réelle.
 
+Elle porte aussi `previewLimits` : ce qu'elle n'a **pas** pu voir. Un aperçu par
+exécution puis annulation ne passe pas par le commit, où Revit contrôle jointures,
+attaches, découpes des ouvertures et composants déconnectés : l'appel réel peut encore
+être refusé. `create_stair` liste en plus `notVerified`.
+
 ### Lire ce que la réponse dit vraiment
 
 Un succès n'est pas un résultat utilisable. Plusieurs outils réussissent en
@@ -366,7 +408,11 @@ produisant quelque chose d'inexploitable, et le disent :
 |---|---|---|
 | `create_room` | `enclosed`, `areaM2` | une pièce non fermée a une aire nulle et ne sert à rien |
 | `create_sheet` | `hasTitleBlock` | sans cartouche, c'est une feuille A4 nue sans cadre |
-| `create_stair` | `reachesTopLevel` | la volée peut ne pas atteindre le niveau visé |
+| `create_stair` | `reachesTopLevel`, `runs`, `landingProblems` | contremarches réelles volée par volée ; un palier impossible annule tout sauf `requireLandings: false` |
+| `create_point_based_element`, `create_line_based_element` | `failed[]` avec `key`, `zCorrectedByMm` | quel élément du lot a échoué ; correction d'altitude appliquée |
+| `place_in_room` | `insideRoom`, `tooLargeForRoom`, `conflicts` | emprise hors pièce, pièce trop petite, collisions |
+| `capture_view` | `mapping.aspectMatchesCrop`, `verified: false`, `mmPerPixel`, `originTopLeftMm` | la correspondance pixels/mm est une hypothèse tant qu'elle n'a pas été étalonnée : `highlightIds` sur un élément de position connue |
+| `validate_spec`, `validate_dwelling` | `compliant`, `checks`, `notEvaluated` | `compliant: true` exige qu'aucune règle bloquante n'échoue **et** que toutes aient pu être évaluées |
 | tous | `warnings`, `notFoundIds`, `unresolvedParameterNames`, `skippedFields`, `cascadedElements` | ce qui a été sauté, et pourquoi |
 
 Après une écriture, lire d'abord ce rapport, avant de relire le modèle. Et une
@@ -439,13 +485,68 @@ Ces espaces de noms sont refusés par `CodeSandbox.Validate` avec
 `RiveTTErrorCode.PermissionDenied` :
 
 `System.IO` · `System.Net` · `System.Diagnostics.Process` · `Microsoft.Win32` ·
-`System.Reflection.Emit` · `System.Runtime.InteropServices`
+`System.Reflection` (en entier) · `System.Runtime.InteropServices`, ainsi que le mot-clé
+`dynamic`, `Activator.CreateInstance` et tout `.Invoke(` sur une valeur.
 
 #### Conventions de code
 
-- le document se nomme `document`, jamais `doc` ni `uidoc` ;
+- le document se nomme `document`, jamais `doc` ni `uidoc` ; `scriptArgs` (JObject) porte
+  les valeurs passées dans le paramètre du même nom ;
 - `new UIDocument(document)` pour l'interface ;
-- un `ElementId` se lit par `.Value`.
+- un `ElementId` se lit par `.Value` ;
+- `Autodesk.Revit.DB.Architecture` (`Room`, `Stairs`, `StairsRun`, `Railing`) et
+  `Autodesk.Revit.DB.Structure` sont importés : les noms courts suffisent ;
+- `return new { … }` revient en JSON structuré ; un `Element` s'écrit id / nom /
+  `categoryBic`, un `XYZ` en pieds avec `unit: "ft"`.
+
+| `transactionMode` | Effet |
+|---|---|
+| `auto` (défaut) | une transaction autour du script ; une erreur Revit au commit annule tout |
+| `group` | un groupe, une seule entrée d'annulation ; chaque `Section(...)` est validée ou annulée seule |
+| `none` (alias `manual`) | aucune transaction : le script ouvre les siennes — obligatoire pour `StairsEditScope` |
+| `readonly` | groupe toujours annulé ; admis verrou fermé |
+
+Une valeur inconnue est refusée — elle retombait auparavant sur `auto`, si bien que
+`readonly` validait les modifications.
+
+Aides disponibles sans préfixe, **longueurs en millimètres** :
+
+| Aide | Rôle |
+|---|---|
+| `Mm(mm)`, `ToMm(pieds)`, `Pt(x, y, z)` | conversions ; `Pt` rend un `XYZ` en pieds |
+| `Log(texte)` | journal renvoyé dans `scriptRun.log` |
+| `LevelByName(nom)` | niveau exact puis sans casse, sinon erreur listant les niveaux |
+| `TypeByName<WallType>(nom)` | type exact, puis sans casse, puis par **préfixe unique** — le choix est journalisé |
+| `SymbolByName(famille, type)` | type de famille chargeable |
+| `FindHostWall(point, niveau)` | mur traversé par le point, à la demi-épaisseur près |
+| `PlaceOnLevel(symbole, point, niveau, rotationDeg, offsetMm)` | famille posée sur un niveau ; son altitude est **mesurée puis corrigée** |
+| `PlaceInWall(symbole, point, mur, niveau, allegeMm)` | famille hébergée ; Z **absolu** |
+| `Section("murs", () => { … })` | bloc isolé, rapporté dans `scriptRun.sections` |
+
+Un script long s'écrit en `Section`s sous `transactionMode: "group"` : une section en
+échec est annulée seule, avec ses messages et les identifiants en cause, les autres
+restent. La réponse porte `scriptRun.changes` (identifiants créés, modifiés, supprimés).
+Le dry-run **compile** le script : une erreur de syntaxe ou un refus du mode `readonly`
+revient avant toute exécution. Une erreur d'exécution donne la **ligne** du script
+(`line`) ; le script est enregistré même en échec. Pour corriger une ligne sans tout renvoyer : `fromScript` (le
+`scriptName`) et `edits: [{oldText, newText}]`, chaque `oldText` devant être unique.
+
+#### Pièges de l'API Revit rencontrés
+
+- `Wall.Orientation` juste après `Wall.Create` lève une exception : `document.Regenerate()` d'abord.
+- Altitude du point d'insertion : famille **posée sur un niveau** (mobilier, sanitaires,
+  vélos) → Revit a compté l'altitude du niveau deux fois (+2,89 m au R+1) ; famille
+  **hébergée** (portes, fenêtres, ETEL) → Z absolu, sinon « impossible de couper
+  l'occurrence ». `PlaceOnLevel` et `PlaceInWall` appliquent ces règles.
+- `get_BoundingBox` n'est pas une emprise : elle inclut les gabarits invisibles.
+- Toit : un débord qui pénètre des murs plus hauts empêche l'attache de ces murs ;
+  `attach_walls` attache mur par mur et nomme les éléments en cause.
+- `SlabShapeEditor` : après `ResetSlabShape()`, relire l'éditeur et `Enable()` ; le reset
+  efface **toutes** les déformations du terrain.
+- `NewRoomBoundaryLines` exige une vue en plan du niveau et un `SketchPlane` à son
+  altitude ; `Room.Name` rend « nom + numéro », lire `ROOM_NAME` pour le nom seul.
+- `NewRoomTag` pose le type par défaut : `ChangeTypeId` ensuite, ou `tag_rooms(tagTypeId)`.
+- Tableaux mixtes `new[]{ {1.0,2}, {3,4} }` refusés : `double[,]`.
 
 Un `ExternalEvent` est un contexte d'API valide, et moins contraint qu'on ne l'a cru :
 changer de document actif et ouvrir un `StairsEditScope` y fonctionnent. Avant de
@@ -463,6 +564,75 @@ contexte-là et non un gestionnaire d'événement API ou un éditeur modal.
 - Supposer que l'utilisateur préfère un script : c'est l'option B par défaut.
 
 ---
+
+## Concevoir et contrôler un logement
+
+### Méthode
+
+| Phase | Contenu | Livrable avant de passer à la suite |
+|---|---|---|
+| 0. Programme | nombre de logements, mix, surfaces cibles, part PMR, locaux communs, contraintes de façade | hypothèses validées par l'utilisateur |
+| 1. Esquisse | le logement en JSON (schéma ci-dessous) | JSON relu |
+| 2. Contrôle | `validate_spec` jusqu'à `compliant: true` | rapport sans erreur |
+| 3. Construction | outils dédiés en lot, `send_code_to_revit` en `Section`s | modèle + `capture_view` |
+| 4. Vérification | `validate_dwelling`, `list_warnings`, `capture_view` par niveau et en 3D | écarts corrigés ou signalés |
+
+Sur la session de test du 24/09/2026, modéliser sans programme ni schéma validé a coûté
+trois versions complètes des plans. « Améliore » veut dire reprendre **toutes** les
+remarques précédentes et la vérification, pas seulement la dernière demande.
+
+### Schéma JSON d'un logement
+
+Millimètres, repère projet (X vers l'est, Y vers le nord) :
+
+    { "id": "A2", "level": "R+1", "typology": "T2", "targetAreaM2": 47,
+      "rooms": [ { "name": "Entrée", "polygon": [[8090,6830],[10400,6830],[10400,9000],[8090,9000]] }, … ],
+      "partitions": [ { "type": "CLO_Distribution_10", "p0": [8000,9000], "p1": [10400,9000] } ],
+      "doors": [ { "family": "PTE_Porte palière", "type": "PP93x220 16", "at": [9000,6740] } ],
+      "equipment": [ { "family": "ELC_ETEL", "type": "ETEL", "at": [9950,9000] },
+                     { "family": "SAN_Douche sans ressaut", "type": "90 x 120", "footprint": [[…]] } ] }
+
+Noms de pièces du vocabulaire de la charte (Entrée, Séjour / Cuisine, Chambre 1, Sde, Sdb,
+WC, Dgt, Rgt, Cellier) ou `kind` explicite. `holes` (poteaux, gaines dans la pièce) sont
+déduits de la surface et des aires libres. Une emprise (`footprint`) est déduite des
+cercles et rectangles libres ; un équipement sans emprise ne l'est pas, et le rapport le
+dit. `validate_dwelling(includeSpec: true)` rend un logement construit dans ce même
+schéma : c'est ainsi qu'un logement livré devient un plan type.
+
+### Règles contrôlées
+
+`validate_spec(listRules: true)` rend le catalogue avec seuils et sources. Chaque
+contrôle porte sa source : **Réglementaire** (arrêté du 24/12/2015, à vérifier sur le
+texte en vigueur avant tout usage opposable), **Charte agence**, **Pratique agence** (à
+confirmer). Seuils ajustables par `rules`, jamais ignorés en silence.
+
+| Règle | Contrôle |
+|---|---|
+| `ENTREE_OUVERTE_SEJOUR` | frontière ouverte ≥ 0,90 m entre entrée et séjour, sans cloison ni porte |
+| `ENTREE_GABARIT` | rectangle libre 1,20 × 2,20 m dans l'entrée |
+| `ETEL_ENTREE` | `ELC_ETEL` dans l'entrée |
+| `CIRC_INT_LARGEUR`, `_MAX` | disque de 0,90 m passant d'un bout à l'autre du dégagement ; viser 1,00 m, pas plus |
+| `RATIO_CIRCULATION` | (entrée + dégagements) / surface ≤ 12 % |
+| `CERCLE_150_SDE`, `CERCLE_150_SEJOUR` | cercle libre Ø 1,50 m, équipements déduits (débattement de porte non déduit) |
+| `CHAMBRE_PMR_LIT` | une chambre contient 3,20 × 3,10 m |
+| `WC_SEPARE`, `CHAMBRE_DEPUIS_DGT` | à partir du T3 |
+| `CUISINE_TYPO`, `WC_PMR`, `DOUCHE_PLAIN_PIED`, `PORTES_PASSAGE` | équipements et types de la charte |
+| `SURF_*`, `TYPOLOGIE_COHERENTE`, `PIECES_NOMMEES`, `SURFACE_PROGRAMME` | surfaces minimales, cohérence T n = n − 1 chambres, noms, programme |
+
+Non couvert : règles de niveau (ascenseur unique, circulations communes 1,20 à 1,30 m,
+gaines palières, portes-fenêtres sur espace extérieur), incendie, acoustique, structure,
+RE2020. La surface rendue est une **somme de pièces**, pas une SHAB : `manage_area_plans`.
+
+### Familles du gabarit agence 2026
+
+Relevé du 23/09/2026, à re-mesurer avec `describe_family` si une famille change :
+
+- face avant vers −Y à rotation 0 ; 90° → +X ; origine **jamais** supposée au centre ;
+- `MOB_Lit · 140 x 190 cm_Gabarit PMR 90 x 120 x 90 cm` : 3,20 × 3,10 m, origine à l'angle
+  du gabarit ; la chambre doit contenir cette emprise ;
+- `EQS_Ascenseur porte · 630KG` contient déjà la cabine : ne pas ajouter `EQS_Ascenseur` ;
+- `ELC_ETEL` sur `CLO_Distribution_10`, face vers l'entrée (`flipFacing` sinon) ;
+- portes intérieures `PP 93x204`, palières `PP93x220 16`.
 
 ## Conventions corrigées en 0.5.1
 
@@ -510,9 +680,38 @@ contexte-là et non un gestionnaire d'événement API ou un éditeur modal.
   suivants le ciblent et les caches sont vidés. Enregistrer le document courant avant :
   le changement ne le sauvegarde pas.
 - `create_stair` : escalier par composant entre deux niveaux, volées droites (`runs`) et
-  paliers automatiques. La réponse compare `actualRiserCount` à `desiredRiserCount` et
-  donne `reachesTopLevel` : une volée trop courte produit un escalier qui n'atteint pas
-  l'étage.
+  paliers automatiques. Chaque volée part du haut de la précédente ; placer le départ de
+  chaque volée contre l'arrivée de la précédente (U : décalé de la largeur plus le jour,
+  L : à l'angle). Un palier que Revit refuse annule l'escalier, avec la géométrie en
+  cause (`requireLandings: false` garde les volées). Le dry-run estime les contremarches
+  volée par volée et refuse une jonction qu'aucun palier ne franchit. La réponse compare
+  `actualRiserCount` à `desiredRiserCount` et donne `reachesTopLevel`.
+- `capture_view` : **l'image** d'une vue, renvoyée comme contenu MCP, avec la vue, la
+  taille et, pour un plan recadré, `mapping` (modèle = gauche + px × mmPerPixel,
+  haut − py × mmPerPixel). `bboxMm` recadre un plan, `highlightIds` passe des éléments en
+  rouge, `isolateCategories` n'en garde que certains : tout se fait sur une copie
+  temporaire annulée. Environ 1 500 à 2 000 jetons l'image à 1 600 px. Lecture seule.
+- `test_image_relay` : image de test (« TEST 42 ») sans Revit, pour savoir si le client
+  relaie les images ; sinon `capture_view` avec `returnMode: "file"`.
+- `get_selected_elements` : sélection avec géométrie en mm (extrémités et longueur des
+  courbes, points, boîtes) et `curveAnalysis` : quatre lignes fermées sont un
+  **contour**, pas un axe. Lecture seule.
+- `describe_family` : origine, orientation (`facingOrientationLocal`), règle de Z et
+  emprises en coordonnées famille — visible, complète (gabarits compris), plan, boîte.
+- `place_in_room` : pose d'une famille sur niveau dans une pièce par son emprise visible,
+  centrée sur `anchorMm`, plaquée aux murs `against` (N = +Y, E = +X) à `marginMm`, avec
+  collisions et verdict `insideRoom`.
+- `attach_walls` : attache ou détache le haut ou la base de murs à un toit, un sol, un
+  plafond, un toposolide ou un mur, une transaction par mur ; chaque refus nomme les
+  éléments en cause (`relatedElements`). Le dry-run essaie chaque mur puis annule.
+- `create_point_based_element` : pose en lot, chaque élément dans sa transaction. `key`
+  revient dans `details` et `failed[]` ; `levelName`, `familyName` + `typeName` évitent
+  les identifiants ; `findHost: true` prend le mur trouvé au point. L'altitude d'une
+  famille posée sur un niveau est mesurée et corrigée (`zCorrectedByMm`) ; une famille
+  posée à 1 m ou plus sous son propre niveau est refusée.
+- `tag_rooms` : `tagTypeId` ou `tagTypeName` choisit le type ; `roomNameContains` et
+  `onePerParameter` (par exemple `ARC_PAR_NUMERO_LOGEMENT`) posent une étiquette par
+  logement ; chaque pièce non étiquetée revient avec sa raison.
 - `edit_group_members` : ajout et retrait de membres. L'API Revit ne sait pas modifier
   un groupe en place : l'outil dégroupe, modifie, regroupe, et **crée donc un nouveau
   type**. Refuse un type à plusieurs occurrences sauf `allowMultiInstance: true`, car
@@ -566,6 +765,8 @@ dégroupage/regroupage ne sait faire.
   `baseOffset` font foi. `create_door` / `create_window` attendent un `z` **absolu
   projet**, sauf avec `zMode: "relativeToLevel"` où `z` s'ajoute à l'altitude du niveau.
   Un point hors de la plage verticale de l'hôte est refusé, avec les bornes en mm.
+  Pour le mobilier et les sanitaires, `zMode: "relativeToLevel"` avec `z = 0` : l'outil
+  mesure l'altitude obtenue et la corrige.
 - **Noms de paramètres.** Ils se résolvent en anglais comme dans la langue du document
   (`Mark`/`Repère`, `Level`/`Niveau`, `Width`/`Largeur`). Un nom non résolu est signalé
   dans `unresolvedParameterNames` avec des suggestions, jamais rendu par une colonne
@@ -580,6 +781,13 @@ Chaque succès contient `execution.connector`, `pluginVersion`, `mcpServerVersio
 `revitVersion`, `revitProcessId`, `documentTitle`, `mode`, `toolReadOnly`,
 `toolDestructive`, `supportsDryRun`, `writesAllowed` et `cached`, plus `versionMismatch`
 quand les deux versions diffèrent.
+
+Pour ne pas répéter les mêmes lignes, `connector`, les deux versions, `revitVersion` et
+`mode` ne sont renvoyés que lorsqu'ils changent ; sinon `execution.sessionUnchanged: true`
+signifie « mêmes versions et même mode que la réponse précédente ». Ils reviennent en
+entier sur `get_project_info`, `get_server_capabilities`, `ping_revit`, sur un changement
+de cible et en cas d'écart de versions. `revitProcessId`, `documentTitle`, `toolReadOnly`,
+`supportsDryRun` et `writesAllowed` sont sur **chaque** réponse.
 
 `revitProcessId` et `documentTitle` disent **dans quel Revit et dans quel fichier**
 l'appel a eu lieu. Avec deux instances de Revit ouvertes, le serveur se connecte à la
@@ -606,7 +814,8 @@ une réponse servie par le cache ; tout cache est vidé après
 invalide dès que le document Revit change, pour éviter de mélanger deux états du modèle.
 
 Les erreurs de transaction fournissent `warnings`, `errors`, `rolledBack`,
-`failedElementIds` et `repairHints`. Les workflows complexes acceptent
+`failedElementIds`, `errorGroups` (chaque message distinct, son nombre d'occurrences et
+ses identifiants : « ×77 » au lieu de 77 lignes) et `repairHints`. Les workflows complexes acceptent
 `warningPolicy: suppress_all | allow_list` ; avec `allow_list`, tout avertissement non
 autorisé provoque un retour arrière.
 
@@ -632,7 +841,7 @@ aucune fenêtre ne s'ouvre. Limité aux types existants et à leurs valeurs de p
 Restent indisponibles, et `get_server_capabilities` le déclare :
 
 - **escaliers esquissés**, volées hélicoïdales et balancements : `create_stair` couvre
-  l'escalier par composant, volées droites et paliers ;
+  l'escalier par composant, volées droites empilées et paliers automatiques ;
 - **édition de groupe en place** : l'API ne le permet pas ;
 - **propagation d'armatures** : absente de l'API Revit sur toutes les versions prises en
   charge.
@@ -683,9 +892,9 @@ ressemble à « aucun conflit ».
 
 #### Ce qui dépend de la vue active
 
-`tag_rooms`, `tag_walls` et `color_elements` n'opèrent que sur la **vue active de
-Revit**, et seulement si elle contient des éléments visibles de la catégorie visée.
-Vérifier avec `get_current_view_info` avant, systématiquement.
+`tag_walls` et `color_elements` n'opèrent que sur la **vue active de Revit**, et
+seulement si elle contient des éléments visibles de la catégorie visée : vérifier avec
+`get_current_view_info` avant. `tag_rooms` accepte `viewId` et vise la vue demandée.
 
 `color_elements` échoue sur une feuille ou une page de garde : basculer d'abord sur
 un plan ou une vue 3D. Il attend par ailleurs des noms de catégorie **localisés**,
@@ -837,7 +1046,10 @@ la section **Inventaire des outils**.
 ### Contrat de réponse
 
 Tout succès porte `execution.{connector, pluginVersion, mcpServerVersion,
-revitVersion, mode, toolReadOnly, toolDestructive, writesAllowed, cached}`.
+revitVersion, revitProcessId, documentTitle, mode, toolReadOnly, toolDestructive,
+supportsDryRun, writesAllowed, cached}` — versions, connecteur et mode remplacés par
+`sessionUnchanged: true` quand ils n'ont pas changé. Un aperçu ajoute `dryRun`,
+`mutated: false` et `previewLimits`.
 `toolReadOnly` classe l’appel et son action, pas la session ; `writesAllowed` est le verrou de
 session. Les anciens noms `readOnly`/`destructive` n'existent plus, et
 `serverVersion` non plus : il était lu sur le plugin, ce qui rendait invisible une
@@ -952,7 +1164,7 @@ Sources vérifiées le 7 septembre 2026 :
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-09-09 — connecteur 0.5.4 — **200 outils publiés**, 197 classes runtime.
+Relevé du 2026-09-26 — connecteur 0.6.0 — **207 outils publiés**, 204 classes runtime.
 
 ### Comment lire ce document
 
@@ -973,13 +1185,13 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 
 | Mesure | Valeur |
 |---|---|
-| Outils publiés | **200** |
-| Dont écriture | **137** (68 %) — c'est la part que le verrou du ruban gouverne |
-| Écritures sans `dryRun` | **37** sur 137 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
+| Outils publiés | **207** |
+| Dont écriture | **139** (67 %) — c'est la part que le verrou du ruban gouverne |
+| Écritures sans `dryRun` | **37** sur 139 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
 | Défauts critiques et majeurs corrigés | **8**, gardés par `ConfirmedDefectFixSourceTests` |
 | Lacunes API comblées depuis le relevé précédent | **16** sur 19 |
-| Erreurs génériques `Failed: …` sans suggestion | **0** |
-| Géométrie par boîte englobante | **14** |
+| Erreurs génériques `Failed: …` sans suggestion | **1** |
+| Géométrie par boîte englobante | **15** |
 | Classement `[ToolSafety]` en désaccord avec le nom | **14** |
 | Défauts confirmés / signaux à vérifier | **0** / **12** |
 
@@ -987,10 +1199,10 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 
 | Catégorie | Outils | Part |
 |---|---:|---:|
-| Elements | 65 | 32 % |
-| Project | 49 | 24 % |
+| Elements | 68 | 33 % |
+| Project | 50 | 24 % |
 | IFC | 20 | 10 % |
-| Views | 14 | 7 % |
+| Views | 15 | 7 % |
 | LinkedFiles | 10 | 5 % |
 | Annotations | 9 | 4 % |
 | Parameters | 8 | 4 % |
@@ -999,12 +1211,13 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 | Meta | 4 | 2 % |
 | Workflows | 4 | 2 % |
 | Architecture | 2 | 1 % |
+| (sans) | 2 | 1 % |
 | Code | 1 | 0 % |
 | Interop | 1 | 0 % |
 
 Le ferraillage et la charpente métallique — 112 outils, 38 % de la surface — ont été
 retirés du dépôt, pas filtrés. Ce qui reste est le catalogue que l'agent lit à chaque
-session : 200 outils dont 68 % d'écriture, tous dans le périmètre logement,
+session : 207 outils dont 67 % d'écriture, tous dans le périmètre logement,
 équipement, tertiaire et santé.
 
 ### Défauts corrigés
@@ -1058,7 +1271,7 @@ documentation.
 
 ### Inventaire complet
 
-#### Elements — 65 outils
+#### Elements — 68 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
@@ -1068,6 +1281,7 @@ documentation.
 | `create_door` → `create_point_based_element` | écriture | oui | 5 | Place a door family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give z… | **mineur** — géométrie par boîte englobante |
 | `create_window` → `create_point_based_element` | écriture | oui | 5 | Place a window family type in a host wall. ELEVATION: locationPoint.z is an ABSOLUTE project elevation by default - pass zMode=relativeToLevel to give… | **mineur** — géométrie par boîte englobante |
 | `filter_elements` | lecture | — | 5 | Paginated element query by category, level, group status or wall constraint status. Returns totalCount, returnedCount, appliedLimit and nextCursor. re… | **mineur** — classement déclaré (lecture) différent du préfixe du nom ; géométrie par boîte englobante |
+| `get_selected_elements` | lecture | — | 5 | Get the elements currently selected in Revit, with their geometry in mm: curve end points and length, location point, bounding box, type and level. cu… | **mineur** — géométrie par boîte englobante |
 | `manage_area_plans` | écriture | — | 5 | Builds regulatory area surfaces (SHAB/SU/SDP): area schemes, area plan views, area boundary lines, and Area elements. action=list_schemes\|duplicate_sc… | **mineur** — pas de dryRun |
 | `batch_rename` | écriture destructif | oui | 5 | Batch rename elements or system types in the Revit project. Supports both loadable-family elements and system types (wall/floor/ceiling/roof types). | — |
 | `create_floor` | écriture | oui | 5 | Create an architectural floor from a boundary (or a room), optionally with holes. Provide boundaryPoints OR roomId. Previews by default: the dry run r… | — |
@@ -1084,7 +1298,6 @@ documentation.
 | `get_current_view_elements` | lecture | — | 5 | List elements visible in the currently active view. categoryFilter is a single-category shortcut (OST code, English name or localized label); modelCat… | — |
 | `get_element_parameters` | lecture | — | 5 | Get parameters of elements by Revit element ID. Numeric values come back in PROJECT display units with an explicit unit plus the Revit internal value… | — |
 | `get_linked_elements` | lecture | — | 5 | Query elements from linked Revit models with optional filtering. parameterNames is additive — without it only basic fields are returned. | — |
-| `get_selected_elements` | lecture | — | 5 | Get currently selected elements in Revit. | — |
 | `import_from_excel` | écriture destructif | oui | 5 | Import parameter values from an Excel file into Revit elements. | — |
 | `manage_model_groups` | écriture destructif | oui | 5 | Inventory model groups, duplicate a group type and optionally swap selected instances, or ungroup selected model groups. Write actions preview by defa… | — |
 | `modify_element` | écriture | oui | 5 | Move, rotate, mirror, or copy elements. Vectors are {"x":mm,"y":mm,"z":mm} JSON objects. move needs translation; rotate needs rotationCenter + rotatio… | — |
@@ -1097,7 +1310,7 @@ documentation.
 | `capture_selection` | lecture | — | 4 | Capture explicit element IDs or the current Revit selection as a reusable temporary token. Tokens expire and are scoped to the active document session… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `create_array` | écriture | — | 4 | Create a linear or radial array. Default builds a real associative Revit ArrayElement (editable count); set associative=false for loose copies. linear… | **mineur** — pas de dryRun |
 | `create_opening` | écriture | — | 4 | Cuts an opening or a vertical shaft. openingType=shaft\|host\|wall. shaft: baseLevelId+topLevelId+curves (closed loop, mm) — a vertical shaft through ev… | **mineur** — pas de dryRun |
-| `create_point_based_element` | écriture | oui | 4 | Create point-based elements. Pass [{category, locationPoint:{x,y,z}, typeId?, levelId?, baseLevel?, hostWallId?, facingFlipped?, handFlipped?, rotatio… | **mineur** — géométrie par boîte englobante |
+| `create_point_based_element` | écriture | oui | 4 | Create point-based family instances IN BATCH (furniture, sanitary, doors, windows, ETEL...), each item in its own transaction: one failing item never… | **mineur** — géométrie par boîte englobante |
 | `create_structural_framing_system` | écriture | — | 4 | Create a beam system on a level over a rectangular area. Default builds a real associative Revit BeamSystem (editable layout); set associative=false f… | **mineur** — pas de dryRun |
 | `create_surface_based_element` | écriture | — | 4 | Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs — a roof is a real FootPrintRoof, Document.Create.NewFo… | **mineur** — pas de dryRun |
 | `create_toposolid` | écriture | — | 4 | Creates a Toposolid (site/ground surface) from a closed boundary loop (Toposolid.Create). toposolidTypeId and levelId are required — list types with l… | **mineur** — pas de dryRun |
@@ -1107,7 +1320,7 @@ documentation.
 | `change_element_type` | écriture destructif | oui | 4 | Change the type of one or more elements to a target type specified by ID or name. | — |
 | `create_detail_line` | écriture | oui | 4 | Draw 2D detail lines in a view (view-owned, not visible in other views). path is a JSON array [{x,y,z}, ...] in mm; consecutive points become segments… | — |
 | `create_filled_region` | écriture | oui | 4 | Create a filled region in a view from a closed boundary, optionally with holes (inner loops). | — |
-| `create_line_based_element` | écriture | oui | 4 | Create line-based elements (walls, beams). Pass a JSON array of specs: [{category, locationLine:{p0:{x,y,z}, p1:{x,y,z}, pMid?:{x,y,z}}, typeId?, heig… | — |
+| `create_line_based_element` | écriture | oui | 4 | Create line-based elements (walls, beams) IN BATCH, one transaction per item: a failing item never cancels the others and comes back in failed[] with… | — |
 | `create_model_line` | écriture | oui | 4 | Draw 3D model lines on a horizontal sketch plane. path is a JSON array [{x,y,z}, ...] in mm; all points must share the same z, which sets the plane el… | — |
 | `create_ramp` | écriture | oui | 4 | Create a native component ramp between two levels (accessibility/PMR). runs is a JSON array [{p0:{x,y}, p1:{x,y}}, ...] in mm plan coordinates — the l… | — |
 | `export_families` | lecture | — | 4 | Export loaded families as .rfa files into a target directory. | — |
@@ -1122,13 +1335,16 @@ documentation.
 | `set_element_phase` | écriture | oui | 4 | Assign created/demolished phase to elements. Pass a JSON array of requests: [{elementId, createdPhaseId?, demolishedPhaseId?}]. The older names phaseC… | — |
 | `set_element_workset` | écriture | oui | 4 | Move elements to a different workset. Pass a JSON array of requests: [{elementId, worksetName}]. Worksets are resolved by name only. | — |
 | `set_material_properties` | écriture destructif | oui | 4 | Set identity, appearance, product info, and asset assignments on Revit materials. Each request is a FLAT object keyed by materialId plus any of: name,… | — |
+| `attach_walls` | écriture | oui | 3 | Attach (or detach) the top or base of walls to a roof, floor, ceiling, toposolid or wall, ONE WALL PER TRANSACTION. Each refusal comes back in failed[… | — |
+| `describe_family` | lecture | — | 3 | Measure a loadable family type around its insertion point BEFORE placing it: placement type and the Z rule that goes with it (level-based: relative; h… | — |
 | `edit_family` | écriture destructif | oui | 3 | Edits a loaded family's type parameters in the background - no window opens. Pass familyId or familyName, and changes as JSON: [{typeName, parameters:… | — |
+| `place_in_room` | écriture | oui | 3 | Place a level-based family (bed, WC, shower, sink, sofa, bike...) IN A ROOM by its VISIBLE footprint, not its insertion point: it is placed on the roo… | — |
 | `rename_families` | écriture destructif | oui | 3 | Rename loaded families (and optionally their types) with find/replace, prefix, or suffix operations. | — |
 | `detach_wall_constraint` | écriture destructif | oui | 2 | Preview or detach wall top-level constraints or Revit 2027 top/base attachments. Grouped walls are reported and skipped instead of rolling back unrela… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `create_assembly` | écriture | — | 2 | Groups elements into an AssemblyInstance (prefabrication/shop drawings), or splits them into Parts (demolition/phasing sequencing). action=create_asse… | **mineur** — pas de dryRun |
 | `get_elements_by_unique_id` | lecture | — | 2 | Resolve Revit UniqueId strings to ElementId records for cross-app workflows. | — |
 
-#### Project — 49 outils
+#### Project — 50 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
@@ -1180,6 +1396,7 @@ documentation.
 | `set_project_info` | écriture | oui | 4 | Set editable Project Information fields. Only the fields you pass are changed; others are left untouched. | — |
 | `export_shared_parameter_file` | lecture | — | 3 | Export shared parameter file contents | — |
 | `get_material_properties` | lecture | — | 3 | Get detailed material properties (physical, thermal, appearance) by material ID or name. | — |
+| `validate_dwelling` | lecture | — | 3 | Check the dwellings of a level AS BUILT in Revit against the same rules as validate_spec. A dwelling is the set of rooms of the level sharing a value… | — |
 | `list_family_sizes` | lecture | — | 2 | List loaded families with type/instance counts and, when includeSize=true, the family file size in KB measured by exporting each family to a temp file… | — |
 
 #### IFC — 20 outils
@@ -1207,7 +1424,7 @@ documentation.
 | `ifc_tag_unreconstructable_elements` | écriture destructif | oui | 3 | Tag IFC DirectShapes that cannot be rebuilt by writing a marker parameter. | — |
 | `ifc_validate_request` | lecture | — | 3 | Validate IFC file path, extension, and schema version. | — |
 
-#### Views — 14 outils
+#### Views — 15 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
@@ -1224,6 +1441,7 @@ documentation.
 | `batch_modify_view_range` | écriture | oui | 4 | Modify view range offsets (top, cut plane, bottom, view depth) for multiple views. Offsets are in mm. | — |
 | `manage_unplaced_views` | écriture destructif | oui | 4 | List or delete views that are not placed on any sheet | — |
 | `activate_view` | lecture | oui | 3 | Make a view or sheet the active view in the current Revit document. Available while RiveTT is locked; no transaction or model edit. Returns the actual… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
+| `capture_view` | lecture | — | 3 | SEE the model: render a Revit view (plan, section, elevation, 3D, sheet) and receive it as an IMAGE, with a text block giving the view, the image size… | — |
 | `rename_views` | écriture destructif | oui | 3 | Batch rename views using find/replace, prefix, or suffix operations. | — |
 
 #### LinkedFiles — 10 outils
@@ -1245,7 +1463,7 @@ documentation.
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
-| `tag_rooms` | écriture | oui | 5 | Tag rooms in a view. Pass viewId to target a specific view; without it the active view is used. Nothing in this surface can activate a view, so viewId… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
+| `tag_rooms` | écriture | oui | 5 | Tag rooms in a view with a chosen room tag type. Pass viewId to target a specific view; without it the active view is used. tagTypeId or tagTypeName p… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
 | `create_dimensions` | écriture | oui | 5 | Create dimension annotations in a view. Pass a JSON array of dimension specs. Element mode: [{viewId, elementIds:[...], linePoint:{x,y,z}, dimensionSt… | — |
 | `create_text_note` | écriture | oui | 5 | Create text notes in a view. Pass a JSON array: [{text, position:{x,y,z}, viewId?, textNoteTypeId?, width?, horizontalAlignment?, verticalAlignment?,… | — |
 | `import_table` | écriture | — | 4 | Import a CSV/TSV file as a formatted table in a drafting or legend view. | **mineur** — pas de dryRun |
@@ -1316,11 +1534,18 @@ documentation.
 | `create_railing` | écriture | oui | 5 | Create a native Revit guardrail from a connected horizontal path. The path JSON is [{x,y,z}, ...] in mm. | — |
 | `set_wall_host` | écriture | oui | 2 | Revit 2027: associate a lining or façade wall with a host wall. Set hostWallId to 0 to detach it. offsetFromHost is in mm. | — |
 
+#### (sans) — 2 outils
+
+| Outil | Nature | dryRun | Int. | Effet | Défaut probable |
+|---|---|---|---:|---|---|
+| `test_image_relay` | serveur seul | — | 3 | Diagnostic, no Revit needed: returns a fixed test image (a red square and the text TEST 42). If you can read TEST 42 in it, this client relays MCP ima… | — |
+| `validate_spec` | serveur seul | — | 3 | Check a dwelling DESIGN (JSON, before modelling anything) against the agency's dwelling rules: entrance open onto the living room, 1.20 x 2.20 m entra… | — |
+
 #### Code — 1 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
-| `send_code_to_revit` | écriture destructif | oui | 2 | LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter… | — |
+| `send_code_to_revit` | écriture destructif | oui | 2 | LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter… | **mineur** — erreur générique sans suggestion |
 
 #### Interop — 1 outils
 
@@ -1348,6 +1573,7 @@ Toutes les commandes classées lecture restent accessibles, y compris `open_file
 | `manage_unplaced_views` | `list` |
 | `manage_view_display` | `select` |
 | `manage_view_templates` | `list` |
+| `send_code_to_revit` | `readonly` |
 
 ### Lacunes comblées depuis le relevé précédent
 
@@ -1377,7 +1603,7 @@ bout en bout par le connecteur.
 
 ### Exposé par l'API Revit, pas encore outillé
 
-Vérifié par recherche de l'API dans `src/RiveTT.Tools` sur les 200 outils : aucune de
+Vérifié par recherche de l'API dans `src/RiveTT.Tools` sur les 207 outils : aucune de
 ces capacités n'a de point d'entrée. Effort : **S** de l'ordre de la journée, **M** de
 la semaine, **L** au-delà.
 

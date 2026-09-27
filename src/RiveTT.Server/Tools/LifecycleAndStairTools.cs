@@ -54,9 +54,12 @@ public static class LifecycleAndStairTools
 
     [McpServerTool(Name = "create_stair"), Description(
         "Create a native component stair between two levels. runs is a JSON array [{p0:{x,y}, p1:{x,y}}, ...] " +
-        "in mm plan coordinates — the levels drive the elevation, not z. Consecutive runs get an automatic " +
-        "landing. The response reports actualRiserCount against desiredRiserCount and reachesTopLevel: a run " +
-        "too short produces a stair that stops below the top level. Get stairsTypeId and railingTypeId from " +
+        "in mm plan coordinates — the levels drive the elevation, not z: each run starts on top of the previous " +
+        "one. Consecutive runs are joined by an automatic landing; put the start of each run next to the end of " +
+        "the previous one (U: offset by width + well, L: at the corner). A junction Revit cannot land is refused " +
+        "with its geometry and nothing is created, unless requireLandings=false. The dry run estimates the risers " +
+        "run by run and lists what it cannot verify (notVerified). The response reports actualRiserCount against " +
+        "desiredRiserCount, reachesTopLevel and each run's elevations. Get stairsTypeId and railingTypeId from " +
         "list_system_types (OST_Stairs, OST_StairsRailing).")]
     public static async Task<string> CreateStair(
         RevitConnectionManager revit,
@@ -66,6 +69,7 @@ public static class LifecycleAndStairTools
         [Description("StairsType element ID. Omit for the document default")] long? stairsTypeId = null,
         [Description("Run width in mm. Omit for the type default")] double? widthMm = null,
         [Description("Railing type ID to place on the treads (creates one railing per side)")] long? railingTypeId = null,
+        [Description("Refuse the whole stair when Revit cannot create a landing between two runs. Default: true. false keeps disconnected runs (draw the landing as a floor).")] bool requireLandings = true,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
@@ -74,6 +78,7 @@ public static class LifecycleAndStairTools
             ["baseLevelId"] = baseLevelId,
             ["topLevelId"] = topLevelId,
             ["runs"] = JArray.Parse(runs),
+            ["requireLandings"] = requireLandings,
             ["dryRun"] = dryRun
         };
         if (stairsTypeId != null) p["stairsTypeId"] = stairsTypeId;

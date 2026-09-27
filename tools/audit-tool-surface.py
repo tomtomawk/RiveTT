@@ -55,7 +55,8 @@ OUT = os.path.join(ROOT, "src", "resources", "documentation", "SKILL.md")
 # Doit rester aligne sur RiveTTRouter.ReadOnlyPrefixes.
 READ_ONLY_PREFIXES = ["get_", "list_", "find_", "analyze_", "check_", "measure_",
                       "audit_", "export_", "ping_revit", "detect_clashes",
-                      "count_lines_per_view", "ifc_get_", "ifc_list_", "ifc_export_",
+                      "count_lines_per_view", "describe_", "validate_", "capture_view",
+                      "ifc_get_", "ifc_list_", "ifc_export_",
                       "ifc_validate_", "ifc_analyze_", "ifc_compare_"]
 
 # Traites cote serveur (routeur, ToolResponseShaper) : leur absence du runtime est normale.
@@ -66,6 +67,13 @@ SERVER_SIDE_KEYS = ("dryRun", "responseMode", "compact", "summaryOnly")
 FACADE_OVERRIDES = {
     "create_door": "create_point_based_element",
     "create_window": "create_point_based_element",
+}
+
+# Outils traites par le serveur seul, sans Revit : l'absence d'outil runtime est voulue.
+# Doit rester aligne sur ToolCatalogParitySourceTests.ServerOnlyTools.
+SERVER_ONLY = {
+    "test_image_relay": "verifie que le client MCP relaie les images, sans Revit",
+    "validate_spec": "controle un logement decrit en JSON avant construction, sans Revit",
 }
 
 TOOL_RE = re.compile(
@@ -371,7 +379,9 @@ def analyse(server, runtime, corpus):
         block = run["block"] if run else ""
         flags = []
 
-        if srv and not run:
+        if srv and not run and name in SERVER_ONLY:
+            flags.append(("info", "traité par le serveur seul : " + SERVER_ONLY[name]))
+        elif srv and not run:
             flags.append(("critique", "publié par le serveur, aucun outil runtime correspondant"))
         if run and not srv:
             flags.append(("info", "outil runtime non publié sur la surface MCP"))
@@ -412,7 +422,10 @@ def analyse(server, runtime, corpus):
                               % ("lecture" if run["readOnly"] else "écriture")))
             if re.search(r'Viewport\.Create\([^)]*new XYZ\(\s*[0-9]', block, re.S):
                 flags.append(("mineur", "position de fenêtre codée en dur"))
-            if "get_BoundingBox(" in block and "Solid" not in block and name != "detect_clashes":
+            # FamilyExtents mesure les solides visibles : la boite n'y sert que de comparaison
+            # (describe_family) ou de pre-filtre bon marche (place_in_room).
+            if ("get_BoundingBox(" in block and "Solid" not in block and "FamilyExtents." not in block
+                    and name != "detect_clashes"):
                 flags.append(("mineur", "géométrie par boîte englobante"))
             # La regle mesurait « le message commence par Failed », pas « il n'y a pas de
             # suggestion » : elle continuait donc a signaler des sites deja corriges, et
@@ -591,7 +604,8 @@ def emit(rows):
         for row in sorted(group, key=lambda r: (-r["interest"], SEV_ORDER[r["sev"]], r["name"])):
             kind = "lecture" if row["readOnly"] else (
                 "écriture" + (" destructif" if row["destructive"] else "")
-                if row["readOnly"] is False else "?")
+                if row["readOnly"] is False
+                else "serveur seul" if row["name"] in SERVER_ONLY else "?")
             name = "`%s`" % row["name"]
             if row["facade"]:
                 name += " → `%s`" % row["runtimeTool"]
