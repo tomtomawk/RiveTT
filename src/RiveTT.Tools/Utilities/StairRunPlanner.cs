@@ -44,13 +44,26 @@ public static class StairRunPlanner
     /// </summary>
     public const double MaxJunctionMarginMm = 2000;
 
+    /// <param name="heightToMaxRiser">
+    /// height / max riser as Revit computes it, from the level elevations in feet. Pass it when
+    /// known: converting both to millimetres first can move an exact ratio by one ulp.
+    /// </param>
     public static Plan Build(IReadOnlyList<RunInput> runs, double heightMm, double maxRiserMm,
-        double treadDepthMm, double widthMm)
+        double treadDepthMm, double widthMm, double? heightToMaxRiser = null)
     {
         var warnings = new List<string>();
         var problems = new List<string>();
 
-        var desired = maxRiserMm > 0 ? (int)Math.Ceiling(heightMm / maxRiserMm - 1e-9) : 0;
+        // Revit takes the STRICT ceiling. Level elevations are rarely round in the model
+        // (5 610.000000000197 - 2 889.99999999999 = 2 720.0000000002 mm): at 170 mm max riser
+        // that is 16.0000000000012 risers, and Revit asked for 17 where the preview, which
+        // forgave 1e-9, had promised 16 (session of 2026-09-27).
+        var ratio = heightToMaxRiser ?? (maxRiserMm > 0 ? heightMm / maxRiserMm : 0);
+        var desired = ratio > 0 ? (int)Math.Ceiling(ratio) : 0;
+        if (desired > 0 && (int)Math.Ceiling(ratio - 1e-6) != desired)
+            warnings.Add($"The level-to-level height ({heightMm:F4} mm) lies on a riser boundary: {ratio:F12} risers of " +
+                         $"{maxRiserMm:F0} mm. Revit rounds UP, to {desired} risers of {heightMm / desired:F1} mm — plan the runs " +
+                         $"for {desired}, or set the level elevations to a round value.");
         var riser = desired > 0 ? heightMm / desired : 0;
 
         var plans = new List<RunPlan>();

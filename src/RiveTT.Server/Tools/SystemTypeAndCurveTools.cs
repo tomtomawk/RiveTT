@@ -72,11 +72,12 @@ public static class SystemTypeAndCurveTools
 
     [McpServerTool(Name = "create_room_separation_line"), Description(
         "Draw room separation lines in a plan view to split or bound a room without building a physical " +
-        "wall. path is a JSON array [{x,y,z}, ...] in mm. This is the correct tool for cutting a room in " +
-        "two when no wall is wanted; a low wall would be wrong in schedules and exports.")]
+        "wall. path is a JSON array [{x,y,z}, ...] in mm; the lines are drawn at the elevation of the plan's " +
+        "level (z is ignored, and a warning says so when it disagrees). This is the correct tool for cutting a " +
+        "room in two when no wall is wanted; a low wall would be wrong in schedules and exports.")]
     public static async Task<string> CreateRoomSeparationLine(
         RevitConnectionManager revit,
-        [Description("Path JSON: [{x,y,z}, ...] in mm")] string path,
+        [Description("Path JSON: [{x,y,z}, ...] in mm; z is ignored, the plan's level sets the elevation")] string path,
         [Description("Plan view element ID. Defaults to the active view, which must be a plan")] long? viewId = null,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
         CancellationToken ct = default)

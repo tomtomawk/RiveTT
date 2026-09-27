@@ -133,7 +133,7 @@ public static class ArchitectureTools
         return (await revit.ExecuteAsync("attach_walls", p, ct)).ToString();
     }
 
-    [McpServerTool(Name = "describe_family"), Description("Measure a loadable family type around its insertion point BEFORE placing it: placement type and the Z rule that goes with it (level-based: relative; hosted: absolute), facing direction, and extents in family coordinates (mm) — visibleExtentMm (solids, the physical footprint), fullExtentMm (invisible clearances included), planViewExtentMm (with planViewId: what the plan draws) and boundingBoxMm (Revit's box, NOT a footprint). warnings say when the origin is off-centre or the box includes clearances. Pass instanceId, typeId, or familyName + typeName (a placed instance is measured when one exists). Read-only.")]
+    [McpServerTool(Name = "describe_family"), Description("Measure a loadable family type around its insertion point BEFORE placing it: placement type and the Z rule that goes with it (level-based: relative; hosted: absolute), facing direction, and extents in family coordinates (mm) measured from the INSERTION point (the point create_point_based_element takes) — visibleExtentMm (solids, the physical footprint), fullExtentMm (invisible clearances included), planViewExtentMm (with planViewId: what the plan draws) and boundingBoxMm (Revit's box, NOT a footprint). geometryOriginOffsetMm is where the family's own geometric origin sits from the insertion point (several agency families are offset by 45 mm or more). warnings say when the origin is off-centre or the box includes clearances. Pass instanceId, typeId, or familyName + typeName: a placed instance is measured when one exists, else a level-based type is placed temporarily and rolled back. Read-only.")]
     public static async Task<string> DescribeFamily(
         RevitConnectionManager revit,
         [Description("Placed family instance id to measure")] long? instanceId = null,
@@ -154,7 +154,7 @@ public static class ArchitectureTools
         return (await revit.ExecuteAsync("describe_family", p, ct)).ToString();
     }
 
-    [McpServerTool(Name = "place_in_room"), Description("Place a level-based family (bed, WC, shower, sink, sofa, bike...) IN A ROOM by its VISIBLE footprint, not its insertion point: it is placed on the room's level (elevation measured and corrected), rotated (rotationDeg, counter-clockwise; agency families face -Y at 0, +X at 90), centred on anchorMm (default: centre of the room), pushed against the walls named in against (N = +Y, S = -Y, E = +X, W = -X) at marginMm from the finish face, and kept inside the room. The response gives the final footprint, insideRoom, tooLargeForRoom (for a clearance family: the room does not comply) and the collisions with other equipment. Preview first: the dry run really places it, then rolls back.")]
+    [McpServerTool(Name = "place_in_room"), Description("Place a level-based family (bed, WC, shower, sink, sofa, bike...) IN A ROOM by its VISIBLE footprint, not its insertion point: it is placed on the room's level (elevation measured and corrected), rotated (rotationDeg, counter-clockwise; agency families face -Y at 0, +X at 90), centred on anchorMm (default: centre of the room), pushed against the walls named in against (N = +Y, S = -Y, E = +X, W = -X) — the first wall met in the footprint's own strip, so an L-shaped room works — at marginMm from the finish face (default 0: flush), and kept inside the room. footprintBasis picks what is placed: visible solids (default), what the plan draws (plan: use it when a warning says the solids cover less than half of the plan, e.g. a flush shower tray), or everything including clearances (full). The response gives the final footprint, insideRoom, tooLargeForRoom (for a clearance family: the room does not comply), the collisions with other equipment, and warns when the insertion point falls outside the room. Preview first: the dry run really places it, then rolls back.")]
     public static async Task<string> PlaceInRoom(
         RevitConnectionManager revit,
         [Description("Room element id")] long roomId,
@@ -163,7 +163,8 @@ public static class ArchitectureTools
         [Description("Type name, e.g. Suspendu PMR")] string? typeName = null,
         [Description("Rotation in degrees, counter-clockwise. Default: 0")] double rotationDeg = 0,
         [Description("Walls to push against, JSON array of N | S | E | W, e.g. [\"E\",\"S\"]")] System.Text.Json.JsonElement? against = null,
-        [Description("Gap to the finish face in mm. Default: 15")] double marginMm = 15,
+        [Description("Gap to the finish face in mm. Default: 0 (flush against the wall)")] double marginMm = 0,
+        [Description("visible (default): solids visible in 3D | plan: what the level's floor plan draws | full: all geometry, clearances included")] string? footprintBasis = null,
         [Description("Target for the centre of the footprint, JSON [x, y] in mm. Default: centre of the room")] System.Text.Json.JsonElement? anchorMm = null,
         [Description("Height above the level in mm. Default: 0")] double offsetMm = 0,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
@@ -180,6 +181,7 @@ public static class ArchitectureTools
         if (typeId != null) p["typeId"] = typeId;
         if (familyName != null) p["familyName"] = familyName;
         if (typeName != null) p["typeName"] = typeName;
+        if (footprintBasis != null) p["footprintBasis"] = footprintBasis;
         if (JsonOptionalParam.IsProvided(against))
         {
             if (!JsonArrayParam.TryParse(against, out var againstArray))

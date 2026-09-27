@@ -305,7 +305,8 @@ public sealed class CreateRoomSeparationLineTool : IRiveTTTool
 
     public string Description =>
         "Draws room separation lines (OST_RoomSeparationLines) in a plan view, to split or bound rooms " +
-        "without a physical wall. Path is [{x,y,z}, ...] in mm; z sets the sketch plane elevation.";
+        "without a physical wall. Path is [{x,y,z}, ...] in mm; the lines are drawn at the elevation of the " +
+        "plan's level, whatever z says.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -327,7 +328,31 @@ public sealed class CreateRoomSeparationLineTool : IRiveTTTool
                     : "The active view is not a plan view; room separation lines are plan-only.",
                 suggestion: "Pass viewId of a floor plan or area plan view.");
 
-        var elevationFt = origin!.Z;
+        // A room separation line bounds the rooms of the plan's level only when it lies at that
+        // level's elevation. z used to set the sketch plane as an absolute elevation: z = 0 in
+        // the R+1 plan drew the lines at the ground-floor elevation, and the rooms of R+1 were
+        // not split — with no word said (session of 2026-09-27). The plan's level is the
+        // elevation; the z of the path is ignored and reported when it disagrees.
+        var elevationFt = plan.GenLevel?.Elevation ?? origin!.Z;
+        var warnings = new List<string>();
+        if (plan.GenLevel != null && Math.Abs(origin!.Z - elevationFt) * MmPerFoot > 1)
+            warnings.Add($"The path z ({origin.Z * MmPerFoot:F0} mm) was ignored: room separation lines are drawn at the " +
+                         $"elevation of the plan's level '{plan.GenLevel.Name}' ({elevationFt * MmPerFoot:F0} mm).");
+        var flattened = new List<Line>();
+        foreach (var line in lines)
+        {
+            var a = line.GetEndPoint(0);
+            var b = line.GetEndPoint(1);
+            var p0 = new XYZ(a.X, a.Y, elevationFt);
+            var p1 = new XYZ(b.X, b.Y, elevationFt);
+            if (p0.DistanceTo(p1) < 1e-6)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                    "A segment of the path has no length in plan (its points differ only in z).",
+                    suggestion: "Room separation lines are horizontal: give consecutive points distinct x or y.");
+            flattened.Add(Line.CreateBound(p0, p1));
+        }
+        lines = flattened;
+
         if (dryRun)
             return RiveTTResult<object>.Ok(new
             {
@@ -335,7 +360,9 @@ public sealed class CreateRoomSeparationLineTool : IRiveTTTool
                 segmentCount = lines.Count,
                 viewId = ToolHelpers.GetElementIdValue(plan.Id),
                 viewName = plan.Name,
-                elevationMm = elevationFt * MmPerFoot
+                levelName = plan.GenLevel?.Name,
+                elevationMm = Math.Round(elevationFt * MmPerFoot, 1),
+                warnings
             });
 
         try
@@ -364,7 +391,10 @@ public sealed class CreateRoomSeparationLineTool : IRiveTTTool
                           "Rooms re-compute their boundaries on the next regeneration.",
                 createdElementIds = created,
                 createdCount = created.Count,
-                viewId = ToolHelpers.GetElementIdValue(plan.Id)
+                viewId = ToolHelpers.GetElementIdValue(plan.Id),
+                levelName = plan.GenLevel?.Name,
+                elevationMm = Math.Round(elevationFt * MmPerFoot, 1),
+                warnings
             });
         }
         catch (Exception exception)

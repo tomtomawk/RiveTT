@@ -412,16 +412,38 @@ public class CreatePointBasedElementTool : IRiveTTTool
                         }
                     }
 
-                    if (shouldFlip)
+                    if (shouldFlip && instance.CanFlipFacing)
                     {
                         instance.flipFacing();
                         doc.Regenerate();
                     }
-                    if (handFlipped && instance.CanFlipHand)
+                    else if (facingFlipped)
+                        warnings.Add($"{key ?? "item"}: facingFlipped was requested but '{symbol.FamilyName}' cannot flip its facing.");
+                }
+                else if (facingFlipped)
+                {
+                    // Other categories (ETEL, equipment) used to drop the flip without a word:
+                    // the response then read facingFlipped: false with no reason (2026-09-27).
+                    if (instance.CanFlipFacing)
+                    {
+                        instance.flipFacing();
+                        doc.Regenerate();
+                    }
+                    else
+                        warnings.Add($"{key ?? "item"}: facingFlipped was requested but '{symbol.FamilyName}' cannot flip " +
+                                     "its facing (no flip control in the family). For a wall-hosted family the side follows " +
+                                     "the host wall: host it on the wall of the room it must face.");
+                }
+
+                if (handFlipped)
+                {
+                    if (instance.CanFlipHand)
                     {
                         instance.flipHand();
                         doc.Regenerate();
                     }
+                    else
+                        warnings.Add($"{key ?? "item"}: handFlipped was requested but '{symbol.FamilyName}' cannot flip its hand.");
                 }
 
                 // Handle rotation for non-hosted elements

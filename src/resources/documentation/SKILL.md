@@ -631,8 +631,24 @@ Relevé du 23/09/2026, à re-mesurer avec `describe_family` si une famille chang
 - `MOB_Lit · 140 x 190 cm_Gabarit PMR 90 x 120 x 90 cm` : 3,20 × 3,10 m, origine à l'angle
   du gabarit ; la chambre doit contenir cette emprise ;
 - `EQS_Ascenseur porte · 630KG` contient déjà la cabine : ne pas ajouter `EQS_Ascenseur` ;
-- `ELC_ETEL` sur `CLO_Distribution_10`, face vers l'entrée (`flipFacing` sinon) ;
-- portes intérieures `PP 93x204`, palières `PP93x220 16`.
+- `ELC_ETEL` (relevé du 27/09/2026, dessin validé par l'agence) : **dans une niche**, jamais
+  directement sur la cloison séparative, où la famille découpe sa porte dans le mur. Trois
+  `CLO_Distribution_7` en U devant la cloison, dans un angle de l'entrée : retours de 335 mm
+  d'axe à axe, façade de 670 mm, un retour aligné sur la limite de l'entrée ; l'ETEL est
+  hébergé **dans la façade**, centré, sa face vers le fond de la niche, et sa porte s'ouvre sur
+  l'entrée. Pas de `flipFacing` : la famille n'en a pas, son côté suit le sens de tracé de la
+  façade (face extérieure = à gauche du sens de tracé). Vérifier ensuite que l'entrée garde
+  son rectangle 1,20 × 2,20 m ;
+- `SAN_Meuble évier 120`, `ELC_Emplacement electromenager` (RF, cuisson), `MOB_Linéaire
+  supplémentaire` : origine géométrique décalée de 44,7 mm du point d'insertion ; mesurer sur
+  une instance (`describe_family` rend `geometryOriginOffsetMm`) avant d'aligner un linéaire ;
+- `SAN_WC · Suspendu PMR` : point d'insertion 200 mm **derrière** la cuvette, dans le bâti. Le
+  bâti traverse une cloison de 100 mm : prévoir un coffre de 200 mm derrière chaque WC ;
+- `SAN_Douche sans ressaut · 90 x 120` : le receveur n'a pas de volume, l'emprise visible
+  n'est qu'un accessoire (300 × 503 mm) ; poser avec `place_in_room(footprintBasis: "plan")` ;
+- portes intérieures `PP 93x204` (1000 mm hors tout, origine décentrée de 35 mm), palières
+  `PP93x220 16` — la famille du gabarit s'écrit `PTE_Porte pallière`, ce que la règle
+  `PORTES_PASSAGE` signale sur chaque logement.
 
 ## Conventions corrigées en 0.5.1
 
@@ -670,7 +686,8 @@ Relevé du 23/09/2026, à re-mesurer avec `describe_family` si une famille chang
   par catégorie avec les codes `OST_*`.
 - `create_detail_line` / `create_model_line` / `create_room_separation_line` : lignes
   2D, 3D et séparations de pièces. Couper une pièce sans mur physique se fait avec la
-  troisième.
+  troisième, tracée à l'altitude du niveau du plan quel que soit le `z` du chemin (0.6.1 :
+  avant, `z = 0` dans le plan du R+1 la posait au RDC et ne coupait rien).
 - `place_title_block` : pose un cartouche sur une feuille existante — réparation d'une
   feuille sans cadre.
 - `create_document` : **nouveau projet vierge** depuis un gabarit `.rte`, enregistré au
@@ -685,10 +702,13 @@ Relevé du 23/09/2026, à re-mesurer avec `describe_family` si une famille chang
   L : à l'angle). Un palier que Revit refuse annule l'escalier, avec la géométrie en
   cause (`requireLandings: false` garde les volées). Le dry-run estime les contremarches
   volée par volée et refuse une jonction qu'aucun palier ne franchit. La réponse compare
-  `actualRiserCount` à `desiredRiserCount` et donne `reachesTopLevel`.
+  `actualRiserCount` à `desiredRiserCount` et donne `reachesTopLevel`. Revit arrondit le
+  nombre de contremarches **au-dessus** sans tolérance : des niveaux à 2 720,0000000002 mm
+  d'écart demandent 17 contremarches de 160 et non 16 de 170 ; l'aperçu le signale.
 - `capture_view` : **l'image** d'une vue, renvoyée comme contenu MCP, avec la vue, la
   taille et, pour un plan recadré, `mapping` (modèle = gauche + px × mmPerPixel,
-  haut − py × mmPerPixel). `bboxMm` recadre un plan, `highlightIds` passe des éléments en
+  haut − py × mmPerPixel ; `cropPx` situe le cadrage dans l'image quand ses proportions
+  diffèrent). `bboxMm` recadre un plan, `highlightIds` passe des éléments en
   rouge, `isolateCategories` n'en garde que certains : tout se fait sur une copie
   temporaire annulée. Environ 1 500 à 2 000 jetons l'image à 1 600 px. Lecture seule.
 - `test_image_relay` : image de test (« TEST 42 ») sans Revit, pour savoir si le client
@@ -697,10 +717,15 @@ Relevé du 23/09/2026, à re-mesurer avec `describe_family` si une famille chang
   courbes, points, boîtes) et `curveAnalysis` : quatre lignes fermées sont un
   **contour**, pas un axe. Lecture seule.
 - `describe_family` : origine, orientation (`facingOrientationLocal`), règle de Z et
-  emprises en coordonnées famille — visible, complète (gabarits compris), plan, boîte.
-- `place_in_room` : pose d'une famille sur niveau dans une pièce par son emprise visible,
-  centrée sur `anchorMm`, plaquée aux murs `against` (N = +Y, E = +X) à `marginMm`, avec
-  collisions et verdict `insideRoom`.
+  emprises en coordonnées famille — visible, complète (gabarits compris), plan, boîte —
+  mesurées depuis le **point d'insertion** ; `geometryOriginOffsetMm` dit où est l'origine
+  géométrique de la famille. Un type sur niveau non posé est posé puis annulé pour la mesure.
+- `place_in_room` : pose d'une famille sur niveau dans une pièce par son emprise
+  (`footprintBasis` : `visible` par défaut, `plan` pour ce que le plan dessine, `full`),
+  centrée sur `anchorMm`, plaquée contre le **premier mur rencontré** dans sa bande
+  (`against`, N = +Y, E = +X ; une pièce en L fonctionne) à `marginMm` (0 par défaut :
+  contre la face finie), avec collisions, verdict `insideRoom` et alerte si le point
+  d'insertion sort de la pièce.
 - `attach_walls` : attache ou détache le haut ou la base de murs à un toit, un sol, un
   plafond, un toposolide ou un mur, une transaction par mur ; chaque refus nomme les
   éléments en cause (`relatedElements`). Le dry-run essaie chaque mur puis annule.
@@ -1164,7 +1189,7 @@ Sources vérifiées le 7 septembre 2026 :
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-09-26 — connecteur 0.6.0 — **207 outils publiés**, 204 classes runtime.
+Relevé du 2026-09-27 — connecteur 0.6.1 — **207 outils publiés**, 204 classes runtime.
 
 ### Comment lire ce document
 
@@ -1288,7 +1313,7 @@ documentation.
 | `create_grid` | écriture destructif | oui | 5 | Create a grid system (X and/or Y grids by count + spacing), or rename/delete an existing grid. action=create\|rename\|delete. Spacing/extent values are… | — |
 | `create_level` | écriture destructif | oui | 5 | Create, edit, rename, or delete a level. action=create\|set\|rename\|delete. For set/rename/delete identify the level by levelId or name. | — |
 | `create_room` | écriture | oui | 5 | Create a room at a point on a level. x/y are plan coordinates in mm; the level sets the elevation. A point that is not inside a closed loop of room-bo… | — |
-| `create_room_separation_line` | écriture | oui | 5 | Draw room separation lines in a plan view to split or bound a room without building a physical wall. path is a JSON array [{x,y,z}, ...] in mm. This i… | — |
+| `create_room_separation_line` | écriture | oui | 5 | Draw room separation lines in a plan view to split or bound a room without building a physical wall. path is a JSON array [{x,y,z}, ...] in mm; the li… | — |
 | `create_stair` | écriture | oui | 5 | Create a native component stair between two levels. runs is a JSON array [{p0:{x,y}, p1:{x,y}}, ...] in mm plan coordinates — the levels drive the ele… | — |
 | `delete_element` | écriture destructif | oui | 5 | Delete elements. The dryRun preview reports the real cascade (dependent tags, sketches, railings...) and any group membership. Deleting a group MEMBER… | — |
 | `edit_group_members` | écriture destructif | oui | 5 | Add or remove members of a model group. The Revit API cannot edit group members in place, so this ungroups the instance, changes the member set and cr… | — |

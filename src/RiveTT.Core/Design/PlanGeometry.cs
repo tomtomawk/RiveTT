@@ -69,6 +69,50 @@ public static class PlanGeometry
         (polygon.Min(p => p.X), polygon.Min(p => p.Y), polygon.Max(p => p.X), polygon.Max(p => p.Y));
 
     /// <summary>
+    /// The first boundary met going from <paramref name="from"/> towards <paramref name="side"/>
+    /// (N = +Y, S = -Y, E = +X, W = -X) inside the strip [<paramref name="spanMin"/>,
+    /// <paramref name="spanMax"/>] of the other axis: the Y (N/S) or X (E/W) of the nearest part
+    /// of the outline the strip runs into. Null when nothing is met.
+    ///
+    /// Not the room's extent: in an L-shaped room the extreme Y is the far end of the L, and a
+    /// sink pushed "against N" there ended 35 mm inside the partition actually behind it (field
+    /// session of 2026-09-27).
+    /// </summary>
+    public static double? FirstBoundary(IReadOnlyList<Pt> polygon, Pt from, char side, double spanMin, double spanMax)
+    {
+        var vertical = side is 'N' or 'S';
+        var forward = side is 'N' or 'E';
+        var origin = vertical ? from.Y : from.X;
+        double? best = null;
+        for (var i = 0; i < polygon.Count; i++)
+        {
+            var a = polygon[i];
+            var b = polygon[(i + 1) % polygon.Count];
+            // Along = the axis of the strip, across = the axis we travel on.
+            var (a0, a1) = vertical ? (a.X, b.X) : (a.Y, b.Y);
+            var (c0, c1) = vertical ? (a.Y, b.Y) : (a.X, b.X);
+            var lo = Math.Max(Math.Min(a0, a1), spanMin);
+            var hi = Math.Min(Math.Max(a0, a1), spanMax);
+            if (hi < lo) continue;
+            double near;
+            if (Math.Abs(a1 - a0) < 1e-9)
+            {
+                // Edge parallel to the travel: its nearest end counts.
+                near = forward ? Math.Min(c0, c1) : Math.Max(c0, c1);
+            }
+            else
+            {
+                var at = (double t) => c0 + (c1 - c0) * (t - a0) / (a1 - a0);
+                var (v0, v1) = (at(lo), at(hi));
+                near = forward ? Math.Min(v0, v1) : Math.Max(v0, v1);
+            }
+            if (forward ? near < origin - 1e-6 : near > origin + 1e-6) continue;
+            if (best == null || (forward ? near < best : near > best)) best = near;
+        }
+        return best;
+    }
+
+    /// <summary>
     /// Length along which the boundaries of two polygons coincide — edges parallel, within
     /// <paramref name="toleranceMm"/> of each other, overlapping in projection.
     /// </summary>

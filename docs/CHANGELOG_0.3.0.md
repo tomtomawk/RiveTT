@@ -355,3 +355,30 @@ serveur et plugin 0.6.0, et à consigner dans la PR (détail : `CHANGELOG_0.6.0.
   étiquette `ETQ_Pièce typo` par logement, sur le séjour.
 - **`get_selected_elements`** verrou fermé sur quatre lignes de détail fermées :
   `curveAnalysis.reading` annonce un contour.
+
+Exercé en Revit 2026 le 27/09/2026 (0.6.0) : `create_stair`, `create_point_based_element`,
+`send_code_to_revit` readonly, `capture_view`, `describe_family`, `place_in_room`,
+`attach_walls`, `validate_spec`/`validate_dwelling`, `tag_rooms` sans type — résultats et
+défauts trouvés : `CHANGELOG_0.6.1.md` §4. Restent ouverts ci-dessus : `get_selected_elements`,
+`tag_rooms` avec `tagTypeId`/`onePerParameter`, tout en Revit 2027.
+
+### Complément 0.6.1 (session du 27/09/2026)
+
+À rejouer dans Revit 2026.5 et 2027 avec serveur et plugin 0.6.1 (détail : `CHANGELOG_0.6.1.md`) :
+
+- **`create_room_separation_line`** dans le plan du R+1 avec `z = 0` : lignes à l'altitude du
+  R+1, pièce effectivement coupée, avertissement sur le `z` ignoré.
+- **`create_stair`** entre deux niveaux distants de 2 720,0000000002 mm : l'aperçu annonce 17
+  contremarches et la limite ; l'appel réel à volées justes ne dit plus « raccourcir ».
+- **`place_in_room`** : évier contre N dans un séjour en L (contre la cloison derrière lui, pas
+  au bout du L) ; douche sans ressaut en `visible` (avertissement « less than half ») puis en
+  `plan` (receveur dans l'angle, rien dans le mur) ; marge 0 par défaut.
+- **`capture_view`** d'un plan recadré étroit : `mmPerPixel` et `cropPx` tombent juste sur un
+  élément passé en `highlightIds` ; un trait de coupe hors cadrage n'élargit plus l'image.
+- **`create_point_based_element`** : `facingFlipped` sur un ETEL rend l'avertissement « cannot
+  flip » ; sur une famille retournable, le retournement est appliqué.
+- **`describe_family`** : évier, RF, WC suspendu mesurés depuis le point d'insertion
+  (`geometryOriginOffsetMm` = 44,7 / 200 mm) ; lit non posé mesuré par instance temporaire,
+  aucune instance restante ni entrée d'annulation.
+- **Icône** : processus `RiveTT.Server` sous Claude dans le gestionnaire des tâches — icône du
+  rivet ou icône du paquet MSIX ; description « RiveTT — serveur MCP pour Revit ».

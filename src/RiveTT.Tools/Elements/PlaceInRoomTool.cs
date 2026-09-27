@@ -53,7 +53,10 @@ public sealed class PlaceInRoomTool : IRiveTTTool
         var familyName = input["familyName"]?.Value<string>();
         var typeName = input["typeName"]?.Value<string>();
         var rotationDeg = input["rotationDeg"]?.Value<double>() ?? 0;
-        var marginMm = input["marginMm"]?.Value<double>() ?? 15;
+        // 0 by default: a fixture stands against the finish face. The 15 mm this used to
+        // default to showed as a double line along every wall at 1:50 (session of 2026-09-27).
+        var marginMm = input["marginMm"]?.Value<double>() ?? 0;
+        var basisText = (input["footprintBasis"]?.Value<string>() ?? "visible").Trim().ToLowerInvariant();
         var offsetMm = input["offsetMm"]?.Value<double>() ?? 0;
         var against = (input["against"] as JArray)?.Select(t => (t.Value<string>() ?? "").Trim().ToUpperInvariant()).ToList()
                       ?? new List<string>();
@@ -63,6 +66,9 @@ public sealed class PlaceInRoomTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
                 $"roomId {roomId} is not a placed, enclosed room.",
                 suggestion: "Read the room ids with export_room_data.");
+        if (basisText is not ("visible" or "plan" or "full"))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"footprintBasis accepts visible | plan | full; got '{basisText}'.");
         var invalidSides = against.Where(side => side is not ("N" or "S" or "E" or "W")).ToList();
         if (invalidSides.Count > 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
@@ -83,6 +89,11 @@ public sealed class PlaceInRoomTool : IRiveTTTool
         var outline = RoomOutline.OuterLoopMm(room);
         if (level == null || outline.Count < 3)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"The outline of room {roomId} could not be read.");
+        var planView = PlanViewOf(doc, level);
+        if (basisText == "plan" && planView == null)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"footprintBasis=plan needs a floor plan of level '{level.Name}', and none was found.",
+                suggestion: "Create one with create_view(viewType: FloorPlan), or use footprintBasis=visible.");
         var (rMinX, rMinY, rMaxX, rMaxY) = PlanGeometry.Bounds(outline);
 
         var anchor = DwellingSpec.ParsePoint(input["anchorMm"]);
@@ -111,7 +122,7 @@ public sealed class PlaceInRoomTool : IRiveTTTool
                 doc.Regenerate();
             }
 
-            var footprint = ModelFootprint(instance);
+            var footprint = Footprint(instance, basisText, planView);
             if (footprint == null)
             {
                 warnings.Add("The family has no visible solid: it was placed by its insertion point, not by a footprint.");
@@ -119,13 +130,26 @@ public sealed class PlaceInRoomTool : IRiveTTTool
             }
             var (fMinX, fMinY, fMaxX, fMaxY) = footprint.Value;
 
-            // Centre the footprint on the target, then push against the walls named.
+            // A flat part (a flush shower tray, a floor-level zone) has no volume: the visible
+            // solids are then only an accessory, and placing by them put a shower 100 mm into
+            // the exterior wall (session of 2026-09-27). Say so, and name the other basis.
+            if (basisText == "visible" && planView != null
+                && Footprint(instance, "plan", planView) is { } drawn
+                && Area(drawn) > 0 && Area(footprint.Value) < 0.5 * Area(drawn))
+                warnings.Add($"The visible solids ({fMaxX - fMinX:F0} x {fMaxY - fMinY:F0} mm) cover less than half of what " +
+                             $"the plan draws ({drawn.MaxX - drawn.MinX:F0} x {drawn.MaxY - drawn.MinY:F0} mm): part of the " +
+                             "family is flat or symbolic (a flush shower tray, for one). Retry with footprintBasis=plan to " +
+                             "place it by what the plan shows.");
+
+            // Centre the footprint on the target, then push against the walls named: the first
+            // wall met in the footprint's own strip, not the room's extent, which in an L-shaped
+            // room is the far end of the L.
             var dx = target.X - (fMinX + fMaxX) / 2;
             var dy = target.Y - (fMinY + fMaxY) / 2;
-            if (against.Contains("E")) dx = rMaxX - marginMm - fMaxX;
-            if (against.Contains("W")) dx = rMinX + marginMm - fMinX;
-            if (against.Contains("N")) dy = rMaxY - marginMm - fMaxY;
-            if (against.Contains("S")) dy = rMinY + marginMm - fMinY;
+            dx = PushAgainst(outline, target, against, 'E', 'W', dx, fMinX, fMaxX, fMinY + dy, fMaxY + dy, marginMm, rMinX, rMaxX);
+            dy = PushAgainst(outline, target, against, 'N', 'S', dy, fMinY, fMaxY, fMinX + dx, fMaxX + dx, marginMm, rMinY, rMaxY);
+            // Once more across: pushing N/S moved the strip the E/W walls are searched in.
+            dx = PushAgainst(outline, target, against, 'E', 'W', dx, fMinX, fMaxX, fMinY + dy, fMaxY + dy, marginMm, rMinX, rMaxX);
 
             // Keep it inside the room's extent when it fits; say so when it cannot.
             var width = fMaxX - fMinX;
@@ -146,7 +170,7 @@ public sealed class PlaceInRoomTool : IRiveTTTool
             ElementTransformUtils.MoveElement(doc, instance.Id, new XYZ(dx / MmPerFoot, dy / MmPerFoot, 0));
             doc.Regenerate();
 
-            var final = ModelFootprint(instance) ?? (fMinX + dx, fMinY + dy, fMaxX + dx, fMaxY + dy);
+            var final = Footprint(instance, basisText, planView) ??(fMinX + dx, fMinY + dy, fMaxX + dx, fMaxY + dy);
             var corners = new[]
             {
                 new Pt(final.MinX, final.MinY), new Pt(final.MaxX, final.MinY),
@@ -161,6 +185,13 @@ public sealed class PlaceInRoomTool : IRiveTTTool
 
             var conflicts = Conflicts(doc, instance, level, final);
             var location = (instance.Location as LocationPoint)?.Point ?? insertion;
+            // The footprint can sit inside the room while the insertion point, and whatever the
+            // family draws around it, is in the wall.
+            var locationMm = new Pt(location.X * MmPerFoot, location.Y * MmPerFoot);
+            if (!PlanGeometry.Contains(outline, locationMm) && PlanGeometry.DistanceToBoundary(outline, locationMm) > 5)
+                warnings.Add($"The insertion point ({locationMm.X:F0}, {locationMm.Y:F0}) mm is outside the room, " +
+                             $"{PlanGeometry.DistanceToBoundary(outline, locationMm):F0} mm beyond its boundary: check the plan, " +
+                             "or retry with footprintBasis=plan.");
             var payload = new
             {
                 elementId = dryRun ? (long?)null : ToolHelpers.GetElementIdValue(instance.Id),
@@ -172,6 +203,7 @@ public sealed class PlaceInRoomTool : IRiveTTTool
                 rotationDeg,
                 against,
                 marginMm,
+                footprintBasis = basisText,
                 insertionPointMm = new[] { Math.Round(location.X * MmPerFoot, 1), Math.Round(location.Y * MmPerFoot, 1), Math.Round(location.Z * MmPerFoot, 1) },
                 footprintMm = new
                 {
@@ -211,11 +243,48 @@ public sealed class PlaceInRoomTool : IRiveTTTool
     private static double Clamp(double value, double min, double max) =>
         min > max ? value : Math.Max(min, Math.Min(max, value));
 
-    /// <summary>Axis-aligned extent of the visible solids, in model millimetres.</summary>
-    private static (double MinX, double MinY, double MaxX, double MaxY)? ModelFootprint(FamilyInstance instance)
+    private static double Area((double MinX, double MinY, double MaxX, double MaxY) box) =>
+        Math.Max(0, box.MaxX - box.MinX) * Math.Max(0, box.MaxY - box.MinY);
+
+    /// <summary>
+    /// The shift along one axis that puts the footprint against the wall named for that axis
+    /// (<paramref name="plus"/> = E or N, <paramref name="minus"/> = W or S), the wall being the
+    /// first boundary met inside the footprint's strip on the other axis. Falls back to the room
+    /// extent when the strip meets nothing.
+    /// </summary>
+    private static double PushAgainst(IReadOnlyList<Pt> outline, Pt target, List<string> against, char plus, char minus,
+        double shift, double fMin, double fMax, double spanMin, double spanMax, double marginMm, double roomMin, double roomMax)
     {
-        var extent = FamilyExtents.Measure(instance, Transform.Identity, new Options { DetailLevel = ViewDetailLevel.Fine },
-            solidsOnly: true);
+        // A hair inside the strip, so a side wall the footprint touches is not taken for the one ahead.
+        const double inset = 1;
+        if (against.Contains(plus.ToString()))
+            return (PlanGeometry.FirstBoundary(outline, target, plus, spanMin + inset, spanMax - inset) ?? roomMax) - marginMm - fMax;
+        if (against.Contains(minus.ToString()))
+            return (PlanGeometry.FirstBoundary(outline, target, minus, spanMin + inset, spanMax - inset) ?? roomMin) + marginMm - fMin;
+        return shift;
+    }
+
+    /// <summary>A floor plan of the level, used to read what the plan draws of a family.</summary>
+    private static View? PlanViewOf(Document doc, Level level) =>
+        new FilteredElementCollector(doc).OfClass(typeof(ViewPlan)).Cast<ViewPlan>()
+            .FirstOrDefault(v => !v.IsTemplate && v.ViewType == ViewType.FloorPlan && v.GenLevel?.Id == level.Id);
+
+    /// <summary>
+    /// Axis-aligned footprint in model millimetres. visible: solids of volume &gt; 0 visible in 3D
+    /// (never the bounding box); plan: what the level's floor plan draws, symbolic lines included;
+    /// full: every model curve and solid, invisible clearances included.
+    /// </summary>
+    private static (double MinX, double MinY, double MaxX, double MaxY)? Footprint(FamilyInstance instance, string basis, View? planView)
+    {
+        var extent = basis switch
+        {
+            "plan" when planView != null => FamilyExtents.Measure(instance, Transform.Identity,
+                new Options { View = planView, IncludeNonVisibleObjects = false }, solidsOnly: false),
+            "full" => FamilyExtents.Measure(instance, Transform.Identity,
+                new Options { DetailLevel = ViewDetailLevel.Fine, IncludeNonVisibleObjects = true }, solidsOnly: false),
+            _ => FamilyExtents.Measure(instance, Transform.Identity, new Options { DetailLevel = ViewDetailLevel.Fine },
+                solidsOnly: true)
+        };
         if (extent.IsEmpty) return null;
         return (extent.MinX * MmPerFoot, extent.MinY * MmPerFoot, extent.MaxX * MmPerFoot, extent.MaxY * MmPerFoot);
     }
@@ -236,7 +305,7 @@ public sealed class PlaceInRoomTool : IRiveTTTool
             // Cheap reject on the box first, then the real test on the visible footprint.
             if (box.Max.X * MmPerFoot < footprint.MinX || box.Min.X * MmPerFoot > footprint.MaxX ||
                 box.Max.Y * MmPerFoot < footprint.MinY || box.Min.Y * MmPerFoot > footprint.MaxY) continue;
-            var theirs = ModelFootprint(other);
+            var theirs = Footprint(other, "visible", null);
             if (theirs == null) continue;
             var overlapX = Math.Min(footprint.MaxX, theirs.Value.MaxX) - Math.Max(footprint.MinX, theirs.Value.MinX);
             var overlapY = Math.Min(footprint.MaxY, theirs.Value.MaxY) - Math.Max(footprint.MinY, theirs.Value.MinY);

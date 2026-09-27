@@ -20,8 +20,9 @@ namespace RiveTT.Tools.Elements;
 /// origin at the centre, then trusting the bounding box — which includes invisible clearance
 /// geometry: a 1.40 x 1.90 m bed measured 2.85 x 3.90 m — then assuming Z absolute for every
 /// family. The agency's catalogue of origins had to be measured by script. This read tool
-/// measures it directly, on a placed instance or on the type's own geometry, without any
-/// transaction.
+/// measures it directly, on a placed instance — or, for a level-based type with none, on a
+/// temporary instance whose transaction is always rolled back — and from the INSERTION point,
+/// which is not always the family's geometric origin (session of 2026-09-27).
 /// </summary>
 [ToolSafety(true, false)]
 public sealed class DescribeFamilyTool : IRiveTTTool
@@ -106,13 +107,43 @@ public sealed class DescribeFamilyTool : IRiveTTTool
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, $"planViewId {planViewId} is not a view.");
         }
 
+        // An unplaced type exposes no geometry, or only in the family's own coordinates, whose
+        // origin need not be the insertion point. A level-based type is therefore placed for
+        // the measurement and rolled back: nothing of it is kept.
+        Transaction? probe = null;
+        var probed = false;
         try
         {
             var family = symbol!.Family;
             var placement = SafeRead(() => family.FamilyPlacementType.ToString()) ?? "unknown";
 
+            if (instance == null && family.FamilyPlacementType == FamilyPlacementType.OneLevelBased && !doc.IsModifiable)
+            {
+                var level = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>()
+                    .OrderBy(l => Math.Abs(l.Elevation)).FirstOrDefault();
+                if (level != null)
+                {
+                    probe = new Transaction(doc, "RiveTT: describe_family probe (rolled back)");
+                    probe.Start();
+                    TransactionFailureHandling.SuppressWarnings(probe);
+                    if (!symbol.IsActive) symbol.Activate();
+                    instance = doc.Create.NewFamilyInstance(new XYZ(0, 0, level.Elevation), symbol, level,
+                        Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                    doc.Regenerate();
+                    probed = true;
+                    sampledFrom = "temporary instance (placed for the measurement, rolled back)";
+                }
+            }
+
             Element sample = (Element?)instance ?? symbol;
-            var toLocal = instance != null ? instance.GetTransform().Inverse : Transform.Identity;
+            // Measured from the INSERTION point, the one placement takes, with the instance's
+            // axes. GetTransform() alone is the family's geometric origin: for the agency's
+            // sink, fridge and worktop families it sits 44.7 mm off the insertion point, and
+            // extents read from it put a fridge 44.7 mm into the sink next to it (session of
+            // 2026-09-27).
+            var frame = instance != null ? InsertionFrame(instance) : Transform.Identity;
+            var toLocal = frame.Inverse;
+            var geometryOrigin = instance != null ? toLocal.OfPoint(instance.GetTransform().Origin) : XYZ.Zero;
 
             var visible = FamilyExtents.Measure(sample, toLocal,
                 new Options { DetailLevel = detailLevel, IncludeNonVisibleObjects = false }, solidsOnly: true);
@@ -151,8 +182,16 @@ public sealed class DescribeFamilyTool : IRiveTTTool
                              $"({visible.Width:F0} x {visible.Depth:F0} mm): it includes invisible clearances. Place and check " +
                              "against visibleExtentMm, never against the bounding box.");
             if (!visible.IsEmpty && (Math.Abs(visible.CenterX) > 50 || Math.Abs(visible.CenterY) > 50))
-                warnings.Add($"The origin is NOT at the centre of the visible footprint: the centre sits at " +
+                warnings.Add($"The insertion point is NOT at the centre of the visible footprint: the centre sits at " +
                              $"({visible.CenterX:F0}, {visible.CenterY:F0}) mm from it, in family coordinates.");
+            var offsetMm = new XYZ(geometryOrigin.X * MmPerFoot, geometryOrigin.Y * MmPerFoot, geometryOrigin.Z * MmPerFoot);
+            if (Math.Abs(offsetMm.X) > 1 || Math.Abs(offsetMm.Y) > 1)
+                warnings.Add($"The family's geometric origin is ({offsetMm.X:F1}, {offsetMm.Y:F1}) mm from its insertion point. " +
+                             "Every extent here is measured from the insertion point — the point placement takes — not from " +
+                             "the geometric origin.");
+            if (instance == null)
+                warnings.Add("Measured on the type's own geometry: its origin is the family's geometric origin, which can " +
+                             "differ from the insertion point. Place an instance and describe it with instanceId to be sure.");
 
             return RiveTTResult<object>.Ok(new
             {
@@ -162,11 +201,12 @@ public sealed class DescribeFamilyTool : IRiveTTTool
                 category = symbol.Category?.Name,
                 categoryBic = CategoryResolver.DescribeBuiltInCategory(symbol.Category),
                 sampledFrom,
-                instanceId = instance == null ? (long?)null : ToolHelpers.GetElementIdValue(instance.Id),
+                instanceId = instance == null || probed ? (long?)null : ToolHelpers.GetElementIdValue(instance.Id),
                 placement,
                 hosting = SafeRead(() => family.get_Parameter(BuiltInParameter.FAMILY_HOSTING_BEHAVIOR)?.AsValueString()),
                 zRule = ZRule(placement),
                 originLocal = new[] { 0, 0, 0 },
+                geometryOriginOffsetMm = new[] { Math.Round(offsetMm.X, 1), Math.Round(offsetMm.Y, 1), Math.Round(offsetMm.Z, 1) },
                 facingOrientationLocal = facing,
                 handOrientationLocal = hand,
                 units = "mm, family coordinates (rotation 0, insertion point at 0,0,0)",
@@ -191,6 +231,28 @@ public sealed class DescribeFamilyTool : IRiveTTTool
                 $"describe_family could not measure the family: {exception.Message}",
                 suggestion: "Retry with an instanceId of a placed instance.");
         }
+        finally
+        {
+            // Never keep the probe: this is a read tool.
+            if (probe != null && probe.GetStatus() == TransactionStatus.Started) probe.RollBack();
+            probe?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The instance's insertion frame: origin at its LocationPoint, axes of its transform
+    /// (rotation and mirroring included). Line-based instances fall back to the transform.
+    /// </summary>
+    internal static Transform InsertionFrame(FamilyInstance instance)
+    {
+        var transform = instance.GetTransform();
+        if (instance.Location is not LocationPoint location) return transform;
+        var frame = Transform.Identity;
+        frame.Origin = location.Point;
+        frame.BasisX = transform.BasisX;
+        frame.BasisY = transform.BasisY;
+        frame.BasisZ = transform.BasisZ;
+        return frame;
     }
 
     private static string ZRule(string placement) => placement switch

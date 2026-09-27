@@ -100,7 +100,8 @@ public sealed class CreateStairTool : IRiveTTTool
         var treadFt = ReadOrZero(() => planningType?.MinTreadDepth ?? 0);
         var typeWidthFt = ReadOrZero(() => planningType?.MinRunWidth ?? 0);
         var plan = StairRunPlanner.Build(runInputs, heightFt * MmPerFoot, maxRiserFt * MmPerFoot,
-            treadFt * MmPerFoot, widthMm > 0 ? widthMm : typeWidthFt * MmPerFoot);
+            treadFt * MmPerFoot, widthMm > 0 ? widthMm : typeWidthFt * MmPerFoot,
+            maxRiserFt > 0 ? heightFt / maxRiserFt : (double?)null);
 
         if (dryRun)
         {
@@ -162,8 +163,10 @@ public sealed class CreateStairTool : IRiveTTTool
             var landingIds = new List<long>();
             var landingProblems = new List<object>();
             var landingMessages = new List<string>();
+            // The plan's riser warnings are ESTIMATES for the preview. Once Revit has built the
+            // stair, its own DesiredRisersNumber is the truth, checked below: repeating the
+            // estimate told the caller to shorten runs that were exactly right (2026-09-27).
             var warnings = new List<string>();
-            warnings.AddRange(plan.Warnings);
 
             using (var tx = new Transaction(doc, "RiveTT: Stair Runs"))
             {

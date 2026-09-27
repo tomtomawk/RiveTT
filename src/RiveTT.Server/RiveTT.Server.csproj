@@ -8,6 +8,9 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AssemblyName>RiveTT.Server</AssemblyName>
     <ApplicationIcon>rivett-server.ico</ApplicationIcon>
+    <!-- FileDescription: the name Task Manager shows on the process row. Left unset it was the
+         assembly name, "RiveTT.Server", under the AI application that starts it. -->
+    <AssemblyTitle>RiveTT — serveur MCP pour Revit</AssemblyTitle>
     <!-- SELF-CONTAINED ON PURPOSE. This is the only piece of RiveTT that runs as its own
          process; the plugin runs inside Revit, which brings its own .NET 10. Framework
          dependent, this exe needs the .NET 10 runtime in C:\Program Files\dotnet — and

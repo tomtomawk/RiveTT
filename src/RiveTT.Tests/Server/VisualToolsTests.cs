@@ -146,7 +146,10 @@ public class VisualToolsTests
         Assert.False(mapping["verified"]!.Value<bool>());
         Assert.Contains("highlightIds", mapping["calibrate"]!.Value<string>());
         Assert.Equal(23.75, mapping["mmPerPixel"]!.Value<double>(), 2);
-        Assert.Equal(new[] { -1000.0, 14000.0 }, mapping["originTopLeftMm"]!.Values<double>().ToArray());
+        // 18 000 mm at 23.75 mm/px is 757.9 px of a 758 px image: a 0.05 px margin, 1.2 mm.
+        var origin = mapping["originTopLeftMm"]!.Values<double>().ToArray();
+        Assert.Equal(-1000.0, origin[0], 1);
+        Assert.InRange(origin[1], 14000.0, 14002.0);
     }
 
     [Fact]

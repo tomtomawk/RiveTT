@@ -267,8 +267,11 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                 copy.CropBox = crop;
                 copy.CropBoxActive = true;
                 copy.CropBoxVisible = false;
-                // Annotations outside the crop would widen the image and break the mapping.
+                // Annotations outside the crop would widen the image and break the mapping. The
+                // annotation crop alone is not enough: its default offsets (about an inch of paper,
+                // 1.2 m at 1:50) still let a section mark widen the image unevenly (2026-09-27).
                 copy.get_Parameter(BuiltInParameter.VIEWER_ANNOTATION_CROP_ACTIVE)?.Set(1);
+                if (shape != null) MinimiseAnnotationCropOffsets(shape);
 
                 // Read back what Revit kept: an assignment it ignored must not pass for applied.
                 var applied = copy.CropBox;
@@ -324,6 +327,21 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
             }
             if (missing.Count > 0) notApplied.Add($"highlightIds not found or not overridable: {string.Join(", ", missing.Take(20))}");
         }
+    }
+
+    /// <summary>
+    /// Brings the annotation crop as close to the model crop as Revit allows. Each side is set
+    /// on its own: a value Revit refuses leaves that side as it was, never the whole call.
+    /// </summary>
+    private static void MinimiseAnnotationCropOffsets(ViewCropRegionShapeManager shape)
+    {
+        // A millimetre rather than 0, which Revit may treat as out of range; either way it is
+        // below any visible difference.
+        const double offsetFt = 1.0 / MmPerFoot;
+        try { shape.LeftAnnotationCropOffset = offsetFt; } catch { }
+        try { shape.RightAnnotationCropOffset = offsetFt; } catch { }
+        try { shape.TopAnnotationCropOffset = offsetFt; } catch { }
+        try { shape.BottomAnnotationCropOffset = offsetFt; } catch { }
     }
 
     /// <summary>The model rectangle the exported view covers, when it is knowable.</summary>
@@ -420,6 +438,14 @@ public static class CaptureMapping
         var mmPerPixelY = frame.CropHeightMm / heightPx;
         var aspectGap = Math.Abs(mmPerPixelX - mmPerPixelY) / Math.Max(mmPerPixelX, mmPerPixelY);
         var aspectMatches = aspectGap <= 0.02;
+
+        // Fit-to-page scales the crop to fill the image along one axis and centres it along the
+        // other: the scale is the LARGER of the two ratios, and the rest is an equal margin on
+        // both sides. Averaging the two ratios, as 0.6.0 did, was wrong by 21 to 27 % whenever
+        // the aspects differed (measured on the plan of 2026-09-27).
+        var scale = Math.Max(mmPerPixelX, mmPerPixelY);
+        var marginX = (widthPx - frame.CropWidthMm / scale) / 2;
+        var marginY = (heightPx - frame.CropHeightMm / scale) / 2;
         return new
         {
             available = true,
@@ -430,15 +456,27 @@ public static class CaptureMapping
             verified = false,
             calibrate = "To trust a position read on the image, capture once with highlightIds on an element whose " +
                         "coordinates are known and compare.",
-            mmPerPixel = Math.Round((mmPerPixelX + mmPerPixelY) / 2, 3),
-            originTopLeftMm = new[] { Math.Round(frame.LeftMm, 1), Math.Round(frame.TopMm, 1) },
+            mmPerPixel = Math.Round(scale, 3),
+            // The top-left corner of the IMAGE, margins included — what px, py count from.
+            originTopLeftMm = new[]
+            {
+                Math.Round(frame.LeftMm - marginX * scale, 1),
+                Math.Round(frame.TopMm + marginY * scale, 1)
+            },
+            // Where the crop itself lies in the image: [left, top, right, bottom] in pixels.
+            cropPx = new[]
+            {
+                Math.Round(marginX, 1), Math.Round(marginY, 1),
+                Math.Round(widthPx - marginX, 1), Math.Round(heightPx - marginY, 1)
+            },
             axes = frame.UpIsNorth
                 ? "pixel x -> model +X (east), pixel y -> model -Y: model = (left + px * mmPerPixel, top - py * mmPerPixel)"
                 : "the view is rotated in plan: pixel axes follow the view's right/up directions, not model X/Y",
             cropMm = new[] { Math.Round(frame.CropWidthMm, 1), Math.Round(frame.CropHeightMm, 1) },
             note = aspectMatches
                 ? "Image aspect matches the crop region; the mapping assumes the image is exactly the crop."
-                : $"Image aspect differs from the crop by {aspectGap:P0}: annotations or margins widen the image; positions are approximate."
+                : $"Image aspect differs from the crop by {aspectGap:P0}: the crop fills the image along one axis and is " +
+                  "assumed centred along the other (cropPx) — approximate until calibrated with highlightIds."
         };
     }
 }
