@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AssemblyName>RiveTT.Server</AssemblyName>
+    <ApplicationIcon>rivett-server.ico</ApplicationIcon>
     <!-- SELF-CONTAINED ON PURPOSE. This is the only piece of RiveTT that runs as its own
          process; the plugin runs inside Revit, which brings its own .NET 10. Framework
          dependent, this exe needs the .NET 10 runtime in C:\Program Files\dotnet — and
