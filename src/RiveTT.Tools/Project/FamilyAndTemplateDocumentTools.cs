@@ -64,7 +64,7 @@ public static class DocumentFilePathValidation
 /// Annex A).
 /// </summary>
 [ToolSafety(true, false, supportsDryRun: true)]
-public sealed partial class OpenFamilyTool : IRiveTTTool
+public sealed class OpenFamilyTool : IRiveTTTool
 {
     public string Name => "open_family";
     public string Category => "Documents";
@@ -150,10 +150,7 @@ public sealed partial class OpenFamilyTool : IRiveTTTool
                 suggestion: "Close any open dialog in Revit and retry.");
         }
     }
-}
 
-public sealed partial class OpenFamilyTool
-{
     /// <summary>
     /// Opens a family ALREADY LOADED in a project (Document.EditFamily), without a .rfa on disk.
     /// EditFamily returns a document with no path, and Revit can only activate a document by

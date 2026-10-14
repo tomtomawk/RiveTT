@@ -1390,7 +1390,7 @@ Sources vérifiées le 7 septembre 2026 :
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-10-14 — connecteur 0.6.2 — **212 outils publiés**, 209 classes runtime.
+Relevé du 2026-10-15 — connecteur 0.6.2 — **212 outils publiés**, 209 classes runtime.
 
 ### Comment lire ce document
 

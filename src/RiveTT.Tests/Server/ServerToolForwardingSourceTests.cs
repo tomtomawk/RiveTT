@@ -61,7 +61,8 @@ public class ServerToolForwardingSourceTests
         var duplicateView = ReadPluginTool("RiveTT.Tools", "Views", "DuplicateViewTool.cs");
         var linkTransform = ReadPluginTool("RiveTT.Tools", "LinkedFiles", "GetLinkTransformTool.cs");
         var exportToExcel = ReadPluginTool("RiveTT.Tools", "Elements", "ExportToExcelTool.cs");
-        var duplicateSheet = ReadPluginTool("RiveTT.Tools", "Sheets", "DuplicateSheetWithContentTool.cs");
+        // Both duplicate-sheet tools share one implementation since 0.6.2.
+        var duplicateSheet = ReadPluginTool("RiveTT.Tools", "Sheets", "SheetDuplicator.cs");
 
         Assert.Contains("input[\"viewId\"]", duplicateView);
         Assert.Contains("input[\"linkInstanceId\"]", linkTransform);
@@ -75,7 +76,7 @@ public class ServerToolForwardingSourceTests
     public void FragileTools_ExposeDefensiveRuntimeGuards()
     {
         var ifcExport = ReadPluginTool("RiveTT.Tools", "IFC", "IfcExportBasicTool.cs");
-        var duplicateSheetWithViews = ReadPluginTool("RiveTT.Tools", "Sheets", "DuplicateSheetWithViewsTool.cs");
+        var duplicateSheetWithViews = ReadPluginTool("RiveTT.Tools", "Sheets", "SheetDuplicator.cs");
         var linesPerViewCount = ReadPluginTool("RiveTT.Tools", "Project", "LinesPerViewCountTool.cs");
 
         Assert.Contains("NormalizeIfcFileName", ifcExport);

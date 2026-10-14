@@ -296,12 +296,19 @@ namespace RiveTT.Tests.Server
                 name => Assert.Equal("revit", name),
                 name => Assert.Equal("filePath", name),
                 name => Assert.Equal("dryRun", name),
+                // 0.6.2: a family already loaded in a project can be opened without a file.
+                name => Assert.Equal("familyId", name),
+                name => Assert.Equal("familyName", name),
+                name => Assert.Equal("targetDocument", name),
+                name => Assert.Equal("activate", name),
                 name => Assert.Equal("ct", name));
 
             Assert.Equal(typeof(string), GetParameter(method, "filePath").ParameterType);
-            Assert.False(GetParameter(method, "filePath").HasDefaultValue);
+            // Optional since 0.6.2: familyId / familyName are the alternative.
+            Assert.True(GetParameter(method, "filePath").HasDefaultValue);
             Assert.Equal(typeof(bool), GetParameter(method, "dryRun").ParameterType);
             Assert.Equal(true, GetParameter(method, "dryRun").DefaultValue);
+            Assert.Equal(true, GetParameter(method, "activate").DefaultValue);
         }
 
         [Fact]

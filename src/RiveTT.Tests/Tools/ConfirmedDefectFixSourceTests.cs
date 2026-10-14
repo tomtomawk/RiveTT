@@ -106,7 +106,7 @@ public class ConfirmedDefectFixSourceTests
     // ── majeur: no dryRun on the most powerful tool ──────────────────────────────
 
     [Fact]
-    public void SendCodeToRevit_PreviewsWithoutExecutingOrWritingToDisk()
+    public void SendCodeToRevit_PreviewsWithoutExecutingAndSavesTheScriptFirst()
     {
         var src = ReadSource("RiveTT.Tools", "Elements", "SendCodeToRevitTool.cs");
 
@@ -118,13 +118,16 @@ public class ConfirmedDefectFixSourceTests
         var branchIdx = src.IndexOf("if (dryRun)", StringComparison.Ordinal);
         var sandboxIdx = src.IndexOf("CodeSandbox.Validate(code!)", StringComparison.Ordinal);
         var persistIdx = src.IndexOf("PersistScript(code!", StringComparison.Ordinal);
+        var compileIdx = src.IndexOf("RoslynExecutor.CheckCompiles(", StringComparison.Ordinal);
         var executeIdx = src.IndexOf("RoslynExecutor.Execute(", StringComparison.Ordinal);
 
         Assert.True(branchIdx >= 0, "send_code_to_revit has no dryRun branch");
+        Assert.True(persistIdx >= 0 && persistIdx < sandboxIdx && sandboxIdx < branchIdx,
+            "0.6.2: the script is saved FIRST (before the sandbox, the compiler and the dryRun branch), so " +
+            "fromScript + edits can correct a rejected or previewed script without resending it");
+        Assert.True(compileIdx > branchIdx, "a preview compiles the script and still does not run it");
         Assert.True(sandboxIdx >= 0 && sandboxIdx < branchIdx,
             "the sandbox check must run before the dryRun branch so a preview reports a rejection");
-        Assert.True(persistIdx > branchIdx,
-            "the script is written to disk before the dryRun branch — a preview must not persist it");
         Assert.True(executeIdx > branchIdx, "the code runs before the dryRun branch is consulted");
     }
 

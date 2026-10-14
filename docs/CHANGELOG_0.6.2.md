@@ -4,9 +4,15 @@ Deux apports : le cycle complet d'édition d'une famille **sans fichier** (`open
 famille du projet, `load_family` action `load_from_open`), et les corrections issues du rapport
 de la session ILO (E23_005, 13/10/2026, RiveTT 0.6.1.0, Revit 2026).
 
-> **État : code écrit, NON compilé ni testé.** Le poste de développement n'a ni SDK .NET 10 ni
-> Inno Setup au moment de l'écriture. `dotnet test`, `builder\build.ps1` et les sept scénarios
-> du §4 restent à exécuter ; rien ci-dessous n'est vérifié sur Revit.
+> **État : compilé et testé hors Revit, pas encore vérifié sur Revit.** Le projet compile pour les deux
+> cibles (Revit 2026 et 2027), sans avertissement, et la suite xUnit passe (834 réussis, 3 ignorés, 0 échec,
+> dont `Release062SourceTests`, `FieldReport0_5_2RegressionTests`, `Release062BriefsTests`). La compilation a
+> corrigé deux erreurs (échappements de chemins, `OST_Sketch` absent de l'API 2026) et les tests existants ont
+> fait émerger des contrats que le code neuf violait : paramètres `bool?` et tableaux optionnels interdits dans
+> les wrappers MCP, lectures de `dryRun` et de clés attendues dans le fichier de l'outil. Les tests qui épinglaient
+> l'ancien comportement ont été mis à jour (`open_family`, politique d'enregistrement du script au `dryRun`,
+> duplication de feuilles déléguée à `SheetDuplicator`). Rien n'a été exercé sur Revit : voir les listes de
+> vérifications des §4, §6 et §7. L'installateur (`builderuild.ps1`, Inno Setup) n'a pas été construit ici.
 
 ## 1. Familles ouvertes en mémoire
 

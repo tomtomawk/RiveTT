@@ -382,8 +382,8 @@ public static class ElementTools
     public static async Task<string> CreateFamilyExtrusion(
         RevitConnectionManager revit,
         [Description("Closed loops of segments, JSON array of arrays: [[{\"type\":\"line\",\"start\":{\"x\":0,\"y\":0},\"end\":{\"x\":10,\"y\":0}}, ...]]")] System.Text.Json.JsonElement? loops = null,
-        [Description("Extrusion end offset from the sketch plane, in mm")] double? end = null,
-        [Description("Extrusion start offset from the sketch plane, in mm. Default: 0")] double start = 0,
+        [Description("Extrusion end offset from the sketch plane, in mm")] double? endMm = null,
+        [Description("Extrusion start offset from the sketch plane, in mm. Default: 0")] double startMm = 0,
         [Description("Sketch plane preset: plan (normal +Z) | front (normal -Y, X right, Y up) | side (normal +X). Default: front. Ignored when normal is given")] string? plane = null,
         [Description("Sketch plane origin {x,y,z} in mm (JSON object). Default: 0,0,0")] System.Text.Json.JsonElement? origin = null,
         [Description("Sketch plane normal {x,y,z} (JSON object). Replaces the plane preset")] System.Text.Json.JsonElement? normal = null,
@@ -392,8 +392,8 @@ public static class ElementTools
         [Description("Validate and preview without creating. Default: true")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["start"] = start, ["isSolid"] = isSolid, ["dryRun"] = dryRun };
-        if (end != null) p["end"] = end;
+        var p = new JObject { ["start"] = startMm, ["isSolid"] = isSolid, ["dryRun"] = dryRun };
+        if (endMm != null) p["end"] = endMm;
         if (plane != null) p["plane"] = plane;
         if (materialName != null) p["materialName"] = materialName;
         if (JsonOptionalParam.IsProvided(loops))
@@ -425,9 +425,9 @@ public static class ElementTools
         [Description("Replacement text (replace). Use action=delete to remove the searched text")] string? replacement = null,
         [Description("Match the case exactly. Default: false")] bool caseSensitive = false,
         [Description("Match whole words only. Default: false")] bool wholeWord = false,
-        [Description("Text note element IDs")] long[]? elementIds = null,
-        [Description("Views whose notes are in scope")] long[]? viewIds = null,
-        [Description("Sheets whose notes are in scope")] long[]? sheetIds = null,
+        [Description("Text note element IDs. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
+        [Description("Views whose notes are in scope. JSON array")] System.Text.Json.JsonElement? viewIds = null,
+        [Description("Sheets whose notes are in scope. JSON array")] System.Text.Json.JsonElement? sheetIds = null,
         [Description("\"project\" = every text note of the project. Default: the active view")] string? scope = null,
         [Description("Max notes returned. Default: 200")] int? limit = null,
         [Description("Preview without changing the model (replace, delete). Default: true")] bool dryRun = true,
@@ -437,9 +437,13 @@ public static class ElementTools
         if (action != null) p["action"] = action;
         if (search != null) p["search"] = search;
         if (replacement != null) p["replacement"] = replacement;
-        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
-        if (viewIds != null) p["viewIds"] = new JArray(viewIds.Cast<object>().ToArray());
-        if (sheetIds != null) p["sheetIds"] = new JArray(sheetIds.Cast<object>().ToArray());
+        foreach (var (key, value) in new[] { ("elementIds", elementIds), ("viewIds", viewIds), ("sheetIds", sheetIds) })
+        {
+            if (!JsonOptionalParam.IsProvided(value)) continue;
+            if (!JsonArrayParam.TryParse(value, out var array))
+                return JsonArrayParam.InvalidArrayResult("manage_text_notes", key, value);
+            p[key] = array;
+        }
         if (scope != null) p["scope"] = scope;
         if (limit != null) p["limit"] = limit;
         return (await revit.ExecuteAsync("manage_text_notes", p, ct)).ToString();

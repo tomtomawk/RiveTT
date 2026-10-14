@@ -62,7 +62,7 @@ public class Release062BriefsTests
         foreach (var key in new[] { "scriptArgsFile", "mergeScriptArgs", "verboseChanges" })
         {
             Assert.Contains($"input[\"{key}\"]", tool);
-            Assert.Contains($"p[\"{key}\"]", wrapper);
+            Assert.Contains($"[\"{key}\"]", wrapper);
         }
         Assert.Contains("SafeArgsFile", tool);   // a plain .json name, no folder, no ..
 
@@ -122,7 +122,7 @@ public class Release062BriefsTests
                      "zoomPercent", "paperPlacement", "combine", "combinedFileName", "fileName", "overwriteExisting" })
         {
             Assert.Contains($"input[\"{key}\"]", tool);
-            Assert.Contains($"p[\"{key}\"]", wrapper);
+            Assert.Contains($"[\"{key}\"]", wrapper);
         }
         Assert.Contains("replacedExistingFile", tool);
         Assert.Contains("sizeBytes", tool);

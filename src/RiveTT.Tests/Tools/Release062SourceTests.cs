@@ -68,7 +68,7 @@ public class Release062SourceTests
         foreach (var key in new[] { "sourceDocument", "targetDocument", "renameTo", "activateTypes", "closeSource" })
         {
             Assert.Contains($"input[\"{key}\"]", tool);
-            Assert.Contains($"p[\"{key}\"]", wrapper);
+            Assert.Contains($"[\"{key}\"]", wrapper);
         }
     }
 
@@ -95,7 +95,7 @@ public class Release062SourceTests
         foreach (var key in new[] { "familyId", "familyName", "targetDocument", "activate" })
         {
             Assert.Contains($"input[\"{key}\"]", tool);
-            Assert.Contains($"request[\"{key}\"]", wrapper);
+            Assert.Contains($"[\"{key}\"]", wrapper);
         }
         Assert.Contains("load_from_open", tool);
         Assert.Contains("load_from_open", wrapper);
@@ -150,8 +150,8 @@ public class Release062SourceTests
     {
         var content = Source("RiveTT.Tools", "Sheets", "DuplicateSheetWithContentTool.cs");
         var views = Source("RiveTT.Tools", "Sheets", "DuplicateSheetWithViewsTool.cs");
-        Assert.Contains("SheetDuplicator.Run(input, doc, Name, copyAnnotationsDefault: true)", content);
-        Assert.Contains("SheetDuplicator.Run(input, doc, Name, copyAnnotationsDefault: false)", views);
+        Assert.Contains("SheetDuplicator.Run(input, doc, Name, copyAnnotationsDefault: true, dryRun: dryRun)", content);
+        Assert.Contains("SheetDuplicator.Run(input, doc, Name, copyAnnotationsDefault: false, dryRun: dryRun)", views);
 
         var shared = Source("RiveTT.Tools", "Sheets", "SheetDuplicator.cs");
         Assert.Contains("CopyTitleBlocks", shared);
@@ -162,7 +162,7 @@ public class Release062SourceTests
         var start = wrapper.IndexOf("Name = \"duplicate_sheet_with_views\"", System.StringComparison.Ordinal);
         Assert.True(start >= 0);
         var section = wrapper.Substring(start, 3500);
-        Assert.Contains("p[\"newNumber\"] = newNumber", section);
+        Assert.Contains("[\"newNumber\"] = newNumber", section);
     }
 
     [Fact]
@@ -178,8 +178,8 @@ public class Release062SourceTests
         var tool = Source("RiveTT.Tools", "Views", "OverrideGraphicsTool.cs");
         Assert.Contains("view.SetCategoryHidden(catId, hide)", tool);
         var wrapper = Source("RiveTT.Server", "Tools", "ViewTools.cs");
-        Assert.Contains("p[\"categories\"]", wrapper);
-        Assert.Contains("p[\"viewIds\"]", wrapper);
+        Assert.Contains("(\"categories\", categories)", wrapper);
+        Assert.Contains("(\"viewIds\", viewIds)", wrapper);
     }
 
     [Fact]
@@ -188,7 +188,7 @@ public class Release062SourceTests
         var tool = Source("RiveTT.Tools", "Project", "GetWarningsTool.cs");
         Assert.Contains("sinceSnapshot", tool);
         Assert.Contains("SnapshotKey", tool);
-        Assert.Contains("p[\"sinceSnapshot\"] = sinceSnapshot", Source("RiveTT.Server", "Tools", "ProjectTools.cs"));
+        Assert.Contains("[\"sinceSnapshot\"] = sinceSnapshot", Source("RiveTT.Server", "Tools", "ProjectTools.cs"));
     }
 
     [Fact]

@@ -73,8 +73,8 @@ public class TransactionFailureHandlingSourceTests
     [InlineData("Annotations", "WipeEmptyTagsTool.cs")]
     [InlineData("Sheets", "BatchCreateSheetsTool.cs")]
     [InlineData("Sheets", "CreatePlaceholderSheetsTool.cs")]
-    [InlineData("Sheets", "DuplicateSheetWithViewsTool.cs")]
-    [InlineData("Sheets", "DuplicateSheetWithContentTool.cs")]
+    // Both duplicate-sheet tools delegate to SheetDuplicator since 0.6.2.
+    [InlineData("Sheets", "SheetDuplicator.cs")]
     [InlineData("Sheets", "AlignViewportsTool.cs")]
     [InlineData("Views", "CreateViewTool.cs")]
     [InlineData("Views", "RenameViewsTool.cs")]

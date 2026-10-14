@@ -3,6 +3,7 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Sheets;
 
@@ -30,6 +31,8 @@ public class DuplicateSheetWithViewsTool : IRiveTTTool
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
-        return SheetDuplicator.Run(input, doc, Name, copyAnnotationsDefault: false);
+        // dryRun is read here, where the tool declares supportsDryRun; SheetDuplicator runs the probe.
+        var dryRun = ToolHelpers.GetDryRun(input);
+        return SheetDuplicator.Run(input, doc, Name, copyAnnotationsDefault: false, dryRun: dryRun);
     }
 }

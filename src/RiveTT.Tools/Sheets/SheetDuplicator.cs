@@ -36,7 +36,7 @@ internal static class SheetDuplicator
             _ => ViewDuplicateOption.WithDetailing
         };
 
-    public static RiveTTResult<object> Run(JObject input, Document doc, string toolName, bool copyAnnotationsDefault)
+    public static RiveTTResult<object> Run(JObject input, Document doc, string toolName, bool copyAnnotationsDefault, bool dryRun)
     {
         var sheetId = input["sheetId"]?.Value<long>() ?? 0;
         var copies = input["copies"]?.Value<int>() ?? 1;
@@ -88,7 +88,6 @@ internal static class SheetDuplicator
                 .ToList();
 
             var results = new List<object>();
-            var dryRun = ToolHelpers.GetDryRun(input);
             using var tx = new Transaction(doc, $"RiveTT: {toolName}");
             tx.Start();
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);

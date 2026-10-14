@@ -331,8 +331,7 @@ public class GetElementsInSpatialVolumeTool : IRiveTTTool
 
     private static readonly BuiltInCategory[] NonGeometricCategories =
     {
-        BuiltInCategory.OST_Cameras, BuiltInCategory.OST_RvtLinks, BuiltInCategory.OST_ImportObjectStyles,
-        BuiltInCategory.OST_Sketch
+        BuiltInCategory.OST_Cameras, BuiltInCategory.OST_RvtLinks
     };
 
     /// <summary>Cameras, Revit/CAD links, sketches and elements with no category: no geometry to report.</summary>
@@ -340,7 +339,7 @@ public class GetElementsInSpatialVolumeTool : IRiveTTTool
     {
         if (e.Category == null) return true;
         var id = (BuiltInCategory)ToolHelpers.GetElementIdValue(e.Category.Id);
-        return NonGeometricCategories.Contains(id) || e is ImportInstance || e is RevitLinkInstance;
+        return NonGeometricCategories.Contains(id) || e is ImportInstance || e is RevitLinkInstance || e is Sketch;
     }
 
     /// <summary>The element's bounding box lies entirely within the given box (feet).</summary>

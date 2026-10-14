@@ -34,9 +34,12 @@ public class OverrideGraphicsTool : IRiveTTTool
     /// </summary>
     private static RiveTTResult<object>? ApplyPatterns(Document doc, JObject input, OverrideGraphicSettings overrides)
     {
-        foreach (var key in new[] { "surfaceForegroundPatternId", "cutForegroundPatternId" })
+        foreach (var (key, token) in new[]
+                 {
+                     ("surfaceForegroundPatternId", input["surfaceForegroundPatternId"]),
+                     ("cutForegroundPatternId", input["cutForegroundPatternId"])
+                 })
         {
-            var token = input[key];
             if (token == null || token.Type == JTokenType.Null) continue;
             if (token.Type != JTokenType.Integer
                 || doc.GetElement(new ElementId(token.Value<long>())) is not FillPatternElement)

@@ -373,7 +373,7 @@ public sealed class CreateFamilyExtrusionTool : IRiveTTTool
                     var distance = Math.Abs(all[a].Index - all[b].Index);
                     if (distance == 1 || distance == all[a].Count - 1) continue;   // adjacent: they touch by design
                 }
-                var relation = all[a].Curve.Intersect(all[b].Curve);
+                var relation = all[a].Curve.Intersect(all[b].Curve, CurveIntersectResultOption.Simple).Result;
                 if (relation != SetComparisonResult.Disjoint)
                     issues.Add($"loop {all[a].Loop} segment {all[a].Index} touches or crosses loop {all[b].Loop} segment {all[b].Index} ({relation}).");
             }

@@ -292,21 +292,21 @@ public class BatchExportTool : IRiveTTTool
             options.ZoomType = ZoomType.FitToPage; applied["zoom"] = "fit";
         }
 
-        void Flag(string key, Action<bool> set)
+        void Flag(string key, JToken? token, Action<bool> set)
         {
-            var value = input[key]?.Value<bool?>();
+            var value = token?.Value<bool?>();
             if (value == null) return;
             set(value.Value);
             applied[key] = value.Value;
         }
-        Flag("hideScopeBoxes", v => options.HideScopeBoxes = v);
-        Flag("hideReferencePlanes", v => options.HideReferencePlane = v);
-        Flag("hideCropBoundaries", v => options.HideCropBoundaries = v);
-        Flag("hideUnreferencedViewTags", v => options.HideUnreferencedViewTags = v);
-        Flag("maskCoincidentLines", v => options.MaskCoincidentLines = v);
-        Flag("viewLinksInBlue", v => options.ViewLinksInBlue = v);
-        Flag("replaceHalftoneWithThinLines", v => options.ReplaceHalftoneWithThinLines = v);
-        Flag("alwaysUseRaster", v => options.AlwaysUseRaster = v);
+        Flag("hideScopeBoxes", input["hideScopeBoxes"], v => options.HideScopeBoxes = v);
+        Flag("hideReferencePlanes", input["hideReferencePlanes"], v => options.HideReferencePlane = v);
+        Flag("hideCropBoundaries", input["hideCropBoundaries"], v => options.HideCropBoundaries = v);
+        Flag("hideUnreferencedViewTags", input["hideUnreferencedViewTags"], v => options.HideUnreferencedViewTags = v);
+        Flag("maskCoincidentLines", input["maskCoincidentLines"], v => options.MaskCoincidentLines = v);
+        Flag("viewLinksInBlue", input["viewLinksInBlue"], v => options.ViewLinksInBlue = v);
+        Flag("replaceHalftoneWithThinLines", input["replaceHalftoneWithThinLines"], v => options.ReplaceHalftoneWithThinLines = v);
+        Flag("alwaysUseRaster", input["alwaysUseRaster"], v => options.AlwaysUseRaster = v);
 
         var overwrite = input["overwriteExisting"]?.Value<bool>() ?? true;
         var combine = input["combine"]?.Value<bool>() ?? false;

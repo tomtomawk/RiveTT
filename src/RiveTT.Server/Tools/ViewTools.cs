@@ -201,11 +201,11 @@ public static class ViewTools
     [McpServerTool(Name = "override_graphics"), Description("Override element graphics in a view (colors, transparency, halftone, line weight). action=hide_category | show_category hides or shows whole categories per view (e.g. categories [\"OST_Viewers\"] = section marks) over viewIds, without elementIds.")]
     public static async Task<string> OverrideGraphics(
         RevitConnectionManager revit,
-        [Description("Element IDs to override (not needed for hide_category / show_category)")] long[]? elementIds = null,
+        [Description("Element IDs to override (not needed for hide_category / show_category). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? elementIds = null,
         [Description("Action: set | reset | hide_category | show_category. Default: set")] string? action = null,
         [Description("View ID (optional; uses active view when 0)")] long? viewId = null,
-        [Description("Views to apply hide_category / show_category to. JSON array of ids; default: viewId, else the active view")] long[]? viewIds = null,
-        [Description("Categories for hide_category / show_category: OST_* codes or names, e.g. [\"OST_Viewers\"] (section marks), [\"OST_Callouts\"]")] string[]? categories = null,
+        [Description("Views to apply hide_category / show_category to. JSON array of ids; default: viewId, else the active view")] System.Text.Json.JsonElement? viewIds = null,
+        [Description("Categories for hide_category / show_category (and set / reset on whole categories): OST_* codes or names, JSON array, e.g. [\"OST_Viewers\"] (section marks), [\"OST_Callouts\"]")] System.Text.Json.JsonElement? categories = null,
         [Description("Color red channel 0-255")] int? colorR = null,
         [Description("Color green channel 0-255")] int? colorG = null,
         [Description("Color blue channel 0-255")] int? colorB = null,
@@ -220,11 +220,16 @@ public static class ViewTools
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["elementIds"] = new JArray((elementIds ?? Array.Empty<long>()).Cast<object>().ToArray()) };
+        var p = new JObject();
+        foreach (var (key, value) in new[] { ("elementIds", elementIds), ("viewIds", viewIds), ("categories", categories) })
+        {
+            if (!JsonOptionalParam.IsProvided(value)) continue;
+            if (!JsonArrayParam.TryParse(value, out var array))
+                return JsonArrayParam.InvalidArrayResult("override_graphics", key, value);
+            p[key] = array;
+        }
         if (action != null) p["action"] = action;
         if (viewId != null) p["viewId"] = viewId;
-        if (viewIds != null) p["viewIds"] = new JArray(viewIds.Cast<object>().ToArray());
-        if (categories != null) p["categories"] = new JArray(categories.Cast<object>().ToArray());
         if (colorR != null) p["colorR"] = colorR;
         if (colorG != null) p["colorG"] = colorG;
         if (colorB != null) p["colorB"] = colorB;

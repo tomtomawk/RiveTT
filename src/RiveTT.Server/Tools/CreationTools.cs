@@ -667,14 +667,14 @@ public static class CreationTools
         [Description("PDF, combine=true: name of the combined file, without .pdf")] string? combinedFileName = null,
         [Description("PDF, separate files: file name template with {number} and {name}, without .pdf, e.g. \"{number} - {name}\". Without it Revit names the file itself (\"Feuille-<name>.pdf\" in French)")] string? fileName = null,
         [Description("PDF: replace a file of the same name (default: true). The answer says per file whether it replaced one (replacedExistingFile); false skips it instead")] bool overwriteExisting = true,
-        [Description("PDF: hide scope boxes")] bool? hideScopeBoxes = null,
-        [Description("PDF: hide reference planes")] bool? hideReferencePlanes = null,
-        [Description("PDF: hide crop boundaries")] bool? hideCropBoundaries = null,
-        [Description("PDF: hide view tags that reference no view")] bool? hideUnreferencedViewTags = null,
-        [Description("PDF: mask coincident lines")] bool? maskCoincidentLines = null,
-        [Description("PDF: show view links in blue")] bool? viewLinksInBlue = null,
-        [Description("PDF: replace halftone with thin lines")] bool? replaceHalftoneWithThinLines = null,
-        [Description("PDF: always rasterize")] bool? alwaysUseRaster = null,
+        [Description("PDF: hide scope boxes. Pass \"true\" or \"false\"; omit to keep Revit's default")] string? hideScopeBoxes = null,
+        [Description("PDF: hide reference planes. Pass \"true\" or \"false\"; omit to keep Revit's default")] string? hideReferencePlanes = null,
+        [Description("PDF: hide crop boundaries. Pass \"true\" or \"false\"; omit to keep Revit's default")] string? hideCropBoundaries = null,
+        [Description("PDF: hide view tags that reference no view. Pass \"true\" or \"false\"; omit to keep Revit's default")] string? hideUnreferencedViewTags = null,
+        [Description("PDF: mask coincident lines. Pass \"true\" or \"false\"; omit to keep Revit's default")] string? maskCoincidentLines = null,
+        [Description("PDF: show view links in blue. Pass \"true\" or \"false\"; omit to keep Revit's default")] string? viewLinksInBlue = null,
+        [Description("PDF: replace halftone with thin lines. Pass \"true\" or \"false\"; omit to keep Revit's default")] string? replaceHalftoneWithThinLines = null,
+        [Description("PDF: always rasterize. Pass \"true\" or \"false\"; omit to keep Revit's default")] string? alwaysUseRaster = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["outputDirectory"] = outputDirectory, ["dryRun"] = dryRun, ["combine"] = combine, ["overwriteExisting"] = overwriteExisting };
@@ -688,14 +688,21 @@ public static class CreationTools
         if (paperPlacement != null) p["paperPlacement"] = paperPlacement;
         if (combinedFileName != null) p["combinedFileName"] = combinedFileName;
         if (fileName != null) p["fileName"] = fileName;
-        if (hideScopeBoxes != null) p["hideScopeBoxes"] = hideScopeBoxes;
-        if (hideReferencePlanes != null) p["hideReferencePlanes"] = hideReferencePlanes;
-        if (hideCropBoundaries != null) p["hideCropBoundaries"] = hideCropBoundaries;
-        if (hideUnreferencedViewTags != null) p["hideUnreferencedViewTags"] = hideUnreferencedViewTags;
-        if (maskCoincidentLines != null) p["maskCoincidentLines"] = maskCoincidentLines;
-        if (viewLinksInBlue != null) p["viewLinksInBlue"] = viewLinksInBlue;
-        if (replaceHalftoneWithThinLines != null) p["replaceHalftoneWithThinLines"] = replaceHalftoneWithThinLines;
-        if (alwaysUseRaster != null) p["alwaysUseRaster"] = alwaysUseRaster;
+        
+        
+        
+        
+        
+        
+        
+        
+        foreach (var (key, value) in new[] { ("hideScopeBoxes", hideScopeBoxes), ("hideReferencePlanes", hideReferencePlanes), ("hideCropBoundaries", hideCropBoundaries), ("hideUnreferencedViewTags", hideUnreferencedViewTags), ("maskCoincidentLines", maskCoincidentLines), ("viewLinksInBlue", viewLinksInBlue), ("replaceHalftoneWithThinLines", replaceHalftoneWithThinLines), ("alwaysUseRaster", alwaysUseRaster) })
+        {
+            if (value == null) continue;
+            if (!TriStateFlag.TryParse(value, out var flag))
+                return TriStateFlag.InvalidFlagResult("batch_export", key, value);
+            p[key] = flag;
+        }
         if (format != null) p["format"] = format;
         if (JsonOptionalParam.IsProvided(sheetIds))
         {
