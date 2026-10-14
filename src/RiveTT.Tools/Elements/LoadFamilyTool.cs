@@ -7,21 +7,29 @@ using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
+using RiveTT.Tools.Project;
 using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Elements;
 
 /// <summary>
-/// Loads a .rfa family, lists loaded families, or duplicates a family type.
+/// Loads a .rfa family, loads a family already open in memory (load_from_open), lists
+/// loaded families, or duplicates a family type.
+///
+/// supportsDryRun is declared for the whole tool because the router reads it per tool,
+/// not per action. Only load_from_open previews: Execute refuses dryRun on every other
+/// action itself, so declaring it here never lets a real load run under dryRun:true.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class LoadFamilyTool : IRiveTTTool
 {
     public string Name => "load_family";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Loads a .rfa family, lists loaded families, or duplicates a family type.";
+    public string Description => "Loads a .rfa family (action load), loads a family ALREADY OPEN in Revit - opened by "
+        + "open_family, edited, or created and never saved - into a project without any file path (action "
+        + "load_from_open, supports dryRun), lists loaded families, or duplicates a family type.";
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -30,15 +38,26 @@ public class LoadFamilyTool : IRiveTTTool
 
         var action = input["action"]?.Value<string>() ?? "list";
 
+        // The router no longer refuses dryRun for this tool (see the class summary), so the
+        // actions that cannot preview must refuse it here, before touching the model.
+        if (input["dryRun"]?.Value<bool>() == true
+            && !string.Equals(action, "load_from_open", StringComparison.OrdinalIgnoreCase))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"load_family action '{action}' does not support dryRun: it cannot preview, only apply.",
+                suggestion: "Re-issue the call without dryRun, or use action \"load_from_open\", the only action that previews. "
+                          + "Nothing was executed.",
+                context: new Dictionary<string, object> { ["supportsDryRun"] = false, ["modelChanged"] = false });
+
         try
         {
             return action.ToLowerInvariant() switch
             {
                 "load" => LoadFamily(doc, input, session),
+                "load_from_open" => LoadFromOpen(input, session),
                 "list" => ListFamilies(doc, input),
                 "duplicate_type" => DuplicateType(doc, input),
                 _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
-                    $"Unknown action: {action}", suggestion: "Use: load, list, duplicate_type")
+                    $"Unknown action: {action}", suggestion: "Use: load, load_from_open, list, duplicate_type")
             };
         }
         catch (Exception ex)
@@ -114,6 +133,269 @@ public class LoadFamilyTool : IRiveTTTool
             suggestion: overwriteExisting
                 ? "Check the .rfa opens cleanly in Revit and its category matches the target document."
                 : "Retry with overwriteExisting=true to update the family already in the project.");
+    }
+
+    internal static bool SameName(string? a, string? b)
+        => !string.IsNullOrEmpty(a) && string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    internal static List<Document> OpenDocuments(Autodesk.Revit.ApplicationServices.Application app)
+    {
+        var list = new List<Document>();
+        foreach (Document d in app.Documents)
+            if (d.IsValidObject && !d.IsLinked) list.Add(d);
+        return list;
+    }
+
+    internal static Document? MatchByTitle(IEnumerable<Document> docs, string name)
+        => docs.FirstOrDefault(d => SameName(d.Title, name))
+           ?? docs.FirstOrDefault(d => SameName(Path.GetFileNameWithoutExtension(d.Title), name)
+                                       || SameName(d.PathName, name));
+
+    internal static object[] DescribeDocs(IEnumerable<Document> docs)
+        => docs.Select(d => (object)new { title = d.Title, path = d.PathName, isModified = d.IsModified }).ToArray();
+
+    private static string FamilyNameOf(Document source)
+    {
+        string? owner = null;
+        try { owner = source.OwnerFamily?.Name; } catch { /* no owner family yet */ }
+        return !string.IsNullOrWhiteSpace(owner) ? owner! : Path.GetFileNameWithoutExtension(source.Title);
+    }
+
+    internal static Family? FindFamily(Document project, string name)
+        => new FilteredElementCollector(project).OfClass(typeof(Family)).Cast<Family>()
+            .FirstOrDefault(f => SameName(f.Name, name));
+
+    private static RiveTTResult<object> LoadFromOpen(JObject input, RiveTTSession session)
+    {
+        var application = DocumentLifecycleSupport.ResolveApplication(session);
+        if (application == null)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                "No Revit application context is available yet",
+                suggestion: "Open Revit (2026.5+ or 2027) and wait for its session to be published.");
+
+        var sourceName = input["sourceDocument"]?.Value<string>();
+        var targetName = input["targetDocument"]?.Value<string>();
+        var overwrite = input["overwriteExisting"]?.Value<bool>() ?? true;
+        var renameTo = input["renameTo"]?.Value<string>();
+        var activateTypes = input["activateTypes"]?.Value<bool>() ?? true;
+        var closeSource = input["closeSource"]?.Value<bool>() ?? false;
+        var dryRun = input["dryRun"]?.Value<bool>() ?? false;
+
+        var uiApplication = DocumentLifecycleSupport.ResolveUiApplication(session);
+        var active = uiApplication?.ActiveUIDocument?.Document;
+        var open = OpenDocuments(application);
+        var families = open.Where(d => d.IsFamilyDocument).ToList();
+        var projects = open.Where(d => !d.IsFamilyDocument).ToList();
+
+        Document? source;
+        if (!string.IsNullOrWhiteSpace(sourceName))
+        {
+            source = MatchByTitle(families, sourceName!);
+            if (source == null)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
+                    $"No open family document matches sourceDocument '{sourceName}'.",
+                    suggestion: "Pass the exact title of one of the open family documents listed in context.",
+                    context: new Dictionary<string, object> { ["openFamilies"] = DescribeDocs(families), ["modelChanged"] = false });
+        }
+        else if (active != null && active.IsFamilyDocument) source = active;
+        else if (families.Count == 1) source = families[0];
+        else
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                families.Count == 0
+                    ? "No family document is open: there is nothing to load."
+                    : "Several family documents are open and none is active: sourceDocument is required.",
+                suggestion: "Pass sourceDocument with the title of the family to load (open families are listed in context).",
+                context: new Dictionary<string, object> { ["openFamilies"] = DescribeDocs(families), ["modelChanged"] = false });
+
+        Document? target;
+        if (!string.IsNullOrWhiteSpace(targetName))
+        {
+            target = MatchByTitle(projects, targetName!);
+            if (target == null)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
+                    $"No open project matches targetDocument '{targetName}'.",
+                    suggestion: "The target must be a project already open in Revit (open_document first). Open projects are listed in context.",
+                    context: new Dictionary<string, object> { ["openProjects"] = DescribeDocs(projects), ["modelChanged"] = false });
+        }
+        else if (projects.Count == 1) target = projects[0];
+        else
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                projects.Count == 0
+                    ? "No project is open: a family can only be loaded into an open project."
+                    : "Several projects are open: targetDocument is required.",
+                suggestion: "Pass targetDocument with the title of the project to load into (open projects are listed in context).",
+                context: new Dictionary<string, object> { ["openProjects"] = DescribeDocs(projects), ["modelChanged"] = false });
+
+        if (target.IsReadOnly)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"Target project '{target.Title}' is read-only.",
+                suggestion: "Open the project with write access, or pick another targetDocument.");
+
+        foreach (var doc in new[] { source, target })
+            if (doc.IsModifiable)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                    $"transaction ouverte sur {doc.Title}, valider avant chargement",
+                    suggestion: "Commit or cancel the transaction (or finish the edit mode) in that document, then retry. Nothing was loaded.",
+                    context: new Dictionary<string, object> { ["document"] = doc.Title, ["modelChanged"] = false });
+
+        var familyName = FamilyNameOf(source);
+        string? categoryName = null;
+        try { categoryName = source.OwnerFamily?.FamilyCategory?.Name; } catch { /* no owner family yet */ }
+        var existing = FindFamily(target, familyName);
+        var wasExisting = existing != null;
+
+        if (!string.IsNullOrWhiteSpace(renameTo) && !SameName(renameTo, familyName)
+            && FindFamily(target, renameTo!) != null)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"renameTo '{renameTo}' already exists as a family in '{target.Title}'.",
+                suggestion: "Pick a name that is not used by a family of the target project. Nothing was loaded.",
+                context: new Dictionary<string, object> { ["modelChanged"] = false });
+
+        var skip = wasExisting && !overwrite;
+        if (skip || dryRun)
+        {
+            var sourceTypeCount = 0;
+            try { sourceTypeCount = source.FamilyManager.Types.Size; } catch { /* diagnostic only */ }
+            return RiveTTResult<object>.Ok(new
+            {
+                status = dryRun ? "dry_run" : "skipped_existing",
+                previewMethod = dryRun ? "declared" : null,
+                message = dryRun
+                    ? (skip
+                        ? $"DryRun: '{familyName}' already exists in '{target.Title}' and overwriteExisting=false, so it would be skipped."
+                        : $"DryRun: would load '{familyName}' from '{source.Title}' into '{target.Title}'"
+                          + (wasExisting ? " (reload of an existing family)." : "."))
+                    : $"'{familyName}' already exists in '{target.Title}' and overwriteExisting=false: nothing loaded.",
+                wouldBe = dryRun ? (skip ? "skipped_existing" : wasExisting ? "reloaded" : "loaded") : null,
+                familyId = existing != null ? ToolHelpers.GetElementIdValue(existing.Id) : (long?)null,
+                familyName,
+                category = categoryName,
+                wasExisting,
+                sourceTypeCount,
+                renameTo,
+                activateTypes,
+                closeSource,
+                sourceDocument = source.Title,
+                targetDocument = target.Title,
+                sourceIsActive = active != null && ReferenceEquals(active, source),
+                sourceClosed = false,
+                activeDocument = active?.Title
+            });
+        }
+
+        // LoadFamily runs OUTSIDE any transaction: the method opens its own.
+        Family? fam;
+        try
+        {
+            fam = source.LoadFamily(target, new OverwritingFamilyLoadOptions(overwrite));
+        }
+        catch (Exception ex)
+        {
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
+                $"Revit refused to load '{familyName}' into '{target.Title}': {ex.Message}",
+                suggestion: "The wording is Revit's own. Check the family category is loadable in a project and that no "
+                          + "edit mode is active on either document. Verify the target with load_family(action: \"list\").",
+                context: new Dictionary<string, object> { ["exception"] = ex.GetType().Name });
+        }
+        if (fam == null)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
+                $"Revit returned no family when loading '{familyName}' into '{target.Title}'.",
+                suggestion: "The family category may not be loadable in this project, or the load was declined. "
+                          + "Verify with load_family(action: \"list\") before retrying.");
+
+        if (!string.IsNullOrWhiteSpace(renameTo) || activateTypes)
+        {
+            using var tx = new Transaction(target, "RiveTT - load_from_open");
+            tx.Start();
+            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(renameTo) && !SameName(fam.Name, renameTo))
+                    fam.Name = renameTo!;
+                if (activateTypes)
+                {
+                    foreach (var id in fam.GetFamilySymbolIds())
+                        if (target.GetElement(id) is FamilySymbol fs && !fs.IsActive)
+                            fs.Activate();
+                    target.Regenerate();
+                }
+                if (tx.Commit() != TransactionStatus.Committed)
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                        $"The family was loaded, but Revit rolled back the rename/activation: {TransactionFailureHandling.Describe(txFailures)}",
+                        suggestion: "The family is in the project under its original name with inactive types. Fix the reported errors and retry.",
+                        context: new Dictionary<string, object> { ["familyLoaded"] = true });
+            }
+            catch (Exception ex)
+            {
+                if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                    $"The family was loaded, but the rename/activation failed: {ex.Message}",
+                    suggestion: "The family is in the project under its original name with inactive types. Retry after checking the name.",
+                    context: new Dictionary<string, object> { ["familyLoaded"] = true });
+            }
+        }
+
+        var types = fam.GetFamilySymbolIds()
+            .Select(id => target.GetElement(id) as FamilySymbol)
+            .Where(fs => fs != null)
+            .Select(fs => new { id = ToolHelpers.GetElementIdValue(fs!.Id), name = fs.Name, activated = fs.IsActive })
+            .ToList();
+        var familyId = ToolHelpers.GetElementIdValue(fam.Id);
+        var finalName = fam.Name;
+        var finalCategory = categoryName ?? fam.FamilyCategory?.Name;
+        var sourceTitle = source.Title;
+        var targetTitle = target.Title;
+
+        // Closing is best effort: the family is already in the project, so a refusal here
+        // is reported, never turned into a failure of the load.
+        var sourceClosed = false;
+        string? sourceCloseReason = null;
+        if (closeSource)
+        {
+            try
+            {
+                var sourceIsActive = active != null && ReferenceEquals(active, source);
+                if (sourceIsActive && string.IsNullOrEmpty(target.PathName))
+                    sourceCloseReason = $"'{sourceTitle}' is the active document and '{targetTitle}' was never saved: "
+                        + "Revit can only re-activate a document by path, and refuses to close the active one.";
+                else
+                {
+                    if (sourceIsActive)
+                    {
+                        var activation = new OpenFileTool().Execute(
+                            new JObject { ["filePath"] = target.PathName, ["dryRun"] = false }, session);
+                        if (!activation.Success)
+                            sourceCloseReason = $"Could not activate '{targetTitle}' first: {activation.Error?.Message}";
+                    }
+                    if (sourceCloseReason == null)
+                    {
+                        sourceClosed = source.Close(false);
+                        if (!sourceClosed) sourceCloseReason = "Document.Close(false) returned false.";
+                    }
+                }
+            }
+            catch (Exception ex) { sourceCloseReason = ex.Message; }
+        }
+
+        string? activeTitle = null;
+        try { activeTitle = uiApplication?.ActiveUIDocument?.Document.Title; } catch { /* report below */ }
+
+        return RiveTTResult<object>.Ok(new
+        {
+            status = wasExisting ? "reloaded" : "loaded",
+            familyId,
+            familyName = finalName,
+            category = finalCategory,
+            wasExisting,
+            renamedFrom = SameName(finalName, familyName) ? null : familyName,
+            typeCount = types.Count,
+            types,
+            sourceDocument = sourceTitle,
+            targetDocument = targetTitle,
+            sourceClosed,
+            sourceCloseReason,
+            activeDocument = activeTitle ?? targetTitle
+        });
     }
 
     private static RiveTTResult<object> ListFamilies(Document doc, JObject input)

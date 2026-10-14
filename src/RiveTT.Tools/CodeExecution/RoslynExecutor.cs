@@ -244,6 +244,13 @@ public static class RoslynExecutor
                     : (object)false
             };
             if (rollbackError != null) extra["rollbackError"] = rollbackError;
+            // The group's RollBack also undoes the sections it had already committed, so their
+            // "committed" status and rolledBack:true read as contradictory (field report ILO
+            // 13/10/2026: nothing had been applied, and only re-reading the model showed it).
+            if (mode == "group" && context.Sections.Count > 0 && !partial)
+                extra["sectionsNote"] = "transactionMode group: the script failed, so the WHOLE group was rolled back, "
+                    + "including the sections listed as committed. Nothing was applied. A call such as "
+                    + "document.Regenerate() outside Section(...) has no transaction open and fails this way.";
             return Failure(RiveTTErrorCode.Unknown,
                 $"Runtime error{(line != null ? $" at line {line}" : "")}: {inner.GetType().Name}: {inner.Message}",
                 line != null
@@ -384,7 +391,10 @@ public static class RoslynExecutor
         }
         if (changes != null) report["changes"] = changes.ToReport(MaxReportedIds);
         else if (!modelKept && context.TransactionMode == "readonly")
-            report["note"] = "readonly: every model change was rolled back.";
+            report["note"] = "readonly: every model change made inside the script's OWN Transaction was rolled back. "
+                + "The script runs with no transaction open, so a modification outside one raises "
+                + "ModificationOutsideTransactionException: to try a change and undo it, wrap it in "
+                + "using var t = new Transaction(document, \"probe\"); t.Start(); ... (no Commit needed).";
         return report;
     }
 

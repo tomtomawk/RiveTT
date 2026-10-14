@@ -42,7 +42,7 @@ public class SendCodeToRevitTool : IRiveTTTool
     public string Category => "Code";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "LAST RESORT ONLY — execute sandboxed custom C# code in the active Revit context. Prefer dedicated tools. Defaults to dryRun=true: the preview runs the sandbox check and reports what would execute, without running it or writing the script to disk. Globals: document (Document), uiDocument (UIDocument), app (Application), scriptArgs (JObject). transactionMode readonly rolls every model change back and works while RiveTT is locked.";
+    public string Description => "Executes sandboxed custom C# in the active Revit context: a legitimate option when no dedicated tool does the job in one step or lacks the case at hand (a dedicated tool, where one exists, previews and validates more). Defaults to dryRun=true: the preview runs the sandbox check and reports what would execute, without running it or writing the script to disk. Globals: document (Document), uiDocument (UIDocument), app (Application), scriptArgs (JObject). transactionMode readonly rolls every model change back and works while RiveTT is locked.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -182,6 +182,11 @@ public class SendCodeToRevitTool : IRiveTTTool
             data["scriptSavedTo"] = scriptPath;
             data["scriptName"] = scriptName;
             data["scriptLifetime"] = reusable ? "REUSABLE" : "TEMP (deleted at Revit close)";
+            // A script file is written to the user's profile on EVERY run. Said once per answer, in
+            // words the agent can pass on, so the user is told each time (field report ILO 13/10/2026).
+            data["scriptNotice"] = reusable
+                ? $"Tell the user: this script was saved to {scriptPath} and is KEPT (reusable)."
+                : $"Tell the user: this script was saved to {scriptPath}; it is deleted when Revit closes.";
             if (resolvedFrom != null)
             {
                 data["resolvedFromScript"] = resolvedFrom;

@@ -9,13 +9,15 @@ namespace RiveTT.Server.Tools;
 [McpServerToolType]
 public static class ProjectTools
 {
-    [McpServerTool(Name = "list_warnings"), Description("Get model warnings from the active Revit document.")]
+    [McpServerTool(Name = "list_warnings"), Description("Get model warnings from the active Revit document. To check that edits added none: call once with snapshot=true (unfiltered), edit, then call with sinceSnapshot=true to get only the new warnings.")]
     public static async Task<string> GetWarnings(
         RevitConnectionManager revit,
         [Description("Maximum number of warnings to return")] int maxWarnings = 50,
+        [Description("Remember this read as the baseline of the WHOLE warning set (needs an unfiltered read; maxWarnings still caps what is returned)")] bool snapshot = false,
+        [Description("Return only the warnings absent from the last snapshot of this document")] bool sinceSnapshot = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["maxWarnings"] = maxWarnings };
+        var p = new JObject { ["maxWarnings"] = maxWarnings, ["snapshot"] = snapshot, ["sinceSnapshot"] = sinceSnapshot };
         var result = await revit.ExecuteAsync("list_warnings", p, ct);
         return result.ToString();
     }
@@ -57,17 +59,25 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "load_family"), Description("Load a family into the Revit project, or reload one already there (e.g. after editing its .rfa outside Revit). Also lists loaded families or duplicates a family type.")]
+    [McpServerTool(Name = "load_family"), Description("Load a family into the Revit project, or reload one already there (e.g. after editing its .rfa outside Revit). action=\"load_from_open\" loads a family ALREADY OPEN in Revit (opened with open_family, edited, or created and never saved) into an open project, with no file path; it supports dryRun. Also lists loaded families or duplicates a family type.")]
     public static async Task<string> LoadFamily(
         RevitConnectionManager revit,
-        [Description("Action to perform (e.g. list, load)")] string action = "list",
+        [Description("Action to perform: list, load (from familyPath), load_from_open (family already open in Revit), duplicate_type")] string action = "list",
         [Description("Path to the family file (.rfa)")] string? familyPath = null,
         [Description("Filter by category")] string? categoryFilter = null,
         [Description("When a same-named family already exists, overwrite it (updates its types/parameters). Default: true. Set false to leave an existing family untouched.")] bool overwriteExisting = true,
-        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
+        [Description("Title of the open family document to load (load_from_open). Omitted: the active document if it is a family, else the only open family; otherwise an error lists the open families.")] string? sourceDocument = null,
+        [Description("Title of the open project to load into (load_from_open). Omitted: the only open project; otherwise an error lists the open projects.")] string? targetDocument = null,
+        [Description("load_from_open: new name of the family in the project after loading (e.g. for a never-saved \"Famille1\"). Error if a family of that name already exists in the project.")] string? renameTo = null,
+        [Description("load_from_open: activate every loaded type (FamilySymbol) so it can be placed. Default: true")] bool activateTypes = true,
+        [Description("load_from_open: close the source family document WITHOUT saving once loaded. Default: false. If the source is the active document, the target project is re-activated first (needs a saved target).")] bool closeSource = false,
+        [Description("Only action load_from_open previews (nothing loaded, diagnostic returned); every other action refuses dryRun with InvalidInput. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["action"] = action, ["overwriteExisting"] = overwriteExisting, ["dryRun"] = dryRun };
+        var p = new JObject { ["action"] = action, ["overwriteExisting"] = overwriteExisting, ["activateTypes"] = activateTypes, ["closeSource"] = closeSource, ["dryRun"] = dryRun };
+        if (sourceDocument != null) p["sourceDocument"] = sourceDocument;
+        if (targetDocument != null) p["targetDocument"] = targetDocument;
+        if (renameTo != null) p["renameTo"] = renameTo;
         if (familyPath != null) p["familyPath"] = familyPath;
         if (categoryFilter != null) p["categoryFilter"] = categoryFilter;
         var result = await revit.ExecuteAsync("load_family", p, ct);
@@ -202,10 +212,12 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "manage_sheet_sets"), Description("List, create, or delete named view/sheet sets (ViewSheetSet), so batch_export/printing can reuse a saved list instead of one passed on every call. action=list|create|delete. create needs name + viewIds/sheetIds. No rename API: recreate under a new name instead.")]
+    [McpServerTool(Name = "manage_sheet_sets"), Description("List, create, or delete named view/sheet sets (ViewSheetSet), so batch_export/printing can reuse a saved list instead of one passed on every call. action=list|create|delete. create needs name + viewIds/sheetIds. No rename API: recreate under a new name instead. These are PRINT sets; the sheet sets (jeux de feuilles) shown in the Project Browser are sheet collections: action=list_collections | create_collection (name) | assign_to_collection (collectionId or collectionName + viewIds carrying sheet ids).")]
     public static async Task<string> ManageSheetSets(
         RevitConnectionManager revit,
-        [Description("Action: list | create | delete. Default: list")] string action = "list",
+        [Description("Action: list | create | delete | list_collections | create_collection | assign_to_collection. Default: list")] string action = "list",
+        [Description("Sheet collection element ID (assign_to_collection, alternative to collectionName)")] long? collectionId = null,
+        [Description("Sheet collection exact name (assign_to_collection, alternative to collectionId)")] string? collectionName = null,
         [Description("Sheet set name (create), or exact name to match (delete, alternative to elementId)")] string? name = null,
         [Description("View or sheet element IDs to include, as a JSON array of numbers (create)")] System.Text.Json.JsonElement? viewIds = null,
         [Description("Sheet set element ID (delete, alternative to name)")] long? elementId = null,
@@ -214,6 +226,8 @@ public static class ProjectTools
     {
         var p = new JObject { ["action"] = action, ["dryRun"] = dryRun };
         if (name != null) p["name"] = name;
+        if (collectionId != null) p["collectionId"] = collectionId;
+        if (collectionName != null) p["collectionName"] = collectionName;
         if (JsonOptionalParam.IsProvided(viewIds))
         {
             if (!JsonArrayParam.TryParse(viewIds, out var viewIdsArray))
@@ -578,7 +592,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / batch_modify_parameter_values; queries & filtering -> filter_elements / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views and schedules -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) — never for family editing, which open_family (visual) and edit_family (background type-parameter values) already cover — and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed and frequently fail on add-in DLL conflicts. There is NO in-Revit confirmation dialog: nothing stops a script once dryRun=false, so the dry run (the default) is the only review step — it runs the sandbox check and reports what would execute without executing it.")]
+    [McpServerTool(Name = "send_code_to_revit"), Description("Execute custom C# through the Revit API: a legitimate option in its own right. Choose it when no dedicated tool does the job in one step, when a dedicated tool lacks the case at hand, or to chain several gestures in one run (transactionMode group + Section). Where a dedicated tool covers the operation, prefer it: it previews, checks ids and units and reports what was applied (parameter edits -> set_element_parameters / batch_modify_parameter_values; queries & filtering -> filter_elements / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views, sheets and schedules -> their dedicated tools; families -> open_family and edit_family). Scripts are sandboxed (no reflection) and can fail on add-in DLL conflicts. There is NO in-Revit confirmation dialog: nothing stops a script once dryRun=false, so the dry run (the default) is the review step — it runs the sandbox check and reports what would execute without executing it. transactionMode readonly works while RiveTT is locked: inside it, wrap a change in your own Transaction to try it and have it undone. Every run saves the script to the user's profile: the answer carries scriptNotice, pass it on to the user.")]
     public static async Task<string> SendCodeToRevit(
         RevitConnectionManager revit,
         [Description("C# method body to execute (end with an explicit return). Globals: document (Document), uiDocument (UIDocument), app (Application), scriptArgs (JObject). Namespaces DB, DB.Architecture (Room, Stairs), DB.Structure, UI, Linq and JObject are imported. Helpers callable without prefix, lengths IN MILLIMETRES: Mm(mm)->feet, ToMm(feet), Pt(xMm,yMm,zMm), Log(text), LevelByName(name), TypeByName<WallType|FloorType|RoofType|...>(name) (exact, then unique prefix, logged), SymbolByName(family,type), FindHostWall(pointFt, level?), PlaceOnLevel(symbol, pointFt, level, rotationDeg, offsetMm) (measures and corrects the elevation), PlaceInWall(symbol, pointFt, wall, level, sillMm) (absolute Z), Section(name, () => {...}) (best effort block reported in scriptRun.sections). Leave empty when fromScript is used.")] string code = "",

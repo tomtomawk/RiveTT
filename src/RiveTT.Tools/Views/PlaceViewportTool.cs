@@ -21,7 +21,7 @@ public class PlaceViewportTool : IRiveTTTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description =>
-        "Places a view on a sheet. positionX/positionY are the viewport CENTRE in mm, measured in sheet coordinates; omit both to centre it on the sheet. The response reports the sheet size, the viewport's real outline and fitsOnSheet: an UNCROPPED view produces a viewport far larger than the sheet, and its content then lands outside the frame. Crop the view first — at 1:100 a 16 x 13.5 m crop is 160 x 135 mm on paper.";
+        "Places a view on a sheet. positionX/positionY are the viewport CENTRE in mm, measured in sheet coordinates; omit both to centre it on the sheet. The response reports the sheet size, the viewport's real outline and fitsOnSheet: an UNCROPPED view produces a viewport far larger than the sheet, and its content then lands outside the frame. Crop the view first — at 1:100 a 16 x 13.5 m crop is 160 x 135 mm on paper. centreMm is where the viewport ACTUALLY is (requestedCentreMm is the request, centreDeviationMm the gap); a gap means Revit kept the position it had RECORDED for the view instead of the one requested: pass enforcePosition=true to set the centre again explicitly (positionEnforced in the response; the gap is read back, not assumed), and read execution.suppressedWarnings. A view already on another sheet is refused unless moveIfPlaced=true, which deletes its old viewport and recreates it here (movedFromSheet in the response).";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -38,6 +38,8 @@ public class PlaceViewportTool : IRiveTTTool
         var centreOnSheet = posXToken == null && posYToken == null;
         var rotation = input["rotation"]?.Value<string>();
         var viewportTypeId = input["viewportTypeId"]?.Value<long?>() ?? 0;
+        var moveIfPlaced = input["moveIfPlaced"]?.Value<bool>() ?? false;
+        var enforcePosition = input["enforcePosition"]?.Value<bool>() ?? false;
 
         if (sheetId <= 0 || viewId <= 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheetId and viewId are required");
@@ -62,6 +64,8 @@ public class PlaceViewportTool : IRiveTTTool
                               + "does not cover. Place it from the Revit project browser, or ask for a "
                               + "dedicated tool.");
 
+            Viewport? viewportToMove = null;
+            string? movedFromSheet = null;
             if (!Viewport.CanAddViewToSheet(doc, sheetEid, viewEid))
             {
                 // Distinguish the two causes rather than reporting both at once: one is
@@ -71,21 +75,31 @@ public class PlaceViewportTool : IRiveTTTool
                     .Cast<Viewport>()
                     .FirstOrDefault(vp => vp.ViewId == viewEid);
 
-                if (placedOn != null)
+                if (placedOn != null && moveIfPlaced)
+                {
+                    // A viewport cannot change sheet: it is deleted from the old one and created
+                    // again on this one, inside the same transaction below.
+                    viewportToMove = placedOn;
+                    movedFromSheet = (doc.GetElement(placedOn.SheetId) as ViewSheet)?.SheetNumber;
+                }
+                else if (placedOn != null)
                 {
                     var host = doc.GetElement(placedOn.SheetId) as ViewSheet;
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                         $"'{view.Name}' is already placed on sheet {host?.SheetNumber ?? "?"} "
                         + $"{host?.Name}. A view can live on one sheet only.",
-                        suggestion: "Delete that viewport first, or duplicate the view with "
+                        suggestion: "Pass moveIfPlaced=true to move it to this sheet (its old viewport is "
+                                  + "deleted and recreated here), or duplicate the view with "
                                   + "duplicate_view and place the copy.");
                 }
-
-                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
-                    $"Revit refuses '{view.Name}' ({view.ViewType}) on this sheet, and it is not "
-                    + "already placed elsewhere.",
-                    suggestion: "Legends and some view types cannot be placed on every sheet. Check "
-                              + "the view type with get_current_view_info.");
+                else
+                {
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                        $"Revit refuses '{view.Name}' ({view.ViewType}) on this sheet, and it is not "
+                        + "already placed elsewhere.",
+                        suggestion: "Legends and some view types cannot be placed on every sheet. Check "
+                                  + "the view type with get_current_view_info.");
+                }
             }
 
             var sheetWidthFt = sheet.get_Parameter(BuiltInParameter.SHEET_WIDTH)?.AsDouble() ?? 0;
@@ -123,6 +137,14 @@ public class PlaceViewportTool : IRiveTTTool
             using var tx = new Transaction(doc, "RiveTT: Place Viewport");
             tx.Start();
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
+            if (viewportToMove != null)
+            {
+                if (viewportToMove.Pinned)
+                    return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                        $"The viewport of '{view.Name}' on sheet {movedFromSheet} is pinned and cannot be moved.",
+                        suggestion: "Unpin it in Revit, then retry.");
+                doc.Delete(viewportToMove.Id);
+            }
             var viewport = Viewport.Create(doc, sheetEid, viewEid, position);
 
             // Optional rotation
@@ -142,6 +164,25 @@ public class PlaceViewportTool : IRiveTTTool
                 var vpType = doc.GetElement(ToolHelpers.ToElementId(viewportTypeId));
                 if (vpType is ElementType && viewport.IsValidType(vpType.Id))
                     viewport.ChangeTypeId(vpType.Id);
+            }
+
+            // The position a viewport ends up at can be the one Revit has RECORDED for it, not the
+            // one passed to Create (field report ILO 13/10/2026: plans whose viewports would not
+            // move). enforcePosition asks for the centre again explicitly; whether it held is read
+            // back below as centreDeviationMm, never assumed. Off by default: it moves the box
+            // centre (label excluded) onto the request, which is a few mm from where Create leaves it.
+            var positionEnforced = false;
+            if (enforcePosition)
+            {
+                try
+                {
+                    viewport.SetBoxCenter(position);
+                    positionEnforced = true;
+                }
+                catch
+                {
+                    // Reported through positionEnforced = false and the deviation below.
+                }
             }
 
             // dryRun keeps the transaction OPEN so the payload below can still read the
@@ -176,7 +217,38 @@ public class PlaceViewportTool : IRiveTTTool
             // paper size" must not be reported as "your drawing overflows".
             var fits = !haveOutline || frame.Contains(outMinX, outMinY, outMaxX, outMaxY);
 
+            // The centre Revit actually gave the viewport, not the one that was asked for: the
+            // response used to echo the request, so a viewport that landed elsewhere still read
+            // as placed where requested (field report ILO 13/10/2026, centreMm vs outline).
+            double actualXMm = posXMm, actualYMm = posYMm;
+            var haveActual = false;
+            try
+            {
+                var actualCentre = viewport.GetBoxCenter();
+                actualXMm = actualCentre.X * MmPerFoot;
+                actualYMm = actualCentre.Y * MmPerFoot;
+                haveActual = true;
+            }
+            catch
+            {
+                // Falls back to the request, and says so through haveActual below.
+            }
+            var deviationMm = Math.Round(Math.Sqrt(Math.Pow(actualXMm - posXMm, 2) + Math.Pow(actualYMm - posYMm, 2)), 1);
+            var isPinned = false;
+            try { isPinned = viewport.Pinned; } catch { /* diagnostic only */ }
+
             var warnings = new System.Collections.Generic.List<string>();
+            if (haveActual && deviationMm > 5)
+            {
+                warnings.Add(
+                    $"The viewport centre is {deviationMm:F1} mm from the requested one " +
+                    $"(requested [{posXMm:F0}, {posYMm:F0}], actual [{actualXMm:F0}, {actualYMm:F0}] mm). " +
+                    "A label offset explains a few mm; more means Revit kept the position it had RECORDED for " +
+                    "this view instead of the one requested: retry with enforcePosition=true, and read " +
+                    "execution.suppressedWarnings.");
+            }
+            if (isPinned)
+                warnings.Add("The viewport is pinned: it cannot be moved until it is unpinned.");
             if (!frame.IsKnown)
             {
                 warnings.Add(
@@ -205,11 +277,17 @@ public class PlaceViewportTool : IRiveTTTool
                     new
             {
                 viewportId = ToolHelpers.GetElementIdValue(viewport.Id),
+                movedFromSheet,
                 sheetNumber = sheet.SheetNumber,
                 viewName = view.Name,
                 rotation = viewport.Rotation.ToString(),
                 centredOnSheet = centreOnSheet,
-                centreMm = new { x = Math.Round(posXMm, 1), y = Math.Round(posYMm, 1) },
+                // centreMm is where the viewport IS; requestedCentreMm is what was asked.
+                centreMm = new { x = Math.Round(actualXMm, 1), y = Math.Round(actualYMm, 1) },
+                requestedCentreMm = new { x = Math.Round(posXMm, 1), y = Math.Round(posYMm, 1) },
+                centreDeviationMm = haveActual ? deviationMm : (double?)null,
+                pinned = isPinned,
+                positionEnforced,
                 sheetSizeMm = new { width = Math.Round(sheetWidthMm, 1), height = Math.Round(sheetHeightMm, 1) },
                 // Where the printable frame actually is, in sheet coordinates. Use
                 // this to compute positions: it is NOT [0,0]..[width,height]. `source`
@@ -235,11 +313,17 @@ public class PlaceViewportTool : IRiveTTTool
             return RiveTTResult<object>.Ok(new
             {
                 viewportId = ToolHelpers.GetElementIdValue(viewport.Id),
+                movedFromSheet,
                 sheetNumber = sheet.SheetNumber,
                 viewName = view.Name,
                 rotation = viewport.Rotation.ToString(),
                 centredOnSheet = centreOnSheet,
-                centreMm = new { x = Math.Round(posXMm, 1), y = Math.Round(posYMm, 1) },
+                // centreMm is where the viewport IS; requestedCentreMm is what was asked.
+                centreMm = new { x = Math.Round(actualXMm, 1), y = Math.Round(actualYMm, 1) },
+                requestedCentreMm = new { x = Math.Round(posXMm, 1), y = Math.Round(posYMm, 1) },
+                centreDeviationMm = haveActual ? deviationMm : (double?)null,
+                pinned = isPinned,
+                positionEnforced,
                 sheetSizeMm = new { width = Math.Round(sheetWidthMm, 1), height = Math.Round(sheetHeightMm, 1) },
                 // Where the printable frame actually is, in sheet coordinates. Use
                 // this to compute positions: it is NOT [0,0]..[width,height]. `source`

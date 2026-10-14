@@ -1,18 +1,15 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
 using RiveTT.Core.Results;
 using RiveTT.Core.Session;
 using RiveTT.Core.Tools;
-using RiveTT.Tools.Utilities;
 
 namespace RiveTT.Tools.Sheets;
 
 /// <summary>
-/// Duplicates a sheet and its placed views with configurable duplication options.
-/// Also copies title block parameters from source sheet.
+/// Duplicates a sheet and its placed views with configurable duplication options. Shares its
+/// implementation with duplicate_sheet_with_content (see <see cref="SheetDuplicator"/>); it
+/// differs only by NOT copying the loose sheet annotations unless copyAnnotations=true.
 /// </summary>
 [ToolSafety(false, false, supportsDryRun: true)]
 public class DuplicateSheetWithViewsTool : IRiveTTTool
@@ -21,216 +18,18 @@ public class DuplicateSheetWithViewsTool : IRiveTTTool
     public string Category => "Sheets";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Duplicates a sheet and its placed views with configurable duplication options. Also copies title block parameters from source sheet.";
+    public string Description =>
+        "Duplicates a sheet N times with configurable view duplication (viewDuplicateOption: Duplicate | "
+        + "DuplicateWithDetailing | DuplicateAsDependent). Copies ALL title blocks, the sheet's own parameters "
+        + "(Dossier, Indice_manuel...) and its sheet collection. newNumber/newName set the copy's identity "
+        + "(without newNumber or a prefix/suffix the number is the source's and Revit refuses it). Loose sheet "
+        + "annotations are copied only with copyAnnotations=true. Same parameters as duplicate_sheet_with_content.";
+
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
-
-        var sheetId = input["sheetId"]?.Value<long>() ?? 0;
-        var copies = input["copies"]?.Value<int>() ?? 1;
-        var duplicateViews = input["duplicateViews"]?.Value<bool>() ?? true;
-        var keepLegends = input["keepLegends"]?.Value<bool>() ?? true;
-        var keepSchedules = input["keepSchedules"]?.Value<bool>() ?? true;
-        var newSheetNumberPrefix = input["newSheetNumberPrefix"]?.Value<string>() ?? "";
-        var viewDuplicateOptionStr = input["viewDuplicateOption"]?.Value<string>() ?? "DuplicateWithDetailing";
-
-        if (sheetId <= 0)
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheetId is required");
-
-        var viewDupOption = viewDuplicateOptionStr switch
-        {
-            "Duplicate" => ViewDuplicateOption.Duplicate,
-            "DuplicateAsDependent" => ViewDuplicateOption.AsDependent,
-            _ => ViewDuplicateOption.WithDetailing
-        };
-
-        try
-        {
-            var sourceSheet = doc.GetElement(new ElementId(sheetId)) as ViewSheet;
-            if (sourceSheet == null)
-                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "Sheet not found");
-
-            // Get title block type and instance
-            var titleBlockInstance = new FilteredElementCollector(doc, sourceSheet.Id)
-                .OfCategory(BuiltInCategory.OST_TitleBlocks)
-                .FirstOrDefault();
-            var titleBlockTypeId = titleBlockInstance?.GetTypeId()
-                ?? new FilteredElementCollector(doc)
-                    .OfCategory(BuiltInCategory.OST_TitleBlocks)
-                    .OfClass(typeof(FamilySymbol))
-                    .FirstOrDefault()?.Id
-                ?? ElementId.InvalidElementId;
-
-            // Get viewports
-            var viewportData = new FilteredElementCollector(doc, sourceSheet.Id)
-                .OfClass(typeof(Viewport))
-                .Cast<Viewport>()
-                .Select(vp => new
-                {
-                    ViewId = vp.ViewId,
-                    Center = vp.GetBoxCenter(),
-                    View = doc.GetElement(vp.ViewId) as View
-                })
-                .Where(vp => vp.View != null)
-                .ToList();
-
-            // Get schedule instances
-            var scheduleInstances = new FilteredElementCollector(doc, sourceSheet.Id)
-                .OfClass(typeof(ScheduleSheetInstance))
-                .Cast<ScheduleSheetInstance>()
-                .Select(si => new { ScheduleId = si.ScheduleId, Point = si.Point })
-                .ToList();
-
-            var results = new List<object>();
-
-            var dryRun = ToolHelpers.GetDryRun(input);
-            using var tx = new Transaction(doc, "RiveTT: Duplicate Sheet With Views");
-            tx.Start();
-            var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
-
-            for (int i = 0; i < copies; i++)
-            {
-                var newSheet = ViewSheet.Create(doc, titleBlockTypeId);
-                var suffix = copies > 1 ? $"-{i + 1:D2}" : "";
-                newSheet.SheetNumber = $"{newSheetNumberPrefix}{sourceSheet.SheetNumber}{suffix}";
-                try { newSheet.Name = sourceSheet.Name; } catch { }
-
-                // Copy title block parameters
-                if (titleBlockInstance != null)
-                {
-                    var newTb = new FilteredElementCollector(doc, newSheet.Id)
-                        .OfCategory(BuiltInCategory.OST_TitleBlocks)
-                        .FirstOrDefault();
-                    if (newTb != null)
-                        CopyParameters(titleBlockInstance, newTb);
-                }
-
-                int viewportCount = 0;
-                var newViewportIds = new List<long>();
-                var skippedSchedules = new List<object>();
-                foreach (var vpData in viewportData)
-                {
-                    var view = vpData.View!;
-                    var isLegend = view.ViewType == ViewType.Legend;
-
-                    if (isLegend && !keepLegends) continue;
-
-                    if (isLegend || !duplicateViews)
-                    {
-                        if (Viewport.CanAddViewToSheet(doc, newSheet.Id, vpData.ViewId))
-                        {
-                            var vp = Viewport.Create(doc, newSheet.Id, vpData.ViewId, vpData.Center);
-                            newViewportIds.Add(ToolHelpers.GetElementIdValue(vp.Id));
-                            viewportCount++;
-                        }
-                    }
-                    else
-                    {
-                        var newViewId = view.Duplicate(viewDupOption);
-                        var newView = doc.GetElement(newViewId) as View;
-                        if (newView != null)
-                        {
-                            try { newView.Name = $"{view.Name} - {newSheet.SheetNumber}"; } catch { }
-                            var vp = Viewport.Create(doc, newSheet.Id, newViewId, vpData.Center);
-                            newViewportIds.Add(ToolHelpers.GetElementIdValue(vp.Id));
-                            viewportCount++;
-                        }
-                    }
-                }
-
-                if (keepSchedules)
-                {
-                    foreach (var si in scheduleInstances)
-                    {
-                        try
-                        {
-                            ScheduleSheetInstance.Create(doc, newSheet.Id, si.ScheduleId, si.Point);
-                        }
-                        catch (Exception ex)
-                        {
-                            skippedSchedules.Add(new
-                            {
-                                scheduleId = ToolHelpers.GetElementIdValue(si.ScheduleId),
-                                reason = ex.Message
-                            });
-                        }
-                    }
-                }
-
-                results.Add(new
-                {
-                    sheetId = ToolHelpers.GetElementIdValue(newSheet.Id),
-                    number = newSheet.SheetNumber,
-                    name = newSheet.Name,
-                    viewportCount,
-                    viewportIds = newViewportIds,
-                    skippedScheduleCount = skippedSchedules.Count,
-                    skippedSchedules
-                });
-            }
-
-            // Built BEFORE the rollback: afterwards the elements this describes no longer
-            // exist and reading a name off one throws. Captured verbatim from the real
-            // return, so the preview cannot drift from what applying actually reports.
-            var previewPayload = new { duplicatedCount = results.Count, sheets = results };
-
-            if (dryRun)
-            {
-                ChangePreview.Rollback(tx);
-                return ChangePreview.Probed(
-                    "DryRun: the operation ran inside a transaction and was rolled back. The model is "
-                    + "untouched; what follows is what Revit produced.",
-                    previewPayload);
-            }
-
-            if (tx.Commit() != TransactionStatus.Committed)
-                return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
-                    $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
-                    suggestion: "Fix the reported model errors and retry.");
-
-return RiveTTResult<object>.Ok(previewPayload);
-        }
-        catch (Exception ex)
-        {
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.Unknown,
-                $"duplicate_sheet_with_views could not complete: {ex.Message}",
-                suggestion: "Unexpected failure, not a rejected input: the wording above is Revit own. "
-                    + "Re-check the ids and the target with a read tool before retrying, and narrow the "
-                    + "call if it covered many elements. The full call, its duration and this error are "
-                    + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
-        }
-    }
-
-    private static void CopyParameters(Element source, Element target)
-    {
-        foreach (Parameter srcParam in source.Parameters)
-        {
-            if (srcParam.IsReadOnly) continue;
-            var tgtParam = target.LookupParameter(srcParam.Definition.Name);
-            if (tgtParam == null || tgtParam.IsReadOnly) continue;
-
-            try
-            {
-                switch (srcParam.StorageType)
-                {
-                    case StorageType.String:
-                        var s = srcParam.AsString();
-                        if (s != null) tgtParam.Set(s);
-                        break;
-                    case StorageType.Integer:
-                        tgtParam.Set(srcParam.AsInteger());
-                        break;
-                    case StorageType.Double:
-                        tgtParam.Set(srcParam.AsDouble());
-                        break;
-                    case StorageType.ElementId:
-                        tgtParam.Set(srcParam.AsElementId());
-                        break;
-                }
-            }
-            catch { /* skip unwritable params */ }
-        }
+        return SheetDuplicator.Run(input, doc, Name, copyAnnotationsDefault: false);
     }
 }

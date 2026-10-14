@@ -22,7 +22,9 @@ public class ManageViewTemplatesTool : IRiveTTTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description =>
-        "Lists, duplicates, deletes, or renames view templates. The write actions preview by default: deleting a "
+        "Lists, duplicates, deletes, renames, or creates (create_from_view) view templates. Revit refuses duplicate on "
+        + "some templates (\"View cannot be duplicated\"): create_from_view builds one from a view's settings instead. "
+        + "The write actions preview by default: deleting a "
         + "template silently unassigns it from every view that used it, which is the part the caller does not see "
         + "coming. Set dryRun=false to apply.";
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
@@ -41,8 +43,9 @@ public class ManageViewTemplatesTool : IRiveTTTool
                 "duplicate" => DuplicateTemplate(doc, input),
                 "delete" => DeleteTemplate(doc, input, session),
                 "rename" => RenameTemplate(doc, input),
+                "create_from_view" => CreateFromView(doc, input),
                 _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
-                    $"Unknown action: {action}", suggestion: "Use: list, duplicate, delete, rename")
+                    $"Unknown action: {action}", suggestion: "Use: list, duplicate, delete, rename, create_from_view")
             };
         }
         catch (Exception ex)
@@ -97,10 +100,12 @@ public class ManageViewTemplatesTool : IRiveTTTool
             {
                 newId = template.Duplicate(ViewDuplicateOption.Duplicate);
             }
-            catch (Autodesk.Revit.Exceptions.InvalidOperationException ex)
+            catch (Exception ex) when (ex is Autodesk.Revit.Exceptions.InvalidOperationException
+                                          or Autodesk.Revit.Exceptions.ArgumentException)
             {
                 results.Add(new { originalId = tid, success = false,
-                    message = $"Cannot duplicate template '{template.Name}': {ex.Message}" });
+                    message = $"Cannot duplicate template '{template.Name}': {ex.Message}. "
+                            + "Use action create_from_view with a view that carries these settings." });
                 continue;
             }
             var newView = doc.GetElement(newId) as View;
@@ -122,6 +127,59 @@ public class ManageViewTemplatesTool : IRiveTTTool
                 $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                 suggestion: "Fix the reported model errors and retry.");
         return RiveTTResult<object>.Ok(new { duplicatedCount = results.Count, templates = results });
+    }
+
+    /// <summary>
+    /// View.CreateViewTemplate: a template carrying the view's current settings. Revit refuses
+    /// Duplicate on some templates ("View cannot be duplicated"), and this is the supported way
+    /// to get a template with the same settings (field report ILO 13/10/2026).
+    /// </summary>
+    private static RiveTTResult<object> CreateFromView(Document doc, JObject input)
+    {
+        var viewId = input["viewId"]?.Value<long>() ?? 0;
+        var newName = input["newName"]?.Value<string>();
+        if (viewId <= 0)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "viewId is required for create_from_view",
+                suggestion: "Pass the id of the view whose settings the new template must carry.");
+
+        var view = doc.GetElement(new ElementId(viewId)) as View;
+        if (view == null)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound, "View not found");
+        if (view.IsTemplate)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"'{view.Name}' is already a view template.",
+                suggestion: "Pass a regular view as viewId.");
+
+        var taken = new FilteredElementCollector(doc).OfClass(typeof(View)).Cast<View>()
+            .Any(v => v.IsTemplate && !string.IsNullOrEmpty(newName)
+                      && string.Equals(v.Name, newName, StringComparison.OrdinalIgnoreCase));
+        if (taken)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"A view template named '{newName}' already exists.",
+                suggestion: "Pick another newName, or leave it out and Revit names the template itself.");
+
+        if (ToolHelpers.GetDryRun(input))
+            return ChangePreview.Declared(
+                $"DryRun: would create a view template from '{view.Name}'"
+                + (string.IsNullOrEmpty(newName) ? " (Revit chooses the name)." : $" named '{newName}'."),
+                new { viewId, viewName = view.Name, viewType = view.ViewType.ToString(), newName });
+
+        using var tx = new Transaction(doc, "RiveTT: Create View Template From View");
+        tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
+        var template = view.CreateViewTemplate();
+        if (!string.IsNullOrEmpty(newName))
+            template.Name = newName;
+        var templateId = ToolHelpers.GetElementIdValue(template.Id);
+        var templateName = template.Name;
+        if (tx.Commit() != TransactionStatus.Committed)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
+        return RiveTTResult<object>.Ok(new
+        {
+            templateId, templateName, createdFromViewId = viewId, viewType = view.ViewType.ToString()
+        });
     }
 
     private static RiveTTResult<object> DeleteTemplate(Document doc, JObject input, RiveTTSession session)

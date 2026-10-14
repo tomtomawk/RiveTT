@@ -192,12 +192,14 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "override_graphics"), Description("Override element graphics in a view (colors, transparency, halftone, line weight).")]
+    [McpServerTool(Name = "override_graphics"), Description("Override element graphics in a view (colors, transparency, halftone, line weight). action=hide_category | show_category hides or shows whole categories per view (e.g. categories [\"OST_Viewers\"] = section marks) over viewIds, without elementIds.")]
     public static async Task<string> OverrideGraphics(
         RevitConnectionManager revit,
-        [Description("Element IDs to override")] long[] elementIds,
-        [Description("Action: set | reset. Default: set")] string? action = null,
+        [Description("Element IDs to override (not needed for hide_category / show_category)")] long[]? elementIds = null,
+        [Description("Action: set | reset | hide_category | show_category. Default: set")] string? action = null,
         [Description("View ID (optional; uses active view when 0)")] long? viewId = null,
+        [Description("Views to apply hide_category / show_category to. JSON array of ids; default: viewId, else the active view")] long[]? viewIds = null,
+        [Description("Categories for hide_category / show_category: OST_* codes or names, e.g. [\"OST_Viewers\"] (section marks), [\"OST_Callouts\"]")] string[]? categories = null,
         [Description("Color red channel 0-255")] int? colorR = null,
         [Description("Color green channel 0-255")] int? colorG = null,
         [Description("Color blue channel 0-255")] int? colorB = null,
@@ -207,9 +209,11 @@ public static class ViewTools
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
+        var p = new JObject { ["elementIds"] = new JArray((elementIds ?? Array.Empty<long>()).Cast<object>().ToArray()) };
         if (action != null) p["action"] = action;
         if (viewId != null) p["viewId"] = viewId;
+        if (viewIds != null) p["viewIds"] = new JArray(viewIds.Cast<object>().ToArray());
+        if (categories != null) p["categories"] = new JArray(categories.Cast<object>().ToArray());
         if (colorR != null) p["colorR"] = colorR;
         if (colorG != null) p["colorG"] = colorG;
         if (colorB != null) p["colorB"] = colorB;
@@ -260,12 +264,16 @@ public static class ViewTools
         [Description("Rotation: none | clockwise | counterclockwise. Default: none")] string? rotation = null,
         [Description("Viewport type (ElementType) id to apply")] long? viewportTypeId = null,
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
+        [Description("When the view is already on another sheet: move it here (its old viewport is deleted and recreated on this sheet) instead of refusing. Default: false")] bool moveIfPlaced = false,
+        [Description("Set the viewport centre again explicitly after creating it, for a view whose recorded position wins over positionX/positionY (centreDeviationMm > 5). Default: false")] bool enforcePosition = false,
         CancellationToken ct = default)
     {
         var p = new JObject
         {
             ["sheetId"] = sheetId,
             ["viewId"] = viewId,
+            ["moveIfPlaced"] = moveIfPlaced,
+            ["enforcePosition"] = enforcePosition,
         };
         if (positionX != null) p["positionX"] = positionX;
         if (positionY != null) p["positionY"] = positionY;
@@ -509,10 +517,11 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "manage_view_templates"), Description("List, duplicate, delete, or rename view templates. action=list|duplicate|delete|rename.")]
+    [McpServerTool(Name = "manage_view_templates"), Description("List, duplicate, delete, rename or create view templates. action=list|duplicate|delete|rename|create_from_view. duplicate is refused by Revit on some templates (View cannot be duplicated): create_from_view builds a template from a view's current settings instead.")]
     public static async Task<string> ManageViewTemplates(
         RevitConnectionManager revit,
-        [Description("Action: list | duplicate | delete | rename. Default: list")] string? action = null,
+        [Description("Action: list | duplicate | delete | rename | create_from_view. Default: list")] string? action = null,
+        [Description("View ID the new template is created from (create_from_view)")] long? viewId = null,
         [Description("Filter templates by view type (for list)")] string? filterViewType = null,
         [Description("Template IDs (for duplicate/delete). JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? templateIds = null,
         [Description("Template ID (for rename)")] long? templateId = null,
@@ -522,6 +531,7 @@ public static class ViewTools
     {
         var p = new JObject();
         if (action != null) p["action"] = action;
+        if (viewId != null) p["viewId"] = viewId;
         if (filterViewType != null) p["filterViewType"] = filterViewType;
         if (JsonOptionalParam.IsProvided(templateIds))
         {
@@ -582,7 +592,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "duplicate_sheet_with_content"), Description("Duplicate a sheet including annotations and detail items")]
+    [McpServerTool(Name = "duplicate_sheet_with_content"), Description("Duplicate a sheet including annotations and detail items, ALL its title blocks (the small cartouche too), its own parameters (Dossier, Indice_manuel...) and its sheet collection. Same parameters as duplicate_sheet_with_views.")]
     public static async Task<string> DuplicateSheetWithContent(
         RevitConnectionManager revit,
         [Description("Element ID of the sheet to duplicate")] long sheetId,
@@ -595,10 +605,15 @@ public static class ViewTools
         [Description("Copy source sheet revisions. Default: false")] bool copyRevisions = false,
         [Description("Prefix applied to generated sheet numbers")] string? sheetNumberPrefix = null,
         [Description("Suffix applied to generated sheet numbers")] string? sheetNumberSuffix = null,
+        [Description("View duplicate option: Duplicate | DuplicateWithDetailing | DuplicateAsDependent. Default: DuplicateWithDetailing")] string? viewDuplicateOption = null,
+        [Description("Suffix added to copied view names. Default: \" - <sheet number>\". Pass \"\" to keep Revit's own copy name")] string? viewNameSuffix = null,
+        [Description("Copy loose sheet annotations (text, detail items, lines). Default: true")] bool copyAnnotations = true,
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["sheetId"] = sheetId };
+        var p = new JObject { ["sheetId"] = sheetId, ["copyAnnotations"] = copyAnnotations };
+        if (viewDuplicateOption != null) p["viewDuplicateOption"] = viewDuplicateOption;
+        if (viewNameSuffix != null) p["viewNameSuffix"] = viewNameSuffix;
         if (newNumber != null) p["newNumber"] = newNumber;
         if (newName != null) p["newName"] = newName;
         if (copies != null) p["copies"] = copies;
@@ -613,20 +628,30 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "duplicate_sheet_with_views"), Description("Duplicate a sheet N times with configurable view duplication options.")]
+    [McpServerTool(Name = "duplicate_sheet_with_views"), Description("Duplicate a sheet N times with configurable view duplication options. Copies ALL title blocks, the sheet's own parameters (Dossier, Indice_manuel...) and its sheet collection. Pass newNumber (or a prefix/suffix): the copy cannot keep the source's number. Same parameters as duplicate_sheet_with_content.")]
     public static async Task<string> DuplicateSheetWithViews(
         RevitConnectionManager revit,
         [Description("Sheet element ID to duplicate")] long sheetId,
+        [Description("New sheet number (with copies > 1, -01, -02... is appended)")] string? newNumber = null,
+        [Description("New sheet name")] string? newName = null,
         [Description("Number of copies. Default: 1")] int? copies = null,
         [Description("Duplicate placed views as well. Default: true")] bool duplicateViews = true,
         [Description("Keep legends on the new sheets. Default: true")] bool keepLegends = true,
         [Description("Keep schedules on the new sheets. Default: true")] bool keepSchedules = true,
         [Description("Prefix applied to new sheet numbers")] string? newSheetNumberPrefix = null,
         [Description("View duplicate option: Duplicate | DuplicateWithDetailing | DuplicateAsDependent. Default: DuplicateWithDetailing")] string? viewDuplicateOption = null,
+        [Description("Suffix applied to generated sheet numbers")] string? sheetNumberSuffix = null,
+        [Description("Copy source sheet revisions. Default: false")] bool copyRevisions = false,
+        [Description("Suffix added to copied view names. Default: \" - <sheet number>\". Pass \"\" to keep Revit's own copy name")] string? viewNameSuffix = null,
+        [Description("Copy loose sheet annotations (text, detail items, lines). Default: false")] bool copyAnnotations = false,
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["sheetId"] = sheetId };
+        var p = new JObject { ["sheetId"] = sheetId, ["copyRevisions"] = copyRevisions, ["copyAnnotations"] = copyAnnotations };
+        if (newNumber != null) p["newNumber"] = newNumber;
+        if (newName != null) p["newName"] = newName;
+        if (sheetNumberSuffix != null) p["sheetNumberSuffix"] = sheetNumberSuffix;
+        if (viewNameSuffix != null) p["viewNameSuffix"] = viewNameSuffix;
         if (copies != null) p["copies"] = copies;
         p["duplicateViews"] = duplicateViews;
         p["keepLegends"] = keepLegends;

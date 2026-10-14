@@ -26,8 +26,8 @@ builder.Services
             "PermissionDenied until a human presses Ecriture in the RiveTT ribbon panel (Add-Ins tab). " +
             "No tool can lift that lock, dryRun included; read execution.writesAllowed, or " +
             "get_server_capabilities.readOnlyMode, and ask the user to unlock rather than retrying. " +
-            "Prefer the dedicated architectural tools, validate the result after each write, and treat " +
-            "send_code_to_revit as a LAST RESORT when no dedicated tool exists. " +
+            "Prefer the dedicated architectural tools where one covers the operation, validate the result after each write, and use " +
+            "send_code_to_revit, a legitimate option, when no dedicated tool does the job in one step or lacks the case at hand. " +
             "Every write is still executed inside Revit transactions and recorded in the audit log. " +
             // The map below is here because clients load tool schemas on demand: in the field
             // session of 2026-09-24 only 7 of ~200 tools were used, and a dozen that would have

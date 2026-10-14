@@ -14,14 +14,18 @@ namespace RiveTT.Tools.Elements;
 /// Duplicates a loadable family type (FamilySymbol) with a new name,
 /// optionally setting parameter values on the new type in the same transaction.
 /// </summary>
-[ToolSafety(false, false)]
+[ToolSafety(false, false, supportsDryRun: true)]
 public class DuplicateFamilyTypeTool : IRiveTTTool
 {
     public string Name => "duplicate_family_type";
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Duplicates a loadable family type (door, window, furniture, etc.) with a new name. Optionally sets type parameters on the new type in the same operation.";
+    public string Description => "Duplicates a loadable family type (door, window, furniture, etc.) with a new name. Optionally sets type parameters on the new type in the same operation. "
+        + "parameterOverrides units: a bare number on a LENGTH parameter is millimetres (area m², volume m³, angle degrees), "
+        + "NOT Revit's internal feet; a string carries its own unit (\"900 mm\"). Any other numeric parameter keeps internal units. "
+        + "Each applied parameter reports value + unit + display + internalValue, so a wrong unit is visible in the answer. "
+        + "dryRun=true runs the duplication in a transaction and rolls it back.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -33,6 +37,8 @@ public class DuplicateFamilyTypeTool : IRiveTTTool
         var familyName     = input["familyName"]?.Value<string>();
         var newName        = input["newName"]?.Value<string>();
         var parameterOverrides = input["parameterOverrides"] as JObject;
+        // Applies immediately when omitted: that is what this tool did before it could preview.
+        var dryRun = ToolHelpers.GetDryRun(input, defaultValue: false);
 
         if (string.IsNullOrWhiteSpace(newName))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
@@ -101,6 +107,7 @@ public class DuplicateFamilyTypeTool : IRiveTTTool
                 // Apply parameter overrides if provided
                 var appliedParams = new List<object>();
                 var failedParams = new List<object>();
+                var warnings = new List<string>();
 
                 if (parameterOverrides != null)
                 {
@@ -115,17 +122,53 @@ public class DuplicateFamilyTypeTool : IRiveTTTool
 
                         try
                         {
-                            bool set = SetParameterValue(param, prop.Value);
-                            if (set)
-                                appliedParams.Add(new { name = prop.Name, value = prop.Value.ToString() });
+                            if (TrySetParameterValue(param, prop.Value, out var interpretedAs, out var reason))
+                            {
+                                // Reports what the parameter NOW holds, in display units, next to the
+                                // raw internal number — the answer used to echo the request, which
+                                // hid a 1500 applied as 1500 feet (457 m) until the model was opened.
+                                var applied = ParameterValueFormatter.Format(param);
+                                appliedParams.Add(new
+                                {
+                                    name = prop.Name,
+                                    requested = prop.Value.ToString(),
+                                    interpretedAs,
+                                    value = applied.Value,
+                                    unit = applied.Unit,
+                                    display = applied.DisplayValue,
+                                    internalValue = applied.InternalValue
+                                });
+                                if (IsLength(param) && applied.InternalValue is double feet
+                                    && Math.Abs(feet) * LengthUnits.MmPerFoot > 100_000)
+                                    warnings.Add($"'{prop.Name}' now holds {applied.DisplayValue} — over 100 m for a family dimension. Check the unit of the value passed.");
+                            }
                             else
-                                failedParams.Add(new { name = prop.Name, reason = "type mismatch" });
+                                failedParams.Add(new { name = prop.Name, reason });
                         }
                         catch (Exception ex)
                         {
                             failedParams.Add(new { name = prop.Name, reason = ex.Message });
                         }
                     }
+                }
+
+                if (dryRun)
+                {
+                    var previewPayload = new
+                    {
+                        typeName = newType.Name,
+                        familyName = newType.FamilyName,
+                        categoryName = newType.Category?.Name ?? "",
+                        sourceTypeName = source.Name,
+                        alreadyExisted = false,
+                        appliedParameters = appliedParams,
+                        failedParameters = failedParams,
+                        warnings
+                    };
+                    ChangePreview.Rollback(tx);
+                    return ChangePreview.Probed(
+                        $"DryRun: would create the type '{previewPayload.typeName}' in '{previewPayload.familyName}' from '{source.Name}'.",
+                        previewPayload);
                 }
 
                 if (tx.Commit() != TransactionStatus.Committed)
@@ -147,6 +190,8 @@ public class DuplicateFamilyTypeTool : IRiveTTTool
                     result["appliedParameters"] = appliedParams;
                 if (failedParams.Count > 0)
                     result["failedParameters"] = failedParams;
+                if (warnings.Count > 0)
+                    result["warnings"] = warnings;
 
                 return RiveTTResult<object>.Ok(result);
             }
@@ -174,14 +219,64 @@ public class DuplicateFamilyTypeTool : IRiveTTTool
         return collector.FirstOrDefault(fs => fs.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static bool SetParameterValue(Parameter param, JToken value)
+    private static ForgeTypeId? SpecOf(Parameter param)
     {
+        try { return param.Definition.GetDataType(); } catch { return null; }
+    }
+
+    private static bool IsLength(Parameter param)
+        => SpecOf(param)?.Equals(SpecTypeId.Length) == true;
+
+    /// <summary>
+    /// The unit a BARE number is read in, per parameter spec — the agency's: mm, m², m³,
+    /// degrees. Revit stores feet, and a bare 1500 used to be applied as 1500 feet.
+    /// Null for every other spec, which keeps internal units and says so.
+    /// </summary>
+    private static ForgeTypeId? AgencyUnit(Parameter param, out string label)
+    {
+        label = "";
+        var spec = SpecOf(param);
+        if (spec == null) return null;
+        if (spec.Equals(SpecTypeId.Length)) { label = "mm"; return UnitTypeId.Millimeters; }
+        if (spec.Equals(SpecTypeId.Area)) { label = "m²"; return UnitTypeId.SquareMeters; }
+        if (spec.Equals(SpecTypeId.Volume)) { label = "m³"; return UnitTypeId.CubicMeters; }
+        if (spec.Equals(SpecTypeId.Angle)) { label = "°"; return UnitTypeId.Degrees; }
+        return null;
+    }
+
+    private static bool TrySetParameterValue(Parameter param, JToken value, out string interpretedAs, out string reason)
+    {
+        interpretedAs = "";
+        reason = "type mismatch";
         switch (param.StorageType)
         {
             case StorageType.Double:
+                if (value.Type == JTokenType.String)
+                {
+                    // A string carries its own unit ("900 mm"), parsed by Revit.
+                    var text = (value.Value<string>() ?? "").Trim();
+                    if (param.SetValueString(text))
+                    {
+                        interpretedAs = $"\"{text}\", unit read from the text";
+                        return true;
+                    }
+                    reason = $"'{text}' is not a valid value with a unit for this parameter (e.g. \"900 mm\")";
+                    return false;
+                }
                 if (value.Type == JTokenType.Float || value.Type == JTokenType.Integer)
                 {
-                    param.Set(value.Value<double>());
+                    var number = value.Value<double>();
+                    var unit = AgencyUnit(param, out var label);
+                    if (unit != null)
+                    {
+                        param.Set(UnitUtils.ConvertToInternalUnits(number, unit));
+                        interpretedAs = $"{number} {label}";
+                    }
+                    else
+                    {
+                        param.Set(number);
+                        interpretedAs = $"{number} in Revit internal units (no agency unit for this parameter type)";
+                    }
                     return true;
                 }
                 return false;
@@ -190,23 +285,27 @@ public class DuplicateFamilyTypeTool : IRiveTTTool
                 if (value.Type == JTokenType.Integer)
                 {
                     param.Set(value.Value<int>());
+                    interpretedAs = value.ToString();
                     return true;
                 }
                 return false;
 
             case StorageType.String:
                 param.Set(value.ToString());
+                interpretedAs = "text";
                 return true;
 
             case StorageType.ElementId:
                 if (value.Type == JTokenType.Integer)
                 {
                     param.Set(ToolHelpers.ToElementId(value.Value<long>()));
+                    interpretedAs = "element id";
                     return true;
                 }
                 return false;
 
             default:
+                reason = $"unsupported storage type {param.StorageType}";
                 return false;
         }
     }

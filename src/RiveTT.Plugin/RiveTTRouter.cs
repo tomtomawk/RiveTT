@@ -282,6 +282,7 @@ public class RiveTTRouter
 
         var stopwatch = Stopwatch.StartNew();
         RiveTTResult<object> result;
+        SuppressedWarningLog.Clear();
 
         // Cache lookup for read-only tools that opted into ICacheableTool.
         // On hit, skip the dispatcher entirely — no UI-thread marshal is needed
@@ -357,6 +358,14 @@ public class RiveTTRouter
         // full serialization over the same object. On an export_elements_data answer of a
         // few MB that is four full passes to return one.
         result = EnrichResult(toolName, input, result, out var enrichedData);
+
+        // The text of the warnings the tools deleted unseen. Their COUNT used to be all a
+        // caller got (warningsSuppressed), which cannot explain a call that did nothing.
+        var suppressedWarnings = SuppressedWarningLog.Drain();
+        if (suppressedWarnings.Count > 0 && enrichedData?["execution"] is JObject executionBlock)
+            executionBlock["suppressedWarnings"] = new JArray(suppressedWarnings.Select(w =>
+                new JObject { ["message"] = w.Message, ["count"] = w.Count }));
+
         var responseBytes = EstimateResponseBytes(result, enrichedData);
 
         // Only cache successful results. Failures must always re-execute so a

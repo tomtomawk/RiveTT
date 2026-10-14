@@ -146,6 +146,10 @@ public static class TransactionFailureHandling
                     if (_allowedWarningIds == null || _allowedWarningIds.Contains(failureId))
                     {
                         WarningsSuppressed++;
+                        // Kept, not just counted: the deleted text is often the only explanation
+                        // of a call that appeared to do nothing. The router surfaces it as
+                        // execution.suppressedWarnings.
+                        SuppressedWarningLog.Record(failure.GetDescriptionText());
                         failuresAccessor.DeleteWarning(failure);
                     }
                     else

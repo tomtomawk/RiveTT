@@ -37,14 +37,22 @@ public static class DocumentTools
         return (await revit.ExecuteAsync("save_as_document", request, ct)).ToString();
     }
 
-    [McpServerTool(Name = "open_family"), Description("Opens a .rfa family file and makes it the active document in Revit, for visual editing (type parameters, geometry). The active document CHANGES - every later tool call targets the family until you switch back with open_document. The family stays open: call close_document when done, or it accumulates for the rest of the session. To load a family INTO the current project instead, use load_family.")]
+    [McpServerTool(Name = "open_family"), Description("Opens a .rfa family file (filePath), or a family already loaded in a project (familyId or familyName), and makes it the active document in Revit, for visual editing (type parameters, geometry). The active document CHANGES - every later tool call targets the family until you switch back with open_document. The family stays open: call close_document when done, or it accumulates for the rest of the session. To load a family INTO the current project instead, use load_family; after editing, load_family with action \"load_from_open\" re-injects the open family into the project.")]
     public static async Task<string> OpenFamily(
         RevitConnectionManager revit,
-        [Description("Absolute .rfa path")] string filePath,
+        [Description("Absolute .rfa path. Omit it to open a family already loaded in a project (familyId or familyName).")] string? filePath = null,
         [Description("Preview without opening. Default: true")] bool dryRun = true,
+        [Description("Id of a family loaded in the project (from load_family action list). Alternative to filePath and familyName.")] long? familyId = null,
+        [Description("Name of a family loaded in the project. Alternative to filePath and familyId.")] string? familyName = null,
+        [Description("Title of the project holding the family. Omitted: the active project, else the only open project.")] string? targetDocument = null,
+        [Description("Project family only: make the family the active document (default true; a temporary working copy gives it a path). false: open it in the background, active document unchanged.")] bool activate = true,
         CancellationToken ct = default)
     {
-        var request = new JObject { ["filePath"] = filePath, ["dryRun"] = dryRun };
+        var request = new JObject { ["dryRun"] = dryRun, ["activate"] = activate };
+        if (filePath != null) request["filePath"] = filePath;
+        if (familyId != null) request["familyId"] = familyId;
+        if (familyName != null) request["familyName"] = familyName;
+        if (targetDocument != null) request["targetDocument"] = targetDocument;
         return (await revit.ExecuteAsync("open_family", request, ct)).ToString();
     }
 

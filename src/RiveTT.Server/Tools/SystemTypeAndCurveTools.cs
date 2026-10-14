@@ -88,17 +88,21 @@ public static class SystemTypeAndCurveTools
     }
 
     [McpServerTool(Name = "place_title_block"), Description(
-        "Place a title block instance on an existing sheet. Use it to repair a sheet that has no frame. " +
+        "Place a title block instance on an existing sheet at positionX/positionY (mm). A sheet may carry several: calling it on a sheet that already has one adds a second. Also repairs a sheet that has no frame. " +
         "Call it without titleBlockId to get the list of title blocks loaded in the document.")]
     public static async Task<string> PlaceTitleBlock(
         RevitConnectionManager revit,
         [Description("Sheet (ViewSheet) element ID")] long sheetId,
         [Description("Title block family TYPE id (OST_TitleBlocks). Omit to list the available ones")] long? titleBlockId = null,
         [Description("Preview without changing the model. Default: true")] bool dryRun = true,
+        [Description("X of the title block insertion point, in mm, sheet coordinates. Default: 0 (sheet origin)")] double? positionX = null,
+        [Description("Y of the title block insertion point, in mm, sheet coordinates. Default: 0 (sheet origin)")] double? positionY = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["sheetId"] = sheetId, ["dryRun"] = dryRun };
         if (titleBlockId != null) p["titleBlockId"] = titleBlockId;
+        if (positionX != null) p["positionX"] = positionX;
+        if (positionY != null) p["positionY"] = positionY;
         return (await revit.ExecuteAsync("place_title_block", p, ct)).ToString();
     }
 }

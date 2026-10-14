@@ -39,16 +39,25 @@ public class SendCodeDescriptionTests
         return File.ReadAllText(path);
     }
 
+    // Policy changed in 0.6.2: send_code_to_revit is a legitimate option, no longer a last resort
+    // to be used only after the user's explicit consent. What stays pinned is the guidance that
+    // makes the choice informed: the dedicated alternatives, the dry-run default, the sandbox.
+
     [Fact]
-    public void ServerDescription_MarksToolAsLastResort()
+    public void ServerDescription_NoLongerCallsTheToolALastResort()
     {
-        Assert.Contains("LAST RESORT", ServerToolDescription(), StringComparison.OrdinalIgnoreCase);
+        var desc = ServerToolDescription();
+        Assert.DoesNotContain("LAST RESORT", desc, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("consent", desc, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("legitimate option", desc, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void ServerDescription_RequiresExplicitUserConsent()
+    public void ServerDescription_KeepsTheDryRunAndSavedScriptWarnings()
     {
-        Assert.Contains("consent", ServerToolDescription(), StringComparison.OrdinalIgnoreCase);
+        var desc = ServerToolDescription();
+        Assert.Contains("dry run", desc, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("scriptNotice", desc, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -75,17 +84,19 @@ public class SendCodeDescriptionTests
     }
 
     [Fact]
-    public void ServerInstructions_DeprioritizeSendCode()
+    public void ServerInstructions_PresentSendCodeAsALegitimateOption()
     {
         var program = ReadSource("RiveTT.Server", "Program.cs");
         Assert.Contains("ServerInstructions", program);
-        Assert.Contains("LAST RESORT", program, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("LAST RESORT", program, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("send_code_to_revit, a legitimate option", program, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PluginDescription_MarksToolAsLastResort()
+    public void PluginDescription_NoLongerCallsTheToolALastResort()
     {
         var source = ReadSource("RiveTT.Tools", "Elements", "SendCodeToRevitTool.cs");
-        Assert.Contains("LAST RESORT", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("LAST RESORT", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("legitimate option", source, StringComparison.OrdinalIgnoreCase);
     }
 }

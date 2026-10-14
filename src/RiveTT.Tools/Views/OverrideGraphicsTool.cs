@@ -20,12 +20,96 @@ public class OverrideGraphicsTool : IRiveTTTool
     public string Category => "Views";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Sets or resets graphic overrides (color, transparency, halftone, line weight) for elements in a view.";
+    public string Description => "Sets or resets graphic overrides (color, transparency, halftone, line weight) for elements in a view. "
+        + "action=hide_category | show_category hides or shows WHOLE CATEGORIES per view (categories: OST_* code or name, e.g. "
+        + "OST_Viewers for section marks, OST_Callouts, OST_Elev; viewIds or viewId, else the active view) — no elementIds needed. "
+        + "A category controlled by a view template is reported as skipped, not forced.";
+
+    /// <summary>
+    /// View.SetCategoryHidden over several views and categories: the per-view "hide section
+    /// markers" gesture that had no tool (field report ILO 13/10/2026). Reports each pair that
+    /// could not be applied, with Revit's reason, rather than skipping it silently.
+    /// </summary>
+    private static RiveTTResult<object> SetCategoryVisibility(Document doc, JObject input, bool hide)
+    {
+        var categories = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
+        if (categories.Count == 0)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "categories is required for hide_category / show_category",
+                suggestion: "Pass OST_* codes or category names, e.g. [\"OST_Viewers\"] for section marks.");
+
+        var viewIds = input["viewIds"]?.ToObject<List<long>>() ?? new List<long>();
+        var single = input["viewId"]?.Value<long?>() ?? 0;
+        if (single > 0 && !viewIds.Contains(single)) viewIds.Add(single);
+        var views = viewIds.Count == 0
+            ? new List<View?> { doc.ActiveView }
+            : viewIds.Select(id => doc.GetElement(new ElementId(id)) as View).ToList();
+
+        var unresolved = categories.Where(c => CategoryResolver.ResolveToId(doc, c) == null).ToList();
+        if (unresolved.Count > 0)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"Category not found: {string.Join(", ", unresolved)}",
+                suggestion: "Use the language-independent OST_* code (OST_Viewers = section marks, OST_Callouts, OST_Elev).");
+
+        var applied = new List<object>();
+        var skipped = new List<object>();
+        var dryRun = ToolHelpers.GetDryRun(input);
+        using var tx = new Transaction(doc, hide ? "RiveTT: Hide Categories" : "RiveTT: Show Categories");
+        tx.Start();
+        var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
+        foreach (var view in views)
+        {
+            if (view == null) { skipped.Add(new { reason = "view not found" }); continue; }
+            foreach (var name in categories)
+            {
+                var catId = CategoryResolver.ResolveToId(doc, name)!;
+                try
+                {
+                    if (view is ViewSheet)
+                    {
+                        skipped.Add(new { viewId = ToolHelpers.GetElementIdValue(view.Id), view = view.Name, category = name,
+                            reason = "a sheet has no category visibility" });
+                        continue;
+                    }
+                    if (!view.CanCategoryBeHidden(catId))
+                    {
+                        skipped.Add(new { viewId = ToolHelpers.GetElementIdValue(view.Id), view = view.Name, category = name,
+                            reason = "this category cannot be hidden in this view (view template control, or not a hideable category)" });
+                        continue;
+                    }
+                    view.SetCategoryHidden(catId, hide);
+                    applied.Add(new { viewId = ToolHelpers.GetElementIdValue(view.Id), view = view.Name, category = name,
+                        hidden = view.GetCategoryHidden(catId) });
+                }
+                catch (Exception ex)
+                {
+                    skipped.Add(new { viewId = ToolHelpers.GetElementIdValue(view.Id), view = view.Name, category = name, reason = ex.Message });
+                }
+            }
+        }
+
+        var payload = new { action = hide ? "hide_category" : "show_category", appliedCount = applied.Count, applied, skipped };
+        if (dryRun)
+        {
+            ChangePreview.Rollback(tx);
+            return ChangePreview.Probed(
+                "DryRun: the operation ran inside a transaction and was rolled back. The model is untouched; "
+                + "what follows is what Revit produced.", payload);
+        }
+        if (tx.Commit() != TransactionStatus.Committed)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
+                suggestion: "Fix the reported model errors and retry.");
+        return RiveTTResult<object>.Ok(payload);
+    }
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
         if (doc == null)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "No active document in session");
+
+        var requestedAction = (input["action"]?.Value<string>() ?? "set").ToLowerInvariant();
+        if (requestedAction is "hide_category" or "show_category")
+            return SetCategoryVisibility(doc, input, hide: requestedAction == "hide_category");
 
         var elementIds = input["elementIds"]?.ToObject<List<long>>() ?? new List<long>();
         if (elementIds.Count == 0)

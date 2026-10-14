@@ -154,15 +154,15 @@ public static class MaterialTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "duplicate_family_type"), Description("Duplicate a loadable family type with a new name and optional parameter overrides.")]
+    [McpServerTool(Name = "duplicate_family_type"), Description("Duplicate a loadable family type with a new name and optional parameter overrides. In parameterOverrides a bare number on a LENGTH parameter is millimetres (area m², volume m³, angle degrees), not Revit's internal feet; a string carries its own unit (\"900 mm\"). The answer gives each applied value with unit, display text and internalValue. dryRun=true previews.")]
     public static async Task<string> DuplicateFamilyType(
         RevitConnectionManager revit,
         [Description("New type name")] string newName,
         [Description("Source type element ID (alternative to sourceTypeName + familyName)")] long? sourceTypeId = null,
         [Description("Source type name (used with familyName)")] string? sourceTypeName = null,
         [Description("Family name (used with sourceTypeName)")] string? familyName = null,
-        [Description("Parameter overrides as JSON object: {paramName: value, ...}")] System.Text.Json.JsonElement? parameterOverrides = null,
-        [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
+        [Description("Parameter overrides as JSON object: {paramName: value, ...}. Bare number on a length parameter = mm; string = value with unit, e.g. \"900 mm\"")] System.Text.Json.JsonElement? parameterOverrides = null,
+        [Description("Preview: duplicates in a transaction and rolls it back, reporting the applied values. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["newName"] = newName, ["dryRun"] = dryRun };

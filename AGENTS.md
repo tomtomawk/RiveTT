@@ -109,7 +109,10 @@ Consequences for anything you add here:
 
 ## Development rules
 
-- Prefer a dedicated `IRiveTTTool`; keep `send_code_to_revit` as a fallback.
+- Prefer a dedicated `IRiveTTTool` where one covers the operation: it previews, validates and
+  reports what was applied. `send_code_to_revit` is a legitimate option, not a last resort
+  (policy changed in 0.6.2): it stays the way to chain gestures or to cover a case no
+  dedicated tool does. Its `dryRun` default, the sandbox and the write lock do not change.
 - Revit API calls must execute through `ExternalEvent`. That context is a valid
   API context and is less restricted than an API *event* handler: switching the
   active document (`OpenAndActivateDocument`) and opening API edit scopes

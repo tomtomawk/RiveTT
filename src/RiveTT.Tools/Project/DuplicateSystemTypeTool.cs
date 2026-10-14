@@ -20,7 +20,8 @@ public class DuplicateSystemTypeTool : IRiveTTTool
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
     public string Description =>
-        "Duplicates a system family type (wall, floor, roof, ceiling), or renames/deletes an existing type. "
+        "Duplicates a system family type (wall, floor, roof, ceiling) or a VIEW type (plan, section, elevation: pass "
+        + "category=\"ViewFamilyType\" with sourceTypeName, e.g. to create a new floor-plan view type), or renames/deletes an existing type. "
         + "Actions: duplicate (default), rename, delete. Previews by default: delete reports how many ELEMENTS "
         + "of that type Revit would take with it, which is what makes it destructive. Set dryRun=false to apply.";
 
@@ -229,10 +230,20 @@ public class DuplicateSystemTypeTool : IRiveTTTool
         return (type, null);
     }
 
+    private static bool IsViewTypeCategory(string? category)
+        => category != null && category.Trim().ToLowerInvariant()
+            is "viewfamilytype" or "view family type" or "view type" or "view types" or "type de vue" or "types de vue";
+
     private static ElementType? FindTypeByName(Document doc, string typeName, string? category)
     {
         var collector = new FilteredElementCollector(doc)
             .WhereElementIsElementType();
+
+        // View types (plan, section, elevation... — the "type de vue" of the project browser) are
+        // ViewFamilyType elements, which carry no category: nothing else can name them.
+        if (IsViewTypeCategory(category))
+            return new FilteredElementCollector(doc).OfClass(typeof(ViewFamilyType)).Cast<ElementType>()
+                .FirstOrDefault(t => t.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
 
         if (!string.IsNullOrEmpty(category))
         {

@@ -17,7 +17,7 @@ Ce document est autonome : les règles, procédures, conventions, signatures et 
 4. Sur `PermissionDenied` avec `writesAllowed: false`, s'arrêter et demander le déverrouillage. Aucun outil, pas même un `dryRun`, ne contourne ce verrou.
 5. Prévisualiser avec `dryRun: true` lorsque `execution.supportsDryRun` vaut `true`. Si cette capacité vaut `false`, une demande de `dryRun` est refusée avec `InvalidInput` avant toute exécution.
 6. Après une écriture, vérifier le résultat avec un outil de lecture et se fier à ce qui a réellement été appliqué dans la réponse, pas seulement à ce qui avait été demandé.
-7. Préférer un outil RiveTT dédié. `send_code_to_revit` est un dernier recours, à prévisualiser et à relire intégralement avant exécution.
+7. Préférer un outil RiveTT dédié là où il couvre l'opération : il prévisualise, contrôle les identifiants et les unités et rapporte ce qui a été appliqué. `send_code_to_revit` est une solution légitime, pas un dernier recours : à choisir quand aucun outil dédié ne fait le travail en une étape, qu'il ne couvre pas le cas, ou pour enchaîner plusieurs gestes. À prévisualiser (`dryRun` par défaut) et à relire avant exécution ; signaler à l'utilisateur le script enregistré (`scriptNotice`).
 8. Résoudre les paramètres en anglais ou dans la langue du document. Un échec doit apparaître dans `unresolvedParameterNames` ou `skippedFields[].reason` ; une valeur vide sans ce signalement est une donnée réellement vide.
 9. Préférer `categoryBic` (`OST_*`) aux libellés localisés. Revit français nomme notamment la catégorie des vues portées « Fenêtres », comme les fenêtres.
 10. Lire toute valeur numérique avec son `unit` et son `internalValue`. Revit stocke les longueurs en pieds, les surfaces en pieds carrés et les volumes en pieds cubes.
@@ -210,10 +210,13 @@ transactions, le journal d'audit ni la validation des entrées.
 
 ### Exécution de code C#
 
-`send_code_to_revit` est un dernier recours. Il **prévisualise par défaut** : `dryRun`
-vérifie le bac à sable et rapporte ce qui serait exécuté, sans rien exécuter ni écrire
-sur disque. Il n'existe aucune boîte de confirmation dans Revit — la prévisualisation
-est la seule étape de relecture.
+`send_code_to_revit` est une solution à part entière (quand choisir : voir *Choisir
+send_code_to_revit*). Il **prévisualise par défaut** : `dryRun` vérifie le bac à sable
+et rapporte ce qui serait exécuté, sans rien exécuter ni écrire sur disque. Il n'existe
+aucune boîte de confirmation dans Revit — la prévisualisation est la seule étape de
+relecture. Chaque exécution **enregistre le script** dans le profil de l'utilisateur
+(`scriptSavedTo`, `scriptLifetime`) et la réponse porte `scriptNotice` : le relayer à
+l'utilisateur à chaque fois.
 
 `CodeSandbox` refuse les accès fichiers et réseau, la création de processus, le
 registre, l'interop native et les détours par la réflexion. `obj.GetType()` et
@@ -326,6 +329,17 @@ Sur un modèle d'architecture, les poteaux sont `OST_Columns`, **pas**
 `duplicate_family_type` échoue sur un type système : ce ne sont pas des familles
 chargeables. C'est la confusion la plus fréquente.
 
+**Unités de `parameterOverrides` (0.6.2).** Un nombre nu sur un paramètre de **longueur**
+vaut des **millimètres** (surface m², volume m³, angle en degrés) ; une chaîne porte son
+unité (`"900 mm"`). Un autre type numérique garde les unités internes de Revit. Avant la
+0.6.2, `1500` était posé en pieds : un type de 457 m de large, sans le dire. Chaque valeur
+appliquée revient avec `value`, `unit`, `display` et `internalValue` ; `dryRun: true`
+duplique dans une transaction annulée et rend ces mêmes valeurs. Un appelant qui passait des
+pieds doit désormais passer `"… ft"`.
+
+**Types de vue.** `duplicate_system_type` avec `category: "ViewFamilyType"` duplique un type
+de vue (plan, coupe, élévation) — par exemple pour créer un nouveau type de plan d'étage.
+
 ### Documents et familles
 
 | Cas | Outil | Remarque |
@@ -333,8 +347,36 @@ chargeables. C'est la confusion la plus fréquente.
 | Nouveau projet vide | `create_document(templatePath?, targetPath)` | `save_as_document` **duplique** le modèle ouvert, il ne crée pas un projet vide |
 | Ouvrir et activer un fichier | `open_document(filePath)` | change le document actif et vide les caches — enregistrer le courant avant |
 | Ouvrir une famille ou un gabarit | `open_family` / `open_template` | le document actif change |
+| Ouvrir une famille déjà chargée dans le projet | `open_family(familyId` ou `familyName, targetDocument?, activate?)` | sans `filePath` ; `activate: false` l'ouvre en arrière-plan |
+| Réinjecter une famille ouverte dans un projet | `load_family(action: "load_from_open", …)` | sans chemin, y compris une famille jamais enregistrée |
 | Modifier les valeurs de type d'une famille | `edit_family` | **en arrière-plan, aucune fenêtre ne s'ouvre** |
 | Fermer | `close_document` | fermer le document **actif** exige qu'un autre soit ouvert |
+
+#### Éditer une famille et la recharger (0.6.2)
+
+Cycle sans fichier intermédiaire : `open_family` sur une famille du projet (ou sur un
+`.rfa`), édition, puis `load_family` avec `action: "load_from_open"`.
+
+- `sourceDocument` : titre de la famille ouverte. Omis : le document actif s'il est une
+  famille, sinon l'unique famille ouverte ; sinon l'erreur liste les familles ouvertes.
+- `targetDocument` : titre du projet. Omis : l'unique projet ouvert ; sinon l'erreur liste
+  les projets. La cible doit être **ouverte**.
+- `overwriteExisting` (défaut `true`), `renameTo` (nom dans le projet, utile pour une
+  famille jamais enregistrée appelée « Famille1 » ; erreur si le nom existe déjà),
+  `activateTypes` (défaut `true`), `closeSource` (défaut `false`).
+- `dryRun: true` ne charge rien et rend un diagnostic (`status: "dry_run"`, nom, catégorie,
+  famille déjà présente ou non). C'est la **seule** action de `load_family` qui prévisualise :
+  `list`, `load` et `duplicate_type` refusent `dryRun`.
+- Réponse : `status` (`loaded`, `reloaded`, `skipped_existing`, `dry_run`), `familyId`,
+  `types[]`, `sourceClosed` (+ `sourceCloseReason`), `activeDocument`.
+- Une **transaction ouverte** sur la source ou la cible est refusée d'avance
+  (« transaction ouverte sur … ») : `LoadFamily` gère sa propre transaction.
+- `closeSource` sur la famille **active** réactive d'abord le projet cible, par son
+  chemin : une cible jamais enregistrée ne peut pas l'être, la famille est alors chargée et
+  `sourceClosed` vaut `false` avec la raison. Le verrou d'écriture s'applique aussi au `dryRun`.
+- `open_family` sur une famille du projet : `activate: true` donne un chemin à la famille par
+  une **copie de travail** dans `%TEMP%\RiveTT\OpenedFamilies\` (`workingCopyPath` dans la
+  réponse). La famille du projet n'est modifiée que par `load_from_open`.
 
 `Document.EditFamily` n'interbloque pas Revit depuis un `ExternalEvent`. L'affirmation
 inverse a circulé longtemps et a bloqué cette famille d'outils ; elle a été mesurée
@@ -463,21 +505,33 @@ ordre de préférence :
 3. `savedSelectionName`, pour une sélection persistée dans le modèle ;
 4. `scope: selection`, seulement pour un appel unique et immédiat.
 
-### Escalader vers send_code_to_revit
+### Choisir send_code_to_revit
 
-**Jamais de son propre chef pour une opération en masse.** Toujours demander
-l'accord, en proposant l'alternative native comme option A :
+`send_code_to_revit` n'est plus un dernier recours : c'est une solution possible, au même
+titre qu'un outil dédié. Le bon choix dépend de ce que l'outil dédié apporte.
 
-> « Je peux utiliser `send_code_to_revit` pour faire ça plus efficacement avec un
-> script C#, ou procéder avec les outils dédiés — ce qui demandera plus d'appels.
-> Que préférez-vous ? »
+| Situation | Choix |
+|---|---|
+| Un outil dédié couvre l'opération | L'outil dédié : `dryRun`, contrôle des identifiants et des unités, compte rendu de ce qui a été appliqué |
+| Aucun outil dédié, ou il ne couvre pas le cas précis | Un script |
+| Plusieurs gestes à enchaîner dans une même exécution (ou une boucle sur N éléments) | Un script, en `transactionMode: "group"` avec `Section(...)` |
+| Lire ce qu'aucun outil n'expose | Un script en `transactionMode: "readonly"` (autorisé verrou fermé) |
+| Essayer une modification puis l'annuler | `readonly`, la modification dans sa **propre** `Transaction` |
 
-Les raisons de demander plutôt que de supposer :
+Règles qui restent :
 
-- un script contourne les schémas dédiés, et donc leur `dryRun` ;
-- des conflits de DLL avec d'autres add-ins peuvent faire échouer `send_code_to_revit`
-  silencieusement ;
-- l'utilisateur peut préférer la traçabilité d'appels d'outils distincts.
+- la prévisualisation (`dryRun`, par défaut) est la seule relecture : lire le script avant
+  de passer à `dryRun: false` ;
+- le verrou d'écriture s'applique, `readonly` mis à part ;
+- un script contourne le schéma, donc le `dryRun`, des outils dédiés : relire le résultat
+  avec un outil de lecture ;
+- des conflits de DLL avec d'autres add-ins peuvent faire échouer l'exécution ;
+- le script est enregistré chez l'utilisateur : le lui dire (`scriptNotice`) ;
+- en cas d'échec de la forme « le script est faux », `fromScript` + `edits` corrige une
+  ligne sans renvoyer tout le code.
+
+Quand un outil dédié existe mais échoue sur un cas particulier, signaler l'écart à
+l'utilisateur plutôt que le contourner en silence : c'est ainsi que les outils s'améliorent.
 
 #### Bac à sable
 
@@ -561,7 +615,9 @@ contexte-là et non un gestionnaire d'événement API ou un éditeur modal.
   `modifiedCount` et `skippedCount`, et vérifier que `processed` correspond à la
   portée attendue.
 - Utiliser `send_code_to_revit` pour contourner un outil dédié ou son `dryRun`.
-- Supposer que l'utilisateur préfère un script : c'est l'option B par défaut.
+- Écrire un script pour une opération qu'un outil dédié fait déjà bien, sans y avoir essayé
+  l'outil : l'inverse est vrai aussi, un outil qui ne couvre pas le cas n'est pas une
+  raison de s'y acharner.
 
 ---
 
@@ -924,6 +980,64 @@ seulement si elle contient des éléments visibles de la catégorie visée : vé
 `color_elements` échoue sur une feuille ou une page de garde : basculer d'abord sur
 un plan ou une vue 3D. Il attend par ailleurs des noms de catégorie **localisés**,
 donc dépendants de la langue de Revit.
+
+#### Feuilles, viewports et gabarits de vue (0.6.2)
+
+**`place_viewport`.** `positionX` / `positionY` sont le centre voulu, en mm. La réponse
+distingue désormais `centreMm` (où le viewport **est**, `GetBoxCenter`) de
+`requestedCentreMm` (la consigne) ; `centreDeviationMm` dit l'écart et `pinned` si le
+viewport est épinglé. Avant la 0.6.2, `centreMm` répétait la consigne et masquait un
+viewport posé ailleurs. Un écart de quelques mm est le décalage de l'étiquette ; au-delà de
+5 mm, le viewport a gardé sa position enregistrée : `enforcePosition: true` (voir
+l'encadré ci-dessous) et `execution.suppressedWarnings`.
+
+> **Viewports de plans qui ne bougent plus (rapport ILO du 13/10/2026).** Sur quatre plans,
+> `MoveElement`, `SetBoxCenter`, la recréation du viewport et `place_viewport` n'ont eu aucun
+> effet, alors que coupes, façades et plan masse bougeaient. **Cause relevée : la position
+> enregistrée.** Le viewport reste à la position que Revit a mémorisée pour lui, et non à
+> celle demandée au placement ; ce n'est pas un épinglage. Le mécanisme exact de cet
+> enregistrement n'a pas été vérifié sur la maquette. Conduite à tenir : après
+> `place_viewport`, lire `centreMm` (position réelle) contre `requestedCentreMm` et
+> `centreDeviationMm` ; au-delà de 5 mm, relancer avec `enforcePosition: true`, qui
+> redonne le centre explicitement et dont l'effet est **relu**, pas supposé
+> (`positionEnforced`, nouvel écart). Si l'écart persiste, supprimer le viewport et le
+> replacer, et lire `execution.suppressedWarnings`.
+
+- `place_viewport` avec `moveIfPlaced: true` : une vue déjà placée sur une autre feuille est
+  déplacée ici (l'ancien viewport est supprimé puis recréé, `movedFromSheet` dans la réponse)
+  au lieu d'être refusée. Un viewport épinglé n'est pas déplacé.
+- `place_title_block` accepte `positionX` / `positionY` (mm) : une feuille peut porter
+  plusieurs cartouches, l'appel sur une feuille qui en a déjà un en **ajoute** un second.
+- `override_graphics` avec `action: "hide_category"` ou `"show_category"`, `categories`
+  (`OST_Viewers` = repères de coupe, `OST_Callouts`, `OST_Elev`) et `viewIds` : masque ou
+  affiche des catégories entières par vue, sans `elementIds`. Une catégorie pilotée par un
+  gabarit de vue est rapportée en `skipped`, pas forcée.
+- `manage_view_templates` avec `action: "create_from_view"` (`viewId`, `newName`) : crée un
+  gabarit à partir des réglages d'une vue. `duplicate` est refusé par Revit sur certains
+  gabarits (« View cannot be duplicated ») ; c'est le contournement.
+- **Jeux de feuilles de l'Explorateur de projet** = *sheet collections*, pas les jeux
+  d'impression : `manage_sheet_sets` avec `list_collections`, `create_collection` (`name`),
+  `assign_to_collection` (`collectionId` ou `collectionName`, plus `viewIds` portant des
+  numéros de **feuilles**). Un numéro de feuille doit être unique dans son jeu.
+  `list_collections` reste accessible verrou fermé.
+- `duplicate_sheet_with_content` et `duplicate_sheet_with_views` partagent une seule
+  implémentation et les mêmes paramètres : `newNumber` (sans lui, la copie garde le numéro
+  de la source et Revit la refuse), `newName`, `viewDuplicateOption` (`Duplicate`,
+  `DuplicateWithDetailing`, `DuplicateAsDependent`), `viewNameSuffix` (`""` garde le nom
+  de copie de Revit au lieu de « - <n° feuille> »), `copyAnnotations`. Ils copient **tous**
+  les cartouches (le petit aussi), les paramètres de la feuille (`Dossier`,
+  `Indice_manuel`…) et son jeu de feuilles. Seule différence : `copyAnnotations` vaut
+  `true` pour `_with_content`, `false` pour `_with_views`.
+
+#### Avertissements supprimés et comparaison avant/après (0.6.2)
+
+Les transactions des outils suppriment les avertissements Revit pour ne pas ouvrir de
+boîte de dialogue. Leur **texte** est maintenant dans `execution.suppressedWarnings`
+(`[{message, count}]`, absent quand rien n'a été supprimé) : c'est l'explication d'un appel
+qui n'a rien fait. Pour vérifier qu'une série de modifications n'a ajouté aucun
+avertissement : `list_warnings` avec `snapshot: true` (lecture non filtrée), les
+modifications, puis `list_warnings` avec `sinceSnapshot: true` — seuls les avertissements
+absents du relevé reviennent. Le relevé est abandonné au changement de document.
 
 #### Cotes
 
@@ -1594,7 +1708,7 @@ Toutes les commandes classées lecture restent accessibles, y compris `open_file
 | `manage_project_units` | `get`, `list_valid_units` |
 | `manage_scope_boxes` | `list` |
 | `manage_selection` | `list` |
-| `manage_sheet_sets` | `list` |
+| `manage_sheet_sets` | `list`, `list_collections` |
 | `manage_unplaced_views` | `list` |
 | `manage_view_display` | `select` |
 | `manage_view_templates` | `list` |

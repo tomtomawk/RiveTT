@@ -422,8 +422,10 @@ public sealed class PlaceTitleBlockTool : IRiveTTTool
     public bool IsDynamic => false;
 
     public string Description =>
-        "Places a title block instance on an existing sheet. Use it to repair a sheet created without " +
-        "a title block; call with no titleBlockId to list the title blocks available in the document.";
+        "Places a title block instance on an existing sheet, at positionX/positionY (mm, sheet coordinates; " +
+        "default: the sheet origin). A sheet may carry several title blocks: calling it on a sheet that already has " +
+        "one ADDS a second (e.g. a large title block beside the frame). Also repairs a sheet created without a " +
+        "title block; call with no titleBlockId to list the title blocks available in the document.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -436,6 +438,9 @@ public sealed class PlaceTitleBlockTool : IRiveTTTool
                            ?? input["titleBlockTypeId"]?.Value<long>()
                            ?? 0;
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
+        // Sheet coordinates in mm, like place_viewport. Omitted: the sheet origin, as before.
+        var positionXMm = input["positionX"]?.Value<double>() ?? 0;
+        var positionYMm = input["positionY"]?.Value<double>() ?? 0;
 
         if (sheetId <= 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "sheetId is required");
@@ -486,7 +491,8 @@ public sealed class PlaceTitleBlockTool : IRiveTTTool
                 doc.Regenerate();
             }
 
-            var instance = doc.Create.NewFamilyInstance(XYZ.Zero, symbol, sheet);
+            var instance = doc.Create.NewFamilyInstance(
+                new XYZ(positionXMm / LengthUnits.MmPerFoot, positionYMm / LengthUnits.MmPerFoot, 0), symbol, sheet);
 
             if (tx.Commit() != TransactionStatus.Committed)
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
@@ -497,7 +503,9 @@ public sealed class PlaceTitleBlockTool : IRiveTTTool
                 message = $"Placed '{symbol.FamilyName} / {symbol.Name}' on sheet '{sheet.SheetNumber} - {sheet.Name}'.",
                 sheetId = ToolHelpers.GetElementIdValue(sheet.Id),
                 titleBlockInstanceId = ToolHelpers.GetElementIdValue(instance.Id),
-                titleBlockId
+                titleBlockId,
+                positionMm = new { x = positionXMm, y = positionYMm },
+                titleBlockCountOnSheet = existing.Count + 1
             });
         }
         catch (Exception exception)

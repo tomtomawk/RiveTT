@@ -64,7 +64,7 @@ public static class DocumentFilePathValidation
 /// Annex A).
 /// </summary>
 [ToolSafety(true, false, supportsDryRun: true)]
-public sealed class OpenFamilyTool : IRiveTTTool
+public sealed partial class OpenFamilyTool : IRiveTTTool
 {
     public string Name => "open_family";
     public string Category => "Documents";
@@ -72,17 +72,24 @@ public sealed class OpenFamilyTool : IRiveTTTool
     public bool IsDynamic => false;
 
     public string Description =>
-        "Opens a .rfa family file and makes it the active document in Revit, for visual editing (type " +
+        "Opens a .rfa family file (filePath), or a family already loaded in a project (familyId/familyName), " +
+        "and makes it the active document in Revit, for visual editing (type " +
         "parameters, geometry). The active document CHANGES: every later tool call targets the family until " +
         "you switch back with open_document. The family stays open — call close_document when done, or it " +
         "accumulates for the rest of the session. To load a family INTO the current project instead, use " +
-        "load_family.";
+        "load_family; after editing, load_family with action \"load_from_open\" re-injects the open family " +
+        "into the project.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var filePath = input["filePath"]?.Value<string>()
                        ?? input["path"]?.Value<string>();
         var dryRun = input["dryRun"]?.Value<bool>() ?? true;
+
+        // A family already loaded in a project, instead of a file: familyId/familyName.
+        if (string.IsNullOrWhiteSpace(filePath)
+            && (input["familyId"] != null || !string.IsNullOrWhiteSpace(input["familyName"]?.Value<string>())))
+            return OpenProjectFamily(input, session, dryRun);
 
         var validationError = DocumentFilePathValidation.Validate(filePath, ".rfa");
         if (validationError != null)
@@ -141,6 +148,152 @@ public sealed class OpenFamilyTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                 $"Could not open and activate the family: {exception.Message}",
                 suggestion: "Close any open dialog in Revit and retry.");
+        }
+    }
+}
+
+public sealed partial class OpenFamilyTool
+{
+    /// <summary>
+    /// Opens a family ALREADY LOADED in a project (Document.EditFamily), without a .rfa on disk.
+    /// EditFamily returns a document with no path, and Revit can only activate a document by
+    /// path, so activation goes through a temporary working copy (SaveAs, then
+    /// OpenAndActivateDocument on that path) — the same device open_file uses for .rft. The
+    /// project's own family is untouched until load_family(action: "load_from_open").
+    /// </summary>
+    private static RiveTTResult<object> OpenProjectFamily(JObject input, RiveTTSession session, bool dryRun)
+    {
+        var application = DocumentLifecycleSupport.ResolveApplication(session);
+        if (application == null)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                "No Revit application context is available yet",
+                suggestion: "Open Revit (2026.5+ or 2027) and wait for its session to be published.");
+
+        var familyId = input["familyId"]?.Value<long>();
+        var familyName = input["familyName"]?.Value<string>();
+        var targetName = input["targetDocument"]?.Value<string>();
+        var activate = input["activate"]?.Value<bool>() ?? true;
+
+        var uiApplication = DocumentLifecycleSupport.ResolveUiApplication(session);
+        var active = uiApplication?.ActiveUIDocument?.Document;
+        var projects = Elements.LoadFamilyTool.OpenDocuments(application).Where(d => !d.IsFamilyDocument).ToList();
+
+        Document? target;
+        if (!string.IsNullOrWhiteSpace(targetName))
+        {
+            target = Elements.LoadFamilyTool.MatchByTitle(projects, targetName!);
+            if (target == null)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
+                    $"No open project matches targetDocument '{targetName}'.",
+                    suggestion: "Open projects are listed in context.",
+                    context: new Dictionary<string, object> { ["openProjects"] = Elements.LoadFamilyTool.DescribeDocs(projects) });
+        }
+        else if (active != null && !active.IsFamilyDocument) target = active;
+        else if (projects.Count == 1) target = projects[0];
+        else
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                projects.Count == 0 ? "No project is open: there is no family to open from." :
+                "Several projects are open and none is active: targetDocument is required.",
+                suggestion: "Pass targetDocument with the title of the project that holds the family.",
+                context: new Dictionary<string, object> { ["openProjects"] = Elements.LoadFamilyTool.DescribeDocs(projects) });
+
+        Family? family = familyId is > 0
+            ? target.GetElement(new ElementId(familyId.Value)) as Family
+            : Elements.LoadFamilyTool.FindFamily(target, familyName ?? "");
+        if (family == null)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
+                familyId is > 0 ? $"No family with id {familyId} in '{target.Title}'."
+                                : $"No family named '{familyName}' in '{target.Title}'.",
+                suggestion: "Read family ids and names with load_family(action: \"list\").");
+        if (!family.IsEditable)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"Family '{family.Name}' cannot be opened for editing (system family or in-place family).",
+                suggestion: "Only a loadable family (.rfa origin) can be opened.");
+        if (target.IsModifiable)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"transaction ouverte sur {target.Title}, valider avant ouverture");
+
+        var familyIdValue = ToolHelpers.GetElementIdValue(family.Id);
+        if (dryRun)
+            return RiveTTResult<object>.Ok(new
+            {
+                message = $"DryRun: would open the project family '{family.Name}' of '{target.Title}' for editing" +
+                          (activate
+                              ? " and activate it (a temporary working copy is saved to give it a path; the project's family is untouched until load_family action load_from_open)."
+                              : " in the background, without changing the active document."),
+                familyId = familyIdValue,
+                familyName = family.Name,
+                category = family.FamilyCategory?.Name,
+                targetDocument = target.Title,
+                activate,
+                currentDocument = active?.Title,
+                warnings = active?.IsModified == true
+                    ? new[] { "The current document has unsaved changes. Switching documents does not save it." }
+                    : Array.Empty<string>()
+            });
+
+        if (activate && uiApplication == null)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                "No UIApplication in session, so no document can be activated",
+                suggestion: "Activate any view in Revit once, or pass activate=false.");
+
+        string? workingCopy = null;
+        try
+        {
+            var familyDocument = target.EditFamily(family)
+                                 ?? throw new InvalidOperationException("Revit returned no family document.");
+            var targetTitle = target.Title;
+
+            if (!activate)
+                return RiveTTResult<object>.Ok(new
+                {
+                    message = $"Opened '{family.Name}' in the background. The active document is unchanged; " +
+                              "pass sourceDocument to load_family(action: \"load_from_open\") to load it back.",
+                    familyId = familyIdValue,
+                    familyName = family.Name,
+                    title = familyDocument.Title,
+                    targetDocument = targetTitle,
+                    activated = false,
+                    activeDocument = uiApplication?.ActiveUIDocument?.Document.Title ?? active?.Title,
+                    returnToPath = active?.PathName
+                });
+
+            using var dialogs = new OpenDialogAutoAnswer(uiApplication!);
+            if (string.IsNullOrEmpty(familyDocument.PathName))
+            {
+                var directory = Path.Combine(Path.GetTempPath(), "RiveTT", "OpenedFamilies", Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(directory);
+                var safeName = string.Concat(family.Name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+                workingCopy = Path.Combine(directory, safeName + ".rfa");
+                using var saveOptions = new SaveAsOptions { OverwriteExistingFile = false };
+                familyDocument.SaveAs(workingCopy, saveOptions);
+            }
+            uiApplication!.OpenAndActivateDocument(familyDocument.PathName);
+            var opened = uiApplication.ActiveUIDocument?.Document;
+
+            return RiveTTResult<object>.Ok(new
+            {
+                message = $"Opened and activated the project family '{family.Name}'. The active document has " +
+                          "changed. Edit it, then load_family(action: \"load_from_open\") re-injects it into the project.",
+                familyId = familyIdValue,
+                familyName = family.Name,
+                title = opened?.Title,
+                path = opened?.PathName,
+                isFamilyDocument = opened?.IsFamilyDocument ?? true,
+                targetDocument = targetTitle,
+                activated = true,
+                workingCopyPath = workingCopy,
+                returnToPath = active?.PathName,
+                dismissedDialogs = dialogs.Answered,
+                warnings = dialogs.Warnings
+            });
+        }
+        catch (Exception exception)
+        {
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                $"Could not open the project family: {exception.Message}",
+                suggestion: "Close any open dialog in Revit and retry, or pass activate=false.",
+                context: new Dictionary<string, object> { ["workingCopyPath"] = workingCopy ?? "" });
         }
     }
 }
