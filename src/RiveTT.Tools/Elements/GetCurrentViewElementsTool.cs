@@ -222,8 +222,48 @@ public class GetCurrentViewElementsTool : IRiveTTTool
             typeName     = typeElem?.Name,
             familyName   = GetFamilyName(element, typeElem),
             location     = GetLocation(element),
+            viewport     = GetViewportInfo(doc, element),
             properties   = GetProperties(element, fieldSet)
         };
+    }
+
+    /// <summary>
+    /// A viewport has no LocationPoint, so location came back null and an existing layout could
+    /// not be read back (field report 0.5.2). Its centre and outline live on the viewport itself,
+    /// in sheet coordinates, which is also what place_viewport takes. Null for every other element.
+    /// </summary>
+    private static object? GetViewportInfo(Document doc, Element element)
+    {
+        if (element is not Viewport viewport) return null;
+        try
+        {
+            var centre = viewport.GetBoxCenter();
+            var outline = viewport.GetBoxOutline();
+            var view = doc.GetElement(viewport.ViewId) as View;
+            return new
+            {
+                viewId = viewport.ViewId.Value,
+                viewName = view?.Name,
+                viewType = view?.ViewType.ToString(),
+                sheetId = viewport.SheetId.Value,
+                sheetNumber = (doc.GetElement(viewport.SheetId) as ViewSheet)?.SheetNumber,
+                viewScale = view?.Scale,
+                centreMm = new { x = Math.Round(centre.X * MmPerFoot, 1), y = Math.Round(centre.Y * MmPerFoot, 1) },
+                outlineMm = new
+                {
+                    minX = Math.Round(outline.MinimumPoint.X * MmPerFoot, 1),
+                    minY = Math.Round(outline.MinimumPoint.Y * MmPerFoot, 1),
+                    maxX = Math.Round(outline.MaximumPoint.X * MmPerFoot, 1),
+                    maxY = Math.Round(outline.MaximumPoint.Y * MmPerFoot, 1)
+                },
+                pinned = viewport.Pinned,
+                rotation = viewport.Rotation.ToString()
+            };
+        }
+        catch (Exception ex)
+        {
+            return new { error = $"viewport geometry unavailable: {ex.Message}" };
+        }
     }
 
     private static string? GetFamilyName(Element element, Element? typeElem)

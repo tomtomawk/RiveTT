@@ -48,9 +48,9 @@ public class GetElementsInSpatialVolumeTool : IRiveTTTool
         // with the bounding box once the room geometry changed.
         var containment         = (input["containment"]?.Value<string>() ?? "inside")
                                     .Trim().ToLowerInvariant();
-        if (containment is not ("inside" or "boundary"))
+        if (containment is not ("inside" or "boundary" or "intersect"))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
-                $"containment '{containment}' is not recognized. Use \"inside\" (default) or \"boundary\".");
+                $"containment '{containment}' is not recognized. Use \"inside\" (default), \"intersect\" or \"boundary\".");
 
         // Custom bounding box coordinates in mm
         var customMinX = input["customMinX"]?.Value<double>() ?? 0;
@@ -89,6 +89,26 @@ public class GetElementsInSpatialVolumeTool : IRiveTTTool
 
                 var elements = FilterByCategories(doc, collector, categoryFilter);
 
+                // The box filter alone is an INTERSECTION test: a wall 11 m long poked into a 6 m box
+                // and was reported "inside", along with cameras, CAD links and sketches that have no
+                // geometry worth listing (field report 0.5.2). "inside" (default) now keeps only the
+                // elements whose bounding box lies within the box; "intersect" is the old behaviour.
+                // Without an explicit categoryFilter, the non-geometric categories are left out.
+                var excludedNonGeometric = 0;
+                if (categoryFilter.Count == 0)
+                {
+                    var before = elements.Count;
+                    elements = elements.Where(e => !IsNonGeometric(e)).ToList();
+                    excludedNonGeometric = before - elements.Count;
+                }
+                var excludedPartlyOutside = 0;
+                if (containment == "inside")
+                {
+                    var before = elements.Count;
+                    elements = elements.Where(e => IsWithin(e, minXFt, minYFt, minZFt, maxXFt, maxYFt, maxZFt)).ToList();
+                    excludedPartlyOutside = before - elements.Count;
+                }
+
                 int totalInVolume = elements.Count;
                 bool truncated = elements.Count > maxElementsPerVolume;
                 if (truncated)
@@ -97,6 +117,9 @@ public class GetElementsInSpatialVolumeTool : IRiveTTTool
                 totalElements += totalInVolume;
                 volumeResults.Add(new
                 {
+                    containment,
+                    excludedNonGeometricCount = excludedNonGeometric,
+                    excludedPartlyOutsideCount = excludedPartlyOutside,
                     volumeType        = "custom",
                     volumeId          = (long)0,
                     volumeName        = "Custom Bounding Box",
@@ -304,6 +327,29 @@ public class GetElementsInSpatialVolumeTool : IRiveTTTool
         return elements
             .Where(e => e.Category != null && resolvedIds.Contains(e.Category.Id))
             .ToList();
+    }
+
+    private static readonly BuiltInCategory[] NonGeometricCategories =
+    {
+        BuiltInCategory.OST_Cameras, BuiltInCategory.OST_RvtLinks, BuiltInCategory.OST_ImportObjectStyles,
+        BuiltInCategory.OST_Sketch
+    };
+
+    /// <summary>Cameras, Revit/CAD links, sketches and elements with no category: no geometry to report.</summary>
+    private static bool IsNonGeometric(Element e)
+    {
+        if (e.Category == null) return true;
+        var id = (BuiltInCategory)ToolHelpers.GetElementIdValue(e.Category.Id);
+        return NonGeometricCategories.Contains(id) || e is ImportInstance || e is RevitLinkInstance;
+    }
+
+    /// <summary>The element's bounding box lies entirely within the given box (feet).</summary>
+    private static bool IsWithin(Element e, double minX, double minY, double minZ, double maxX, double maxY, double maxZ)
+    {
+        var box = e.get_BoundingBox(null);
+        if (box == null) return false;
+        return box.Min.X >= minX && box.Min.Y >= minY && box.Min.Z >= minZ
+            && box.Max.X <= maxX && box.Max.Y <= maxY && box.Max.Z <= maxZ;
     }
 
     private static object FormatElement(Element e)

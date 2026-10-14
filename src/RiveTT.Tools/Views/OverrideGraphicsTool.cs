@@ -23,7 +23,38 @@ public class OverrideGraphicsTool : IRiveTTTool
     public string Description => "Sets or resets graphic overrides (color, transparency, halftone, line weight) for elements in a view. "
         + "action=hide_category | show_category hides or shows WHOLE CATEGORIES per view (categories: OST_* code or name, e.g. "
         + "OST_Viewers for section marks, OST_Callouts, OST_Elev; viewIds or viewId, else the active view) — no elementIds needed. "
-        + "A category controlled by a view template is reported as skipped, not forced.";
+        + "A category controlled by a view template is reported as skipped, not forced. "
+        + "Hatching: surfaceForegroundPatternId / cutForegroundPatternId (fill pattern ids) and cutColorR/G/B; "
+        + "categories (OST_* codes) with action set | reset overrides WHOLE categories in the view, like Visibility/Graphics, "
+        + "with or without elementIds.";
+
+    /// <summary>
+    /// surfaceForegroundPatternId / cutForegroundPatternId (FillPatternElement ids) and
+    /// cutColorR/G/B. Returns a failure for a value that is not the id of a fill pattern.
+    /// </summary>
+    private static RiveTTResult<object>? ApplyPatterns(Document doc, JObject input, OverrideGraphicSettings overrides)
+    {
+        foreach (var key in new[] { "surfaceForegroundPatternId", "cutForegroundPatternId" })
+        {
+            var token = input[key];
+            if (token == null || token.Type == JTokenType.Null) continue;
+            if (token.Type != JTokenType.Integer
+                || doc.GetElement(new ElementId(token.Value<long>())) is not FillPatternElement)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                    $"{key} must be the integer id of a fill pattern (received: {token}).",
+                    suggestion: "Fill pattern ids come from manage_additional_settings (action list_fill_patterns).");
+            var id = new ElementId(token.Value<long>());
+            if (key == "surfaceForegroundPatternId") overrides.SetSurfaceForegroundPatternId(id);
+            else overrides.SetCutForegroundPatternId(id);
+        }
+
+        var cr = input["cutColorR"]?.Value<int?>();
+        var cg = input["cutColorG"]?.Value<int?>();
+        var cb = input["cutColorB"]?.Value<int?>();
+        if (cr.HasValue && cg.HasValue && cb.HasValue)
+            overrides.SetCutForegroundPatternColor(new Color((byte)cr.Value, (byte)cg.Value, (byte)cb.Value));
+        return null;
+    }
 
     /// <summary>
     /// View.SetCategoryHidden over several views and categories: the per-view "hide section
@@ -112,8 +143,21 @@ public class OverrideGraphicsTool : IRiveTTTool
             return SetCategoryVisibility(doc, input, hide: requestedAction == "hide_category");
 
         var elementIds = input["elementIds"]?.ToObject<List<long>>() ?? new List<long>();
-        if (elementIds.Count == 0)
-            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "elementIds array is required");
+        // Whole categories (the V/G dialog) instead of, or with, elements.
+        var categoryNames = input["categories"]?.ToObject<List<string>>() ?? new List<string>();
+        if (elementIds.Count == 0 && categoryNames.Count == 0)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "elementIds or categories is required",
+                suggestion: "elementIds overrides those elements in the view; categories (OST_* codes) overrides whole categories, like Visibility/Graphics.");
+        var categoryIds = new List<ElementId>();
+        foreach (var categoryName in categoryNames)
+        {
+            var resolved = CategoryResolver.ResolveToId(doc, categoryName);
+            if (resolved == null)
+                return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                    $"Category not found: {categoryName}",
+                    suggestion: "Use the language-independent OST_* code, e.g. OST_Walls.");
+            categoryIds.Add(resolved);
+        }
 
         var action = input["action"]?.Value<string>() ?? "set";
         var viewIdLong = input["viewId"]?.Value<long>() ?? 0;
@@ -153,6 +197,11 @@ public class OverrideGraphicsTool : IRiveTTTool
                     view.SetElementOverrides(new ElementId(eid), emptyOverrides);
                     modified++;
                 }
+                foreach (var categoryId in categoryIds)
+                {
+                    view.SetCategoryOverrides(categoryId, emptyOverrides);
+                    modified++;
+                }
             }
             else
             {
@@ -186,9 +235,20 @@ public class OverrideGraphicsTool : IRiveTTTool
                 if (lineWeight.HasValue)
                     overrides.SetProjectionLineWeight(lineWeight.Value);
 
+                // Hatching (pochage): fill patterns for the surface and for the CUT of the element,
+                // with their own colours. A pattern id that is not a fill pattern is refused, not
+                // dropped: a non-numeric value used to succeed with modifiedCount 1 (field report 0.5.2).
+                var patternError = ApplyPatterns(doc, input, overrides);
+                if (patternError != null) return patternError;
+
                 foreach (var eid in elementIds)
                 {
                     view.SetElementOverrides(new ElementId(eid), overrides);
+                    modified++;
+                }
+                foreach (var categoryId in categoryIds)
+                {
+                    view.SetCategoryOverrides(categoryId, overrides);
                     modified++;
                 }
             }

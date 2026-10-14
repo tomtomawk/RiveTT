@@ -37,6 +37,13 @@ public class DuplicateViewTool : IRiveTTTool
         var duplicateOption = input["duplicateOption"]?.Value<string>() ?? "Duplicate";
         var prefix = input["newNamePrefix"]?.Value<string>() ?? "";
         var suffix = input["newNameSuffix"]?.Value<string>() ?? "";
+        // newName is the exact name of the copy; it was silently ignored (the copy stayed
+        // "Copie 1"), because no one read it. With several views it cannot be one name.
+        var newName = input["newName"]?.Value<string>();
+        if (!string.IsNullOrWhiteSpace(newName) && viewIds.Count > 1)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                "newName names ONE copy but several views were given.",
+                suggestion: "Duplicate one view per call with newName, or use newNamePrefix / newNameSuffix for several.");
 
         var option = duplicateOption.ToLowerInvariant() switch
         {
@@ -62,16 +69,26 @@ public class DuplicateViewTool : IRiveTTTool
                 var newView = doc.GetElement(newId) as View;
                 if (newView != null)
                 {
-                    if (!string.IsNullOrEmpty(prefix) || !string.IsNullOrEmpty(suffix))
+                    var wanted = !string.IsNullOrWhiteSpace(newName)
+                        ? newName
+                        : (!string.IsNullOrEmpty(prefix) || !string.IsNullOrEmpty(suffix)
+                            ? $"{prefix}{view.Name}{suffix}" : null);
+                    string? renameFailed = null;
+                    if (wanted != null)
                     {
-                        try { newView.Name = $"{prefix}{view.Name}{suffix}"; }
-                        catch { /* name conflict, keep auto-generated */ }
+                        try { newView.Name = wanted; }
+                        catch (Exception ex)
+                        {
+                            // Said, not swallowed: a kept auto-generated name reads as a success.
+                            renameFailed = $"'{wanted}' was refused ({ex.Message}); the copy keeps Revit's name.";
+                        }
                     }
                     results.Add(new
                     {
                         originalViewId = vid,
                         newViewId = ToolHelpers.GetElementIdValue(newId),
-                        newViewName = newView.Name
+                        newViewName = newView.Name,
+                        renameFailed
                     });
                 }
             }

@@ -1039,6 +1039,35 @@ avertissement : `list_warnings` avec `snapshot: true` (lecture non filtrée), le
 modifications, puis `list_warnings` avec `sinceSnapshot: true` — seuls les avertissements
 absents du relevé reviennent. Le relevé est abandonné au changement de document.
 
+#### Arguments inconnus, aperçus et nouveautés des rapports 0.5.2 (0.6.2)
+
+- **Un argument qu'aucun outil ne déclare est refusé**, plus ignoré en silence : l'erreur
+  `InvalidInput` donne `unrecognizedParameters`, `acceptedParameters` et, quand elle est
+  évidente, la bonne clé (`category` → `categories`). Rien n'a été exécuté. Les clés `_…`
+  sont ignorées ; `dryRun` reste accepté sur un outil de lecture.
+- `export_elements_data` sans `parameterNames` : deux paramètres de même nom (feuilles :
+  « Numéro de la feuille », « Jeu de feuilles ») ne s'effacent plus ; une valeur non vide
+  l'emporte, et deux valeurs différentes sont listées dans `ambiguousParameterNames`.
+  `parameterNames` choisit le paramètre explicitement.
+- `modify_element` : l'aperçu `dryRun` **valide dans un groupe puis l'annule**, il voit donc
+  les refus de commit (éléments attachés). `action: "set_endpoints"` (`start`, `end`, en mm)
+  raccourcit ou prolonge un mur droit en gardant ses portes, ouvertures et cotes — jamais
+  `delete_element` + recréation, qui les détruit.
+- `create_wall` : un commit refusé par Revit revient en `TransactionFailed` avec la cause en
+  `message` (`detach_wall_constraint`, puis `attach_walls`), plus en `InvalidInput`.
+- `create_room` : un champ (`name`, `number`, `department`) que Revit refuse est nommé dans
+  `fieldsFailed`, la pièce est créée.
+- `get_elements_in_spatial_volume` (`volumeType: custom`) : `containment: "inside"` garde les
+  éléments **dont la boîte est dans** le volume ; caméras, liens et esquisses sont exclus sans
+  `categoryFilter` ; `"intersect"` rend l'ancien comportement.
+- `diagnose_room_enclosure(roomId)` (lecture) : boucles de limite avec élément et
+  coordonnées, discontinuités, `freeEnds` (extrémités de murs et de lignes de séparation
+  joints à rien, nearest first). Heuristique : des candidats, pas une preuve.
+- `get_current_view_elements` : un viewport rend `viewport.{viewId, sheetId, centreMm,
+  outlineMm, pinned}` ; `override_graphics` : motifs de surface et de coupe
+  (`surfaceForegroundPatternId`, `cutForegroundPatternId`, `cutColorR/G/B`) et `categories` ;
+  `batch_create_sheets` : `sheetCollection` ; `duplicate_view` : `newName`.
+
 #### Cotes
 
 Le Z passé à `create_dimensions` doit correspondre **exactement** à l'altitude du

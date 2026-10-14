@@ -115,29 +115,14 @@ public class CreateRoomTool : IRiveTTTool
                 return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                     "Room creation failed — location may not be inside enclosed walls");
 
-            if (!string.IsNullOrEmpty(name))
-            {
-                var nameParam = room.get_Parameter(BuiltInParameter.ROOM_NAME);
-                if (nameParam != null) nameParam.Set(name);
-            }
-
-            if (!string.IsNullOrEmpty(number))
-            {
-                var numParam = room.get_Parameter(BuiltInParameter.ROOM_NUMBER);
-                if (numParam != null) numParam.Set(number);
-            }
-
-            if (!string.IsNullOrEmpty(department))
-            {
-                var deptParam = room.get_Parameter(BuiltInParameter.ROOM_DEPARTMENT);
-                if (deptParam != null) deptParam.Set(department);
-            }
-
-            if (!string.IsNullOrEmpty(comments))
-            {
-                var cmtParam = room.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS);
-                if (cmtParam != null) cmtParam.Set(comments);
-            }
+            // Each field on its own: a parameter that refuses its value used to take the whole call down
+            // with an opaque error (field report 0.5.2: create_room with name/number/department failed,
+            // the same call without them worked). Now the room is made and the refusal is NAMED.
+            var fieldsFailed = new List<object>();
+            SetField(room, BuiltInParameter.ROOM_NAME, "name", name, fieldsFailed);
+            SetField(room, BuiltInParameter.ROOM_NUMBER, "number", number, fieldsFailed);
+            SetField(room, BuiltInParameter.ROOM_DEPARTMENT, "department", department, fieldsFailed);
+            SetField(room, BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS, "comments", comments, fieldsFailed);
 
             if (limitOffsetMm != 0)
             {
@@ -189,6 +174,7 @@ public class CreateRoomTool : IRiveTTTool
                 levelId = ToolHelpers.GetElementIdValue(level.Id),
                 enclosed,
                 areaM2,
+                fieldsFailed,
                 warnings = enclosed
                     ? Array.Empty<string>()
                     : new[]
@@ -207,6 +193,26 @@ public class CreateRoomTool : IRiveTTTool
                     + "Re-check the ids and the target with a read tool before retrying, and narrow the "
                     + "call if it covered many elements. The full call, its duration and this error are "
                     + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
+        }
+    }
+
+    /// <summary>
+    /// Writes one text field of the room. A missing or read-only parameter, or a value Revit
+    /// refuses, is reported by name in <paramref name="failed"/> instead of aborting the creation.
+    /// </summary>
+    private static void SetField(Room room, BuiltInParameter parameter, string field, string? value, List<object> failed)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        try
+        {
+            var target = room.get_Parameter(parameter);
+            if (target == null) failed.Add(new { field, value, reason = "the room has no such parameter" });
+            else if (target.IsReadOnly) failed.Add(new { field, value, reason = "the parameter is read-only" });
+            else if (!target.Set(value)) failed.Add(new { field, value, reason = "Revit refused the value" });
+        }
+        catch (Exception ex)
+        {
+            failed.Add(new { field, value, reason = ex.Message });
         }
     }
 

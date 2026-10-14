@@ -81,16 +81,22 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "duplicate_view"), Description("Duplicate an existing view in Revit.")]
+    [McpServerTool(Name = "duplicate_view"), Description("Duplicate an existing view in Revit. newName sets the exact name of the copy; newNamePrefix / newNameSuffix wrap the source name. A name Revit refuses is reported in renameFailed, not swallowed.")]
     public static async Task<string> DuplicateView(
         RevitConnectionManager revit,
         [Description("Element ID of the view to duplicate")] long viewId,
         [Description("Duplicate option: Duplicate, AsDependent, WithDetailing")] string? duplicateOption = "Duplicate",
+        [Description("Exact name of the copy (default: Revit's \"Copie 1\")")] string? newName = null,
+        [Description("Prefix added to the source view name")] string? newNamePrefix = null,
+        [Description("Suffix added to the source view name")] string? newNameSuffix = null,
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
         var p = new JObject { ["viewIds"] = new JArray(viewId) };
         if (duplicateOption != null) p["duplicateOption"] = duplicateOption;
+        if (newName != null) p["newName"] = newName;
+        if (newNamePrefix != null) p["newNamePrefix"] = newNamePrefix;
+        if (newNameSuffix != null) p["newNameSuffix"] = newNameSuffix;
         p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("duplicate_view", p, ct);
         return result.ToString();
@@ -206,6 +212,11 @@ public static class ViewTools
         [Description("Transparency 0-100")] int? transparency = null,
         [Description("Apply halftone Pass \"true\" or \"false\"; omit to leave unchanged.")] string? isHalftone = null,
         [Description("Projection line weight 1-16")] int? projectionLineWeight = null,
+        [Description("Fill pattern id for the SURFACE of the elements (hatching). Integer id of a fill pattern, see manage_additional_settings list_fill_patterns")] long? surfaceForegroundPatternId = null,
+        [Description("Fill pattern id for the CUT of the elements (hatching of a section or plan cut). Integer id of a fill pattern")] long? cutForegroundPatternId = null,
+        [Description("Cut pattern colour, red 0-255 (with cutColorG and cutColorB)")] int? cutColorR = null,
+        [Description("Cut pattern colour, green 0-255")] int? cutColorG = null,
+        [Description("Cut pattern colour, blue 0-255")] int? cutColorB = null,
         [Description("Preview without changing the model. Default: true — the dry run runs the operation in a transaction and rolls it back, so what it reports is what Revit produced")] bool dryRun = true,
         CancellationToken ct = default)
     {
@@ -225,6 +236,11 @@ public static class ViewTools
             p["isHalftone"] = isHalftoneFlag;
         }
         if (projectionLineWeight != null) p["projectionLineWeight"] = projectionLineWeight;
+        if (surfaceForegroundPatternId != null) p["surfaceForegroundPatternId"] = surfaceForegroundPatternId;
+        if (cutForegroundPatternId != null) p["cutForegroundPatternId"] = cutForegroundPatternId;
+        if (cutColorR != null) p["cutColorR"] = cutColorR;
+        if (cutColorG != null) p["cutColorG"] = cutColorG;
+        if (cutColorB != null) p["cutColorB"] = cutColorB;
         p["dryRun"] = dryRun;
         var result = await revit.ExecuteAsync("override_graphics", p, ct);
         return result.ToString();
@@ -551,13 +567,15 @@ public static class ViewTools
     [McpServerTool(Name = "batch_create_sheets"), Description("Create multiple sheets with title blocks and optional view placement. sheets is a JSON array: [{number, name, titleBlockName?, viewIds?}]. Each sheet's viewIds are centred in the title block's real frame (the sheet origin is NOT the frame corner) and tiled one per cell when there are several. Previews by default — the dry run reports duplicate sheet numbers and views already placed elsewhere; set dryRun=false to create.")]
     public static async Task<string> BatchCreateSheets(
         RevitConnectionManager revit,
-        [Description("JSON array of sheet specs: [{number, name, titleBlockName?, viewIds?}]")] string sheets,
+        [Description("JSON array of sheet specs: [{number, name, titleBlockName?, viewIds?, sheetCollection?}]")] string sheets,
         [Description("Default title block family-type name used when a sheet spec omits titleBlockName")] string? defaultTitleBlockName = null,
         [Description("Preview without creating anything. Default: true")] bool dryRun = true,
+        [Description("Default sheet collection (jeu de feuilles) name for sheets whose spec has no sheetCollection; created when absent")] string? defaultSheetCollection = null,
         CancellationToken ct = default)
     {
         var p = new JObject { ["sheets"] = JArray.Parse(sheets), ["dryRun"] = dryRun };
         if (defaultTitleBlockName != null) p["defaultTitleBlockName"] = defaultTitleBlockName;
+        if (defaultSheetCollection != null) p["defaultSheetCollection"] = defaultSheetCollection;
         var result = await revit.ExecuteAsync("batch_create_sheets", p, ct);
         return result.ToString();
     }

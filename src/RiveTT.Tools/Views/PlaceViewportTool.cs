@@ -268,82 +268,54 @@ public class PlaceViewportTool : IRiveTTTool
                     "from the sheet size.");
             }
 
+            // Built BEFORE the rollback and read from values only: a dryRun used to roll the
+            // transaction back first and THEN read the viewport, which no longer exists -
+            // "The referenced object is not valid" (field report 0.5.2).
+            var payload = new
+            {
+                viewportId = ToolHelpers.GetElementIdValue(viewport.Id),
+                movedFromSheet,
+                sheetNumber = sheet.SheetNumber,
+                viewName = view.Name,
+                rotation = viewport.Rotation.ToString(),
+                centredOnSheet = centreOnSheet,
+                // centreMm is where the viewport IS; requestedCentreMm is what was asked.
+                centreMm = new { x = Math.Round(actualXMm, 1), y = Math.Round(actualYMm, 1) },
+                requestedCentreMm = new { x = Math.Round(posXMm, 1), y = Math.Round(posYMm, 1) },
+                centreDeviationMm = haveActual ? deviationMm : (double?)null,
+                pinned = isPinned,
+                positionEnforced,
+                sheetSizeMm = new { width = Math.Round(sheetWidthMm, 1), height = Math.Round(sheetHeightMm, 1) },
+                // Where the printable frame actually is, in sheet coordinates. Use
+                // this to compute positions: it is NOT [0,0]..[width,height]. `source`
+                // says whether it was measured on the title block or fell back.
+                frameOutlineMm = SheetFrame.Describe(frame),
+                viewportOutlineMm = haveOutline
+                    ? new
+                    {
+                        minX = Math.Round(outMinX, 1), minY = Math.Round(outMinY, 1),
+                        maxX = Math.Round(outMaxX, 1), maxY = Math.Round(outMaxY, 1),
+                        widthMm = Math.Round(outMaxX - outMinX, 1),
+                        heightMm = Math.Round(outMaxY - outMinY, 1)
+                    }
+                    : null,
+                viewScale = view.Scale,
+                cropActive = view.CropBoxActive,
+                // Null rather than false when there was nothing to measure against.
+                fitsOnSheet = (haveOutline && frame.IsKnown) ? fits : (bool?)null,
+                warnings
+            };
+
             if (dryRun)
             {
                 ChangePreview.Rollback(tx);
                 return ChangePreview.Probed(
                     "DryRun: the operation ran inside a transaction and was rolled back. The "
                     + "model is untouched; what follows is what Revit produced.",
-                    new
-            {
-                viewportId = ToolHelpers.GetElementIdValue(viewport.Id),
-                movedFromSheet,
-                sheetNumber = sheet.SheetNumber,
-                viewName = view.Name,
-                rotation = viewport.Rotation.ToString(),
-                centredOnSheet = centreOnSheet,
-                // centreMm is where the viewport IS; requestedCentreMm is what was asked.
-                centreMm = new { x = Math.Round(actualXMm, 1), y = Math.Round(actualYMm, 1) },
-                requestedCentreMm = new { x = Math.Round(posXMm, 1), y = Math.Round(posYMm, 1) },
-                centreDeviationMm = haveActual ? deviationMm : (double?)null,
-                pinned = isPinned,
-                positionEnforced,
-                sheetSizeMm = new { width = Math.Round(sheetWidthMm, 1), height = Math.Round(sheetHeightMm, 1) },
-                // Where the printable frame actually is, in sheet coordinates. Use
-                // this to compute positions: it is NOT [0,0]..[width,height]. `source`
-                // says whether it was measured on the title block or fell back.
-                frameOutlineMm = SheetFrame.Describe(frame),
-                viewportOutlineMm = haveOutline
-                    ? new
-                    {
-                        minX = Math.Round(outMinX, 1), minY = Math.Round(outMinY, 1),
-                        maxX = Math.Round(outMaxX, 1), maxY = Math.Round(outMaxY, 1),
-                        widthMm = Math.Round(outMaxX - outMinX, 1),
-                        heightMm = Math.Round(outMaxY - outMinY, 1)
-                    }
-                    : null,
-                viewScale = view.Scale,
-                cropActive = view.CropBoxActive,
-                // Null rather than false when there was nothing to measure against.
-                fitsOnSheet = (haveOutline && frame.IsKnown) ? fits : (bool?)null,
-                warnings
-            });
+                    payload);
             }
 
-            return RiveTTResult<object>.Ok(new
-            {
-                viewportId = ToolHelpers.GetElementIdValue(viewport.Id),
-                movedFromSheet,
-                sheetNumber = sheet.SheetNumber,
-                viewName = view.Name,
-                rotation = viewport.Rotation.ToString(),
-                centredOnSheet = centreOnSheet,
-                // centreMm is where the viewport IS; requestedCentreMm is what was asked.
-                centreMm = new { x = Math.Round(actualXMm, 1), y = Math.Round(actualYMm, 1) },
-                requestedCentreMm = new { x = Math.Round(posXMm, 1), y = Math.Round(posYMm, 1) },
-                centreDeviationMm = haveActual ? deviationMm : (double?)null,
-                pinned = isPinned,
-                positionEnforced,
-                sheetSizeMm = new { width = Math.Round(sheetWidthMm, 1), height = Math.Round(sheetHeightMm, 1) },
-                // Where the printable frame actually is, in sheet coordinates. Use
-                // this to compute positions: it is NOT [0,0]..[width,height]. `source`
-                // says whether it was measured on the title block or fell back.
-                frameOutlineMm = SheetFrame.Describe(frame),
-                viewportOutlineMm = haveOutline
-                    ? new
-                    {
-                        minX = Math.Round(outMinX, 1), minY = Math.Round(outMinY, 1),
-                        maxX = Math.Round(outMaxX, 1), maxY = Math.Round(outMaxY, 1),
-                        widthMm = Math.Round(outMaxX - outMinX, 1),
-                        heightMm = Math.Round(outMaxY - outMinY, 1)
-                    }
-                    : null,
-                viewScale = view.Scale,
-                cropActive = view.CropBoxActive,
-                // Null rather than false when there was nothing to measure against.
-                fitsOnSheet = (haveOutline && frame.IsKnown) ? fits : (bool?)null,
-                warnings
-            });
+            return RiveTTResult<object>.Ok(payload);
         }
         catch (Exception ex)
         {

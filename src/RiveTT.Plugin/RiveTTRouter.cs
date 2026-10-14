@@ -38,7 +38,7 @@ public class RiveTTRouter
         "get_", "list_", "find_", "analyze_", "check_",
         "measure_", "audit_", "export_", "ping_revit",
         "detect_clashes", "count_lines_per_view",
-        "describe_", "validate_", "capture_view",
+        "describe_", "validate_", "diagnose_", "capture_view",
         "ifc_get_", "ifc_list_", "ifc_export_", "ifc_validate_",
         "ifc_analyze_", "ifc_compare_"
     };

@@ -33,6 +33,7 @@ public class BatchCreateSheetsTool : IRiveTTTool
 
         var sheetsArray = input["sheets"]?.ToObject<List<JObject>>() ?? new List<JObject>();
         var defaultTitleBlockName = input["defaultTitleBlockName"]?.Value<string>();
+        var defaultCollectionName = input["defaultSheetCollection"]?.Value<string>();
         var dryRun = ToolHelpers.GetDryRun(input);
 
         if (sheetsArray.Count == 0)
@@ -80,6 +81,21 @@ public class BatchCreateSheetsTool : IRiveTTTool
                     if (!string.IsNullOrEmpty(number)) sheet.SheetNumber = number;
                     if (!string.IsNullOrEmpty(name)) sheet.Name = name;
 
+                    // Sheet collection ("Jeu de feuilles" of the project browser), by name; created
+                    // when it does not exist yet. It had to be set afterwards with
+                    // set_element_parameters (field report 0.5.2).
+                    var collectionName = sheetDef["sheetCollection"]?.Value<string>() ?? defaultCollectionName;
+                    string? collectionNote = null;
+                    if (!string.IsNullOrWhiteSpace(collectionName))
+                    {
+                        var collection = new FilteredElementCollector(doc).OfClass(typeof(SheetCollection))
+                            .Cast<SheetCollection>()
+                            .FirstOrDefault(c => string.Equals(c.Name, collectionName, StringComparison.OrdinalIgnoreCase))
+                            ?? SheetCollection.Create(doc, collectionName!);
+                        try { sheet.SheetCollectionId = collection.Id; }
+                        catch (Exception ex) { collectionNote = $"sheet collection '{collectionName}' not applied: {ex.Message}"; }
+                    }
+
                     // The frame must be measured AFTER the sheet exists: it comes from the
                     // title block instance placed on it. Viewports used to go to a hardcoded
                     // (0.5 ft; 0.5 ft), which is not the frame corner — on the French A1 block
@@ -106,6 +122,8 @@ public class BatchCreateSheetsTool : IRiveTTTool
                         number = sheet.SheetNumber,
                         name = sheet.Name,
                         success = true,
+                        sheetCollection = collectionName,
+                        sheetCollectionNote = collectionNote,
                         frameOutlineMm = SheetFrame.Describe(frame),
                         requestedViewCount = viewIds.Count,
                         placedCount = placedHere,

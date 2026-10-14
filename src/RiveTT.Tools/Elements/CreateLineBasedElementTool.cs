@@ -96,6 +96,30 @@ public class CreateLineBasedElementTool : IRiveTTTool
         if (warnings.Count > 0)
             message += "\n\nWarnings:\n  - " + string.Join("\n  - ", warnings);
 
+        // A specification that was VALID but whose commit Revit refused is not an InvalidInput: the
+        // old code and its suggestion (baseLevelId / baseElevationMm) sent the caller to fix a
+        // specification that was fine, while the real cause sat in context.warnings (field report
+        // 0.5.2: "Impossible de laisser les éléments attachés les uns aux autres").
+        var refusedCommit = warnings.FirstOrDefault(w => w.Contains("rolled back", StringComparison.OrdinalIgnoreCase));
+        if (details.Count == 0 && refusedCommit != null)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                refusedCommit,
+                suggestion: "The specification was valid; Revit refused the result. When the message is about elements "
+                          + "attached to each other, detach the neighbouring wall first (detach_wall_constraint), create "
+                          + "this one, then re-attach (attach_walls); otherwise change the position or the offsets.",
+                context: new Dictionary<string, object>
+                {
+                    ["warnings"] = warnings,
+                    ["failed"] = failed,
+                    ["rolledBack"] = true,
+                    ["modelChanged"] = false,
+                    ["repairHints"] = new[]
+                    {
+                        "detach_wall_constraint on the neighbouring wall, then retry",
+                        "attach_walls after the creation to restore the attachment"
+                    }
+                });
+
         if (details.Count == 0 && warnings.Count > 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "No valid line-based element specification could be applied.",

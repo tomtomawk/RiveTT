@@ -94,3 +94,31 @@ Et :
   tant que `python tools/audit-tool-surface.py` n'aura pas été exécuté et son résultat commité.
 - Les skills hébergés côté compte (`rivett`…) ne sont pas dans ce dépôt : ils sont à mettre à
   jour à partir de ce `SKILL.md` une fois la version publiée.
+
+## 6. Rapports de terrain 0.5.2 (anciens, revérifiés sur le code courant)
+
+Deux rapports rédigés contre la 0.5.2 ont été relus point par point contre le code de la 0.6.x :
+ce qui était déjà corrigé est dit comme tel, le reste est corrigé ici. Tests de non-régression :
+`FieldReport0_5_2RegressionTests` (sur le source, sauf `ToolArgumentGuard` et `AddNamedValue`,
+exécutés pour de bon).
+
+| Rapport | Constat | État |
+|---|---|---|
+| 1.1 | `place_viewport` `dryRun:true` : « The referenced object is not valid » | **Encore présent, corrigé.** La charge utile était construite *après* `Rollback`, donc en lisant un viewport annulé. Elle est maintenant construite une fois, avant le rollback. |
+| 1.2 | Arguments inconnus ignorés en silence (`export_elements_data(category=…)` exporte tout, `duplicate_view(newName)` ignoré, `filter_by_parameter_value(filterRule…)` non filtré) | **Corrigé à la source** : `ToolArgumentGuard`, filtre d'appel du serveur MCP, refuse tout argument non déclaré (`unrecognizedParameters`, `acceptedParameters`, suggestion « category -> categories »). Les noms acceptés viennent des wrappers par réflexion. `dryRun` reste accepté sur un outil de lecture ; les clés `_…` sont ignorées. **Changement de comportement** : un client qui envoie une clé superflue est désormais refusé. Les erreurs `filter_elements({"data":…})` sont couvertes par le même mécanisme. |
+| 1.2 | `override_graphics(cutForegroundPatternId=…)` « réussit » | Le paramètre existe maintenant (`surfaceForegroundPatternId`, `cutForegroundPatternId`, `cutColorR/G/B`) et un id qui n'est pas un motif de remplissage est **refusé**. |
+| 1.2 | `duplicate_view(newName)` ignoré | `newName`, `newNamePrefix`, `newNameSuffix` ; un nom refusé par Revit est rapporté (`renameFailed`). |
+| 1.3 | `export_elements_data` sur `OST_Sheets` : « Numéro de la feuille » et « Jeu de feuilles » vides | **Cause confirmée** : l'énumération gardait le *dernier* homonyme (SHEET_NUMBER / VIEWER_SHEET_NUMBER), le vide. Une valeur non vide l'emporte désormais ; deux valeurs différentes gardent la première et sont listées dans `ambiguousParameterNames`. |
+| 1.4 | Erreurs `filter_elements` / `export_elements_data` trompeuses | `filter_elements` : le message venait de la clé `data` perdue, désormais refusée avec la liste des paramètres. `export_elements_data` avec `filterParameterName` : **non reproduit**, à rejouer. |
+| 1.5 | Viewports illisibles | `get_current_view_elements` rend, pour un viewport, `viewport.{viewId, sheetId, centreMm, outlineMm, pinned, …}`. |
+| 1.6 | `override_graphics` sans motif ni surcharge par catégorie ; `batch_create_sheets` sans jeu de feuilles ; `duplicate_view` sans nom | `categories` (surcharge V/G par catégorie) et motifs de coupe ; `sheetCollection` par feuille et `defaultSheetCollection` (créé s'il n'existe pas) ; `newName`. |
+| 1.7 | `get_element_parameters` sans `compact` ni `parameterNames` ; vue active changée ; `SHEET_WIDTH` | `parameterNames` et `compact` **existent déjà**. Les deux autres : non traités, non reproduits. |
+| 2.1 | `create_room` avec `name` / `number` / `department` : « An error occurred invoking » | **Cause non reproduite.** Chaque champ est maintenant écrit isolément ; un refus est nommé dans `fieldsFailed` au lieu de faire échouer l'appel. À rejouer. |
+| 2.2 | `modify_element` `dryRun` vert puis `TransactionFailed` (éléments attachés) | **Cause confirmée** : l'aperçu faisait `RollBack` sans jamais valider, donc sans le traitement d'échec de commit où Revit refuse les attaches. L'aperçu valide maintenant dans un `TransactionGroup` puis annule le groupe. *Seul `modify_element` est corrigé* ; les 38 autres aperçus par `ChangePreview.Rollback` ont le même défaut possible. |
+| 2.3 | `create_wall` : `InvalidInput` + suggestion hors sujet pour un commit refusé | `TransactionFailed`, la cause en `message`, `repairHints` (`detach_wall_constraint`, `attach_walls`). |
+| 2.4 | Aucun moyen d'éditer les extrémités d'un mur | `modify_element` `action: "set_endpoints"` (`start`, `end` en mm) : réécrit la ligne d'emplacement ; hôtes, portes, ouvertures et cotes attachées restent. |
+| 2.5 | `get_element_parameters` sans `compact` | Déjà corrigé (voir 1.7). |
+| 2.6 | `get_elements_in_spatial_volume` `custom` : « inside » = intersection de boîtes | `inside` garde les éléments dont la boîte englobante est **dans** le volume ; cameras, liens et esquisses sont exclus sans `categoryFilter` ; `containment: "intersect"` redonne l'ancien comportement (`excludedPartlyOutsideCount`, `excludedNonGeometricCount`). Chaque volume `custom` rapporte le mode utilisé. |
+| 2.7 | Diagnostic d'enveloppe de pièce | Nouvel outil de lecture `diagnose_room_enclosure(roomId)` : boucles de limite (élément, catégorie, coordonnées), discontinuités, et `freeEnds` — extrémités de murs et de lignes de séparation joints à rien, par distance. **Heuristique** : elle nomme des candidats, elle ne prouve pas la fuite ; un mur courbe est mesuré sur sa corde. |
+
+**À rejouer sur Revit** : 1.1 (aperçu valide), 2.2 (aperçu rouge sur le cas d'attache), 2.4 (`set_endpoints` garde bien les cotes et les portes), 2.7 sur la pièce à 170 m², `create_room` avec les trois champs.

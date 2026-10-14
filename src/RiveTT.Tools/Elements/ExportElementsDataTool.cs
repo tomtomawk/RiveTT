@@ -100,8 +100,9 @@ public class ExportElementsDataTool : IRiveTTTool
 
             // ── Build rows ─────────────────────────────────────────────────
             var unresolved = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var ambiguous = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
             var rows = BuildRows(doc, elements, columns, includeElementId, includeTypeParams, parameterNames,
-                typeCache, unresolved);
+                typeCache, unresolved, ambiguous);
 
             // ── Format output ──────────────────────────────────────────────
             object data = outputFormat == "csv" ? BuildCsv(columns, rows) : (object)rows;
@@ -139,6 +140,12 @@ public class ExportElementsDataTool : IRiveTTTool
                 outputFormat,
                 columns,
                 unresolvedParameterNames = unresolvedReport,
+                // Names carried by two parameters with DIFFERENT values: the column holds the first
+                // one. Pass parameterNames to pick the parameter explicitly.
+                ambiguousParameterNames = ambiguous
+                    .Select(entry => new { name = entry.Key, values = entry.Value.ToList() })
+                    .Cast<object>()
+                    .ToList(),
                 data,
                 message = $"Exported {elements.Count} elements ({filteredCount} after filter, {totalCount} total). Format: {outputFormat.ToUpperInvariant()}.{filterHint}{unresolvedHint}"
             });
@@ -372,6 +379,29 @@ public class ExportElementsDataTool : IRiveTTTool
 
     // ── Row building ───────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Stores a parameter value under its display name WITHOUT letting a homonym erase it.
+    /// A sheet carries two parameters called "Numéro de la feuille" (SHEET_NUMBER and
+    /// VIEWER_SHEET_NUMBER) and two called "Jeu de feuilles"; the enumeration kept the LAST one
+    /// seen, which is the empty one, so those columns came out empty for all 41 sheets with no
+    /// signal (field report 0.5.2). A non-empty value now wins over an empty one; two different
+    /// non-empty values keep the first and are reported in ambiguousParameterNames.
+    /// </summary>
+    public static void AddNamedValue(Dictionary<string, string> bag, Dictionary<string, HashSet<string>> ambiguous,
+        string name, string value)
+    {
+        if (!bag.TryGetValue(name, out var existing) || string.IsNullOrEmpty(existing))
+        {
+            bag[name] = value;
+            return;
+        }
+        if (string.IsNullOrEmpty(value) || value == existing) return;
+
+        if (!ambiguous.TryGetValue(name, out var values))
+            ambiguous[name] = values = new HashSet<string> { existing };
+        values.Add(value);
+    }
+
     private static List<Dictionary<string, object?>> BuildRows(
         Document doc,
         List<Element> elements,
@@ -380,7 +410,8 @@ public class ExportElementsDataTool : IRiveTTTool
         bool includeTypeParams,
         string[] explicitParamNames,
         Dictionary<ElementId, Element?> typeCache,
-        Dictionary<string, List<string>> unresolved)
+        Dictionary<string, List<string>> unresolved,
+        Dictionary<string, HashSet<string>> ambiguous)
     {
         var rows = new List<Dictionary<string, object?>>();
         bool hasExplicitParams = explicitParamNames != null && explicitParamNames.Length > 0;
@@ -405,7 +436,7 @@ public class ExportElementsDataTool : IRiveTTTool
                 {
                     var defName = param.Definition?.Name;
                     if (!string.IsNullOrEmpty(defName))
-                        instanceParams[defName!] = GetParameterDisplayValueCached(param, doc, elementIdNameCache);
+                        AddNamedValue(instanceParams, ambiguous, defName!, GetParameterDisplayValueCached(param, doc, elementIdNameCache));
                 }
 
                 var typeParams = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -416,7 +447,7 @@ public class ExportElementsDataTool : IRiveTTTool
                     {
                         var defName = param.Definition?.Name;
                         if (!string.IsNullOrEmpty(defName))
-                            typeParams[defName!] = GetParameterDisplayValueCached(param, doc, elementIdNameCache);
+                            AddNamedValue(typeParams, ambiguous, defName!, GetParameterDisplayValueCached(param, doc, elementIdNameCache));
                     }
                 }
 
@@ -463,7 +494,7 @@ public class ExportElementsDataTool : IRiveTTTool
                 {
                     var defName = param.Definition?.Name;
                     if (!string.IsNullOrEmpty(defName))
-                        instanceParams[defName!] = GetParameterDisplayValueCached(param, doc, elementIdNameCache);
+                        AddNamedValue(instanceParams, ambiguous, defName!, GetParameterDisplayValueCached(param, doc, elementIdNameCache));
                 }
 
                 foreach (var col in columns)

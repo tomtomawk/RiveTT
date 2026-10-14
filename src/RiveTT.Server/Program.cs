@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
+using ModelContextProtocol.Protocol;
 using RiveTT.Server.Connection;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -46,5 +47,9 @@ builder.Services
             "documentTitle and revitProcessId are on every response - check them before a write.";
     })
     .WithStdioServerTransport()
-    .WithToolsFromAssembly();
+    .WithToolsFromAssembly()
+    // The MCP layer binds arguments to the wrapper's parameters by name and drops the rest in
+    // silence; a misspelt key then ran a DIFFERENT call that looked successful. See ToolArgumentGuard.
+    .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (context, cancellationToken) =>
+        ToolArgumentGuard.Check(context.Params) ?? await next(context, cancellationToken)));
 await builder.Build().RunAsync();

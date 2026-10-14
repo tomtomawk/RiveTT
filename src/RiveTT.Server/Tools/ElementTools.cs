@@ -368,6 +368,20 @@ public static class ElementTools
         return result.ToString();
     }
 
+    [McpServerTool(Name = "diagnose_room_enclosure"), Description("Read-only: shows where a room's enclosure is open or wrong. Returns the boundary loops (each segment's element id, category, start/end in mm), the discontinuities between segments, and freeEnds: room-bounding walls and separation lines within radiusMm of the room point whose end is joined to nothing, nearest first — where a leak starts. freeEnds is a heuristic that names candidates, it does not prove the leak. Works on an unenclosed room (area 0).")]
+    public static async Task<string> DiagnoseRoomEnclosure(
+        RevitConnectionManager revit,
+        [Description("Room element ID")] long roomId,
+        [Description("Search radius around the room point for free ends, in mm. Default: 6000")] double? radiusMm = null,
+        [Description("Distance under which two ends count as joined, in mm. Default: 5")] double? toleranceMm = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["roomId"] = roomId };
+        if (radiusMm != null) p["radiusMm"] = radiusMm;
+        if (toleranceMm != null) p["toleranceMm"] = toleranceMm;
+        return (await revit.ExecuteAsync("diagnose_room_enclosure", p, ct)).ToString();
+    }
+
     [McpServerTool(Name = "get_elements_in_spatial_volume"), Description("Find elements within a 3D bounding box or room volume. volumeType=room uses volumeIds; volumeType=custom uses customMinX..customMaxZ.")]
     public static async Task<string> GetElementsInSpatialVolume(
         RevitConnectionManager revit,
@@ -382,7 +396,7 @@ public static class ElementTools
         [Description("Custom box max Y (when volumeType=custom)")] double? customMaxY = null,
         [Description("Custom box max Z (when volumeType=custom)")] double? customMaxZ = null,
         [Description("For volumeType=room, confirm containment against the real room solid (ClosedShell) instead of the room bounding box. Default: true.")] bool useRoomSolid = true,
-        [Description("inside (default) = elements contained in the volume; boundary = elements that BOUND the room (walls, columns, separation lines), from Revit boundary segments")] string? containment = null,
+        [Description("inside (default) = elements whose bounding box lies WITHIN the volume (custom boxes: cameras, links and sketches left out unless categoryFilter names them); intersect = any element whose bounding box touches it (the pre-0.6.2 behaviour of custom boxes); boundary = elements that BOUND the room (walls, columns, separation lines), from Revit boundary segments")] string? containment = null,
         [Description("Strip per-element extras. Default: false")] bool compact = false,
         CancellationToken ct = default)
     {
@@ -484,11 +498,13 @@ public static class ElementTools
         return ToolResponseShaper.Shape("get_room_openings", result, compact, summaryOnly).ToString();
     }
 
-    [McpServerTool(Name = "modify_element"), Description("Move, rotate, mirror, or copy elements. Vectors are {\"x\":mm,\"y\":mm,\"z\":mm} JSON objects. move needs translation; rotate needs rotationCenter + rotationAngle (degrees) and optionally rotationAxis (default Z); mirror needs mirrorPlaneOrigin + mirrorPlaneNormal; copy needs copyOffset.")]
+    [McpServerTool(Name = "modify_element"), Description("Move, rotate, mirror, copy elements, or set_endpoints: shorten or extend a straight wall (or beam...) by giving its new start and/or end point {x,y[,z]} in mm, which KEEPS the wall, its hosted doors and windows and the dimensions attached to it (delete + create destroys them). Vectors are {\"x\":mm,\"y\":mm,\"z\":mm} JSON objects. move needs translation; rotate needs rotationCenter + rotationAngle (degrees) and optionally rotationAxis (default Z); mirror needs mirrorPlaneOrigin + mirrorPlaneNormal; copy needs copyOffset.")]
     public static async Task<string> ModifyElement(
         RevitConnectionManager revit,
         [Description("Element IDs to modify")] long[] elementIds,
-        [Description("Action: move | rotate | mirror | copy")] string action,
+        [Description("Action: move | rotate | mirror | copy | set_endpoints")] string action,
+        [Description("set_endpoints: new START point {x,y[,z]} in mm (JSON object). Omit to keep the current start")] System.Text.Json.JsonElement? start = null,
+        [Description("set_endpoints: new END point {x,y[,z]} in mm (JSON object). Omit to keep the current end")] System.Text.Json.JsonElement? end = null,
         [Description("Translation vector {x,y,z} in mm for move (JSON object)")] System.Text.Json.JsonElement? translation = null,
         [Description("Rotation center {x,y,z} in mm for rotate (JSON object)")] System.Text.Json.JsonElement? rotationCenter = null,
         [Description("Rotation angle in DEGREES for rotate")] double? rotationAngle = null,
@@ -504,6 +520,18 @@ public static class ElementTools
             ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()),
             ["action"] = action,
         };
+        if (JsonOptionalParam.IsProvided(start))
+        {
+            if (!JsonObjectParam.TryParse(start, out var startObj))
+                return JsonObjectParam.InvalidObjectResult("modify_element", "start", start);
+            p["start"] = startObj;
+        }
+        if (JsonOptionalParam.IsProvided(end))
+        {
+            if (!JsonObjectParam.TryParse(end, out var endObj))
+                return JsonObjectParam.InvalidObjectResult("modify_element", "end", end);
+            p["end"] = endObj;
+        }
         if (JsonOptionalParam.IsProvided(translation))
         {
             if (!JsonObjectParam.TryParse(translation, out var translationObj))

@@ -18,7 +18,7 @@ public class ModifyElementTool : IRiveTTTool
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Move, rotate, mirror, or copy elements. Rotate is about the Z axis by default, or any axis via rotationAxis {x,y,z}.";
+    public string Description => "Move, rotate, mirror, or copy elements. Rotate is about the Z axis by default, or any axis via rotationAxis {x,y,z}. set_endpoints shortens or extends a straight wall or beam from a new start and/or end {x,y[,z]} in mm, keeping its hosted doors, windows and attached dimensions (delete + create destroys them).";
     // 1 foot = MmPerFoot mm
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
@@ -57,6 +57,12 @@ public class ModifyElementTool : IRiveTTTool
             ICollection<ElementId>? newElementIds = null;
 
             var dryRun = ToolHelpers.GetDryRun(input);
+            // A preview must COMMIT to see what a commit would raise: Revit checks "elements that
+            // cannot stay attached to each other" and the like during commit failure processing, which
+            // a plain RollBack never reaches. The probe therefore commits inside a group and rolls
+            // the whole group back (field report 0.5.2: a green dryRun, then TransactionFailed).
+            using var probeGroup = dryRun ? new TransactionGroup(doc, "RiveTT: Modify Elements (probe)") : null;
+            probeGroup?.Start();
             using var tx = new Transaction(doc, $"RiveTT: Modify Elements - {action}");
             tx.Start();
             var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -76,31 +82,43 @@ public class ModifyElementTool : IRiveTTTool
                     case "copy":
                         newElementIds = ExecuteCopy(doc, revitIds, input);
                         break;
+                    case "set_endpoints":
+                        ExecuteSetEndpoints(doc, revitIds, input);
+                        break;
                     default:
                         tx.RollBack();
                         return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                             $"Unknown action '{action}'",
-                            suggestion: "Supported actions: move, rotate, mirror, copy");
+                            suggestion: "Supported actions: move, rotate, mirror, copy, set_endpoints");
                 }
 
-                // dryRun keeps the transaction OPEN so the payload below can still read the
-                // elements it describes; the rollback happens just before returning.
-                if (!dryRun && tx.Commit() != TransactionStatus.Committed)
+                // Committed in BOTH modes: under dryRun the enclosing group is what undoes it, after
+                // the payload below has read the elements it describes.
+                if (tx.Commit() != TransactionStatus.Committed)
+                {
+                    if (probeGroup?.GetStatus() == TransactionStatus.Started)
+                        probeGroup.RollBack();
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
+                        (dryRun ? "DryRun: this call would fail. " : "") +
                         $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
-                        suggestion: "Fix the reported model errors and retry.");
+                        suggestion: "Fix the reported model errors and retry. " +
+                                    (dryRun ? "Nothing was changed." : ""));
+                }
             }
             catch
             {
                 if (tx.GetStatus() == TransactionStatus.Started)
                     tx.RollBack();
+                if (probeGroup?.GetStatus() == TransactionStatus.Started)
+                    probeGroup.RollBack();
                 throw;
             }
 
             var resultData = BuildResult(action, revitIds.Count, newElementIds);
             if (dryRun)
             {
-                ChangePreview.Rollback(tx);
+                if (probeGroup?.GetStatus() == TransactionStatus.Started)
+                    probeGroup.RollBack();
                 return ChangePreview.Probed(
                     "DryRun: the operation ran inside a transaction and was rolled back. The "
                     + "model is untouched; what follows is what Revit produced.",
@@ -198,6 +216,50 @@ public class ModifyElementTool : IRiveTTTool
 
         var offset = ParseXYZ(offsetToken, "copyOffset");
         return ElementTransformUtils.CopyElements(doc, elementIds, offset);
+    }
+
+    /// <summary>
+    /// Moves the end points of a straight element (a wall, a beam) by rewriting its location line:
+    /// the equivalent of dragging a wall's end grip. The element is kept, so the doors, windows and
+    /// openings it hosts and the dimensions attached to it stay, where delete + create destroyed
+    /// 5 dimensions, 2 doors and 1 opening in one session (field report 0.5.2).
+    /// start / end are {x, y[, z]} in mm; z defaults to the current end point's own, and an omitted
+    /// end stays where it is.
+    /// </summary>
+    private static void ExecuteSetEndpoints(Document doc, List<ElementId> elementIds, JObject input)
+    {
+        var startToken = input["start"];
+        var endToken = input["end"];
+        if ((startToken == null || startToken.Type == JTokenType.Null)
+            && (endToken == null || endToken.Type == JTokenType.Null))
+            throw new ArgumentException("set_endpoints needs start and/or end: {x, y} in mm (z optional).");
+
+        foreach (var id in elementIds)
+        {
+            var element = doc.GetElement(id);
+            if (element?.Location is not LocationCurve location || location.Curve is not Line line)
+                throw new ArgumentException(
+                    $"Element {id.Value} has no straight location line: set_endpoints applies to straight walls, beams and similar elements.");
+
+            var start = line.GetEndPoint(0);
+            var end = line.GetEndPoint(1);
+            var newStart = startToken != null && startToken.Type != JTokenType.Null ? ParsePlanPoint(startToken, "start", start.Z) : start;
+            var newEnd = endToken != null && endToken.Type != JTokenType.Null ? ParsePlanPoint(endToken, "end", end.Z) : end;
+            if (newStart.DistanceTo(newEnd) < 1e-6)
+                throw new ArgumentException($"Element {id.Value}: start and end would coincide.");
+
+            location.Curve = Line.CreateBound(newStart, newEnd);
+        }
+    }
+
+    private static XYZ ParsePlanPoint(JToken token, string paramName, double currentZFeet)
+    {
+        if (token["x"] == null || token["y"] == null)
+            throw new ArgumentException($"'{paramName}' must be a {{x, y}} object in mm (z optional).");
+        var x = token["x"]!.Value<double>() / MmPerFoot;
+        var y = token["y"]!.Value<double>() / MmPerFoot;
+        var z = token["z"] != null ? token["z"]!.Value<double>() / MmPerFoot : currentZFeet;
+        return new XYZ(x, y, z);
     }
 
     // ── Result builder ─────────────────────────────────────────────────────
