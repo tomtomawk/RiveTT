@@ -12,7 +12,7 @@ de la session ILO (E23_005, 13/10/2026, RiveTT 0.6.1.0, Revit 2026).
 > les wrappers MCP, lectures de `dryRun` et de clés attendues dans le fichier de l'outil. Les tests qui épinglaient
 > l'ancien comportement ont été mis à jour (`open_family`, politique d'enregistrement du script au `dryRun`,
 > duplication de feuilles déléguée à `SheetDuplicator`). Rien n'a été exercé sur Revit : voir les listes de
-> vérifications des §4, §6 et §7. L'installateur (`builderuild.ps1`, Inno Setup) n'a pas été construit ici.
+> vérifications des §4, §6 et §7. L'installateur (`builder\build.ps1`, Inno Setup) n'a pas été construit ici.
 
 ## 1. Familles ouvertes en mémoire
 
