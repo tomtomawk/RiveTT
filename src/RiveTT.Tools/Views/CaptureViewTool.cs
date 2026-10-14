@@ -102,7 +102,10 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                 $"Unknown categories: {string.Join(", ", unresolvedCategories)}.",
                 suggestion: "Use OST_* codes, e.g. OST_Furniture, OST_PlumbingFixtures, OST_Walls.");
 
-        var needsTemporaryView = bboxMm != null || detailLevel != null || displayStyle != null
+        var fitToModel = input["fitToModel"]?.Value<bool>() ?? false;
+        var fitMarginMm = Math.Max(0, input["fitMarginMm"]?.Value<double>() ?? 10);
+        var hideSelection = input["hideSelection"]?.Value<bool>() ?? true;
+        var needsTemporaryView = bboxMm != null || fitToModel || detailLevel != null || displayStyle != null
                                  || highlightIds.Count > 0 || isolateIds.Count > 0;
         if (!view.CanBePrinted)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
@@ -115,6 +118,9 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
 
         var directory = Path.Combine(Path.GetTempPath(), "RiveTT", "captures", Guid.NewGuid().ToString("N"));
         TransactionGroup? group = null;
+        // The user's own selection draws handles and a blue frame in the export (seen on a sheet note).
+        Autodesk.Revit.UI.UIDocument? selectionDocument = null;
+        ICollection<ElementId>? savedSelection = null;
         var notApplied = new List<string>();
         try
         {
@@ -131,7 +137,8 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                 // A template would lock the very properties being set on the copy.
                 if (copy.ViewTemplateId != ElementId.InvalidElementId)
                     copy.ViewTemplateId = ElementId.InvalidElementId;
-                ApplyOptions(doc, copy, bboxMm, detailLevel, displayStyle, highlightIds, isolateIds, notApplied);
+                ApplyOptions(doc, copy, bboxMm, detailLevel, displayStyle, highlightIds, isolateIds, notApplied,
+                    fitToModel, fitMarginMm);
                 if (tx.Commit() != TransactionStatus.Committed)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         "Revit refused the temporary capture view.",
@@ -156,6 +163,19 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                 ShadowViewsFileType = fileType
             };
             options.SetViewsAndSheets(new List<ElementId> { exported.Id });
+            if (hideSelection)
+            {
+                try
+                {
+                    selectionDocument = (session.Store.Get<object>("uiApplication") as Autodesk.Revit.UI.UIApplication)?.ActiveUIDocument;
+                    if (selectionDocument != null && selectionDocument.Document.Equals(doc))
+                    {
+                        savedSelection = selectionDocument.Selection.GetElementIds();
+                        if (savedSelection.Count > 0) selectionDocument.Selection.SetElementIds(new List<ElementId>());
+                    }
+                }
+                catch { savedSelection = null; /* the capture still works, with the handles */ }
+            }
             doc.ExportImage(options);
 
             // Revit appends the view type and name to the file name: find what it wrote.
@@ -197,6 +217,8 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                 imageSizePx = new[] { width, height },
                 mapping = pixelMapping,
                 temporaryView = needsTemporaryView,
+                fittedToModel = fitToModel && bboxMm == null,
+                selectionHiddenCount = savedSelection?.Count ?? 0,
                 optionsNotApplied = notApplied,
                 modelChanged = false
             });
@@ -221,6 +243,12 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                 // Rolling back the capture group cannot be made to fail loudly from here; the
                 // copy it created is the only thing that could remain, and it is named RiveTT.
             }
+            try
+            {
+                if (selectionDocument != null && savedSelection != null && savedSelection.Count > 0)
+                    selectionDocument.Selection.SetElementIds(savedSelection);
+            }
+            catch { /* the selection is the user's: a failed restore leaves it empty */ }
             try { Directory.Delete(directory, recursive: true); } catch { }
         }
     }
@@ -245,7 +273,8 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
     }
 
     private static void ApplyOptions(Document doc, View copy, double[]? bboxMm, ViewDetailLevel? detailLevel,
-        DisplayStyle? displayStyle, List<long> highlightIds, List<ElementId> isolateIds, List<string> notApplied)
+        DisplayStyle? displayStyle, List<long> highlightIds, List<ElementId> isolateIds, List<string> notApplied,
+        bool fitToModel = false, double fitMarginMm = 10)
     {
         if (bboxMm != null)
         {
@@ -281,6 +310,12 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                                    "by the view's own crop");
             }
             catch (Exception exception) { notApplied.Add($"bboxMm: {exception.Message}"); }
+        }
+
+        if (fitToModel)
+        {
+            if (bboxMm != null) notApplied.Add("fitToModel: ignored because bboxMm frames the view explicitly.");
+            else FitCropToModel(doc, copy, fitMarginMm, notApplied);
         }
 
         if (detailLevel != null)
@@ -330,6 +365,67 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
     }
 
     /// <summary>
+    /// Crops the temporary copy to the extent of the model elements visible in it, plus a margin. The "Front"
+    /// elevation of a family rendered 1400 x 2774 px with the geometry in about 15 % of it (field report): the
+    /// view's own crop was far larger than the model. Datum planes (levels, grids, reference planes) and
+    /// annotations are left out of the extent; the extent is measured in the VIEW's axes, so it works for
+    /// plans, sections and elevations alike.
+    /// </summary>
+    private static void FitCropToModel(Document doc, View copy, double marginMm, List<string> notApplied)
+    {
+        try
+        {
+            double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+            var toView = copy.CropBox.Transform.Inverse;
+            var counted = 0;
+            foreach (var element in new FilteredElementCollector(doc, copy.Id).WhereElementIsNotElementType())
+            {
+                if (element.Category == null || element.Category.CategoryType != CategoryType.Model) continue;
+                if (element is DatumPlane || element is View) continue;
+                var box = element.get_BoundingBox(null);
+                if (box == null) continue;
+                foreach (var corner in Corners(box))
+                {
+                    var p = toView.OfPoint(corner);
+                    minX = Math.Min(minX, p.X); maxX = Math.Max(maxX, p.X);
+                    minY = Math.Min(minY, p.Y); maxY = Math.Max(maxY, p.Y);
+                }
+                counted++;
+            }
+            if (counted == 0)
+            {
+                notApplied.Add("fitToModel: no visible model element to frame; the view keeps its own crop.");
+                return;
+            }
+
+            var margin = marginMm / MmPerFoot;
+            var shape = copy.GetCropRegionShapeManager();
+            if (shape != null && shape.ShapeSet) shape.RemoveCropRegionShape();
+            var crop = copy.CropBox;
+            crop.Min = new XYZ(minX - margin, minY - margin, crop.Min.Z);
+            crop.Max = new XYZ(maxX + margin, maxY + margin, crop.Max.Z);
+            copy.CropBox = crop;
+            copy.CropBoxActive = true;
+            copy.CropBoxVisible = false;
+            copy.get_Parameter(BuiltInParameter.VIEWER_ANNOTATION_CROP_ACTIVE)?.Set(1);
+            if (shape != null) MinimiseAnnotationCropOffsets(shape);
+        }
+        catch (Exception exception)
+        {
+            notApplied.Add($"fitToModel: {exception.Message}");
+        }
+    }
+
+    private static IEnumerable<XYZ> Corners(BoundingBoxXYZ box)
+    {
+        var t = box.Transform ?? Transform.Identity;
+        foreach (var x in new[] { box.Min.X, box.Max.X })
+            foreach (var y in new[] { box.Min.Y, box.Max.Y })
+                foreach (var z in new[] { box.Min.Z, box.Max.Z })
+                    yield return t.OfPoint(new XYZ(x, y, z));
+    }
+
+    /// <summary>
     /// Brings the annotation crop as close to the model crop as Revit allows. Each side is set
     /// on its own: a value Revit refuses leaves that side as it was, never the whole call.
     /// </summary>
@@ -364,6 +460,20 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
             var upIsNorth = view is ViewPlan && Math.Abs(up.X) < 1e-6 && up.Y > 0.999999;
             var widthMm = (crop.Max.X - crop.Min.X) * MmPerFoot;
             var heightMm = (crop.Max.Y - crop.Min.Y) * MmPerFoot;
+
+            // A section or an elevation: the image axes are the view's right and up directions, NOT model X/Y
+            // (the vertical axis is Z). The mapping is given in the view's own axes, from the crop's top-left
+            // corner (on the mid-depth plane of the crop), instead of the plan's X/Y rectangle, which was wrong
+            // for them and unavailable when no crop was set.
+            if (view is not ViewPlan)
+            {
+                var topLeft = t.OfPoint(new XYZ(crop.Min.X, crop.Max.Y, (crop.Min.Z + crop.Max.Z) / 2));
+                var right = t.BasisX;
+                var upAxis = t.BasisY;
+                return new CaptureMapping.ViewFrame(true, 0, 0, widthMm, heightMm, view.ViewType.ToString(), false,
+                    new[] { right.X, right.Y, right.Z }, new[] { upAxis.X, upAxis.Y, upAxis.Z },
+                    new[] { topLeft.X * MmPerFoot, topLeft.Y * MmPerFoot, topLeft.Z * MmPerFoot });
+            }
             return new CaptureMapping.ViewFrame(true,
                 corners.Min(c => c.X) * MmPerFoot, corners.Max(c => c.Y) * MmPerFoot,
                 widthMm, heightMm, view.ViewType.ToString(), upIsNorth);
@@ -415,7 +525,7 @@ public static class CaptureMapping
     /// <param name="LeftMm">Model X of the left edge of the crop.</param>
     /// <param name="TopMm">Model Y of the top edge of the crop.</param>
     public sealed record ViewFrame(bool Known, double LeftMm, double TopMm, double CropWidthMm, double CropHeightMm,
-        string ViewType, bool UpIsNorth);
+        string ViewType, bool UpIsNorth, double[]? RightDir = null, double[]? UpDir = null, double[]? TopLeftModelMm = null);
 
     /// <summary>
     /// The mapping, or a reason why there is none. When the image's aspect differs from the
@@ -446,6 +556,35 @@ public static class CaptureMapping
         var scale = Math.Max(mmPerPixelX, mmPerPixelY);
         var marginX = (widthPx - frame.CropWidthMm / scale) / 2;
         var marginY = (heightPx - frame.CropHeightMm / scale) / 2;
+
+        if (frame.RightDir != null && frame.UpDir != null && frame.TopLeftModelMm != null)
+        {
+            var origin = new double[3];
+            for (var i = 0; i < 3; i++)
+                origin[i] = Math.Round(frame.TopLeftModelMm[i] - marginX * scale * frame.RightDir[i]
+                                       + marginY * scale * frame.UpDir[i], 1);
+            return new
+            {
+                available = true,
+                aspectMatchesCrop = aspectMatches,
+                verified = false,
+                mmPerPixel = Math.Round(scale, 3),
+                // The top-left corner of the IMAGE in model coordinates, margins included.
+                originTopLeftModelMm = origin,
+                rightDirection = frame.RightDir.Select(v => Math.Round(v, 4)).ToArray(),
+                upDirection = frame.UpDir.Select(v => Math.Round(v, 4)).ToArray(),
+                cropPx = new[]
+                {
+                    Math.Round(marginX, 1), Math.Round(marginY, 1),
+                    Math.Round(widthPx - marginX, 1), Math.Round(heightPx - marginY, 1)
+                },
+                cropMm = new[] { Math.Round(frame.CropWidthMm, 1), Math.Round(frame.CropHeightMm, 1) },
+                axes = "section/elevation: model = originTopLeftModelMm + px * mmPerPixel * rightDirection - py * mmPerPixel * upDirection "
+                       + "(the vertical axis is the view's up direction, Z for an elevation). Depth is not recoverable from the image.",
+                calibrate = "Capture once with highlightIds on an element of known position to confirm before trusting a reading."
+            };
+        }
+
         return new
         {
             available = true,

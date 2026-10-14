@@ -119,6 +119,8 @@ public class GetElementParametersTool : IRiveTTTool
                 elementName = element.Name,
                 category = element.Category?.Name,
                 categoryBic = CategoryResolver.DescribeBuiltInCategory(element.Category),
+                // A text note's content is not a parameter, so it was nowhere in this answer.
+                text = element is TextNote textNote ? textNote.GetFormattedText().GetPlainText() : null,
                 parameters
             });
         }

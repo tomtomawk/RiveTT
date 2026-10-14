@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Emit;
 
 namespace RiveTT.Tools.CodeExecution;
@@ -106,7 +107,7 @@ public static class RoslynCompilerWorker
                 .Select(d =>
                 {
                     var line = d.Location.GetLineSpan().StartLinePosition.Line + 1 - prefixLines;
-                    return $"Line {line}: {d.GetMessage()}";
+                    return $"Line {line}: {d.GetMessage()}{MemberHint(d, compilation)}";
                 })
                 .ToArray();
             return null;
@@ -115,5 +116,80 @@ public static class RoslynCompilerWorker
         errors = Array.Empty<string>();
         pdb = pdbStream.ToArray();
         return ms.ToArray();
+    }
+
+    /// <summary>API mistakes met in the field, with the right call: matched on the compiler's message.</summary>
+    private static readonly (string Contains, string Hint)[] KnownMistakes =
+    {
+        ("'FormattedText' does not contain a definition for 'Replace'",
+            "FormattedText has no Replace: use FormattedText.Find(text, startIndex, caseSensitive, ...) to get a TextRange, " +
+            "SetPlainText(range, newText) to change it, then TextNote.SetFormattedText(formattedText)."),
+        ("HermiteSpline",
+            "A HermiteSpline in a sketch is not editable as a spline; prefer NurbSpline.CreateCurve.")
+    };
+
+    /// <summary>
+    /// A compile error that only gave a line number ("no definition for X") now also names the
+    /// members of that type closest to X: the field session could not tell that FormattedText has no
+    /// Replace and that SetPlainText was the call it wanted. Empty when there is nothing useful to add.
+    /// </summary>
+    private static string MemberHint(Diagnostic diagnostic, CSharpCompilation compilation)
+    {
+        var message = diagnostic.GetMessage();
+        foreach (var (contains, hint) in KnownMistakes)
+            if (message.Contains(contains, StringComparison.Ordinal))
+                return " — " + hint;
+
+        if (diagnostic.Id != "CS1061" || diagnostic.Location.SourceTree == null) return "";
+        try
+        {
+            var tree = diagnostic.Location.SourceTree;
+            var node = tree.GetRoot().FindNode(diagnostic.Location.SourceSpan);
+            var access = node.AncestorsAndSelf().OfType<MemberAccessExpressionSyntax>().FirstOrDefault();
+            if (access == null) return "";
+            var type = compilation.GetSemanticModel(tree).GetTypeInfo(access.Expression).Type;
+            if (type == null) return "";
+
+            var wanted = access.Name.Identifier.Text;
+            var names = type.GetMembers()
+                .Where(member => member.DeclaredAccessibility == Accessibility.Public)
+                .Select(member => member.Name)
+                .Where(name => name.Length > 0 && char.IsLetter(name[0]))
+                .Distinct()
+                .Select(name => (Name: name, Score: Closeness(wanted, name)))
+                .Where(pair => pair.Score <= Math.Max(3, wanted.Length / 2))
+                .OrderBy(pair => pair.Score)
+                .Take(6)
+                .Select(pair => pair.Name)
+                .ToList();
+            return names.Count == 0
+                ? $" — {type.Name} has no public member near '{wanted}'. Revit API member lists: RevitAPI.xml in the Revit install folder."
+                : $" — public members of {type.Name} closest to '{wanted}': {string.Join(", ", names)}.";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    /// <summary>Edit distance, lowered when one name contains the other (SetPlainText vs SetPlain).</summary>
+    private static int Closeness(string a, string b)
+    {
+        var x = a.ToLowerInvariant();
+        var y = b.ToLowerInvariant();
+        if (y.Contains(x) || x.Contains(y)) return 1;
+        var row = Enumerable.Range(0, y.Length + 1).ToArray();
+        for (var i = 1; i <= x.Length; i++)
+        {
+            var previous = row[0];
+            row[0] = i;
+            for (var j = 1; j <= y.Length; j++)
+            {
+                var current = row[j];
+                row[j] = Math.Min(Math.Min(row[j] + 1, row[j - 1] + 1), previous + (x[i - 1] == y[j - 1] ? 0 : 1));
+                previous = current;
+            }
+        }
+        return row[y.Length];
     }
 }

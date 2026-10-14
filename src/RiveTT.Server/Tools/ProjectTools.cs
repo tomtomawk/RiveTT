@@ -22,6 +22,23 @@ public static class ProjectTools
         return result.ToString();
     }
 
+    [McpServerTool(Name = "list_files"), Description("List the files of a folder under the user's Documents, Desktop, Downloads, profile or temp: name, size and last write time, newest first. Read-only. Use it to check that an export (PDF, DWG, image) was really written: scripts cannot, System.IO is refused by the sandbox.")]
+    public static async Task<string> ListFiles(
+        RevitConnectionManager revit,
+        [Description("Folder to list")] string directory,
+        [Description("File name pattern with wildcards. Default: *")] string? pattern = null,
+        [Description("Include sub-folders. Default: false")] bool recursive = false,
+        [Description("Only files written in the last N minutes")] double? modifiedWithinMinutes = null,
+        [Description("Max files returned. Default: 200")] int? limit = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["directory"] = directory, ["recursive"] = recursive };
+        if (pattern != null) p["pattern"] = pattern;
+        if (modifiedWithinMinutes != null) p["modifiedWithinMinutes"] = modifiedWithinMinutes;
+        if (limit != null) p["limit"] = limit;
+        return (await revit.ExecuteAsync("list_files", p, ct)).ToString();
+    }
+
     [McpServerTool(Name = "list_phases"), Description("List all project phases in the active Revit document.")]
     public static async Task<string> GetPhases(
         RevitConnectionManager revit,
@@ -596,12 +613,15 @@ public static class ProjectTools
     public static async Task<string> SendCodeToRevit(
         RevitConnectionManager revit,
         [Description("C# method body to execute (end with an explicit return). Globals: document (Document), uiDocument (UIDocument), app (Application), scriptArgs (JObject). Namespaces DB, DB.Architecture (Room, Stairs), DB.Structure, UI, Linq and JObject are imported. Helpers callable without prefix, lengths IN MILLIMETRES: Mm(mm)->feet, ToMm(feet), Pt(xMm,yMm,zMm), Log(text), LevelByName(name), TypeByName<WallType|FloorType|RoofType|...>(name) (exact, then unique prefix, logged), SymbolByName(family,type), FindHostWall(pointFt, level?), PlaceOnLevel(symbol, pointFt, level, rotationDeg, offsetMm) (measures and corrects the elevation), PlaceInWall(symbol, pointFt, wall, level, sillMm) (absolute Z), Section(name, () => {...}) (best effort block reported in scriptRun.sections). Leave empty when fromScript is used.")] string code = "",
-        [Description("Preview only: run the sandbox check and report what would execute, without running it or saving the script. Default: true")] bool dryRun = true,
+        [Description("Preview only: run the sandbox check and COMPILE the script, without running it. The script is saved under scriptName in every case (preview, refusal, run), so fromScript + edits can correct it. Default: true")] bool dryRun = true,
         [Description("auto (default): one transaction around the script. none (alias manual): no transaction, the script opens its own — required for StairsEditScope. group: one undo entry, each Section(...) committed or rolled back on its own. readonly: every model change is rolled back after the run — the only mode allowed while RiveTT is locked; exports, saves, document opening and view switching are refused in it.")] string? transactionMode = "auto",
         [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously — see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool reusable = false,
         [Description("Short human-readable name for the script file (no spaces, max 40 chars). Example: 'floor-thickness-audit'. Reuse it with fromScript.")] string? scriptName = null,
         [Description("JSON object exposed to the script as scriptArgs, e.g. {\"level\":\"R+1\",\"widthMm\":900}. Lets a saved script run again with other values.")] System.Text.Json.JsonElement? scriptArgs = null,
-        [Description("Name of a script saved earlier (its scriptName): runs its latest version instead of code. Combine with edits to correct a line without re-sending the whole script.")] string? fromScript = null,
+        [Description("Name of a script saved earlier (its scriptName): runs its latest version instead of code, with the scriptArgs it last ran with when scriptArgs is omitted. Combine with edits to correct a line without re-sending the whole script.")] string? fromScript = null,
+        [Description("A .json file name (no folder) placed in %LOCALAPPDATA%\RiveTT\scripts\, read server-side as scriptArgs: for large data such as NURBS control points (20-40 KB) that would otherwise travel at every call. scriptArgs, if also given, is merged over it.")] string? scriptArgsFile = null,
+        [Description("With fromScript: merge scriptArgs OVER the arguments saved with the script (shallow, arrays replaced), so only the values that changed are sent. Default: false (scriptArgs replaces them)")] bool mergeScriptArgs = false,
+        [Description("List every created, modified and deleted element id in scriptRun.changes. Default: false (counts, plus ids of top-level elements only; sketch and model lines are counted, not listed)")] bool verboseChanges = false,
         [Description("With fromScript only: JSON array of exact replacements applied in order, [{\"oldText\":\"...\",\"newText\":\"...\"}]. Each oldText must occur exactly once. The edited script is saved as the new latest version.")] System.Text.Json.JsonElement? edits = null,
         CancellationToken ct = default)
     {
@@ -617,6 +637,9 @@ public static class ProjectTools
             p["scriptArgs"] = scriptArgsObj;
         }
         if (fromScript != null) p["fromScript"] = fromScript;
+        if (scriptArgsFile != null) p["scriptArgsFile"] = scriptArgsFile;
+        p["mergeScriptArgs"] = mergeScriptArgs;
+        p["verboseChanges"] = verboseChanges;
         if (JsonOptionalParam.IsProvided(edits))
         {
             if (!JsonArrayParam.TryParse(edits, out var editsArray))

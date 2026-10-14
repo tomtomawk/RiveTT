@@ -369,6 +369,9 @@ public class ExportElementsDataTool : IRiveTTTool
                 }
             }
 
+            // A text note's content is not a parameter: give it a column of its own.
+            if (elements.Any(e => e is TextNote)) names.Add("Text");
+
             foreach (var name in names.OrderBy(n => n))
                 if (!columns.Contains(name))
                     columns.Add(name);
@@ -454,6 +457,7 @@ public class ExportElementsDataTool : IRiveTTTool
                 foreach (var col in columns)
                 {
                     if (col is "ElementId" or "Category" or "Name") continue;
+                    if (TryTextNoteColumn(element, col, row)) continue;
                     if (instanceParams.TryGetValue(col, out string? iVal))
                         row[col] = iVal;
                     else if (typeParams.TryGetValue(col, out string? tVal))
@@ -470,6 +474,7 @@ public class ExportElementsDataTool : IRiveTTTool
                 foreach (var col in columns)
                 {
                     if (col is "ElementId" or "Category" or "Name") continue;
+                    if (TryTextNoteColumn(element, col, row)) continue;
 
                     var param = ParameterNameResolver.Resolve(element, col, doc);
                     if (param == null)
@@ -500,6 +505,7 @@ public class ExportElementsDataTool : IRiveTTTool
                 foreach (var col in columns)
                 {
                     if (col is "ElementId" or "Category" or "Name") continue;
+                    if (TryTextNoteColumn(element, col, row)) continue;
                     row[col] = instanceParams.TryGetValue(col, out string? iVal) ? iVal : "";
                 }
             }
@@ -610,8 +616,29 @@ public class ExportElementsDataTool : IRiveTTTool
     /// RDC — the previous version compared "RDC" to the id "512913" and matched
     /// 0 of 138 rooms.
     /// </summary>
+    /// <summary>
+    /// The content of a text note is not a parameter, so "Texte" / "Text" resolved to nothing (the
+    /// suggestions were "Police de texte", "Taille du texte") and a filter on it answered "0 of 466"
+    /// with only a warning in the message. It is read from the note's FormattedText instead.
+    /// </summary>
+    public static bool IsTextColumn(string? name)
+    {
+        var normalized = ParameterNameResolver.Normalize(name ?? "");
+        return normalized is "text" or "texte" or "contenu" or "content";
+    }
+
+    private static bool TryTextNoteColumn(Element element, string column, Dictionary<string, object?> row)
+    {
+        if (element is not TextNote note || !IsTextColumn(column)) return false;
+        row[column] = note.GetFormattedText().GetPlainText();
+        return true;
+    }
+
     private static List<string> GetParameterFilterValues(Element element, Document doc, string paramName)
     {
+        if (element is TextNote textNote && IsTextColumn(paramName))
+            return new List<string> { textNote.GetFormattedText().GetPlainText() };
+
         var param = ParameterNameResolver.Resolve(element, paramName, doc);
         if (param == null) return new List<string>();
 

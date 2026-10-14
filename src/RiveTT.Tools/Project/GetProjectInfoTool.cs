@@ -110,6 +110,10 @@ public class GetProjectInfoTool : IRiveTTTool, ICacheableTool
 
             if (includeLevels)
             {
+                // Elevation of the internal origin in shared coordinates (the survey / base point setup): adding it to
+                // a level gives that level in the shared system, which is NGF on a project georeferenced to it.
+                double originSharedElevationFt = 0;
+                try { originSharedElevationFt = doc.ActiveProjectLocation.GetProjectPosition(XYZ.Zero).Elevation; } catch { /* no project location */ }
                 var levels = new FilteredElementCollector(doc)
                     .OfClass(typeof(Level))
                     .Cast<Level>()
@@ -118,11 +122,18 @@ public class GetProjectInfoTool : IRiveTTTool, ICacheableTool
                     {
                         id = l.Id.Value,
                         name      = l.Name,
-                        elevation = Math.Round(l.Elevation * MmPerFoot, 2) // feet → mm
+                        elevation = Math.Round(l.Elevation * MmPerFoot, 2), // feet → mm, from the INTERNAL origin
+                        projectElevationMm = Math.Round(l.ProjectElevation * MmPerFoot, 2), // from the project base point
+                        sharedElevationMm = Math.Round((l.Elevation + originSharedElevationFt) * MmPerFoot, 2) // shared coordinates: NGF when the project is georeferenced to it
                     })
                     .ToList();
 
                 result["levels"] = levels;
+                result["elevationReference"] = new
+                {
+                    note = "elevation = from the internal origin; projectElevationMm = from the project base point (what Revit shows as the level elevation); sharedElevationMm = in shared coordinates, i.e. NGF if the project is georeferenced to NGF.",
+                    internalOriginSharedElevationMm = Math.Round(originSharedElevationFt * MmPerFoot, 2)
+                };
             }
 
             return RiveTTResult<object>.Ok(result);

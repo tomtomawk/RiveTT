@@ -42,7 +42,7 @@ public class SendCodeToRevitTool : IRiveTTTool
     public string Category => "Code";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Executes sandboxed custom C# in the active Revit context: a legitimate option when no dedicated tool does the job in one step or lacks the case at hand (a dedicated tool, where one exists, previews and validates more). Defaults to dryRun=true: the preview runs the sandbox check and reports what would execute, without running it or writing the script to disk. Globals: document (Document), uiDocument (UIDocument), app (Application), scriptArgs (JObject). transactionMode readonly rolls every model change back and works while RiveTT is locked.";
+    public string Description => "Executes sandboxed custom C# in the active Revit context: a legitimate option when no dedicated tool does the job in one step or lacks the case at hand (a dedicated tool, where one exists, previews and validates more). Defaults to dryRun=true: the preview runs the sandbox check and COMPILES the script, without running it. The script is SAVED as scriptName in every case (a preview, a sandbox or compile refusal, a run), so fromScript + edits corrects it without resending it; scriptArgs are saved with it and reused by fromScript when omitted, and scriptArgsFile reads a large JSON from %LOCALAPPDATA%\RiveTT\scripts\ server-side. scriptRun.changes lists counts and top-level ids; verboseChanges=true lists every id. Compile errors name the closest members of the type. Globals: document (Document), uiDocument (UIDocument), app (Application), scriptArgs (JObject). transactionMode readonly rolls every model change back and works while RiveTT is locked.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -71,7 +71,7 @@ public class SendCodeToRevitTool : IRiveTTTool
         if (input["scriptArgs"] is JToken argsToken && argsToken.Type != JTokenType.Null && argsToken is not JObject)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
                 "scriptArgs must be a JSON object, e.g. {\"levelName\": \"R+1\", \"count\": 3}.");
-        var scriptArgs = input["scriptArgs"] as JObject ?? new JObject();
+        var inlineArgs = input["scriptArgs"] as JObject;
 
         string? resolvedFrom = null;
         var editsApplied = 0;
@@ -105,17 +105,26 @@ public class SendCodeToRevitTool : IRiveTTTool
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "code is required",
                 suggestion: "Send the C# body in code, or re-run a saved script with fromScript.");
 
+        // The arguments: the file (server side, read here and not in the sandbox), the inline
+        // scriptArgs, or — for fromScript with neither — the ones the saved script last ran with.
+        // Large geometries (20-40 KB of NURBS control points) were re-sent whole at every call.
+        var scriptArgs = ResolveScriptArgs(input, inlineArgs, fromScript, out var argsSource, out var argsError);
+        if (scriptArgs == null) return argsError!;
+
+        // Saved BEFORE any check, whatever follows. A script that fails the sandbox or the compiler,
+        // or that is only previewed, used to leave nothing behind, so "fromScript + edits" answered
+        // "No saved script named ..." and the whole text had to be sent again (field reports 2026-10).
+        var scriptPath = PersistScript(code!, scriptName, reusable, scriptArgs);
+
         // Sandbox validation is a technical boundary, not an authorization flow. It runs
         // before the dryRun branch so a preview reports a rejection instead of a plan.
         var sandboxResult = CodeSandbox.Validate(code!);
         if (sandboxResult != null)
-        {
-            return sandboxResult;
-        }
+            return WithSavedScript(sandboxResult, scriptPath, scriptName);
         if (transactionMode == "readonly")
         {
             var readOnlyResult = CodeSandboxV2.ValidateReadOnlyScript(code!);
-            if (readOnlyResult != null) return readOnlyResult;
+            if (readOnlyResult != null) return WithSavedScript(readOnlyResult, scriptPath, scriptName);
         }
 
         if (dryRun)
@@ -124,14 +133,18 @@ public class SendCodeToRevitTool : IRiveTTTool
             // the script has been sent again for real (field report 2026-09-24: 300-line scripts
             // re-sent six times).
             var compileFailure = RoslynExecutor.CheckCompiles(code!, transactionMode);
-            if (compileFailure != null) return compileFailure;
+            if (compileFailure != null) return WithSavedScript(compileFailure, scriptPath, scriptName);
 
-            // Nothing is written to disk here: persisting the script is itself a side effect.
             return RiveTTResult<object>.Ok(new
             {
                 dryRun = true,
                 message = "DryRun: the script passed the sandbox check, COMPILES, and was NOT executed. "
-                        + "Review it, then set dryRun=false to run it.",
+                        + $"It is saved as '{scriptName}': correct it with fromScript + edits, then set dryRun=false to run it. "
+                        + "Review it first.",
+                scriptSavedTo = scriptPath,
+                scriptNotice = $"Tell the user: this script was saved to {scriptPath}; it is deleted when Revit closes"
+                               + (reusable ? " — unless it is reusable, which it is: it is KEPT." : "."),
+                scriptArgsSource = argsSource,
                 sandbox = "passed",
                 compiled = true,
                 transactionMode,
@@ -142,7 +155,6 @@ public class SendCodeToRevitTool : IRiveTTTool
                 editsApplied,
                 scriptArgKeys = scriptArgs.Properties().Select(p => p.Name).ToArray(),
                 scriptLifetime = reusable ? "REUSABLE" : "TEMP (deleted at Revit close)",
-                wouldSaveTo = Path.Combine(ScriptsFolder, $"<timestamp>_{scriptName}.cs"),
                 codeLength = code!.Length,
                 codeLineCount = code!.Split('\n').Length,
                 warning = transactionMode == "readonly"
@@ -153,10 +165,7 @@ public class SendCodeToRevitTool : IRiveTTTool
             });
         }
 
-        // Persist script to the local RiveTT directory.
-        var scriptPath = PersistScript(code!, scriptName, reusable);
-
-        // Build globals from session
+        // Build globals from session (the script itself was saved above)
         var uiApp = session.Store.Get<object>("uiApplication") as Autodesk.Revit.UI.UIApplication;
         var uiDoc = uiApp?.ActiveUIDocument;
 
@@ -169,7 +178,8 @@ public class SendCodeToRevitTool : IRiveTTTool
             document = doc,
             uiDocument = uiDoc,
             app = uiApp!.Application,
-            scriptArgs = scriptArgs
+            scriptArgs = scriptArgs,
+            VerboseChanges = input["verboseChanges"]?.Value<bool>() ?? false
         };
 
         RiveTTResult<object> result;
@@ -181,6 +191,7 @@ public class SendCodeToRevitTool : IRiveTTTool
             var data = Newtonsoft.Json.Linq.JObject.FromObject(result.Data);
             data["scriptSavedTo"] = scriptPath;
             data["scriptName"] = scriptName;
+            data["scriptArgsSource"] = argsSource;
             data["scriptLifetime"] = reusable ? "REUSABLE" : "TEMP (deleted at Revit close)";
             // A script file is written to the user's profile on EVERY run. Said once per answer, in
             // words the agent can pass on, so the user is told each time (field report ILO 13/10/2026).
@@ -272,6 +283,108 @@ public class SendCodeToRevitTool : IRiveTTTool
     }
 
     private static readonly Regex ScriptFileName = new(@"^\d{8}_\d{6}_([\w\-]+)\.cs$", RegexOptions.Compiled);
+    private static readonly Regex ScriptArgsFileName = new(@"^\d{8}_\d{6}_([\w\-]+)\.args\.json$", RegexOptions.Compiled);
+    private static readonly Regex SafeArgsFile = new(@"^[\w\-. ]+\.json$", RegexOptions.Compiled);
+
+    /// <summary>The error response with where the script was saved, so a correction does not resend it.</summary>
+    private static RiveTTResult<object> WithSavedScript(RiveTTResult<object> failure, string scriptPath, string scriptName)
+    {
+        if (failure.Success || failure.Error == null) return failure;
+        var context = failure.Error.Context != null
+            ? new Dictionary<string, object>(failure.Error.Context)
+            : new Dictionary<string, object>();
+        context["scriptSavedTo"] = scriptPath;
+        context["scriptName"] = scriptName;
+        context["correctWith"] = $"fromScript: \"{scriptName}\" + edits [{{find, replace}}] — the script is saved even though it was rejected.";
+        return RiveTTResult<object>.Fail(failure.Error.Code, failure.Error.Message,
+            (failure.Error.Suggestion ?? "") + $" The script is saved as '{scriptName}': correct it with fromScript + edits.",
+            context);
+    }
+
+    /// <summary>
+    /// scriptArgsFile (a .json under the scripts folder, read here), scriptArgs, or the saved args of
+    /// fromScript. mergeScriptArgs puts the inline values over the file / saved ones, so only the
+    /// numbers that changed travel. Null with <paramref name="error"/> set when the file is refused.
+    /// </summary>
+    private static JObject? ResolveScriptArgs(JObject input, JObject? inline, string? fromScript,
+        out string source, out RiveTTResult<object>? error)
+    {
+        error = null;
+        source = "none";
+        var file = input["scriptArgsFile"]?.Value<string>();
+        var merge = input["mergeScriptArgs"]?.Value<bool>() ?? false;
+
+        JObject? basis = null;
+        if (!string.IsNullOrWhiteSpace(file))
+        {
+            if (!SafeArgsFile.IsMatch(file!) || file!.Contains(".."))
+            {
+                error = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                    $"scriptArgsFile '{file}' is not a plain .json file name.",
+                    suggestion: "Give a file name (no folder, no ..) of a .json placed in %LOCALAPPDATA%\\RiveTT\\scripts\\.");
+                return null;
+            }
+            var path = Path.Combine(ScriptsFolder, file);
+            if (!File.Exists(path))
+            {
+                error = RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
+                    $"scriptArgsFile not found: {path}",
+                    suggestion: "Put the JSON object in %LOCALAPPDATA%\\RiveTT\\scripts\\ first.");
+                return null;
+            }
+            try
+            {
+                basis = JToken.Parse(File.ReadAllText(path)) as JObject;
+            }
+            catch (Exception ex)
+            {
+                error = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, $"scriptArgsFile is not valid JSON: {ex.Message}");
+                return null;
+            }
+            if (basis == null)
+            {
+                error = RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "scriptArgsFile must hold a JSON object.");
+                return null;
+            }
+            source = "file";
+        }
+        else if (!string.IsNullOrWhiteSpace(fromScript) && (inline == null || merge))
+        {
+            basis = LoadSavedArgs(ScriptsFolder, SanitizeName(fromScript!));
+            if (basis != null) source = "saved";
+        }
+
+        if (inline == null || !inline.HasValues && basis != null)
+            return basis ?? new JObject();
+        if (basis == null)
+        {
+            source = "input";
+            return inline;
+        }
+        var merged = (JObject)basis.DeepClone();
+        merged.Merge(inline, new JsonMergeSettings { MergeArrayHandling = MergeArrayHandling.Replace });
+        source += "+input";
+        return merged;
+    }
+
+    /// <summary>The args the latest saved version of the script last ran with, or null.</summary>
+    public static JObject? LoadSavedArgs(string folder, string name)
+    {
+        try
+        {
+            if (!Directory.Exists(folder)) return null;
+            var latest = Directory.GetFiles(folder, "*_" + name + ".args.json")
+                .Where(f => ScriptArgsFileName.IsMatch(Path.GetFileName(f))
+                            && ScriptArgsFileName.Match(Path.GetFileName(f)).Groups[1].Value == name)
+                .OrderByDescending(f => Path.GetFileName(f), StringComparer.Ordinal)
+                .FirstOrDefault();
+            return latest == null ? null : JToken.Parse(File.ReadAllText(latest)) as JObject;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     internal static string StripHeader(string text)
     {
@@ -344,7 +457,7 @@ public class SendCodeToRevitTool : IRiveTTTool
     /// Saves the script to the local RiveTT scripts directory with a TEMP or REUSABLE header.
     /// Returns the full path of the saved file.
     /// </summary>
-    private static string PersistScript(string code, string scriptName, bool reusable)
+    private static string PersistScript(string code, string scriptName, bool reusable, JObject? args = null)
     {
         try
         {
@@ -361,6 +474,10 @@ public class SendCodeToRevitTool : IRiveTTTool
                 HeaderEnd + "\n";
 
             File.WriteAllText(filePath, header + code);
+            // The arguments travel with the script, in a sidecar of the same stem: fromScript reuses
+            // them when scriptArgs is omitted. Deleted with the script at Revit close.
+            if (args != null && args.HasValues)
+                File.WriteAllText(Path.ChangeExtension(filePath, ".args.json"), args.ToString(Newtonsoft.Json.Formatting.None));
             return filePath;
         }
         catch
@@ -380,7 +497,21 @@ public class SendCodeToRevitTool : IRiveTTTool
                 using var reader = new StreamReader(file);
                 var firstLine = reader.ReadLine() ?? "";
                 if (firstLine.TrimStart().StartsWith("// TEMP", StringComparison.OrdinalIgnoreCase))
+                {
+                    reader.Close();
                     File.Delete(file);
+                }
+            }
+            catch { }
+        }
+
+        // Saved arguments follow their script: one whose .cs is gone is deleted too.
+        foreach (var args in Directory.GetFiles(ScriptsFolder, "*.args.json"))
+        {
+            try
+            {
+                if (!File.Exists(Path.ChangeExtension(Path.ChangeExtension(args, null), ".cs")))
+                    File.Delete(args);
             }
             catch { }
         }

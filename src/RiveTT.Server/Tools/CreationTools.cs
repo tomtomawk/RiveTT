@@ -647,7 +647,7 @@ public static class CreationTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "batch_export"), Description("Export views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats. This writes files and requires the RiveTT ribbon write lock to be open.")]
+    [McpServerTool(Name = "batch_export"), Description("Export views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats. This writes files and requires the RiveTT ribbon write lock to be open. PDF takes the options of Revit's dialog (quality, color, paper, orientation, zoom, placement, combined file, file name template) and reports per file whether it exists, its size and whether it replaced an existing file.")]
     public static async Task<string> BatchExport(
         RevitConnectionManager revit,
         [Description("Output directory")] string outputDirectory,
@@ -655,9 +655,47 @@ public static class CreationTools
         [Description("Sheet IDs to export. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? sheetIds = null,
         [Description("View IDs to export. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? viewIds = null,
         [Description("This tool cannot preview: dryRun is refused with InvalidInput rather than honored. Default: false (applies immediately)")] bool dryRun = false,
+        [Description("PDF: raster quality low | medium | high | presentation")] string? rasterQuality = null,
+        [Description("PDF: vector quality in DPI (e.g. 300, 600, 1200)")] int? vectorQualityDpi = null,
+        [Description("PDF: color | grayscale | blackline")] string? colorMode = null,
+        [Description("PDF: paper format, e.g. A3, A4, ISO_A1, ANSI_B, Default")] string? paperFormat = null,
+        [Description("PDF: auto | landscape | portrait")] string? orientation = null,
+        [Description("PDF: \"fit\" (fit to page) — or use zoomPercent")] string? zoom = null,
+        [Description("PDF: zoom in percent, 10-400 (instead of fit)")] int? zoomPercent = null,
+        [Description("PDF: center | lowerleft | margins")] string? paperPlacement = null,
+        [Description("PDF: one combined file (name it with combinedFileName) instead of one file per sheet. Default: false")] bool combine = false,
+        [Description("PDF, combine=true: name of the combined file, without .pdf")] string? combinedFileName = null,
+        [Description("PDF, separate files: file name template with {number} and {name}, without .pdf, e.g. \"{number} - {name}\". Without it Revit names the file itself (\"Feuille-<name>.pdf\" in French)")] string? fileName = null,
+        [Description("PDF: replace a file of the same name (default: true). The answer says per file whether it replaced one (replacedExistingFile); false skips it instead")] bool overwriteExisting = true,
+        [Description("PDF: hide scope boxes")] bool? hideScopeBoxes = null,
+        [Description("PDF: hide reference planes")] bool? hideReferencePlanes = null,
+        [Description("PDF: hide crop boundaries")] bool? hideCropBoundaries = null,
+        [Description("PDF: hide view tags that reference no view")] bool? hideUnreferencedViewTags = null,
+        [Description("PDF: mask coincident lines")] bool? maskCoincidentLines = null,
+        [Description("PDF: show view links in blue")] bool? viewLinksInBlue = null,
+        [Description("PDF: replace halftone with thin lines")] bool? replaceHalftoneWithThinLines = null,
+        [Description("PDF: always rasterize")] bool? alwaysUseRaster = null,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["outputDirectory"] = outputDirectory, ["dryRun"] = dryRun };
+        var p = new JObject { ["outputDirectory"] = outputDirectory, ["dryRun"] = dryRun, ["combine"] = combine, ["overwriteExisting"] = overwriteExisting };
+        if (rasterQuality != null) p["rasterQuality"] = rasterQuality;
+        if (vectorQualityDpi != null) p["vectorQualityDpi"] = vectorQualityDpi;
+        if (colorMode != null) p["colorMode"] = colorMode;
+        if (paperFormat != null) p["paperFormat"] = paperFormat;
+        if (orientation != null) p["orientation"] = orientation;
+        if (zoom != null) p["zoom"] = zoom;
+        if (zoomPercent != null) p["zoomPercent"] = zoomPercent;
+        if (paperPlacement != null) p["paperPlacement"] = paperPlacement;
+        if (combinedFileName != null) p["combinedFileName"] = combinedFileName;
+        if (fileName != null) p["fileName"] = fileName;
+        if (hideScopeBoxes != null) p["hideScopeBoxes"] = hideScopeBoxes;
+        if (hideReferencePlanes != null) p["hideReferencePlanes"] = hideReferencePlanes;
+        if (hideCropBoundaries != null) p["hideCropBoundaries"] = hideCropBoundaries;
+        if (hideUnreferencedViewTags != null) p["hideUnreferencedViewTags"] = hideUnreferencedViewTags;
+        if (maskCoincidentLines != null) p["maskCoincidentLines"] = maskCoincidentLines;
+        if (viewLinksInBlue != null) p["viewLinksInBlue"] = viewLinksInBlue;
+        if (replaceHalftoneWithThinLines != null) p["replaceHalftoneWithThinLines"] = replaceHalftoneWithThinLines;
+        if (alwaysUseRaster != null) p["alwaysUseRaster"] = alwaysUseRaster;
         if (format != null) p["format"] = format;
         if (JsonOptionalParam.IsProvided(sheetIds))
         {

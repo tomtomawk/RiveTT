@@ -368,6 +368,83 @@ public static class ElementTools
         return result.ToString();
     }
 
+    [McpServerTool(Name = "measure_floor_top"), Description("Read-only: the top surface of floors and roofs (elementIds). Highest and lowest point of the upward-facing surface with x/y in mm and elevation as internalMm, projectMm (from the project base point) and sharedMm (shared coordinates, NGF if the project is georeferenced to it), the height difference, the slope % of the largest face and the level. Use it to check a ramp modelled as a sloped slab: the level elevation does not say where the top face ends.")]
+    public static async Task<string> MeasureFloorTop(
+        RevitConnectionManager revit,
+        [Description("Floor or roof element IDs")] long[] elementIds,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()) };
+        return (await revit.ExecuteAsync("measure_floor_top", p, ct)).ToString();
+    }
+
+    [McpServerTool(Name = "create_family_extrusion"), Description("Create an extrusion with a free profile in the ACTIVE FAMILY document (open a .rfa with open_family first). loops = closed loops of segments in mm, in sketch-plane coordinates {x,y}: line {type,start,end}, arc {type,start,mid,end} (mid ON the arc), nurbs {type,degree,knots,controlPoints,weights?}. The sketch plane is plane = plan | front | side, or origin + normal (the response gives its axes). start / end are the extrusion offsets from the plane, in mm. dryRun (default) validates the loops (closed, no self-intersection, no segment under 1.2 mm) and reports the curve types Revit would really create; a NURBS that Revit simplifies to a Line or Arc is listed in simplifiedCurves. NURBS use NurbSpline.CreateCurve: a HermiteSpline in a sketch is not editable as a spline.")]
+    public static async Task<string> CreateFamilyExtrusion(
+        RevitConnectionManager revit,
+        [Description("Closed loops of segments, JSON array of arrays: [[{\"type\":\"line\",\"start\":{\"x\":0,\"y\":0},\"end\":{\"x\":10,\"y\":0}}, ...]]")] System.Text.Json.JsonElement? loops = null,
+        [Description("Extrusion end offset from the sketch plane, in mm")] double? end = null,
+        [Description("Extrusion start offset from the sketch plane, in mm. Default: 0")] double start = 0,
+        [Description("Sketch plane preset: plan (normal +Z) | front (normal -Y, X right, Y up) | side (normal +X). Default: front. Ignored when normal is given")] string? plane = null,
+        [Description("Sketch plane origin {x,y,z} in mm (JSON object). Default: 0,0,0")] System.Text.Json.JsonElement? origin = null,
+        [Description("Sketch plane normal {x,y,z} (JSON object). Replaces the plane preset")] System.Text.Json.JsonElement? normal = null,
+        [Description("true = solid (default), false = void")] bool isSolid = true,
+        [Description("Material name in the family")] string? materialName = null,
+        [Description("Validate and preview without creating. Default: true")] bool dryRun = true,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["start"] = start, ["isSolid"] = isSolid, ["dryRun"] = dryRun };
+        if (end != null) p["end"] = end;
+        if (plane != null) p["plane"] = plane;
+        if (materialName != null) p["materialName"] = materialName;
+        if (JsonOptionalParam.IsProvided(loops))
+        {
+            if (!JsonArrayParam.TryParse(loops, out var loopsArray))
+                return JsonArrayParam.InvalidArrayResult("create_family_extrusion", "loops", loops);
+            p["loops"] = loopsArray;
+        }
+        if (JsonOptionalParam.IsProvided(origin))
+        {
+            if (!JsonObjectParam.TryParse(origin, out var originObj))
+                return JsonObjectParam.InvalidObjectResult("create_family_extrusion", "origin", origin);
+            p["origin"] = originObj;
+        }
+        if (JsonOptionalParam.IsProvided(normal))
+        {
+            if (!JsonObjectParam.TryParse(normal, out var normalObj))
+                return JsonObjectParam.InvalidObjectResult("create_family_extrusion", "normal", normal);
+            p["normal"] = normalObj;
+        }
+        return (await revit.ExecuteAsync("create_family_extrusion", p, ct)).ToString();
+    }
+
+    [McpServerTool(Name = "manage_text_notes"), Description("Read, search, replace or delete the text of text notes, keeping their formatting (bold, underline, all caps). action=read | find | replace | delete. Scope: elementIds, or viewIds / sheetIds, or scope=\"project\"; default the active view. The search ignores case unless caseSensitive=true and runs on the STORED text, so a note stored \"Volumétrie\" and displayed \"VOLUMÉTRIE\" (all caps) is found either way. replace and delete preview by default and return each note's text after the change. A note's text is not a parameter: export_elements_data reads it as the column \"Texte\" / \"Text\".")]
+    public static async Task<string> ManageTextNotes(
+        RevitConnectionManager revit,
+        [Description("Action: read | find | replace | delete. Default: read")] string? action = null,
+        [Description("Text to look for (find, replace, delete; optional filter for read)")] string? search = null,
+        [Description("Replacement text (replace). Use action=delete to remove the searched text")] string? replacement = null,
+        [Description("Match the case exactly. Default: false")] bool caseSensitive = false,
+        [Description("Match whole words only. Default: false")] bool wholeWord = false,
+        [Description("Text note element IDs")] long[]? elementIds = null,
+        [Description("Views whose notes are in scope")] long[]? viewIds = null,
+        [Description("Sheets whose notes are in scope")] long[]? sheetIds = null,
+        [Description("\"project\" = every text note of the project. Default: the active view")] string? scope = null,
+        [Description("Max notes returned. Default: 200")] int? limit = null,
+        [Description("Preview without changing the model (replace, delete). Default: true")] bool dryRun = true,
+        CancellationToken ct = default)
+    {
+        var p = new JObject { ["dryRun"] = dryRun, ["caseSensitive"] = caseSensitive, ["wholeWord"] = wholeWord };
+        if (action != null) p["action"] = action;
+        if (search != null) p["search"] = search;
+        if (replacement != null) p["replacement"] = replacement;
+        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (viewIds != null) p["viewIds"] = new JArray(viewIds.Cast<object>().ToArray());
+        if (sheetIds != null) p["sheetIds"] = new JArray(sheetIds.Cast<object>().ToArray());
+        if (scope != null) p["scope"] = scope;
+        if (limit != null) p["limit"] = limit;
+        return (await revit.ExecuteAsync("manage_text_notes", p, ct)).ToString();
+    }
+
     [McpServerTool(Name = "diagnose_room_enclosure"), Description("Read-only: shows where a room's enclosure is open or wrong. Returns the boundary loops (each segment's element id, category, start/end in mm), the discontinuities between segments, and freeEnds: room-bounding walls and separation lines within radiusMm of the room point whose end is joined to nothing, nearest first — where a leak starts. freeEnds is a heuristic that names candidates, it does not prove the leak. Works on an unenclosed room (area 0).")]
     public static async Task<string> DiagnoseRoomEnclosure(
         RevitConnectionManager revit,

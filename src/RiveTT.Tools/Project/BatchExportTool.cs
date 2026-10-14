@@ -21,7 +21,7 @@ public class BatchExportTool : IRiveTTTool
     public string Category => "Project";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Exports multiple views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats.";
+    public string Description => "Exports multiple views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats. PDF options: rasterQuality, vectorQualityDpi, colorMode, paperFormat, orientation, zoom/zoomPercent, paperPlacement, combine + combinedFileName, fileName template ({number}, {name}), overwriteExisting, hide/mask switches. Each PDF result carries path, exists, sizeBytes and replacedExistingFile.";
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
         var doc = session.Store.Get<object>("activeDocument") as Document;
@@ -170,34 +170,9 @@ public class BatchExportTool : IRiveTTTool
                 }
                 case "PDF":
                 {
-                    foreach (var id in allIds)
-                    {
-                        var view = doc.GetElement(id) as View;
-                        if (view == null) continue;
-                        var name = SanitizeFileName(view.Name);
-                        try
-                        {
-                            var pdfOptions = new PDFExportOptions
-                            {
-                                FileName = name,
-                                Combine = false
-                            };
-                            doc.Export(outputDir, new List<ElementId> { id }, pdfOptions);
-                            // Revit decorates the PDF name with the sheet-set prefix
-                            // ("Feuille-<name>.pdf" in French), so the guessed name was
-                            // wrong and pointed at a file that does not exist.
-                            results.Add(new
-                            {
-                                name = view.Name,
-                                file = ResolveWrittenFile(outputDir, name, ".pdf"),
-                                success = true
-                            });
-                        }
-                        catch (Exception ex)
-                        {
-                            results.Add(new { name = view.Name, success = false, reason = ex.Message });
-                        }
-                    }
+                    var pdf = ExportPdf(doc, allIds, outputDir, input);
+                    if (pdf.Failure != null) return pdf.Failure;
+                    results.AddRange(pdf.Results);
                     break;
                 }
                 default:
@@ -222,6 +197,206 @@ public class BatchExportTool : IRiveTTTool
                     + "call if it covered many elements. The full call, its duration and this error are "
                     + "in %LOCALAPPDATA%\\RiveTT\\audit.jsonl.");
         }
+    }
+
+    private sealed record PdfOutcome(List<object> Results, RiveTTResult<object>? Failure);
+
+    /// <summary>
+    /// PDF export with the options Revit's own dialog has. Until 0.6.2 nothing was exposed: the name
+    /// was imposed ("Feuille-&lt;name&gt;.pdf"), quality and paper could not be chosen, and nothing said
+    /// whether an existing file had been overwritten (field report, notices PC). Options (all optional):
+    /// rasterQuality low|medium|high|presentation; vectorQualityDpi; colorMode color|grayscale|blackline;
+    /// paperFormat (A3, ISO_A3, ANSI_B, Default...); orientation auto|landscape|portrait; zoom "fit" or
+    /// zoomPercent; paperPlacement center|lowerleft|margins; combine + combinedFileName; fileName (template with
+    /// {number}, {name}) for separate files; overwriteExisting; and the hide/mask switches.
+    /// </summary>
+    private static PdfOutcome ExportPdf(Document doc, List<ElementId> ids, string outputDir, JObject input)
+    {
+        var results = new List<object>();
+        var options = new PDFExportOptions();
+        var applied = new Dictionary<string, object>();
+
+        RiveTTResult<object>? Bad(string field, string given, IEnumerable<string> allowed) =>
+            RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"{field} '{given}' is not recognized.",
+                suggestion: $"Allowed: {string.Join(", ", allowed)}");
+
+        var raster = input["rasterQuality"]?.Value<string>();
+        if (raster != null)
+        {
+            if (!Enum.TryParse<RasterQualityType>(raster, true, out var rq))
+                return new PdfOutcome(results, Bad("rasterQuality", raster, Enum.GetNames<RasterQualityType>()));
+            options.RasterQuality = rq; applied["rasterQuality"] = rq.ToString();
+        }
+
+        var dpi = input["vectorQualityDpi"]?.Value<int?>();
+        if (dpi != null)
+        {
+            if (!Enum.TryParse<PDFExportQualityType>("DPI" + dpi, true, out var vq))
+                return new PdfOutcome(results, Bad("vectorQualityDpi", dpi.ToString()!, Enum.GetNames<PDFExportQualityType>()));
+            options.ExportQuality = vq; applied["vectorQuality"] = vq.ToString();
+        }
+
+        var color = input["colorMode"]?.Value<string>();
+        if (color != null)
+        {
+            var mapped = color.ToLowerInvariant() switch
+            {
+                "color" or "colour" or "couleur" => (ColorDepthType?)ColorDepthType.Color,
+                "grayscale" or "greyscale" or "gray" or "gris" => ColorDepthType.GrayScale,
+                "blackline" or "blackandwhite" or "bw" or "noirblanc" => ColorDepthType.BlackLine,
+                _ => null
+            };
+            if (mapped == null)
+                return new PdfOutcome(results, Bad("colorMode", color, new[] { "color", "grayscale", "blackline" }));
+            options.ColorDepth = mapped.Value; applied["colorMode"] = mapped.Value.ToString();
+        }
+
+        var paper = input["paperFormat"]?.Value<string>();
+        if (paper != null)
+        {
+            var key = paper.Trim().Replace(" ", "_");
+            if (!Enum.TryParse<ExportPaperFormat>(key, true, out var pf)
+                && !Enum.TryParse(key.Replace("A", "ISO_A", StringComparison.OrdinalIgnoreCase), true, out pf))
+                return new PdfOutcome(results, Bad("paperFormat", paper, Enum.GetNames<ExportPaperFormat>()));
+            options.PaperFormat = pf; applied["paperFormat"] = pf.ToString();
+        }
+
+        var orientation = input["orientation"]?.Value<string>();
+        if (orientation != null)
+        {
+            if (!Enum.TryParse<PageOrientationType>(orientation, true, out var po))
+                return new PdfOutcome(results, Bad("orientation", orientation, Enum.GetNames<PageOrientationType>()));
+            options.PaperOrientation = po; applied["orientation"] = po.ToString();
+        }
+
+        var placement = input["paperPlacement"]?.Value<string>();
+        if (placement != null)
+        {
+            if (!Enum.TryParse<PaperPlacementType>(placement, true, out var pp))
+                return new PdfOutcome(results, Bad("paperPlacement", placement, Enum.GetNames<PaperPlacementType>()));
+            options.PaperPlacement = pp; applied["paperPlacement"] = pp.ToString();
+        }
+
+        var zoom = input["zoom"]?.Value<string>();
+        var zoomPercent = input["zoomPercent"]?.Value<int?>();
+        if (zoomPercent != null || (zoom != null && !zoom.Equals("fit", StringComparison.OrdinalIgnoreCase)))
+        {
+            var percent = zoomPercent ?? (int.TryParse(zoom?.TrimEnd('%'), out var parsed) ? parsed : 0);
+            if (percent < 10 || percent > 400)
+                return new PdfOutcome(results, Bad("zoomPercent", percent.ToString(), new[] { "10..400, or zoom: \"fit\"" }));
+            options.ZoomType = ZoomType.Zoom; options.ZoomPercentage = percent; applied["zoomPercent"] = percent;
+        }
+        else if (zoom != null)
+        {
+            options.ZoomType = ZoomType.FitToPage; applied["zoom"] = "fit";
+        }
+
+        void Flag(string key, Action<bool> set)
+        {
+            var value = input[key]?.Value<bool?>();
+            if (value == null) return;
+            set(value.Value);
+            applied[key] = value.Value;
+        }
+        Flag("hideScopeBoxes", v => options.HideScopeBoxes = v);
+        Flag("hideReferencePlanes", v => options.HideReferencePlane = v);
+        Flag("hideCropBoundaries", v => options.HideCropBoundaries = v);
+        Flag("hideUnreferencedViewTags", v => options.HideUnreferencedViewTags = v);
+        Flag("maskCoincidentLines", v => options.MaskCoincidentLines = v);
+        Flag("viewLinksInBlue", v => options.ViewLinksInBlue = v);
+        Flag("replaceHalftoneWithThinLines", v => options.ReplaceHalftoneWithThinLines = v);
+        Flag("alwaysUseRaster", v => options.AlwaysUseRaster = v);
+
+        var overwrite = input["overwriteExisting"]?.Value<bool>() ?? true;
+        var combine = input["combine"]?.Value<bool>() ?? false;
+        var template = input["fileName"]?.Value<string>();
+        var existingBefore = new HashSet<string>(
+            Directory.GetFiles(outputDir, "*.pdf").Select(Path.GetFileName)!, StringComparer.OrdinalIgnoreCase);
+
+        if (combine)
+        {
+            var combinedName = SanitizeFileName(input["combinedFileName"]?.Value<string>() ?? "Export");
+            if (!overwrite && existingBefore.Contains(combinedName + ".pdf"))
+            {
+                results.Add(new { name = combinedName, success = false, skipped = true,
+                    reason = $"{combinedName}.pdf already exists and overwriteExisting is false." });
+                return new PdfOutcome(results, null);
+            }
+            options.Combine = true;
+            options.FileName = combinedName;
+            applied["combine"] = true;
+            try
+            {
+                doc.Export(outputDir, ids, options);
+                results.Add(DescribeFile(outputDir, combinedName + ".pdf", existingBefore, ids.Count, applied));
+            }
+            catch (Exception ex)
+            {
+                results.Add(new { name = combinedName, success = false, reason = ex.Message });
+            }
+            return new PdfOutcome(results, null);
+        }
+
+        options.Combine = false;
+        foreach (var id in ids)
+        {
+            var view = doc.GetElement(id) as View;
+            if (view == null) continue;
+            var sheetNumber = (view as ViewSheet)?.SheetNumber ?? "";
+            var wanted = SanitizeFileName(string.IsNullOrWhiteSpace(template)
+                ? view.Name
+                : template!.Replace("{number}", sheetNumber).Replace("{name}", view.Name));
+
+            if (!overwrite && template != null && existingBefore.Contains(wanted + ".pdf"))
+            {
+                results.Add(new { name = view.Name, success = false, skipped = true,
+                    reason = $"{wanted}.pdf already exists and overwriteExisting is false." });
+                continue;
+            }
+
+            try
+            {
+                options.FileName = wanted;
+                doc.Export(outputDir, new List<ElementId> { id }, options);
+                // Revit decorates a separate file's name with the sheet-set prefix ("Feuille-<name>.pdf" in
+                // French). Ask the folder what it wrote, then give it the requested name when one was asked.
+                var written = ResolveWrittenFile(outputDir, wanted, ".pdf");
+                if (!string.IsNullOrWhiteSpace(template) && !written.Equals(wanted + ".pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    var target = Path.Combine(outputDir, wanted + ".pdf");
+                    File.Move(Path.Combine(outputDir, written), target, overwrite: true);
+                    written = wanted + ".pdf";
+                }
+                results.Add(DescribeFile(outputDir, written, existingBefore, 1, applied, view.Name));
+            }
+            catch (Exception ex)
+            {
+                results.Add(new { name = view.Name, success = false, reason = ex.Message });
+            }
+        }
+        return new PdfOutcome(results, null);
+    }
+
+    /// <summary>The produced file, checked on disk: it exists, how big it is, and whether it replaced one.</summary>
+    private static object DescribeFile(string outputDir, string file, HashSet<string> existingBefore, int pages,
+        Dictionary<string, object> applied, string? name = null)
+    {
+        var path = Path.Combine(outputDir, file);
+        var info = new FileInfo(path);
+        return new
+        {
+            name = name ?? Path.GetFileNameWithoutExtension(file),
+            file,
+            path,
+            success = info.Exists,
+            exists = info.Exists,
+            sizeBytes = info.Exists ? info.Length : 0,
+            sheetsInFile = pages,
+            // A file of that name was already there before this export: Revit wrote over it.
+            replacedExistingFile = existingBefore.Contains(file),
+            options = applied
+        };
     }
 
     /// <summary>

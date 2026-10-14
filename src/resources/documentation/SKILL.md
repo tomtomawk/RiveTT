@@ -1068,6 +1068,64 @@ absents du relevé reviennent. Le relevé est abandonné au changement de docume
   (`surfaceForegroundPatternId`, `cutForegroundPatternId`, `cutColorR/G/B`) et `categories` ;
   `batch_create_sheets` : `sheetCollection` ; `duplicate_view` : `newName`.
 
+#### send_code_to_revit : sauvegarde, arguments, comptes rendus (0.6.2)
+
+- **Le script est sauvegardé dans tous les cas** sous son `scriptName` : à l'aperçu (`dryRun`),
+  après un refus du bac à sable, après une erreur de compilation, après une exécution. On
+  enchaîne `dryRun` → `fromScript` + `edits` → exécution sans renvoyer le code. L'erreur
+  rappelle où il est (`scriptSavedTo`, `correctWith`).
+- **Gros arguments** : `scriptArgsFile` (un nom de `.json` placé dans
+  `%LOCALAPPDATA%\RiveTT\scripts\`, lu côté serveur, pas dans le bac à sable) ; ou `fromScript`
+  sans `scriptArgs`, qui reprend les derniers arguments du script ; `mergeScriptArgs: true`
+  superpose `scriptArgs` aux arguments sauvegardés, seules les valeurs changées voyagent.
+  `scriptArgsSource` dit d'où ils viennent.
+- **`scriptRun.changes` est compact par défaut** : tous les comptes, mais des identifiants
+  seulement pour les éléments de premier niveau (extrusions, familles) ; les lignes
+  d'esquisse et de modèle sont comptées (`createdAuxiliaryCount`). `verboseChanges: true`
+  rend les listes complètes.
+- **Erreurs de compilation** : en plus du numéro de ligne, les membres publics du type les
+  plus proches du nom inconnu, et les erreurs d'API connues (`FormattedText` n'a pas
+  `Replace` : `Find` + `SetPlainText` + `TextNote.SetFormattedText`). La réflexion reste
+  interdite : pour vérifier qu'une méthode existe, `RevitAPI.xml` dans le dossier de Revit.
+- **`System.IO` est refusé** : `list_files(directory)` (lecture) vérifie qu'un export existe,
+  avec taille et date.
+- **`HermiteSpline` donne une spline non éditable dans l'esquisse** : préférer
+  `NurbSpline.CreateCurve`. C'est ce que fait `create_family_extrusion`.
+
+#### Notes textuelles, familles, exports, altitudes (0.6.2)
+
+- **`manage_text_notes`** : `read`, `find`, `replace`, `delete` sur le texte des notes (portée :
+  `elementIds`, `viewIds`, `sheetIds`, `scope: "project"`, sinon la vue active). Le
+  remplacement passe par `FormattedText` : gras, souligné et majuscules sont conservés. La
+  recherche ignore la casse par défaut et porte sur le texte **stocké** : une note stockée
+  « Volumétrie » et affichée « VOLUMÉTRIE » (majuscules) est trouvée dans les deux écritures.
+  `replace` et `delete` prévisualisent (`dryRun`) avec le texte résultant de chaque note. Le
+  texte d'une note n'est **pas un paramètre** : `export_elements_data` le rend dans la colonne
+  « Texte » / « Text » (filtrable), `get_element_parameters` dans `text`. La catégorie
+  « Text Notes » est reconnue.
+- **`create_family_extrusion`** (dans la famille active, `open_family` d'abord) : `loops` en mm,
+  `line`, `arc` par trois points (le milieu **sur** l'arc), `nurbs` (degré, nœuds, points de
+  contrôle, poids) ; plan `plan | front | side` ou `origin` + `normal` ; `start`, `end`,
+  `isSolid`, `materialName`. `dryRun` valide (fermeture, auto-intersection, segment sous
+  1,2 mm) et rend les types de courbes réellement créés (`simplifiedCurves` : une NURBS que
+  Revit réduit à une ligne ou un arc).
+- **`batch_export` PDF** : `rasterQuality`, `vectorQualityDpi`, `colorMode`, `paperFormat`,
+  `orientation`, `zoom` / `zoomPercent`, `paperPlacement`, `combine` + `combinedFileName`,
+  `fileName` (gabarit `{number}`, `{name}`), `overwriteExisting`, et les interrupteurs
+  `hide…` / `maskCoincidentLines`. Chaque fichier revient avec `path`, `exists`, `sizeBytes`
+  et `replacedExistingFile`.
+- **Altitudes** : `get_project_info` donne par niveau `elevation` (depuis l'origine
+  interne), `projectElevationMm` (depuis le point de base du projet) et `sharedElevationMm`
+  (coordonnées partagées : **NGF** si le projet est géoréférencé sur le NGF),
+  plus `elevationReference`. `measure_floor_top(elementIds)` lit la face supérieure d'une dalle
+  ou d'un toit (point haut et bas, trois altitudes, pente). Sur un toit, « Niveau » se résout
+  en « Niveau de base », et « Pente » est reconnu.
+- **`capture_view`** : `fitToModel: true` cadre sur l'emprise des éléments de modèle visibles
+  (une élévation de famille sans zone cadrée rendait une image presque vide) et donne la
+  correspondance pixels/mm **dans les axes de la vue** (`originTopLeftModelMm`,
+  `rightDirection`, `upDirection`) ; la sélection de l'utilisateur est masquée dans l'image
+  puis restaurée (`hideSelection`).
+
 #### Cotes
 
 Le Z passé à `create_dimensions` doit correspondre **exactement** à l'altitude du

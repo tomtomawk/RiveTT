@@ -26,7 +26,8 @@ public static class VisualTools
         "(model = left + px * mmPerPixel, top - py * mmPerPixel). Use it after every significant write: one plan per " +
         "level changed plus one 3D view. Options are applied to a temporary copy rolled back afterwards: bboxMm " +
         "[xmin,ymin,xmax,ymax] crops a plan to a zone, highlightIds paints elements red, isolateCategories keeps only " +
-        "some OST_* categories, detailLevel and displayStyle override the view. Nothing is modified in the model; works " +
+        "some OST_* categories, detailLevel and displayStyle override the view, fitToModel frames the visible model " +
+        "(an elevation of a family, with its mapping in the view axes). The user's selection is hidden in the image and restored. Nothing is modified in the model; works " +
         "while RiveTT is locked. About 1 500-2 000 tokens per image at 1600 px. If the image does not reach you, call " +
         "test_image_relay, then use returnMode=file.")]
     public static async Task<CallToolResult> CaptureView(
@@ -39,11 +40,14 @@ public static class VisualTools
         [Description("Temporary display style: HLR | Shading | ShadingWithEdges | Realistic | Wireframe")] string? displayStyle = null,
         [Description("Element ids to paint red, JSON array, e.g. [10639950, 10640392]")] System.Text.Json.JsonElement? highlightIds = null,
         [Description("Categories to keep, all others hidden, JSON array of OST_* codes, e.g. [\"OST_Furniture\",\"OST_Walls\"]")] System.Text.Json.JsonElement? isolateCategories = null,
+        [Description("Frame the capture on the extent of the visible MODEL elements (levels, grids, reference planes and annotations left out) plus fitMarginMm: for an elevation of a family or any view whose own crop is far larger than the model. Gives the pixel-to-model mapping in the view's axes (originTopLeftModelMm, rightDirection, upDirection). Ignored when bboxMm is given. Default: false")] bool fitToModel = false,
+        [Description("Margin around the model extent for fitToModel, in mm. Default: 10")] double fitMarginMm = 10,
+        [Description("Hide the user's current selection in the image (its handles and blue frame), restored afterwards. Default: true")] bool hideSelection = true,
         [Description("png (default, sharp lines) | jpg (smaller, for shaded 3D)")] string? format = null,
         [Description("inline (default): image in the answer | file: keep it under %TEMP%\\RiveTT\\captures and return the path only | both")] string? returnMode = null,
         CancellationToken ct = default)
     {
-        var p = new JObject { ["pixelSize"] = pixelSize };
+        var p = new JObject { ["pixelSize"] = pixelSize, ["fitToModel"] = fitToModel, ["fitMarginMm"] = fitMarginMm, ["hideSelection"] = hideSelection };
         if (viewId != null) p["viewId"] = viewId;
         if (viewName != null) p["viewName"] = viewName;
         if (detailLevel != null) p["detailLevel"] = detailLevel;

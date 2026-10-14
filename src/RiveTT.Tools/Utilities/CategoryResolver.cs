@@ -62,6 +62,12 @@ public static class CategoryResolver
             { "Ramps", BuiltInCategory.OST_Ramps },
             { "StructuralFoundation", BuiltInCategory.OST_StructuralFoundation },
             { "Foundations", BuiltInCategory.OST_StructuralFoundation },
+            // "Text Notes" (with a space, as Revit prints it) was refused: only OST_TextNotes passed.
+            { "Text Notes", BuiltInCategory.OST_TextNotes },
+            { "TextNotes", BuiltInCategory.OST_TextNotes },
+            { "Viewports", BuiltInCategory.OST_Viewports },
+            { "Title Blocks", BuiltInCategory.OST_TitleBlocks },
+            { "TitleBlocks", BuiltInCategory.OST_TitleBlocks },
         };
 
     /// <summary>

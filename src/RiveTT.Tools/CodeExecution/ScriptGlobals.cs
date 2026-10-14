@@ -20,4 +20,7 @@ public class ScriptGlobals
     /// values instead of being re-sent with the numbers edited in.
     /// </summary>
     public JObject scriptArgs { get; set; } = new JObject();
+
+    /// <summary>send_code_to_revit verboseChanges: list every created/deleted id in scriptRun.changes.</summary>
+    public bool VerboseChanges { get; set; }
 }

@@ -48,6 +48,9 @@ public static class RoslynExecutor
 
     private const int MaxReportedIds = 200;
 
+    /// <summary>Set per run by Execute (tools run one at a time on the Revit thread); read when the change report is built.</summary>
+    private static bool VerboseChangesRequested;
+
     private static MethodInfo? _compileMethod;
     private static readonly object _compileLock = new object();
 
@@ -89,6 +92,7 @@ public static class RoslynExecutor
                 suggestion: "Internal loading error, not a problem with your code.");
         }
 
+        VerboseChangesRequested = globals.VerboseChanges;
         var invokeArgs = new object[] { globals.document, globals.uiDocument, globals.app, globals.scriptArgs ?? new JObject() };
         var context = ScriptApi.Begin(globals.document, mode, prefixLines);
         using var changes = new DocumentChangeTracker(globals.app, globals.document);
@@ -682,6 +686,10 @@ public static class RoslynExecutor
         private readonly HashSet<long> _added = new HashSet<long>();
         private readonly HashSet<long> _modified = new HashSet<long>();
         private readonly HashSet<long> _deleted = new HashSet<long>();
+        // Created elements that are only scaffolding of another one: sketch lines, model lines,
+        // sketch planes. A family built from a script creates hundreds, and listing their ids cost
+        // thousands of tokens per call for no information (field report, ferronnerie session).
+        private readonly HashSet<long> _auxiliary = new HashSet<long>();
         private bool _undone;
         private bool _subscribed;
 
@@ -713,7 +721,21 @@ public static class RoslynExecutor
                     _undone = true;
                     return;
                 }
-                foreach (var id in e.GetAddedElementIds()) _added.Add(ToolHelpers.GetElementIdValue(id));
+                foreach (var id in e.GetAddedElementIds())
+                {
+                    var value = ToolHelpers.GetElementIdValue(id);
+                    _added.Add(value);
+                    try
+                    {
+                        var element = _document.GetElement(id);
+                        if (element is CurveElement || element is Sketch || element is SketchPlane || element?.Category == null)
+                            _auxiliary.Add(value);
+                    }
+                    catch
+                    {
+                        // Unclassified counts as top level: never hide an element on a doubt.
+                    }
+                }
                 foreach (var id in e.GetModifiedElementIds())
                 {
                     var value = ToolHelpers.GetElementIdValue(id);
@@ -737,6 +759,9 @@ public static class RoslynExecutor
         {
             if (!_subscribed)
                 return new JObject { ["captured"] = false, ["reason"] = "DocumentChanged could not be observed" };
+            if (!VerboseChangesRequested)
+                return ToCompactReport();
+
             var report = new JObject
             {
                 ["captured"] = true,
@@ -749,6 +774,40 @@ public static class RoslynExecutor
             };
             if (_added.Count > maxIds || _modified.Count > maxIds || _deleted.Count > maxIds)
                 report["idsTruncatedAt"] = maxIds;
+            if (_undone)
+                report["note"] = "Part of the run was rolled back or undone; the ids above only count committed transactions.";
+            return report;
+        }
+
+        /// <summary>
+        /// The default report: every COUNT, but ids only for the top-level elements (extrusions,
+        /// family instances, ...) and, for what was deleted or modified, only a short list. The
+        /// scaffolding — sketch and model lines — is counted, not listed. verboseChanges: true
+        /// gives the complete lists.
+        /// </summary>
+        private JObject ToCompactReport()
+        {
+            const int topLevelLimit = 50;
+            const int shortList = 20;
+            var topLevel = _added.Where(id => !_auxiliary.Contains(id)).OrderBy(id => id).ToList();
+            var report = new JObject
+            {
+                ["captured"] = true,
+                ["createdCount"] = _added.Count,
+                ["createdTopLevelCount"] = topLevel.Count,
+                ["createdAuxiliaryCount"] = _auxiliary.Count(id => _added.Contains(id)),
+                ["modifiedCount"] = _modified.Count,
+                ["deletedCount"] = _deleted.Count,
+                ["createdElementIds"] = new JArray(topLevel.Take(topLevelLimit)),
+            };
+            if (_modified.Count <= shortList)
+                report["modifiedElementIds"] = new JArray(_modified.OrderBy(id => id));
+            if (_deleted.Count <= shortList)
+                report["deletedElementIds"] = new JArray(_deleted.OrderBy(id => id));
+            if (topLevel.Count > topLevelLimit || _modified.Count > shortList || _deleted.Count > shortList
+                || report["createdAuxiliaryCount"]!.Value<int>() > 0)
+                report["idsOmitted"] = "Counts only for sketch/model lines and for long lists; pass verboseChanges: true "
+                                       + "for every created, modified and deleted id.";
             if (_undone)
                 report["note"] = "Part of the run was rolled back or undone; the ids above only count committed transactions.";
             return report;

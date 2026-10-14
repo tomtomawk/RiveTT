@@ -63,6 +63,7 @@ public static class ParameterNameResolver
                 BuiltInParameter.SCHEDULE_LEVEL_PARAM,
                 BuiltInParameter.ROOM_LEVEL_ID,
                 BuiltInParameter.WALL_BASE_CONSTRAINT,
+                BuiltInParameter.ROOF_BASE_LEVEL_PARAM,
                 BuiltInParameter.LEVEL_PARAM,
             },
             ["niveau"] = new[]
@@ -71,8 +72,13 @@ public static class ParameterNameResolver
                 BuiltInParameter.SCHEDULE_LEVEL_PARAM,
                 BuiltInParameter.ROOM_LEVEL_ID,
                 BuiltInParameter.WALL_BASE_CONSTRAINT,
+                BuiltInParameter.ROOF_BASE_LEVEL_PARAM,
                 BuiltInParameter.LEVEL_PARAM,
             },
+            ["base level"] = new[] { BuiltInParameter.ROOF_BASE_LEVEL_PARAM, BuiltInParameter.WALL_BASE_CONSTRAINT, BuiltInParameter.LEVEL_PARAM },
+            ["niveau de base"] = new[] { BuiltInParameter.ROOF_BASE_LEVEL_PARAM, BuiltInParameter.WALL_BASE_CONSTRAINT, BuiltInParameter.LEVEL_PARAM },
+            ["slope"] = new[] { BuiltInParameter.ROOF_SLOPE },
+            ["pente"] = new[] { BuiltInParameter.ROOF_SLOPE },
             ["width"] = new[]
             {
                 BuiltInParameter.DOOR_WIDTH,
