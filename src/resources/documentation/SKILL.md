@@ -1390,7 +1390,7 @@ Sources vérifiées le 7 septembre 2026 :
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-09-27 — connecteur 0.6.1 — **207 outils publiés**, 204 classes runtime.
+Relevé du 2026-10-14 — connecteur 0.6.2 — **212 outils publiés**, 209 classes runtime.
 
 ### Comment lire ce document
 
@@ -1411,26 +1411,26 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 
 | Mesure | Valeur |
 |---|---|
-| Outils publiés | **207** |
-| Dont écriture | **139** (67 %) — c'est la part que le verrou du ruban gouverne |
-| Écritures sans `dryRun` | **37** sur 139 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
+| Outils publiés | **212** |
+| Dont écriture | **141** (67 %) — c'est la part que le verrou du ruban gouverne |
+| Écritures sans `dryRun` | **35** sur 141 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
 | Défauts critiques et majeurs corrigés | **8**, gardés par `ConfirmedDefectFixSourceTests` |
 | Lacunes API comblées depuis le relevé précédent | **16** sur 19 |
 | Erreurs génériques `Failed: …` sans suggestion | **1** |
 | Géométrie par boîte englobante | **15** |
-| Classement `[ToolSafety]` en désaccord avec le nom | **14** |
-| Défauts confirmés / signaux à vérifier | **0** / **12** |
+| Classement `[ToolSafety]` en désaccord avec le nom | **15** |
+| Défauts confirmés / signaux à vérifier | **0** / **14** |
 
 ### Répartition par catégorie
 
 | Catégorie | Outils | Part |
 |---|---:|---:|
-| Elements | 68 | 33 % |
-| Project | 50 | 24 % |
-| IFC | 20 | 10 % |
+| Elements | 71 | 33 % |
+| Project | 51 | 24 % |
+| IFC | 20 | 9 % |
 | Views | 15 | 7 % |
 | LinkedFiles | 10 | 5 % |
-| Annotations | 9 | 4 % |
+| Annotations | 10 | 5 % |
 | Parameters | 8 | 4 % |
 | Documents | 8 | 4 % |
 | Sheets | 5 | 2 % |
@@ -1443,7 +1443,7 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 
 Le ferraillage et la charpente métallique — 112 outils, 38 % de la surface — ont été
 retirés du dépôt, pas filtrés. Ce qui reste est le catalogue que l'agent lit à chaque
-session : 207 outils dont 67 % d'écriture, tous dans le périmètre logement,
+session : 212 outils dont 67 % d'écriture, tous dans le périmètre logement,
 équipement, tertiaire et santé.
 
 ### Défauts corrigés
@@ -1488,6 +1488,8 @@ documentation.
 | `create_wall` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : baseLevelId, baseOffset |
 | `detach_wall_constraint` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `duplicate_family_type` | clé imbriquée annoncée, absente du runtime : paramName |
+| `duplicate_sheet_with_content` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : copies, copyAnnotations, copyRevisions, duplicateViews, keepLegends, keepSchedules, newName, newNumber, sheetId, sheetNumberPrefix, sheetNumberSuffix, viewDuplicateOption, viewNameSuffix |
+| `duplicate_sheet_with_views` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : copies, copyAnnotations, copyRevisions, duplicateViews, keepLegends, keepSchedules, newName, newNumber, newSheetNumberPrefix, sheetId, sheetNumberSuffix, viewDuplicateOption, viewNameSuffix |
 | `duplicate_storey` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `filter_by_parameter_value` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : elementIds |
 | `open_document` | paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : filePath |
@@ -1497,7 +1499,7 @@ documentation.
 
 ### Inventaire complet
 
-#### Elements — 68 outils
+#### Elements — 71 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
@@ -1526,11 +1528,11 @@ documentation.
 | `get_linked_elements` | lecture | — | 5 | Query elements from linked Revit models with optional filtering. parameterNames is additive — without it only basic fields are returned. | — |
 | `import_from_excel` | écriture destructif | oui | 5 | Import parameter values from an Excel file into Revit elements. | — |
 | `manage_model_groups` | écriture destructif | oui | 5 | Inventory model groups, duplicate a group type and optionally swap selected instances, or ungroup selected model groups. Write actions preview by defa… | — |
-| `modify_element` | écriture | oui | 5 | Move, rotate, mirror, or copy elements. Vectors are {"x":mm,"y":mm,"z":mm} JSON objects. move needs translation; rotate needs rotationCenter + rotatio… | — |
+| `modify_element` | écriture | oui | 5 | Move, rotate, mirror, copy elements, or set_endpoints: shorten or extend a straight wall (or beam...) by giving its new start and/or end point {x,y[,z… | — |
 | `renumber_elements` | écriture destructif | oui | 5 | Renumber rooms/doors/windows by location or name. Writes into the specified parameter; supports prefix/suffix and start/increment. | — |
 | `set_element_parameters` | écriture destructif | oui | 5 | Set parameter values on one or more elements. Pass requests as a JSON-encoded array string. Supports parameterName by display name and builtInParamete… | — |
 | `color_elements` | écriture | oui | 4 | Color a view's elements of a category by grouping them on a parameter value, or reset (clear) those color overrides. action=color\|reset. Pass viewId t… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : viewId |
-| `duplicate_family_type` | écriture | — | 4 | Duplicate a loadable family type with a new name and optional parameter overrides. | **signal** — clé imbriquée annoncée, absente du runtime : paramName |
+| `duplicate_family_type` | écriture | oui | 4 | Duplicate a loadable family type with a new name and optional parameter overrides. In parameterOverrides a bare number on a LENGTH parameter is millim… | **signal** — clé imbriquée annoncée, absente du runtime : paramName |
 | `add_curtain_grid_line` | écriture | — | 4 | Adds a grid line to an existing curtain wall/system's grid (create the wall itself with create_line_based_element and a curtain wall type). hostElemen… | **mineur** — pas de dryRun |
 | `add_curtain_mullions` | écriture | — | 4 | Adds mullions to an existing curtain wall/system's grid lines. hostElementId and mullionTypeId are required; applies to every ungridded segment unless… | **mineur** — pas de dryRun |
 | `capture_selection` | lecture | — | 4 | Capture explicit element IDs or the current Revit selection as a reusable temporary token. Tokens expire and are scoped to the active document session… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
@@ -1540,7 +1542,6 @@ documentation.
 | `create_structural_framing_system` | écriture | — | 4 | Create a beam system on a level over a rectangular area. Default builds a real associative Revit BeamSystem (editable layout); set associative=false f… | **mineur** — pas de dryRun |
 | `create_surface_based_element` | écriture | — | 4 | Create surface-based elements: floors, ceilings, or roofs (OST_Floors, OST_Ceilings, OST_Roofs — a roof is a real FootPrintRoof, Document.Create.NewFo… | **mineur** — pas de dryRun |
 | `create_toposolid` | écriture | — | 4 | Creates a Toposolid (site/ground surface) from a closed boundary loop (Toposolid.Create). toposolidTypeId and levelId are required — list types with l… | **mineur** — pas de dryRun |
-| `load_family` | écriture | — | 4 | Load a family into the Revit project, or reload one already there (e.g. after editing its .rfa outside Revit). Also lists loaded families or duplicate… | **mineur** — pas de dryRun |
 | `manage_view_display` | écriture | — | 4 | Select, highlight, isolate, hide, or zoom to elements in the active view. Actions: select, selectionbox, setcolor, settransparency, hide, temphide, is… | **mineur** — pas de dryRun |
 | `measure_between_elements` | lecture | — | 4 | Measure distance between two elements or two points in mm. Provide either elementId1/elementId2, or point1/point2 (as JSON arrays [x,y,z]). | **mineur** — géométrie par boîte englobante |
 | `change_element_type` | écriture destructif | oui | 4 | Change the type of one or more elements to a target type specified by ID or name. | — |
@@ -1556,26 +1557,30 @@ documentation.
 | `get_element_solid_geometry` | lecture | — | 4 | Get an element's REAL solid geometry (bounding box, centroid, volume m3, face/edge counts AND inferred cross-section shape: circular/rectangular/compl… | — |
 | `get_elements_in_spatial_volume` | lecture | — | 4 | Find elements within a 3D bounding box or room volume. volumeType=room uses volumeIds; volumeType=custom uses customMinX..customMaxZ. | — |
 | `get_room_openings` | lecture | — | 4 | Get doors/windows adjacent to rooms with dimensions. Filter by roomIds, roomNumbers, or levelName. | — |
+| `load_family` | écriture | oui | 4 | Load a family into the Revit project, or reload one already there (e.g. after editing its .rfa outside Revit). action="load_from_open" loads a family… | — |
 | `manage_selection` | écriture destructif | oui | 4 | CRUD on named saved selections (SelectionFilterElement). action=save\|load\|list\|delete. name is required for save/load/delete (ignored for list). save:… | — |
 | `match_element_properties` | écriture destructif | oui | 4 | Copy parameter values from one source element to one or more target elements. | — |
 | `set_element_phase` | écriture | oui | 4 | Assign created/demolished phase to elements. Pass a JSON array of requests: [{elementId, createdPhaseId?, demolishedPhaseId?}]. The older names phaseC… | — |
 | `set_element_workset` | écriture | oui | 4 | Move elements to a different workset. Pass a JSON array of requests: [{elementId, worksetName}]. Worksets are resolved by name only. | — |
 | `set_material_properties` | écriture destructif | oui | 4 | Set identity, appearance, product info, and asset assignments on Revit materials. Each request is a FLAT object keyed by materialId plus any of: name,… | — |
+| `diagnose_room_enclosure` | lecture | — | 3 | Read-only: shows where a room's enclosure is open or wrong. Returns the boundary loops (each segment's element id, category, start/end in mm), the dis… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `attach_walls` | écriture | oui | 3 | Attach (or detach) the top or base of walls to a roof, floor, ceiling, toposolid or wall, ONE WALL PER TRANSACTION. Each refusal comes back in failed[… | — |
+| `create_family_extrusion` | écriture | oui | 3 | Create an extrusion with a free profile in the ACTIVE FAMILY document (open a .rfa with open_family first). loops = closed loops of segments in mm, in… | — |
 | `describe_family` | lecture | — | 3 | Measure a loadable family type around its insertion point BEFORE placing it: placement type and the Z rule that goes with it (level-based: relative; h… | — |
 | `edit_family` | écriture destructif | oui | 3 | Edits a loaded family's type parameters in the background - no window opens. Pass familyId or familyName, and changes as JSON: [{typeName, parameters:… | — |
+| `measure_floor_top` | lecture | — | 3 | Read-only: the top surface of floors and roofs (elementIds). Highest and lowest point of the upward-facing surface with x/y in mm and elevation as int… | — |
 | `place_in_room` | écriture | oui | 3 | Place a level-based family (bed, WC, shower, sink, sofa, bike...) IN A ROOM by its VISIBLE footprint, not its insertion point: it is placed on the roo… | — |
 | `rename_families` | écriture destructif | oui | 3 | Rename loaded families (and optionally their types) with find/replace, prefix, or suffix operations. | — |
 | `detach_wall_constraint` | écriture destructif | oui | 2 | Preview or detach wall top-level constraints or Revit 2027 top/base attachments. Grouped walls are reported and skipped instead of rolling back unrela… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
 | `create_assembly` | écriture | — | 2 | Groups elements into an AssemblyInstance (prefabrication/shop drawings), or splits them into Parts (demolition/phasing sequencing). action=create_asse… | **mineur** — pas de dryRun |
 | `get_elements_by_unique_id` | lecture | — | 2 | Resolve Revit UniqueId strings to ElementId records for cross-app workflows. | — |
 
-#### Project — 50 outils
+#### Project — 51 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
 | `duplicate_storey` | écriture destructif | oui | 5 | Preview or transactionally duplicate model elements from one level to a target elevation. Reports view-specific, grouped, and constrained dependencies… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : allowedWarningIds, warningPolicy |
-| `batch_export` | écriture | — | 5 | Export views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats. This writes files and requires the RiveTT ribbon write lock to be open. | **mineur** — pas de dryRun |
+| `batch_export` | écriture | — | 5 | Export views/sheets to DWG, DXF, DGN, PDF, or image (PNG) formats. This writes files and requires the RiveTT ribbon write lock to be open. PDF takes t… | **mineur** — pas de dryRun |
 | `create_revision` | écriture | — | 5 | List, create, update, or assign revisions to sheets, and draw revision clouds. action=list\|create\|set\|add_to_sheets\|create_cloud. 'set' updates an exi… | **mineur** — pas de dryRun |
 | `export_schedule` | écriture | — | 5 | Export a schedule as JSON, or write it to a CSV/TSV file. Without exportPath the data comes back inline; with exportPath the file is written using del… | **mineur** — pas de dryRun ; classement déclaré (écriture) différent du préfixe du nom |
 | `check_model_health` | lecture | — | 5 | Run a model health check and return a health score. | — |
@@ -1588,10 +1593,10 @@ documentation.
 | `list_materials` | lecture | — | 5 | List materials in the active Revit document. nameFilter and materialClass narrow the list inside Revit - a real project carries 200+ materials. | — |
 | `list_schedulable_fields` | lecture | — | 5 | Discover available schedulable fields for a category. | — |
 | `list_system_types` | lecture | — | 5 | List the system types of a category: walls, floors, ceilings, roofs, railings, stairs, ramps, viewports, text, dimensions. To include title blocks and… | — |
-| `list_warnings` | lecture | — | 5 | Get model warnings from the active Revit document. | — |
+| `list_warnings` | lecture | — | 5 | Get model warnings from the active Revit document. To check that edits added none: call once with snapshot=true (unfiltered), edit, then call with sin… | — |
 | `list_worksets` | lecture | — | 5 | List all worksets in the active Revit document. | — |
 | `manage_links` | écriture destructif | oui | 5 | List, reload, reload-from-path, unload, or remove linked files. To add a NEW link use add_linked_file instead. | — |
-| `place_title_block` | écriture | oui | 5 | Place a title block instance on an existing sheet. Use it to repair a sheet that has no frame. Call it without titleBlockId to get the list of title b… | — |
+| `place_title_block` | écriture | oui | 5 | Place a title block instance on an existing sheet at positionX/positionY (mm). A sheet may carry several: calling it on a sheet that already has one a… | — |
 | `purge_unused` | écriture destructif | oui | 5 | Purge unused families/types and materials, and optionally unreferenced view templates and view filters, from the project. | — |
 | `synchronize_with_central` | écriture destructif | oui | 5 | Synchronizes the local model with the workshared central file. AFFECTS THE WHOLE TEAM, not just this session, and cannot be undone from here. Requires… | — |
 | `create_key_schedule` | écriture | — | 4 | Creates a key schedule (ViewSchedule.CreateKeySchedule) — a reusable finish/typology key table (room finish keys, dwelling-unit typologies), different… | **mineur** — pas de dryRun |
@@ -1622,6 +1627,7 @@ documentation.
 | `set_project_info` | écriture | oui | 4 | Set editable Project Information fields. Only the fields you pass are changed; others are left untouched. | — |
 | `export_shared_parameter_file` | lecture | — | 3 | Export shared parameter file contents | — |
 | `get_material_properties` | lecture | — | 3 | Get detailed material properties (physical, thermal, appearance) by material ID or name. | — |
+| `list_files` | lecture | — | 3 | List the files of a folder under the user's Documents, Desktop, Downloads, profile or temp: name, size and last write time, newest first. Read-only. U… | — |
 | `validate_dwelling` | lecture | — | 3 | Check the dwellings of a level AS BUILT in Revit against the same rules as validate_spec. A dwelling is the set of rooms of the level sharing a value… | — |
 | `list_family_sizes` | lecture | — | 2 | List loaded families with type/instance counts and, when includeSize=true, the family file size in KB measured by exporting each family to a temp file… | — |
 
@@ -1657,9 +1663,9 @@ documentation.
 | `apply_view_template` | écriture | — | 5 | List, apply, or remove view templates from views. action=list\|apply\|remove. | **mineur** — pas de dryRun |
 | `create_view_filter` | écriture | — | 5 | Create, apply, or list parameter-based view filters. action=create\|apply\|list. A filter carries one rule (parameterName/filterRule/filterValue) or sev… | **mineur** — pas de dryRun |
 | `create_view` | écriture | oui | 5 | Create a new view in Revit: floor plan, ceiling plan, section, elevation, drafting, callout, or 3D view. | — |
-| `duplicate_view` | écriture | oui | 5 | Duplicate an existing view in Revit. | — |
-| `manage_view_templates` | écriture destructif | oui | 5 | List, duplicate, delete, or rename view templates. action=list\|duplicate\|delete\|rename. | — |
-| `override_graphics` | écriture | oui | 5 | Override element graphics in a view (colors, transparency, halftone, line weight). | — |
+| `duplicate_view` | écriture | oui | 5 | Duplicate an existing view in Revit. newName sets the exact name of the copy; newNamePrefix / newNameSuffix wrap the source name. A name Revit refuses… | — |
+| `manage_view_templates` | écriture destructif | oui | 5 | List, duplicate, delete, rename or create view templates. action=list\|duplicate\|delete\|rename\|create_from_view. duplicate is refused by Revit on some… | — |
+| `override_graphics` | écriture | oui | 5 | Override element graphics in a view (colors, transparency, halftone, line weight). action=hide_category \| show_category hides or shows whole categorie… | — |
 | `place_viewport` | écriture | oui | 5 | Place a view on a sheet as a viewport. positionX/positionY are the viewport CENTRE in mm in sheet coordinates; omit both to centre it on the sheet. Th… | — |
 | `create_section_box_from_selection` | écriture | oui | 4 | Create a 3D section box from selected elements | **mineur** — géométrie par boîte englobante |
 | `create_views_from_rooms` | écriture | oui | 4 | Create callout, section, or elevation views from rooms with a naming pattern. | **mineur** — géométrie par boîte englobante |
@@ -1685,7 +1691,7 @@ documentation.
 | `move_link_instance` | écriture | oui | 2 | Moves a linked file instance. mode=delta applies (x,y,z) as an offset; mode=absolute places the origin at (x,y,z). Values are in mm. | — |
 | `pin_unpin_link_instance` | écriture | oui | 2 | Pins or unpins linked file instances. | — |
 
-#### Annotations — 9 outils
+#### Annotations — 10 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
@@ -1698,6 +1704,7 @@ documentation.
 | `create_spot_dimension` | écriture | oui | 4 | Create a spot elevation annotation (a level/coordinate callout) at a point on an element's geometry. create_dimensions only builds linear dimensions;… | — |
 | `delete_empty_tags` | écriture destructif | oui | 4 | Find and remove empty or orphaned tags | — |
 | `tag_walls` | écriture | oui | 4 | Tag walls at their midpoints in the active view. Operates on the active view only. Tags all walls by default, or a subset via wallIds. | — |
+| `manage_text_notes` | écriture | oui | 3 | Read, search, replace or delete the text of text notes, keeping their formatting (bold, underline, all caps). action=read \| find \| replace \| delete. S… | — |
 
 #### Parameters — 8 outils
 
@@ -1720,7 +1727,7 @@ documentation.
 | `create_document` | écriture | oui | 5 | Create a NEW EMPTY project from a Revit template (.rte) and save it to targetPath. This is the real 'new project': save_as_document duplicates the ope… | — |
 | `save_as_document` | écriture | oui | 5 | Save the active Revit project to an absolute .rvt project path or .rfa family path (parameter name: targetPath). This DUPLICATES the open document - i… | — |
 | `save_document` | écriture | oui | 5 | Save the active Revit project at its current path. dryRun reports the path, the unsaved-changes state and any predictable blocker without writing. | — |
-| `open_family` | lecture | oui | 3 | Opens a .rfa family file and makes it the active document in Revit, for visual editing (type parameters, geometry). The active document CHANGES - ever… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
+| `open_family` | lecture | oui | 3 | Opens a .rfa family file (filePath), or a family already loaded in a project (familyId or familyName), and makes it the active document in Revit, for… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `open_file` | lecture | oui | 3 | Open and activate a file entirely in Revit, available while the RiveTT write lock is closed. RVT/RFA/RTE open directly. RFT creates a new family; IFC… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `open_template` | lecture | oui | 3 | Opens a .rte template file and makes it the active document in Revit, to edit the TEMPLATE itself (levels, types, view templates). To start a new PROJ… | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `close_document` | écriture destructif | oui | 3 | Closes an open document (project, family, or template). Defaults to the active document; pass filePath to close a different one open in the background… | — |
@@ -1730,10 +1737,10 @@ documentation.
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
 | `batch_create_sheets` | écriture | oui | 5 | Create multiple sheets with title blocks and optional view placement. sheets is a JSON array: [{number, name, titleBlockName?, viewIds?}]. Each sheet'… | — |
+| `duplicate_sheet_with_content` | écriture | oui | 4 | Duplicate a sheet including annotations and detail items, ALL its title blocks (the small cartouche too), its own parameters (Dossier, Indice_manuel..… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : copies, copyAnnotations, copyRevisions, duplicateViews, keepLegends, keepSchedules, newName, newNum… |
+| `duplicate_sheet_with_views` | écriture | oui | 4 | Duplicate a sheet N times with configurable view duplication options. Copies ALL title blocks, the sheet's own parameters (Dossier, Indice_manuel...)… | **signal** — paramètre absent de l'outil mais présent ailleurs (helper partagé ?) : copies, copyAnnotations, copyRevisions, duplicateViews, keepLegends, keepSchedules, newName, newNum… |
 | `align_viewports` | écriture | oui | 4 | Align viewports across sheets. 'placement' matches box centers; 'model' matches the box outline min-corner so equal-scale views of the same region lin… | — |
 | `create_placeholder_sheets` | écriture destructif | oui | 4 | Create, list, convert, or delete placeholder sheets. action=create\|list\|convert\|delete. | — |
-| `duplicate_sheet_with_content` | écriture | oui | 4 | Duplicate a sheet including annotations and detail items | — |
-| `duplicate_sheet_with_views` | écriture | oui | 4 | Duplicate a sheet N times with configurable view duplication options. | — |
 
 #### Meta — 4 outils
 
@@ -1771,7 +1778,7 @@ documentation.
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
-| `send_code_to_revit` | écriture destructif | oui | 2 | LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter… | **mineur** — erreur générique sans suggestion |
+| `send_code_to_revit` | écriture destructif | oui | 2 | Execute custom C# through the Revit API: a legitimate option in its own right. Choose it when no dedicated tool does the job in one step, when a dedic… | **mineur** — erreur générique sans suggestion |
 
 #### Interop — 1 outils
 
@@ -1796,6 +1803,7 @@ Toutes les commandes classées lecture restent accessibles, y compris `open_file
 | `manage_scope_boxes` | `list` |
 | `manage_selection` | `list` |
 | `manage_sheet_sets` | `list`, `list_collections` |
+| `manage_text_notes` | `read`, `find` |
 | `manage_unplaced_views` | `list` |
 | `manage_view_display` | `select` |
 | `manage_view_templates` | `list` |
@@ -1829,7 +1837,7 @@ bout en bout par le connecteur.
 
 ### Exposé par l'API Revit, pas encore outillé
 
-Vérifié par recherche de l'API dans `src/RiveTT.Tools` sur les 207 outils : aucune de
+Vérifié par recherche de l'API dans `src/RiveTT.Tools` sur les 212 outils : aucune de
 ces capacités n'a de point d'entrée. Effort : **S** de l'ordre de la journée, **M** de
 la semaine, **L** au-delà.
 

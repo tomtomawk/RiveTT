@@ -84,7 +84,7 @@ PARAM_RE = re.compile(
     r'([A-Za-z0-9_]+)\s*(=\s*[^,\)]+)?')
 # Les classes d'outils peuvent etre indentees : le [ \t]* initial est obligatoire.
 CLASS_RE = re.compile(
-    r'(?:^|\n)[ \t]*((?:\[[^\n]*\][ \t]*\n[ \t]*)*)public (?:sealed )?class (\w+)'
+    r'(?:^|\n)[ \t]*((?:\[[^\n]*\][ \t]*\n[ \t]*)*)public (?:sealed )?(?:partial )?class (\w+)'
     r'\s*:[^{\n]*IRiveTTTool', re.M)
 
 
