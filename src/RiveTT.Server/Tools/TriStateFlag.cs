@@ -46,6 +46,22 @@ internal static class TriStateFlag
         }
     }
 
+    /// <summary>The same structured refusal for a string choice (send_code_to_revit lifetime).</summary>
+    internal static string InvalidChoiceResult(string tool, string parameterName, string? value, string allowed)
+    {
+        var error = new JObject();
+        error["code"] = "InvalidInput";
+        error["tool"] = tool;
+        error["message"] = $"{parameterName} must be {allowed} (received: \"{value}\")";
+        error["suggestion"] = $"Omit {parameterName} to keep the default behaviour.";
+        error["stage"] = "validation";
+        error["modelChanged"] = false;
+        var root = new JObject();
+        root["success"] = false;
+        root["error"] = error;
+        return root.ToString();
+    }
+
     /// <summary>
     /// Structured refusal, in the same shape as a runtime failure, so a bad value
     /// is never rendered as a broken tool.

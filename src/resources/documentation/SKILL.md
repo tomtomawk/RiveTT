@@ -352,7 +352,7 @@ de vue (plan, coupe, élévation) — par exemple pour créer un nouveau type de
 | Modifier les valeurs de type d'une famille | `edit_family` | **en arrière-plan, aucune fenêtre ne s'ouvre** |
 | Fermer | `close_document` | fermer le document **actif** exige qu'un autre soit ouvert |
 
-#### Éditer une famille et la recharger (0.6.2)
+#### Éditer une famille et la recharger (0.6.2, complété en 0.6.3)
 
 Cycle sans fichier intermédiaire : `open_family` sur une famille du projet (ou sur un
 `.rfa`), édition, puis `load_family` avec `action: "load_from_open"`.
@@ -368,12 +368,32 @@ Cycle sans fichier intermédiaire : `open_family` sur une famille du projet (ou 
   famille déjà présente ou non). C'est la **seule** action de `load_family` qui prévisualise :
   `list`, `load` et `duplicate_type` refusent `dryRun`.
 - Réponse : `status` (`loaded`, `reloaded`, `skipped_existing`, `dry_run`), `familyId`,
-  `types[]`, `sourceClosed` (+ `sourceCloseReason`), `activeDocument`.
+  `previousFamilyId` et `familyIdChanged` (0.6.3), `types[]`, `verification` (0.6.3),
+  `sourceClosed`, `sourceClosePending`, `sourceCloseReason`, `closeWarnings`, `activeDocument`.
 - Une **transaction ouverte** sur la source ou la cible est refusée d'avance
   (« transaction ouverte sur … ») : `LoadFamily` gère sa propre transaction.
-- `closeSource` sur la famille **active** réactive d'abord le projet cible, par son
-  chemin : une cible jamais enregistrée ne peut pas l'être, la famille est alors chargée et
-  `sourceClosed` vaut `false` avec la raison. Le verrou d'écriture s'applique aussi au `dryRun`.
+- `closeSource` sur la famille **active** (0.6.3) : ordre `LoadFamily`, puis réactivation du projet
+  cible par le chemin que Revit déclare pour lui, puis `Close(false)` de la source. La source active
+  est reconnue par référence **ou** par chemin (la seule référence la manquait : le `dryRun` rendait
+  `sourceIsActive: false` et la fermeture butait sur « The active document may not be closed »).
+  Cible jamais enregistrée : seul cas de refus, `sourceClosed: false` avec la raison, famille chargée.
+  Si Revit n'applique la réactivation qu'au retour de l'appel, la fermeture est reprise au tick
+  `Idling` suivant (30 s max) : `sourceClosePending: true`, contrôler avec `close_document` en `dryRun`
+  (`openDocuments`). Le `dryRun` rend `sourceIsActive` exact, `wouldReactivate: <titre cible>`,
+  `wouldCloseSource`. Un échec de réactivation ou de fermeture n'annule jamais le chargement.
+  Le cache des lectures est invalidé et `execution.documentTitle` nomme le nouvel actif.
+  Le verrou d'écriture s'applique aussi au `dryRun`.
+- **`familyId` au rechargement (0.6.3).** Le code utilise déjà `Document.LoadFamily(cible, options)`
+  avec `overwriteParameterValues = true`, la voie qui conserve l'élément `Family`. L'API n'offre aucun
+  moyen d'imposer l'Id : si Revit en attribue un nouveau (0.6.2 : 9709680 → 11549513, Id de type et
+  instances conservés), la réponse porte `previousFamilyId` et `familyIdChanged: true`. Même contrôle
+  sur `action: "load"` avec `familyPath`. Ne pas conserver un `familyId` d'avant rechargement sans
+  relire ce champ.
+- **`verification` (0.6.3)** lu dans la cible après chargement, sans changer de document actif :
+  `types[]` (`id`, `name`, `instanceCount`, `previousId`, `idPreserved`), `instanceCount`,
+  `instanceCountBefore`, `instancesPreserved`, `typeIdsPreserved`, `familyCountWithName` (doit valoir 1).
+  Option retenue plutôt que d'ouvrir `app.Documents` au bac à sable en lecture seule : la surface du
+  sandbox ne grandit pas.
 - `open_family` sur une famille du projet : `activate: true` donne un chemin à la famille par
   une **copie de travail** dans `%TEMP%\RiveTT\OpenedFamilies\` (`workingCopyPath` dans la
   réponse). La famille du projet n'est modifiée que par `load_from_open`.
@@ -389,6 +409,7 @@ fausse (voir `../../docs/CHANGELOG_0.3.0.md`). `edit_family` s'appuie dessus.
 | Retirer un membre | `delete_element`, ou `edit_group_members` avec `removeElementIds` seul | c'est une **exclusion** : cette instance seule, le type et les autres instances intacts, instance renommée « (membre exclu) » |
 | Ajouter un membre | `edit_group_members` avec `addElementIds` | impose dégrouper/regrouper : **nouveau type**, les autres instances restent sur l'ancienne définition |
 | Restaurer un membre exclu | aucun outil | uniquement depuis le ruban Revit |
+| Dissoudre / regrouper | `manage_model_groups action=ungroup` / `regroup` | pas besoin de script C# ; `ungroup` existe depuis la 0.5 |
 
 Des instances qui diffèrent, c'est normal : exclusions ou contraintes de niveau
 propres. Lire `hasExcludedMembers` **par instance**, ne pas se fier à la première.
@@ -585,9 +606,54 @@ revient avant toute exécution. Une erreur d'exécution donne la **ligne** du sc
 (`line`) ; le script est enregistré même en échec. Pour corriger une ligne sans tout renvoyer : `fromScript` (le
 `scriptName`) et `edits: [{oldText, newText}]`, chaque `oldText` devant être unique.
 
+#### Statut d'un script relancé, opérations longues, bilan des suppressions (0.6.3)
+
+- **Statut `REUSABLE` conservé.** Une nouvelle version créée par `fromScript` (avec ou sans `edits`)
+  hérite du statut de la version qu'elle exécute ; la réponse porte `scriptLifetimeInherited: true`.
+  Avant la 0.6.3 elle retombait en `TEMP` et disparaissait à la fermeture de Revit. Un `false` nu
+  ne peut pas dire « non précisé » (un booléen nullable casse l'appel MCP) : pour repasser un script
+  `REUSABLE` en `TEMP`, passer `lifetime: "temp"` ; `lifetime: "reusable"` force l'inverse. Du code
+  neuf sans `reusable` reste `TEMP`.
+- **Délais.** Un outil s'exécute sur le fil d'interface de Revit et ne s'interrompt pas. Délai
+  par défaut : 120 s ; `capture_view` : 90 s, avec son propre budget interne (mesure de
+  l'emprise `fitToModel` plafonnée à 40 s, export non lancé au-delà de 55 s), donc une erreur
+  `Timeout` structurée plutôt qu'un silence. Sa réponse porte `timingsMs` (copie de la vue,
+  `fitToModel`, export, lecture de l'image) pour savoir où part le temps. Pistes de l'erreur :
+  baisser `pixelSize`, `detailLevel: "Coarse"`, renoncer à `fitToModel` et cadrer par `bboxMm`.
+- **`send_code_to_revit(async: true)`** démarre le script comme tâche de fond et rend un `jobId`
+  aussitôt, sans attendre. `get_job_status(jobId)` rend `running` | `completed` | `failed`, la
+  durée écoulée, puis le résultat ou l'erreur de l'outil ; sans `jobId`, il liste les tâches.
+  Il répond même pendant que Revit exécute la tâche (il ne passe pas par l'événement Revit). Les
+  tâches vivent en mémoire pour la session Revit (6 h, 50 au plus).
+  Choix de la voie B plutôt qu'un `timeoutMs` plus long : la patience du client MCP n'est pas
+  réglable depuis RiveTT (le test du 15/10 a perdu une réponse au bout de 4 minutes), alors qu'une
+  tâche de fond n'en dépend pas.
+- **Erreur de délai** : elle dit désormais si l'outil **tourne encore** dans Revit
+  (`toolStillRunning: true`, `jobId`, ne pas renvoyer le script : il s'exécuterait deux fois), s'il
+  a fini juste après, ou s'il n'a **jamais démarré** (Revit occupé : requête annulée). Le résultat
+  d'un appel dépassé n'est plus perdu : `get_job_status` le restitue (le journal d'audit garde la
+  ligne `job … finished`). Revit reste occupé tant que la tâche tourne ; les autres outils attendent.
+- **`changes.deletedCount`** (réponse de `scriptRun`) compte **tous** les identifiants que Revit
+  déclare disparus, y compris ceux qu'une commande retire d'elle-même (dégrouper, supprimer un
+  groupe). Il est ventilé : `deletedTopLevelCount`, `deletedAuxiliaryCount` (esquisses, plans
+  d'esquisse, lignes de modèle ou de détail, éléments sans catégorie, comme à la création),
+  `deletedUnclassifiedCount` et `deletedByClass` (`ModelLine: 1135, ModelArc: 392, Group: 1`, 15
+  classes au plus). Les classes sont relevées **avant** l'exécution (un élément supprimé ne se lit
+  plus) ; au-delà de 60 000 éléments le relevé est omis et `deletedBreakdownAvailable: false` le dit.
+
 #### Pièges de l'API Revit rencontrés
 
 - `Wall.Orientation` juste après `Wall.Create` lève une exception : `document.Regenerate()` d'abord.
+- **En famille, `Document.Create` lève une exception** (`InvalidOperationException`) : créer par
+  `Document.FamilyCreate` (`NewModelCurve`, `NewExtrusion`, `NewGroup`…).
+- `dynamic` est refusé par le bac à sable (la liaison tardive échappe aux contrôles statiques) :
+  des tuples nommés (`var ligne = (id: 1, nom: "x");`), des types anonymes (`new { id, nom }`),
+  une petite classe ou un `record` déclaré dans le script, ou un `JObject` pour des données
+  hétérogènes. Le refus l'indique.
+- **`FamilyCreate.NewGroup` sur des lignes de modèle : refus mesuré, cause non établie.** Le 15/10/2026,
+  en `transactionMode: "readonly"` : `ArgumentException: None of the input elements can be grouped`,
+  même sur une ligne neuve créée par `NewModelCurve`, même après `Regenerate()`. Non reproduit hors
+  `readonly` : à rejouer en `auto` avant d'y voir une limite de l'API (voir `regroup`, plus bas).
 - Altitude du point d'insertion : famille **posée sur un niveau** (mobilier, sanitaires,
   vélos) → Revit a compté l'altitude du niveau deux fois (+2,89 m au R+1) ; famille
   **hébergée** (portes, fenêtres, ETEL) → Z absolu, sinon « impossible de couper
@@ -814,7 +880,8 @@ pas une anomalie du modèle :
 | Retirer un membre | `delete_element` sur ce membre, ou `edit_group_members` avec `removeElementIds` seuls : c'est une **exclusion**. Le type garde son id et ses autres occurrences leurs éléments. La réponse liste `groupExclusionIds` |
 | Ajouter un membre | Seule voie possible : dégrouper, modifier, regrouper — donc **nouveau type** ; les autres occurrences gardent l'ancienne définition. Refusé sur un type à plusieurs occurrences sauf `allowMultiInstance: true` |
 | Rétablir un membre exclu | **Impossible par l'API.** Sélectionner l'occurrence dans Revit puis « Rétablir les éléments exclus » du ruban |
-| Dissoudre | `manage_model_groups action=ungroup` sur les occurrences visées |
+| Dissoudre | `manage_model_groups action=ungroup` sur les occurrences visées. La réponse rend `releasedCount` et les 200 premiers identifiants (`releasedElementIdsTruncated`), `notFoundIds` pour ce qui n'est pas un groupe |
+| Regrouper (0.6.3) | `manage_model_groups action=regroup` avec `elementIds` et `newName` (nom de l'ancien type) ; `dryRun` fait l'appel réel dans une transaction annulée. En **famille** : `FamilyCreate.NewGroup`. Un type vide du même nom, laissé par la dissolution, est remplacé ; refus structuré (`InvalidInput`) si Revit refuse. **Non vérifié sur Revit** : un refus « None of the input elements can be grouped » sur des lignes de modèle de famille est possible (voir les pièges de l'API). Les ids changent à la dissolution : les relire d'abord |
 | Détecter les exclusions | `manage_model_groups` rend, par occurrence, `memberCount`, `excludedCount` et `hasExcludedMembers`, et lit la définition complète depuis l'occurrence la plus fournie |
 
 Chaque occurrence possède **ses propres copies** des membres, avec ses propres
@@ -1328,12 +1395,12 @@ skill Claude : l'installateur ne crée ni ZIP ni skill de compte.
 Si Claude n'est pas détecté, l'installateur n'écrit rien : il affiche le chemin du
 script et du journal. Lancez Claude une fois, fermez-le, puis relancez l'installateur.
 Le guide installé dans
-%LOCALAPPDATA%\RiveTT\documentation\skills_RiveTT.md reste disponible pour une
-intégration de skill décidée séparément par votre organisation. Il provient de
-l'unique source `src\resources\documentation\SKILL.md`, renommée seulement lors de
-l'installation générale.
+%LOCALAPPDATA%\RiveTT\documentation\rivett.zip reste disponible pour une
+intégration de skill décidée séparément par votre organisation. Il contient un
+`SKILL.md` à la racine, produit depuis l'unique source
+`src\resources\documentation\SKILL.md`.
 
-La page finale indique toujours le chemin complet de `skills_RiveTT.md` pour un
+La page finale indique toujours le chemin complet de `rivett.zip` pour un
 import manuel dans **Personnaliser**, si votre organisation souhaite utiliser le
 guide comme skill Claude. Elle n'affirme jamais que ce skill a été activé dans Claude.
 
@@ -1390,7 +1457,7 @@ Sources vérifiées le 7 septembre 2026 :
 > Document **généré** par `tools/audit-tool-surface.py`. Ne pas éditer à la main :
 > relancer le script après toute modification de la surface d'outils.
 
-Relevé du 2026-10-15 — connecteur 0.6.2 — **212 outils publiés**, 209 classes runtime.
+Relevé du 2026-10-19 — connecteur 0.6.3 — **213 outils publiés**, 210 classes runtime.
 
 ### Comment lire ce document
 
@@ -1411,8 +1478,8 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 
 | Mesure | Valeur |
 |---|---|
-| Outils publiés | **212** |
-| Dont écriture | **141** (67 %) — c'est la part que le verrou du ruban gouverne |
+| Outils publiés | **213** |
+| Dont écriture | **141** (66 %) — c'est la part que le verrou du ruban gouverne |
 | Écritures sans `dryRun` | **35** sur 141 — `execution.supportsDryRun` le dit par outil, et le routeur refuse `dryRun: true` sur les autres au lieu de les exécuter |
 | Défauts critiques et majeurs corrigés | **8**, gardés par `ConfirmedDefectFixSourceTests` |
 | Lacunes API comblées depuis le relevé précédent | **16** sur 19 |
@@ -1434,7 +1501,7 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 | Parameters | 8 | 4 % |
 | Documents | 8 | 4 % |
 | Sheets | 5 | 2 % |
-| Meta | 4 | 2 % |
+| Meta | 5 | 2 % |
 | Workflows | 4 | 2 % |
 | Architecture | 2 | 1 % |
 | (sans) | 2 | 1 % |
@@ -1443,7 +1510,7 @@ Une flèche `→` signale une **façade** : un nom MCP qui appelle un autre outi
 
 Le ferraillage et la charpente métallique — 112 outils, 38 % de la surface — ont été
 retirés du dépôt, pas filtrés. Ce qui reste est le catalogue que l'agent lit à chaque
-session : 212 outils dont 67 % d'écriture, tous dans le périmètre logement,
+session : 213 outils dont 66 % d'écriture, tous dans le périmètre logement,
 équipement, tertiaire et santé.
 
 ### Défauts corrigés
@@ -1527,7 +1594,7 @@ documentation.
 | `get_element_parameters` | lecture | — | 5 | Get parameters of elements by Revit element ID. Numeric values come back in PROJECT display units with an explicit unit plus the Revit internal value… | — |
 | `get_linked_elements` | lecture | — | 5 | Query elements from linked Revit models with optional filtering. parameterNames is additive — without it only basic fields are returned. | — |
 | `import_from_excel` | écriture destructif | oui | 5 | Import parameter values from an Excel file into Revit elements. | — |
-| `manage_model_groups` | écriture destructif | oui | 5 | Inventory model groups, duplicate a group type and optionally swap selected instances, or ungroup selected model groups. Write actions preview by defa… | — |
+| `manage_model_groups` | écriture destructif | oui | 5 | Inventory model groups, duplicate a group type and optionally swap selected instances, ungroup selected model groups (no script needed), or regroup a… | — |
 | `modify_element` | écriture | oui | 5 | Move, rotate, mirror, copy elements, or set_endpoints: shorten or extend a straight wall (or beam...) by giving its new start and/or end point {x,y[,z… | — |
 | `renumber_elements` | écriture destructif | oui | 5 | Renumber rooms/doors/windows by location or name. Writes into the specified parameter; supports prefix/suffix and start/increment. | — |
 | `set_element_parameters` | écriture destructif | oui | 5 | Set parameter values on one or more elements. Pass requests as a JSON-encoded array string. Supports parameterName by display name and builtInParamete… | — |
@@ -1742,13 +1809,14 @@ documentation.
 | `align_viewports` | écriture | oui | 4 | Align viewports across sheets. 'placement' matches box centers; 'model' matches the box outline min-corner so equal-scale views of the same region lin… | — |
 | `create_placeholder_sheets` | écriture destructif | oui | 4 | Create, list, convert, or delete placeholder sheets. action=create\|list\|convert\|delete. | — |
 
-#### Meta — 4 outils
+#### Meta — 5 outils
 
 | Outil | Nature | dryRun | Int. | Effet | Défaut probable |
 |---|---|---|---:|---|---|
 | `get_server_capabilities` | lecture | — | 5 | Report RiveTT's effective automatic-mode, dry-run, audit, response, selection, document, and lifecycle capability contract. | — |
 | `clear_cache` | lecture | — | 4 | Clear every entry from the plugin-side tool-result cache. | **mineur** — classement déclaré (lecture) différent du préfixe du nom |
 | `get_cache_stats` | lecture | — | 4 | Return diagnostic hit/miss telemetry from the plugin-side tool-result cache. | — |
+| `get_job_status` | lecture | — | 3 | State and result of a background job: send_code_to_revit with async=true returns a jobId, and a call that timed out while still running in Revit repor… | — |
 | `ping_revit` | lecture | — | 2 | Test MCP connection to RiveTT. Displays a greeting in Revit. | — |
 
 #### Workflows — 4 outils
@@ -1837,7 +1905,7 @@ bout en bout par le connecteur.
 
 ### Exposé par l'API Revit, pas encore outillé
 
-Vérifié par recherche de l'API dans `src/RiveTT.Tools` sur les 212 outils : aucune de
+Vérifié par recherche de l'API dans `src/RiveTT.Tools` sur les 213 outils : aucune de
 ces capacités n'a de point d'entrée. Effort : **S** de l'ordre de la journée, **M** de
 la semaine, **L** au-delà.
 

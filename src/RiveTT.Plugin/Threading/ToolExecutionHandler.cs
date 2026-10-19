@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Autodesk.Revit.UI;
 using Newtonsoft.Json.Linq;
+using RiveTT.Core.Jobs;
 using RiveTT.Core.Results;
 using RiveTT.Core.Security;
 using RiveTT.Core.Session;
@@ -22,10 +23,44 @@ public class ToolExecutionHandler : IExternalEventHandler
         _auditLogger = auditLogger ?? new AuditLogger();
     }
 
+    // The execution currently inside tool.Execute (started, not finished), so a caller whose wait ended can
+    // be told whether the tool is still running in Revit or never started.
+    private string? _runningJobId;
+    private DateTime _runningSinceUtc;
+    private string? _completedJobId;
+    private RiveTTResult<object>? _completedResult;
+
     public IRiveTTTool? PendingTool { get; set; }
     public JObject? PendingInput { get; set; }
     public RiveTTSession? PendingSession { get; set; }
+    public string? PendingJobId { get; set; }
     public RiveTTResult<object>? Result { get; private set; }
+
+    /// <summary>True while the execution identified by <paramref name="jobId"/> is inside the tool.</summary>
+    public bool IsExecuting(string jobId)
+    {
+        lock (_stateLock) return _runningJobId == jobId;
+    }
+
+    public DateTime? RunningSinceUtc(string jobId)
+    {
+        lock (_stateLock) return _runningJobId == jobId ? _runningSinceUtc : null;
+    }
+
+    /// <summary>The outcome of <paramref name="jobId"/> if it already finished (it can finish between a timeout and its registration).</summary>
+    public bool TryGetCompleted(string jobId, out RiveTTResult<object> result)
+    {
+        lock (_stateLock)
+        {
+            if (_completedJobId == jobId && _completedResult != null)
+            {
+                result = _completedResult;
+                return true;
+            }
+        }
+        result = null!;
+        return false;
+    }
 
     public void Execute(UIApplication app)
     {
@@ -33,6 +68,7 @@ public class ToolExecutionHandler : IExternalEventHandler
         IRiveTTTool? tool;
         JObject? input;
         RiveTTSession? session;
+        string? jobId;
 
         lock (_stateLock)
         {
@@ -40,6 +76,12 @@ public class ToolExecutionHandler : IExternalEventHandler
             tool = PendingTool;
             input = PendingInput;
             session = PendingSession;
+            jobId = PendingJobId;
+            if (tool != null && jobId != null)
+            {
+                _runningJobId = jobId;
+                _runningSinceUtc = DateTime.UtcNow;
+            }
         }
 
         var discarded = false;
@@ -64,6 +106,22 @@ public class ToolExecutionHandler : IExternalEventHandler
                     Result = result;
                 else
                     discarded = true;
+                if (jobId != null)
+                {
+                    _completedJobId = jobId;
+                    _completedResult = result;
+                }
+            }
+
+            // Nobody is waiting any more (async job, or the caller's time limit ended): keep the outcome
+            // where get_job_status reads it, and drop what the run may have made stale.
+            if (jobId != null && JobRegistry.IsTracked(jobId))
+            {
+                JobRegistry.Complete(jobId, result);
+                session.BumpDocumentVersion();
+                session.Cache.InvalidateAll();
+                _auditLogger.LogWithPerf(tool.Name, $"job {jobId} finished",
+                    result.Success, result.Error?.Code, errorMessage: result.Error?.Message);
             }
 
             if (discarded)
@@ -79,22 +137,32 @@ public class ToolExecutionHandler : IExternalEventHandler
         }
         catch (Exception ex)
         {
+            var failure = RiveTTResult<object>.Fail(
+                RiveTTErrorCode.Unknown, $"Unhandled exception: {ex.Message}");
             lock (_stateLock)
             {
                 if (_executionId == myId)
-                    Result = RiveTTResult<object>.Fail(
-                        RiveTTErrorCode.Unknown, $"Unhandled exception: {ex.Message}");
+                    Result = failure;
+                if (jobId != null)
+                {
+                    _completedJobId = jobId;
+                    _completedResult = failure;
+                }
             }
+            if (jobId != null && JobRegistry.IsTracked(jobId))
+                JobRegistry.Complete(jobId, failure);
         }
         finally
         {
             lock (_stateLock)
             {
+                if (_runningJobId == jobId) _runningJobId = null;
                 if (_executionId == myId)
                 {
                     PendingTool = null;
                     PendingInput = null;
                     PendingSession = null;
+                    PendingJobId = null;
                     _hasPendingOrRunning = false;
                     _resetEvent.Set();
                 }
@@ -102,7 +170,7 @@ public class ToolExecutionHandler : IExternalEventHandler
         }
     }
 
-    public bool TryPrepareExecution(IRiveTTTool tool, JObject input, RiveTTSession session)
+    public bool TryPrepareExecution(IRiveTTTool tool, JObject input, RiveTTSession session, string? jobId = null)
     {
         lock (_stateLock)
         {
@@ -113,6 +181,7 @@ public class ToolExecutionHandler : IExternalEventHandler
             PendingTool = tool;
             PendingInput = input;
             PendingSession = session;
+            PendingJobId = jobId;
             Result = null;
             _hasPendingOrRunning = true;
             _resetEvent.Reset();
@@ -132,6 +201,7 @@ public class ToolExecutionHandler : IExternalEventHandler
             PendingTool = null;
             PendingInput = null;
             PendingSession = null;
+            PendingJobId = null;
             _hasPendingOrRunning = false;
             _resetEvent.Set();
         }

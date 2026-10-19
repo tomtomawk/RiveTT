@@ -138,14 +138,13 @@ Source: "..\staging\2027\plugin\*"; DestDir: "{userappdata}\Autodesk\Revit\Addin
 Source: "..\staging\RiveTT.addin"; DestDir: "{userappdata}\Autodesk\Revit\Addins\2027"; \
     Flags: ignoreversion skipifsourcedoesntexist; Check: WantsRevit('2027')
 
-; Documentation, version-independent like the server. The single source SKILL.md
-; travels with it, so
-; the agent-facing guidance and the human-facing guide can never drift apart on a
-; workstation. Installing it here makes it AVAILABLE, not active: activating the
-; local ChatGPT skill is part of the unchecked ChatGPT configuration task below.
+; Documentation, version-independent like the server. rivett.zip is packed by build.ps1
+; from the single source SKILL.md, so the agent-facing guidance and the human-facing guide
+; can never drift apart on a workstation. Installing it here makes it AVAILABLE, not active:
+; activating the local ChatGPT skill is part of the unchecked ChatGPT configuration task below.
 ; Claude's MCP connection is independent of a Claude account-side skill.
-Source: "..\staging\documentation\SKILL.md"; DestDir: "{app}\documentation"; \
-    DestName: "skills_RiveTT.md"; Flags: ignoreversion
+Source: "..\staging\documentation\rivett.zip"; DestDir: "{app}\documentation"; \
+    Flags: ignoreversion
 
 ; The ChatGPT task installs both the MCP configuration and the local skill.
 Source: "..\staging\documentation\SKILL.md"; DestDir: "{code:CodexSkillDir}"; \
@@ -182,6 +181,7 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
 
 [InstallDelete]
 ; Remove only known files from the former modular documentation.
+Type: files; Name: "{app}\documentation\skills_RiveTT.md"
 Type: files; Name: "{app}\documentation\SKILL.md"
 Type: files; Name: "{app}\documentation\README.md"
 Type: files; Name: "{code:CodexSkillDir}\README.md"; Tasks: mcpcodex
@@ -583,7 +583,7 @@ begin
   ChatGptSkill := AddBackslash(CodexSkillDir('')) + 'SKILL.md';
   Result := 'Fichiers de skill :' + #13#10
           + '  • Claude (import manuel si souhaité) : ' + #13#10
-          + '    ' + ExpandConstant('{app}\documentation\skills_RiveTT.md') + #13#10;
+          + '    ' + ExpandConstant('{app}\documentation\rivett.zip') + #13#10;
   if WizardIsTaskSelected('mcpcodex') then
   begin
     if FileExists(ChatGptSkill) then

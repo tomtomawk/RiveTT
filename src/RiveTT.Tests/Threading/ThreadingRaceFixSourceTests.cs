@@ -70,6 +70,10 @@ public class ThreadingRaceFixSourceTests
     public void TimeoutSuggestion_WarnsTheOperationMayStillComplete()
     {
         var src = ReadPlugin("Threading", "RevitThreadDispatcher.cs");
-        Assert.Contains("may still complete", src);
+        // 0.6.3: the error no longer guesses "may still complete": it says whether the tool is still running,
+        // and where its outcome is kept (get_job_status) instead of discarding it.
+        Assert.Contains("STILL RUNNING", src);
+        Assert.Contains("WITHOUT having started", src);
+        Assert.Contains("get_job_status", src);
     }
 }

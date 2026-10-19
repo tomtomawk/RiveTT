@@ -17,7 +17,7 @@ public sealed class ManageModelGroupsTool : IRiveTTTool
     public string Category => "Elements";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "Inventory model groups, duplicate a group type for isolated changes, swap selected instances, or ungroup selected instances.";
+    public string Description => "Inventory model groups, duplicate a group type for isolated changes, swap selected instances, ungroup selected instances, or regroup a list of elements (family documents included) under a named group type.";
 
     public RiveTTResult<object> Execute(JObject input, RiveTTSession session)
     {
@@ -30,8 +30,9 @@ public sealed class ManageModelGroupsTool : IRiveTTTool
             "inventory" => Inventory(doc, input),
             "duplicate_type" => DuplicateType(doc, input),
             "ungroup" => Ungroup(doc, input),
+            "regroup" => Regroup(doc, input),
             _ => RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
-                "action must be inventory, duplicate_type, or ungroup")
+                "action must be inventory, duplicate_type, ungroup, or regroup")
         };
     }
 
@@ -172,8 +173,12 @@ public sealed class ManageModelGroupsTool : IRiveTTTool
         var groupIds = input["groupIds"]?.ToObject<List<long>>() ?? new List<long>();
         if (groupIds.Count == 0)
             return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput, "groupIds is required");
-        var groups = groupIds.Distinct().Select(id => doc.GetElement(ToolHelpers.ToElementId(id)) as Group)
+        var requested = groupIds.Distinct().ToList();
+        var groups = requested.Select(id => doc.GetElement(ToolHelpers.ToElementId(id)) as Group)
             .Where(g => g != null).Cast<Group>().ToList();
+        // A silent drop reads as "done": name what is not a group of this document.
+        var groupIdSet = new HashSet<long>(groups.Select(g => ToolHelpers.GetElementIdValue(g.Id)));
+        var notFoundIds = requested.Where(id => !groupIdSet.Contains(id)).ToList();
         var preview = groups.Select(group => new
         {
             groupId = ToolHelpers.GetElementIdValue(group.Id),
@@ -182,7 +187,19 @@ public sealed class ManageModelGroupsTool : IRiveTTTool
             memberIds = group.GetMemberIds().Select(ToolHelpers.GetElementIdValue).ToArray()
         }).ToList();
         if (ToolHelpers.GetDryRun(input))
-            return RiveTTResult<object>.Ok(new { dryRun = true, processed = groups.Count, groups = preview });
+            return RiveTTResult<object>.Ok(new
+            {
+                dryRun = true,
+                processed = groups.Count,
+                notFoundIds,
+                groups = preview.Select(g => new
+                {
+                    g.groupId, g.groupType, g.attached,
+                    memberCount = g.memberIds.Length,
+                    memberIds = g.memberIds.Take(MaxListedIds).ToArray(),
+                    memberIdsTruncated = g.memberIds.Length > MaxListedIds
+                }).ToList()
+            });
 
         using var tx = new Transaction(doc, "RiveTT: Ungroup Model Groups");
         tx.Start();
@@ -196,12 +213,119 @@ public sealed class ManageModelGroupsTool : IRiveTTTool
             return TransactionFailureHandling.ToFailure(failures,
                 "Ungroup operation was rolled back",
                 "Do not include attached detail groups and resolve inconsistent group types first.");
+        var releasedOrdered = released.OrderBy(id => id).ToArray();
         return RiveTTResult<object>.Ok(new
         {
             processed = groups.Count,
             ungrouped = groupsToUngroup.Count,
             skippedAttached = attachedCount,
-            releasedElementIds = released.OrderBy(id => id).ToArray()
+            notFoundIds,
+            releasedCount = releasedOrdered.Length,
+            // A 9,470-member group returned 9,470 ids: the count says it, the first ids are enough to find them.
+            releasedElementIds = releasedOrdered.Take(MaxListedIds).ToArray(),
+            releasedElementIdsTruncated = releasedOrdered.Length > MaxListedIds
         });
+    }
+
+    private const int MaxListedIds = 200;
+
+    /// <summary>
+    /// Groups a list of elements and gives the new group type the requested name (typically the name of the type the
+    /// elements were ungrouped from). A family document goes through FamilyCreate.NewGroup: Document.Create throws
+    /// there. dryRun makes the real call in a transaction that is rolled back.
+    /// </summary>
+    private static RiveTTResult<object> Regroup(Document doc, JObject input)
+    {
+        var ids = (input["elementIds"]?.ToObject<List<long>>() ?? new List<long>()).Distinct().ToList();
+        var name = input["newName"]?.Value<string>();
+        if (ids.Count == 0 || string.IsNullOrWhiteSpace(name))
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                "regroup needs elementIds (the elements to group) and newName (the group type name).",
+                suggestion: "Pass elementIds as a JSON array, e.g. the releasedElementIds of a previous ungroup, and newName "
+                          + "= the name of the group type they came from.",
+                context: new Dictionary<string, object> { ["modelChanged"] = false });
+
+        var notFound = ids.Where(id => doc.GetElement(ToolHelpers.ToElementId(id)) == null).ToList();
+        if (notFound.Count > 0)
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.ElementNotFound,
+                $"{notFound.Count} element id(s) do not exist in '{doc.Title}'.",
+                suggestion: "Ungrouping can give elements new ids: read them again before regrouping (releasedElementIds, or a "
+                          + "filter_elements call).",
+                context: new Dictionary<string, object>
+                    { ["notFoundIds"] = notFound.Take(MaxListedIds).ToArray(), ["modelChanged"] = false });
+
+        var dryRun = ToolHelpers.GetDryRun(input);
+        var elementIds = ids.Select(ToolHelpers.ToElementId).ToList();
+        using var tx = new Transaction(doc, "RiveTT: Regroup Elements");
+        tx.Start();
+        var failures = TransactionFailureHandling.SuppressWarnings(tx);
+        try
+        {
+            // An empty type of that name left behind by the ungroup would refuse the rename.
+            var stale = new FilteredElementCollector(doc).OfClass(typeof(GroupType)).Cast<GroupType>()
+                .FirstOrDefault(type => string.Equals(type.Name, name, StringComparison.OrdinalIgnoreCase)
+                                        && type.Groups.Size == 0);
+            long? replacedTypeId = null;
+            if (stale != null)
+            {
+                replacedTypeId = ToolHelpers.GetElementIdValue(stale.Id);
+                doc.Delete(stale.Id);
+            }
+
+            var group = doc.IsFamilyDocument
+                ? doc.FamilyCreate.NewGroup(elementIds)
+                : doc.Create.NewGroup(elementIds);
+            group.GroupType.Name = name!;
+
+            var result = new
+            {
+                dryRun,
+                previewMethod = dryRun ? "rolled_back_transaction" : null,
+                regrouped = !dryRun,
+                groupId = ToolHelpers.GetElementIdValue(group.Id),
+                groupTypeId = ToolHelpers.GetElementIdValue(group.GroupType.Id),
+                groupTypeName = group.GroupType.Name,
+                memberCount = group.GetMemberIds().Count,
+                requestedCount = ids.Count,
+                replacedEmptyGroupTypeId = replacedTypeId,
+                documentKind = doc.IsFamilyDocument ? "family" : "project"
+            };
+            if (dryRun)
+            {
+                tx.RollBack();
+                return RiveTTResult<object>.Ok(result);
+            }
+            if (tx.Commit() != TransactionStatus.Committed)
+                return TransactionFailureHandling.ToFailure(failures, "Regroup was rolled back",
+                    "Check that the elements can be grouped together, then retry.");
+            return RiveTTResult<object>.Ok(result);
+        }
+        catch (Autodesk.Revit.Exceptions.ArgumentException exception)
+        {
+            if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"Revit refused to group these elements or to name the group type: {exception.Message}",
+                suggestion: doc.IsFamilyDocument
+                    ? "In a family document Revit's own rule decides what can be grouped (the call is FamilyCreate.NewGroup): "
+                      + "the field report of 2026-10-15 got \"None of the input elements can be grouped\" for model lines, "
+                      + "including freshly created ones. If so, this is a limit of the API: keep the elements ungrouped. "
+                      + "If the message is about the name, a group type of that name still has instances: pick another newName."
+                    : "Check that every element can be grouped (model elements, not types or views) and that no group type of "
+                      + "that name still has instances.",
+                context: new Dictionary<string, object>
+                    { ["modelChanged"] = false, ["documentKind"] = doc.IsFamilyDocument ? "family" : "project" });
+        }
+        catch (Autodesk.Revit.Exceptions.InvalidOperationException exception)
+        {
+            if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.InvalidInput,
+                $"Revit cannot create a group here: {exception.Message}",
+                suggestion: "Nothing was changed.",
+                context: new Dictionary<string, object> { ["modelChanged"] = false });
+        }
+        finally
+        {
+            if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+        }
     }
 }

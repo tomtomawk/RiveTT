@@ -76,7 +76,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "load_family"), Description("Load a family into the Revit project, or reload one already there (e.g. after editing its .rfa outside Revit). action=\"load_from_open\" loads a family ALREADY OPEN in Revit (opened with open_family, edited, or created and never saved) into an open project, with no file path; it supports dryRun. Also lists loaded families or duplicates a family type.")]
+    [McpServerTool(Name = "load_family"), Description("Load a family into the Revit project, or reload one already there (e.g. after editing its .rfa outside Revit). action=\"load_from_open\" loads a family ALREADY OPEN in Revit (opened with open_family, edited, or created and never saved) into an open project, with no file path; it supports dryRun. The response reports previousFamilyId/familyIdChanged and a verification block (type ids, instance counts) read in the target. Also lists loaded families or duplicates a family type.")]
     public static async Task<string> LoadFamily(
         RevitConnectionManager revit,
         [Description("Action to perform: list, load (from familyPath), load_from_open (family already open in Revit), duplicate_type")] string action = "list",
@@ -87,7 +87,7 @@ public static class ProjectTools
         [Description("Title of the open project to load into (load_from_open). Omitted: the only open project; otherwise an error lists the open projects.")] string? targetDocument = null,
         [Description("load_from_open: new name of the family in the project after loading (e.g. for a never-saved \"Famille1\"). Error if a family of that name already exists in the project.")] string? renameTo = null,
         [Description("load_from_open: activate every loaded type (FamilySymbol) so it can be placed. Default: true")] bool activateTypes = true,
-        [Description("load_from_open: close the source family document WITHOUT saving once loaded. Default: false. If the source is the active document, the target project is re-activated first (needs a saved target).")] bool closeSource = false,
+        [Description("load_from_open: close the source family document WITHOUT saving once loaded. Default: false. If the source is the active document, the target project is re-activated first by its path (needs a saved target), then the source is closed; sourceClosePending=true means the close completes on the next idle tick.")] bool closeSource = false,
         [Description("Only action load_from_open previews (nothing loaded, diagnostic returned); every other action refuses dryRun with InvalidInput. Default: false (applies immediately)")] bool dryRun = false,
         CancellationToken ct = default)
     {
@@ -615,7 +615,7 @@ public static class ProjectTools
         [Description("C# method body to execute (end with an explicit return). Globals: document (Document), uiDocument (UIDocument), app (Application), scriptArgs (JObject). Namespaces DB, DB.Architecture (Room, Stairs), DB.Structure, UI, Linq and JObject are imported. Helpers callable without prefix, lengths IN MILLIMETRES: Mm(mm)->feet, ToMm(feet), Pt(xMm,yMm,zMm), Log(text), LevelByName(name), TypeByName<WallType|FloorType|RoofType|...>(name) (exact, then unique prefix, logged), SymbolByName(family,type), FindHostWall(pointFt, level?), PlaceOnLevel(symbol, pointFt, level, rotationDeg, offsetMm) (measures and corrects the elevation), PlaceInWall(symbol, pointFt, wall, level, sillMm) (absolute Z), Section(name, () => {...}) (best effort block reported in scriptRun.sections). Leave empty when fromScript is used.")] string code = "",
         [Description("Preview only: run the sandbox check and COMPILE the script, without running it. The script is saved under scriptName in every case (preview, refusal, run), so fromScript + edits can correct it. Default: true")] bool dryRun = true,
         [Description("auto (default): one transaction around the script. none (alias manual): no transaction, the script opens its own — required for StairsEditScope. group: one undo entry, each Section(...) committed or rolled back on its own. readonly: every model change is rolled back after the run — the only mode allowed while RiveTT is locked; exports, saves, document opening and view switching are refused in it.")] string? transactionMode = "auto",
-        [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously — see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool reusable = false,
+        [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously — see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false. With fromScript the new version KEEPS the status of the version it runs: a bare false cannot say 'omitted' (a nullable boolean breaks the MCP call), so to turn a REUSABLE script back into TEMP pass lifetime=\"temp\".")] bool reusable = false,
         [Description("Short human-readable name for the script file (no spaces, max 40 chars). Example: 'floor-thickness-audit'. Reuse it with fromScript.")] string? scriptName = null,
         [Description("JSON object exposed to the script as scriptArgs, e.g. {\"level\":\"R+1\",\"widthMm\":900}. Lets a saved script run again with other values.")] System.Text.Json.JsonElement? scriptArgs = null,
         [Description("Name of a script saved earlier (its scriptName): runs its latest version instead of code, with the scriptArgs it last ran with when scriptArgs is omitted. Combine with edits to correct a line without re-sending the whole script.")] string? fromScript = null,
@@ -623,12 +623,23 @@ public static class ProjectTools
         [Description("With fromScript: merge scriptArgs OVER the arguments saved with the script (shallow, arrays replaced), so only the values that changed are sent. Default: false (scriptArgs replaces them)")] bool mergeScriptArgs = false,
         [Description("List every created, modified and deleted element id in scriptRun.changes. Default: false (counts, plus ids of top-level elements only; sketch and model lines are counted, not listed)")] bool verboseChanges = false,
         [Description("With fromScript only: JSON array of exact replacements applied in order, [{\"oldText\":\"...\",\"newText\":\"...\"}]. Each oldText must occur exactly once. The edited script is saved as the new latest version.")] System.Text.Json.JsonElement? edits = null,
+        [Description("Explicit storage status: \"reusable\" or \"temp\". Needed only to DOWNGRADE a REUSABLE script run with fromScript (reusable=false alone cannot be told from 'not stated'). Omit to keep the status of the script being run (fromScript) or TEMP (new code).")] string? lifetime = null,
+        [Description("Run as a background job: the call returns at once with a jobId and the script keeps running inside Revit, however long it takes. Poll get_job_status(jobId) for the state, then the result. Use it for scripts that can exceed 120 s (thousands of elements). Default: false")] bool @async = false,
         CancellationToken ct = default)
     {
         var p = new JObject { ["dryRun"] = dryRun };
         if (!string.IsNullOrEmpty(code)) p["code"] = code;
         if (transactionMode != null) p["transactionMode"] = transactionMode;
-        p["reusable"] = reusable;
+        if (lifetime != null)
+        {
+            var wanted = lifetime.Trim().ToLowerInvariant();
+            if (wanted is not ("reusable" or "temp"))
+                return TriStateFlag.InvalidChoiceResult("send_code_to_revit", "lifetime", lifetime, "\"reusable\" or \"temp\"");
+            p["reusable"] = wanted == "reusable";
+        }
+        else if (reusable || fromScript == null)
+            p["reusable"] = reusable;
+        if (@async) p["async"] = true;
         if (scriptName != null) p["scriptName"] = scriptName;
         if (JsonOptionalParam.IsProvided(scriptArgs))
         {

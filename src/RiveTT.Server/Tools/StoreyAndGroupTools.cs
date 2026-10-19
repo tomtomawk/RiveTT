@@ -79,13 +79,14 @@ public static class StoreyAndGroupTools
         return (await revit.ExecuteAsync("detach_wall_constraint", p, ct)).ToString();
     }
 
-    [McpServerTool(Name = "manage_model_groups"), Description("Inventory model groups, duplicate a group type and optionally swap selected instances, or ungroup selected model groups. Write actions preview by default.")]
+    [McpServerTool(Name = "manage_model_groups"), Description("Inventory model groups, duplicate a group type and optionally swap selected instances, ungroup selected model groups (no script needed), or regroup a list of elements under a named group type, in a family document too. Write actions preview by default. ungroup answers with releasedCount and the first 200 ids.")]
     public static async Task<string> ManageModelGroups(
         RevitConnectionManager revit,
-        [Description("inventory | duplicate_type | ungroup")] string action = "inventory",
+        [Description("inventory | duplicate_type | ungroup | regroup")] string action = "inventory",
         [Description("Group type ID for duplicate_type")] long? groupTypeId = null,
-        [Description("New group type name for duplicate_type")] string? newName = null,
+        [Description("New group type name for duplicate_type; name given to the group type created by regroup (typically the name of the type the elements were ungrouped from)")] string? newName = null,
         [Description("Group instance IDs to swap or ungroup. JSON array, e.g. [1,2]")] System.Text.Json.JsonElement? groupIds = null,
+        [Description("Element IDs to group (regroup). JSON array, e.g. [10,11,12]; ungrouping can give elements new ids, so read them again first")] System.Text.Json.JsonElement? elementIds = null,
         [Description("Include member samples for inventory. Default: false")] bool includeMembers = false,
         [Description("Member sample limit. Default: 20")] int? sampleLimit = null,
         [Description("Preview write actions. Default: true")] bool dryRun = true,
@@ -99,6 +100,12 @@ public static class StoreyAndGroupTools
             if (!JsonArrayParam.TryParse(groupIds, out var groupIdsArray))
                 return JsonArrayParam.InvalidArrayResult("manage_model_groups", "groupIds", groupIds);
             p["groupIds"] = groupIdsArray;
+        }
+        if (JsonOptionalParam.IsProvided(elementIds))
+        {
+            if (!JsonArrayParam.TryParse(elementIds, out var elementIdsArray))
+                return JsonArrayParam.InvalidArrayResult("manage_model_groups", "elementIds", elementIds);
+            p["elementIds"] = elementIdsArray;
         }
         p["includeMembers"] = includeMembers;
         if (sampleLimit != null) p["sampleLimit"] = sampleLimit;

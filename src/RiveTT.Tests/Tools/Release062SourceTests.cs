@@ -201,10 +201,10 @@ public class Release062SourceTests
     }
 
     [Fact]
-    public void TheConnectorVersionIs062()
+    public void TheConnectorVersionIs063()
     {
         var props = File.ReadAllText(RepositoryFile.Path("Directory.Build.props"));
-        Assert.Contains("<Version>0.6.2</Version>", props);
-        Assert.Contains("<AssemblyVersion>0.6.2.0</AssemblyVersion>", props);
+        Assert.Contains("<Version>0.6.3</Version>", props);
+        Assert.Contains("<AssemblyVersion>0.6.3.0</AssemblyVersion>", props);
     }
 }

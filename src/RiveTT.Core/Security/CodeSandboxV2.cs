@@ -173,7 +173,19 @@ public static class CodeSandboxV2
             RiveTTErrorCode.PermissionDenied,
             $"Code contains prohibited operations: {string.Join(", ", violations)}",
             suggestion: "send_code_to_revit is restricted to Revit API operations. "
-                + "File I/O, network, process spawning, registry, and reflection bypasses are not allowed.");
+                + "File I/O, network, process spawning, registry, and reflection bypasses are not allowed."
+                + SuggestionFor(violations));
+    }
+
+    /// <summary>The way out of a refusal that has a usual, permitted equivalent.</summary>
+    public static string SuggestionFor(IEnumerable<string> violations)
+    {
+        var hints = new List<string>();
+        if (System.Linq.Enumerable.Any(violations, v => string.Equals(v, "dynamic", StringComparison.Ordinal)))
+            hints.Add(" `dynamic` is refused because late-bound calls escape the static checks. Use named tuples "
+                      + "(var row = (id: 1, name: \"x\"); row.name), anonymous types (new { id, name }), a small class or record "
+                      + "declared in the script, or JObject for loosely typed data.");
+        return string.Concat(hints);
     }
 
     /// <summary>

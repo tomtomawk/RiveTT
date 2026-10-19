@@ -96,6 +96,11 @@ public class LoadFamilyTool : IRiveTTTool
         if (!session.RequestConfirmation("load family", 1))
             return RiveTTResult<object>.Fail(RiveTTErrorCode.Cancelled, "Operation cancelled by user");
 
+        // Taken before the load: after it the old element may be gone. Reported as previousFamilyId /
+        // familyIdChanged so a caller holding the old id learns that it went stale.
+        var before = FamilyReloadSupport.FamilySnapshot.Take(doc,
+            FindFamily(doc, Path.GetFileNameWithoutExtension(safeFamilyPath)));
+
         using var tx = new Transaction(doc, "RiveTT: Load Family");
         tx.Start();
         var txFailures = TransactionFailureHandling.SuppressWarnings(tx);
@@ -112,9 +117,14 @@ public class LoadFamilyTool : IRiveTTTool
                 .Select(fs => new { id = ToolHelpers.GetElementIdValue(fs!.Id), name = fs.Name })
                 .ToList();
 
+            var loadedFamilyId = ToolHelpers.GetElementIdValue(family.Id);
             return RiveTTResult<object>.Ok(new
             {
-                familyId = ToolHelpers.GetElementIdValue(family.Id),
+                familyId = loadedFamilyId,
+                previousFamilyId = before?.FamilyId,
+                familyIdChanged = FamilyReloadSupport.IdChanged(before?.FamilyId, loadedFamilyId),
+                wasExisting = before != null,
+                verification = FamilyReloadSupport.BuildVerification(doc, family, before),
                 familyName = family.Name,
                 categoryName = family.FamilyCategory?.Name,
                 typeCount = types.Count,
@@ -251,6 +261,12 @@ public class LoadFamilyTool : IRiveTTTool
                 suggestion: "Pick a name that is not used by a family of the target project. Nothing was loaded.",
                 context: new Dictionary<string, object> { ["modelChanged"] = false });
 
+        // Identity by reference OR path/title: ReferenceEquals alone reported the active family as
+        // "not active" (dryRun sourceIsActive:false), then the close hit Revit's active-document refusal.
+        var sourceIsActive = FamilyReloadSupport.SameDocument(active, source);
+        var closePlan = FamilyReloadSupport.DecideClose(sourceIsActive, target.PathName);
+        var before = wasExisting ? FamilyReloadSupport.FamilySnapshot.Take(target, existing) : null;
+
         var skip = wasExisting && !overwrite;
         if (skip || dryRun)
         {
@@ -277,7 +293,11 @@ public class LoadFamilyTool : IRiveTTTool
                 closeSource,
                 sourceDocument = source.Title,
                 targetDocument = target.Title,
-                sourceIsActive = active != null && ReferenceEquals(active, source),
+                sourceIsActive,
+                wouldReactivate = closeSource && closePlan == SourceClosePlan.ReactivateTargetThenClose ? target.Title : null,
+                wouldCloseSource = closeSource && !skip && closePlan != SourceClosePlan.TargetNeverSaved,
+                sourceCloseBlockedReason = closeSource && closePlan == SourceClosePlan.TargetNeverSaved
+                    ? FamilyReloadSupport.TargetNeverSavedReason(source.Title, target.Title) : null,
                 sourceClosed = false,
                 activeDocument = active?.Title
             });
@@ -345,29 +365,49 @@ public class LoadFamilyTool : IRiveTTTool
         var finalCategory = categoryName ?? fam.FamilyCategory?.Name;
         var sourceTitle = source.Title;
         var targetTitle = target.Title;
+        var verification = FamilyReloadSupport.BuildVerification(target, fam, before);
 
-        // Closing is best effort: the family is already in the project, so a refusal here
-        // is reported, never turned into a failure of the load.
+        // Order: LoadFamily (done above), then re-activation of the target, then the close. Closing is
+        // best effort: the family is already in the project, so a refusal here is reported with its
+        // real cause, never turned into a failure of the load and never rolled back.
         var sourceClosed = false;
+        var sourceClosePending = false;
         string? sourceCloseReason = null;
+        var closeWarnings = new List<string>();
+        var switchedDocument = false;
         if (closeSource)
         {
             try
             {
-                var sourceIsActive = active != null && ReferenceEquals(active, source);
-                if (sourceIsActive && string.IsNullOrEmpty(target.PathName))
-                    sourceCloseReason = $"'{sourceTitle}' is the active document and '{targetTitle}' was never saved: "
-                        + "Revit can only re-activate a document by path, and refuses to close the active one.";
+                if (closePlan == SourceClosePlan.TargetNeverSaved)
+                    sourceCloseReason = FamilyReloadSupport.TargetNeverSavedReason(sourceTitle, targetTitle);
                 else
                 {
-                    if (sourceIsActive)
+                    if (closePlan == SourceClosePlan.ReactivateTargetThenClose && uiApplication == null)
+                        sourceCloseReason = "No UIApplication in session: the target project cannot be re-activated.";
+                    else if (closePlan == SourceClosePlan.ReactivateTargetThenClose)
                     {
-                        var activation = new OpenFileTool().Execute(
-                            new JObject { ["filePath"] = target.PathName, ["dryRun"] = false }, session);
-                        if (!activation.Success)
-                            sourceCloseReason = $"Could not activate '{targetTitle}' first: {activation.Error?.Message}";
+                        // The path Revit itself reports for the open target, verbatim: a mapped drive or UNC
+                        // path re-typed by hand would make Revit open a second copy instead of returning it.
+                        var openBefore = OpenDocuments(application).Count;
+                        using var dialogs = new OpenDialogAutoAnswer(uiApplication);
+                        uiApplication!.OpenAndActivateDocument(target.PathName);
+                        switchedDocument = true;
+                        closeWarnings.AddRange(dialogs.Warnings);
+                        if (OpenDocuments(application).Count > openBefore)
+                            closeWarnings.Add($"Revit opened an additional document while re-activating '{targetTitle}': "
+                                + "the path it holds for the target may differ from the one it reopened. Check the open documents.");
+                        var activeNow = uiApplication.ActiveUIDocument?.Document;
+                        if (FamilyReloadSupport.SameDocument(activeNow, source))
+                        {
+                            // The switch only takes effect when this API call returns: close from Idling.
+                            DeferredSourceClose.Schedule(uiApplication, source);
+                            sourceClosePending = true;
+                            sourceCloseReason = $"Revit applies the activation of '{targetTitle}' once this call returns; "
+                                + $"'{sourceTitle}' is closed without saving on the next idle tick (within 30 s).";
+                        }
                     }
-                    if (sourceCloseReason == null)
+                    if (!sourceClosePending && sourceCloseReason == null)
                     {
                         sourceClosed = source.Close(false);
                         if (!sourceClosed) sourceCloseReason = "Document.Close(false) returned false.";
@@ -380,10 +420,28 @@ public class LoadFamilyTool : IRiveTTTool
         string? activeTitle = null;
         try { activeTitle = uiApplication?.ActiveUIDocument?.Document.Title; } catch { /* report below */ }
 
+        if (switchedDocument || sourceClosed)
+        {
+            // The active document changed under the session: nothing cached about the previous one may survive,
+            // and execution.documentTitle of this very response must name the new active document.
+            session.BumpDocumentVersion();
+            session.Cache.InvalidateAll();
+            if (activeTitle != null) session.Store.Set("documentTitleHint", activeTitle);
+        }
+
+        var previousFamilyId = before?.FamilyId;
+        var familyIdChanged = FamilyReloadSupport.IdChanged(previousFamilyId, familyId);
+
         return RiveTTResult<object>.Ok(new
         {
             status = wasExisting ? "reloaded" : "loaded",
             familyId,
+            previousFamilyId,
+            familyIdChanged,
+            familyIdNote = familyIdChanged
+                ? "Revit assigned a new ElementId to the family on reload; type ids and instances are reported in verification."
+                : null,
+            verification,
             familyName = finalName,
             category = finalCategory,
             wasExisting,
@@ -393,7 +451,9 @@ public class LoadFamilyTool : IRiveTTTool
             sourceDocument = sourceTitle,
             targetDocument = targetTitle,
             sourceClosed,
+            sourceClosePending,
             sourceCloseReason,
+            closeWarnings,
             activeDocument = activeTitle ?? targetTitle
         });
     }

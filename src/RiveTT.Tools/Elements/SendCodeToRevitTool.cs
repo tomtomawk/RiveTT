@@ -30,7 +30,7 @@ namespace RiveTT.Tools.Elements;
 /// </summary>
 [ReadOnlyActions("auto", "readonly", Key = "transactionMode")]
 [ToolSafety(false, true, supportsDryRun: true)]
-public class SendCodeToRevitTool : IRiveTTTool
+public class SendCodeToRevitTool : IRiveTTTool, IAsyncCapableTool
 {
     // Must stay in lockstep with RiveTTApp.CleanupTempScripts, which deletes
     // TEMP scripts from this same folder at Revit shutdown.
@@ -53,8 +53,14 @@ public class SendCodeToRevitTool : IRiveTTTool
         var code = input["code"]?.Value<string>();
         var requestedMode = input["transactionMode"]?.Value<string>();
         var transactionMode = RoslynExecutor.NormalizeTransactionMode(requestedMode);
-        var reusable = input["reusable"]?.Value<bool>() ?? false;
+        // null = not stated. A fromScript run then inherits the status of the version it runs, instead of
+        // silently turning a REUSABLE script back into a TEMP one (field report EQS_IRM, 2026-10-15).
+        var reusableRequested = input["reusable"] is { Type: JTokenType.Boolean } flag ? flag.Value<bool>() : (bool?)null;
+        var reusable = reusableRequested ?? false;
         var fromScript = input["fromScript"]?.Value<string>();
+        // The ROUTER acts on async (it starts the job and returns at once); the tool only reports it, so the
+        // outcome kept by get_job_status says it ran detached from its caller.
+        var ranAsBackgroundJob = input["async"]?.Value<bool>() == true;
         var scriptName = SanitizeName(input["scriptName"]?.Value<string>() ?? fromScript ?? "script");
         // The most powerful tool on the surface was the only destructive one with no preview
         // at all: arbitrary C# ran on the model on the first call. It now previews by default
@@ -74,6 +80,7 @@ public class SendCodeToRevitTool : IRiveTTTool
         var inlineArgs = input["scriptArgs"] as JObject;
 
         string? resolvedFrom = null;
+        var lifetimeInherited = false;
         var editsApplied = 0;
         if (!string.IsNullOrWhiteSpace(fromScript))
         {
@@ -85,6 +92,8 @@ public class SendCodeToRevitTool : IRiveTTTool
 
             var loaded = LoadSavedScript(ScriptsFolder, SanitizeName(fromScript!), out resolvedFrom, out var loadError);
             if (loaded == null) return loadError!;
+            reusable = ResolveReusable(reusableRequested, ReadFirstLine(resolvedFrom));
+            lifetimeInherited = reusableRequested == null;
 
             var edited = ApplyEdits(loaded, input["edits"], out editsApplied, out var editError);
             if (edited == null) return editError!;
@@ -155,6 +164,8 @@ public class SendCodeToRevitTool : IRiveTTTool
                 editsApplied,
                 scriptArgKeys = scriptArgs.Properties().Select(p => p.Name).ToArray(),
                 scriptLifetime = reusable ? "REUSABLE" : "TEMP (deleted at Revit close)",
+                scriptLifetimeInherited = lifetimeInherited,
+                ranAsBackgroundJob,
                 codeLength = code!.Length,
                 codeLineCount = code!.Split('\n').Length,
                 warning = transactionMode == "readonly"
@@ -193,6 +204,8 @@ public class SendCodeToRevitTool : IRiveTTTool
             data["scriptName"] = scriptName;
             data["scriptArgsSource"] = argsSource;
             data["scriptLifetime"] = reusable ? "REUSABLE" : "TEMP (deleted at Revit close)";
+            data["scriptLifetimeInherited"] = lifetimeInherited;
+            data["ranAsBackgroundJob"] = ranAsBackgroundJob;
             // A script file is written to the user's profile on EVERY run. Said once per answer, in
             // words the agent can pass on, so the user is told each time (field report ILO 13/10/2026).
             data["scriptNotice"] = reusable
@@ -219,6 +232,25 @@ public class SendCodeToRevitTool : IRiveTTTool
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// The lifetime of a script run: what the caller stated, else (fromScript) that of the version being
+    /// run, else TEMP. Only an explicit false turns a REUSABLE script back into a TEMP one.
+    /// </summary>
+    internal static bool ResolveReusable(bool? requested, string? sourceHeaderLine)
+        => requested ?? (sourceHeaderLine != null
+            && sourceHeaderLine.TrimStart().StartsWith("// REUSABLE", StringComparison.OrdinalIgnoreCase));
+
+    private static string? ReadFirstLine(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return null;
+        try
+        {
+            using var reader = new StreamReader(path);
+            return reader.ReadLine();
+        }
+        catch { return null; }
     }
 
     private static string DescribeMode(string mode) => mode switch

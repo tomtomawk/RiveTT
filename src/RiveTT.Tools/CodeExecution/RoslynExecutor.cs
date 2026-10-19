@@ -690,6 +690,12 @@ public static class RoslynExecutor
         // sketch planes. A family built from a script creates hundreds, and listing their ids cost
         // thousands of tokens per call for no information (field report, ferronnerie session).
         private readonly HashSet<long> _auxiliary = new HashSet<long>();
+        // Class of every element BEFORE the run: a deleted element can no longer be read once the event fires.
+        // Skipped on a large model (reported), where one pass over everything would cost more than the answer is worth.
+        private const int ClassSnapshotLimit = 60_000;
+        private readonly Dictionary<long, (string ClassName, bool Auxiliary)>? _classes;
+        private readonly bool _classesSkipped;
+        private readonly Dictionary<long, (string? ClassName, bool Auxiliary)> _deletedKinds = new();
         private bool _undone;
         private bool _subscribed;
 
@@ -697,6 +703,23 @@ public static class RoslynExecutor
         {
             _app = app;
             _document = document;
+            try
+            {
+                var all = new FilteredElementCollector(document);
+                if (all.GetElementCount() <= ClassSnapshotLimit)
+                {
+                    _classes = new Dictionary<long, (string, bool)>();
+                    foreach (var element in all)
+                        _classes[ToolHelpers.GetElementIdValue(element.Id)] = (element.GetType().Name,
+                            element is CurveElement || element is Sketch || element is SketchPlane || element.Category == null);
+                }
+                else _classesSkipped = true;
+            }
+            catch
+            {
+                _classes = null;
+                _classesSkipped = true;
+            }
             try
             {
                 if (_app != null)
@@ -745,7 +768,12 @@ public static class RoslynExecutor
                 {
                     var value = ToolHelpers.GetElementIdValue(id);
                     // Created then deleted by the same script: it never existed for the caller.
-                    if (!_added.Remove(value)) _deleted.Add(value);
+                    if (!_added.Remove(value))
+                    {
+                        _deleted.Add(value);
+                        _deletedKinds[value] = _classes != null && _classes.TryGetValue(value, out var kind)
+                            ? (kind.ClassName, kind.Auxiliary) : (null, false);
+                    }
                     _modified.Remove(value);
                 }
             }
@@ -772,6 +800,7 @@ public static class RoslynExecutor
                 ["deletedElementIds"] = new JArray(_deleted.OrderBy(id => id).Take(maxIds)),
                 ["modifiedElementIds"] = new JArray(_modified.OrderBy(id => id).Take(maxIds)),
             };
+            AddDeletedBreakdown(report);
             if (_added.Count > maxIds || _modified.Count > maxIds || _deleted.Count > maxIds)
                 report["idsTruncatedAt"] = maxIds;
             if (_undone)
@@ -800,6 +829,7 @@ public static class RoslynExecutor
                 ["deletedCount"] = _deleted.Count,
                 ["createdElementIds"] = new JArray(topLevel.Take(topLevelLimit)),
             };
+            AddDeletedBreakdown(report);
             if (_modified.Count <= shortList)
                 report["modifiedElementIds"] = new JArray(_modified.OrderBy(id => id));
             if (_deleted.Count <= shortList)
@@ -811,6 +841,33 @@ public static class RoslynExecutor
             if (_undone)
                 report["note"] = "Part of the run was rolled back or undone; the ids above only count committed transactions.";
             return report;
+        }
+
+        /// <summary>
+        /// deletedCount is every id Revit reports gone, including what a command removes on its own (ungrouping
+        /// replaces the members, deleting a group deletes what is inside). The breakdown says what those ids are:
+        /// scaffolding (sketches, curves) apart from the rest, and a count per class.
+        /// </summary>
+        private void AddDeletedBreakdown(JObject report)
+        {
+            if (_deleted.Count == 0) return;
+            if (_classes == null)
+            {
+                report["deletedBreakdownAvailable"] = false;
+                report["deletedBreakdownNote"] = _classesSkipped
+                    ? $"Not computed: the document holds more than {ClassSnapshotLimit} elements (or could not be read), and a deleted element cannot be classified after the fact."
+                    : "Not computed.";
+                return;
+            }
+            var summary = DeletedBreakdown.Summarize(_deleted.Select(id =>
+                _deletedKinds.TryGetValue(id, out var kind) ? (kind.ClassName, kind.Auxiliary) : ((string?)null, false)));
+            report["deletedTopLevelCount"] = summary.TopLevelCount;
+            report["deletedAuxiliaryCount"] = summary.AuxiliaryCount;
+            report["deletedUnclassifiedCount"] = summary.UnclassifiedCount;
+            report["deletedByClass"] = JObject.FromObject(summary.ByClass);
+            report["deletedBreakdownNote"] = "deletedCount counts every id Revit removed, including elements a command replaces or "
+                + "deletes by itself (ungrouping, deleting a group): deletedByClass says which classes they are. "
+                + "Auxiliary = sketches, sketch planes, model/detail curves and elements without a category.";
         }
 
         public void Dispose()

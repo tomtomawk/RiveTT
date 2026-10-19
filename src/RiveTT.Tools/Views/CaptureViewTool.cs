@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Diagnostics;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Newtonsoft.Json.Linq;
@@ -33,7 +34,20 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
     public string Category => "Views";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public int CommandTimeoutSeconds => 180;
+    // Below the MCP client's own patience: a render that outlives it left the caller with "no result" and no
+    // explanation (field report EQS_IRM, 2026-10-15, fitToModel on 11,390 curves). RiveTT answers first.
+    public int CommandTimeoutSeconds => 90;
+
+    // Cooperative budget inside the tool. Revit's ExportImage cannot be interrupted, so what is bounded is what
+    // precedes it: the extent scan of fitToModel, and the decision to START an export that has little time left.
+    internal const long FitBudgetMs = 40_000;
+    internal const long ExportStartLimitMs = 55_000;
+
+    private sealed class BudgetExceededException : Exception
+    {
+        public BudgetExceededException(string phase) : base(phase) { Phase = phase; }
+        public string Phase { get; }
+    }
     public string Description =>
         "Renders a view (plan, section, elevation, 3D, sheet) to a PNG or JPEG and returns the image with the " +
         "pixel-to-model mapping; optional crop, detail level, display style, highlighted ids and isolated categories " +
@@ -117,6 +131,9 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                 suggestion: "Capture it without options, or capture another view of the same area.");
 
         var directory = Path.Combine(Path.GetTempPath(), "RiveTT", "captures", Guid.NewGuid().ToString("N"));
+        var clock = Stopwatch.StartNew();
+        long copyMs = 0, fitMs = 0, exportMs = 0, readMs = 0;
+        var fitElementCount = 0;
         TransactionGroup? group = null;
         // The user's own selection draws handles and a blue frame in the export (seen on a sheet note).
         Autodesk.Revit.UI.UIDocument? selectionDocument = null;
@@ -128,6 +145,7 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
             var exported = view;
             if (needsTemporaryView)
             {
+                var copyStart = clock.ElapsedMilliseconds;
                 group = new TransactionGroup(doc, "RiveTT: capture_view (rolled back)");
                 group.Start();
                 using var tx = new Transaction(doc, "RiveTT: temporary capture view");
@@ -138,12 +156,13 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                 if (copy.ViewTemplateId != ElementId.InvalidElementId)
                     copy.ViewTemplateId = ElementId.InvalidElementId;
                 ApplyOptions(doc, copy, bboxMm, detailLevel, displayStyle, highlightIds, isolateIds, notApplied,
-                    fitToModel, fitMarginMm);
+                    fitToModel, fitMarginMm, clock, ref fitMs, ref fitElementCount);
                 if (tx.Commit() != TransactionStatus.Committed)
                     return RiveTTResult<object>.Fail(RiveTTErrorCode.TransactionFailed,
                         "Revit refused the temporary capture view.",
                         suggestion: "Capture without options, or with fewer of them.");
                 exported = copy;
+                copyMs = clock.ElapsedMilliseconds - copyStart - fitMs;
             }
 
             var (fileType, extension) = format == "png" ? (ImageFileType.PNG, "png") : (ImageFileType.JPEGMedium, "jpg");
@@ -176,7 +195,11 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                 }
                 catch { savedSelection = null; /* the capture still works, with the handles */ }
             }
+            if (clock.ElapsedMilliseconds > ExportStartLimitMs)
+                throw new BudgetExceededException("before the export");
+            var exportStart = clock.ElapsedMilliseconds;
             doc.ExportImage(options);
+            exportMs = clock.ElapsedMilliseconds - exportStart;
 
             // Revit appends the view type and name to the file name: find what it wrote.
             var file = Directory.GetFiles(directory, "*." + extension).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault()
@@ -186,11 +209,13 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                     $"Revit reported the export of '{view.Name}' but wrote no image.",
                     suggestion: "Retry with format png and a smaller pixelSize.");
 
+            var readStart = clock.ElapsedMilliseconds;
             var bytes = File.ReadAllBytes(file);
             PngInfo.TryReadSize(bytes, out var width, out var height, out var mimeType);
             var pixelMapping = CaptureMapping.Compute(mapping, width, height);
 
             string? keptPath = null;
+            readMs = clock.ElapsedMilliseconds - readStart;
             if (returnMode != "inline")
             {
                 var keepDir = Path.Combine(Path.GetTempPath(), "RiveTT", "captures");
@@ -220,8 +245,33 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
                 fittedToModel = fitToModel && bboxMm == null,
                 selectionHiddenCount = savedSelection?.Count ?? 0,
                 optionsNotApplied = notApplied,
+                // Where the time went, so the next slow capture can be explained instead of guessed at.
+                timingsMs = new { total = clock.ElapsedMilliseconds, temporaryView = copyMs, fitToModel = fitMs, export = exportMs, readImage = readMs },
+                fitToModelElementsScanned = fitToModel ? fitElementCount : (int?)null,
                 modelChanged = false
             });
+        }
+        catch (BudgetExceededException budget)
+        {
+            return RiveTTResult<object>.Fail(RiveTTErrorCode.Timeout,
+                $"capture_view of '{view.Name}' stopped {budget.Phase} after {clock.ElapsedMilliseconds} ms: the time budget of this tool "
+                + "is shorter than the client's patience, so it answers instead of leaving the call without a reply.",
+                suggestion: "Lower pixelSize (1400 -> 800), set detailLevel Coarse, drop fitToModel and frame with bboxMm "
+                          + "(plans) instead, or isolate categories with isolateCategories. The view was left untouched: the "
+                          + "temporary copy is rolled back.",
+                context: new Dictionary<string, object>
+                {
+                    ["stage"] = "timeout",
+                    ["phase"] = budget.Phase,
+                    ["elapsedMs"] = clock.ElapsedMilliseconds,
+                    ["timingsMs"] = new Dictionary<string, long>
+                        { ["temporaryView"] = copyMs, ["fitToModel"] = fitMs, ["export"] = exportMs },
+                    ["fitToModelElementsScanned"] = fitElementCount,
+                    ["pixelSize"] = pixelSize,
+                    ["fitToModel"] = fitToModel,
+                    ["toolStillRunning"] = false,
+                    ["modelChanged"] = false
+                });
         }
         catch (Exception exception)
         {
@@ -274,7 +324,7 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
 
     private static void ApplyOptions(Document doc, View copy, double[]? bboxMm, ViewDetailLevel? detailLevel,
         DisplayStyle? displayStyle, List<long> highlightIds, List<ElementId> isolateIds, List<string> notApplied,
-        bool fitToModel = false, double fitMarginMm = 10)
+        bool fitToModel, double fitMarginMm, Stopwatch clock, ref long fitMs, ref int fitElementCount)
     {
         if (bboxMm != null)
         {
@@ -315,7 +365,12 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
         if (fitToModel)
         {
             if (bboxMm != null) notApplied.Add("fitToModel: ignored because bboxMm frames the view explicitly.");
-            else FitCropToModel(doc, copy, fitMarginMm, notApplied);
+            else
+            {
+                var fitStart = clock.ElapsedMilliseconds;
+                try { fitElementCount = FitCropToModel(doc, copy, fitMarginMm, notApplied, clock); }
+                finally { fitMs = clock.ElapsedMilliseconds - fitStart; }
+            }
         }
 
         if (detailLevel != null)
@@ -371,15 +426,19 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
     /// annotations are left out of the extent; the extent is measured in the VIEW's axes, so it works for
     /// plans, sections and elevations alike.
     /// </summary>
-    private static void FitCropToModel(Document doc, View copy, double marginMm, List<string> notApplied)
+    private static int FitCropToModel(Document doc, View copy, double marginMm, List<string> notApplied, Stopwatch clock)
     {
         try
         {
             double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
             var toView = copy.CropBox.Transform.Inverse;
             var counted = 0;
+            var scanned = 0;
             foreach (var element in new FilteredElementCollector(doc, copy.Id).WhereElementIsNotElementType())
             {
+                // A bounding box per element, thousands of times: the one unbounded loop before the export.
+                if ((++scanned & 0xFF) == 0 && clock.ElapsedMilliseconds > FitBudgetMs)
+                    throw new BudgetExceededException($"while measuring the model extent for fitToModel ({scanned} elements scanned)");
                 if (element.Category == null || element.Category.CategoryType != CategoryType.Model) continue;
                 if (element is DatumPlane || element is View) continue;
                 var box = element.get_BoundingBox(null);
@@ -395,7 +454,7 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
             if (counted == 0)
             {
                 notApplied.Add("fitToModel: no visible model element to frame; the view keeps its own crop.");
-                return;
+                return scanned;
             }
 
             var margin = marginMm / MmPerFoot;
@@ -409,10 +468,16 @@ public sealed class CaptureViewTool : IRiveTTTool, ICommandTimeoutTool
             copy.CropBoxVisible = false;
             copy.get_Parameter(BuiltInParameter.VIEWER_ANNOTATION_CROP_ACTIVE)?.Set(1);
             if (shape != null) MinimiseAnnotationCropOffsets(shape);
+            return scanned;
+        }
+        catch (BudgetExceededException)
+        {
+            throw;
         }
         catch (Exception exception)
         {
             notApplied.Add($"fitToModel: {exception.Message}");
+            return 0;
         }
     }
 

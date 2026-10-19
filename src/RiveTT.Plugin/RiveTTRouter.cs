@@ -320,7 +320,16 @@ public class RiveTTRouter
         {
             // Named-pipe requests arrive off the Revit UI thread. ExternalEvent is
             // therefore the single execution path for every Revit operation.
-            if (_dispatcher != null)
+            if (tool is IInlineTool)
+            {
+                // Answers about the running event itself (get_job_status): never queued behind it.
+                result = tool.Execute(input, _session);
+            }
+            else if (_dispatcher != null && tool is IAsyncCapableTool && input["async"]?.Value<bool>() == true)
+            {
+                result = _dispatcher.StartJob(tool, input, _session);
+            }
+            else if (_dispatcher != null)
             {
                 var timeoutSeconds = (tool as ICommandTimeoutTool)?.CommandTimeoutSeconds ?? 120;
                 result = _dispatcher.Execute(tool, input, _session, timeoutSeconds * 1000);
@@ -540,6 +549,14 @@ public class RiveTTRouter
     {
         try
         {
+            // One-shot: a tool that switched the active document (load_family closeSource) names the new
+            // one here; the session's own binding only follows on the ViewActivated event, later.
+            var hint = _session.Store.Get<string>("documentTitleHint");
+            if (hint != null)
+            {
+                _session.Store.Remove("documentTitleHint");
+                return hint;
+            }
             var document = _session.Store.Get<object>("activeDocument");
             return document == null
                 ? "none"

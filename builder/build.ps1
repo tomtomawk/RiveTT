@@ -365,6 +365,18 @@ try {
     New-Item -ItemType Directory -Path $docsOut -Force | Out-Null
     Copy-Item (Join-Path $docsSource 'SKILL.md') $docsOut -Force
 
+    # The general guide ships as rivett.zip with SKILL.md at its root, the form Claude's
+    # skill import accepts. It is packed from the same single SKILL.md, never a second source.
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $docsZip = Join-Path $docsOut 'rivett.zip'
+    Remove-Item $docsZip -Force -ErrorAction SilentlyContinue
+    $archive = [System.IO.Compression.ZipFile]::Open($docsZip, 'Create')
+    try {
+        [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, (Join-Path $docsOut 'SKILL.md'), 'SKILL.md')
+    } finally {
+        $archive.Dispose()
+    }
+
     # The MCP registration helper: product content like the documentation, not a build
     # tool, so it lives under src\resources and travels through staging like the rest.
     $registerScript = Join-Path $root 'src\resources\register-mcp.ps1'

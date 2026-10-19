@@ -15,6 +15,17 @@ public static class MetaTools
         return (await revit.ExecuteAsync("get_server_capabilities", new JObject(), ct)).ToString();
     }
 
+    [McpServerTool(Name = "get_job_status"), Description("State and result of a background job: send_code_to_revit with async=true returns a jobId, and a call that timed out while still running in Revit reports one too. Returns status (running | completed | failed), seconds elapsed, then the tool's own result or error. Without jobId, lists the known jobs. Answers even while Revit is busy running the job; jobs are kept in memory for this Revit session (6 h, 50 at most).")]
+    public static async Task<string> GetJobStatus(
+        RevitConnectionManager revit,
+        [Description("Job id returned by send_code_to_revit (async=true) or by a Timeout error. Omit to list the jobs")] string? jobId = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject();
+        if (!string.IsNullOrWhiteSpace(jobId)) p["jobId"] = jobId;
+        return (await revit.ExecuteAsync("get_job_status", p, ct)).ToString();
+    }
+
     [McpServerTool(Name = "ping_revit"), Description("Test MCP connection to RiveTT. Displays a greeting in Revit.")]
     public static async Task<string> SayHello(RevitConnectionManager revit, CancellationToken ct)
     {

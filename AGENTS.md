@@ -42,9 +42,10 @@ The versioned build SOURCES are `builder/build.ps1` and
 `builder/installer/RiveTT.iss`.
 
 `src/resources/documentation/` is part of the PRODUCT, not of the repository's own
-notes: build.ps1 copies its single `SKILL.md` through staging. The installer renames
-that source to `%LOCALAPPDATA%\RiveTT\documentation\skills_RiveTT.md` for the general
-installed guide and keeps the required `SKILL.md` name only in ChatGPT's
+notes: build.ps1 copies its single `SKILL.md` through staging and packs it as
+`rivett.zip` (SKILL.md at the root) for the general installed guide at
+`%LOCALAPPDATA%\RiveTT\documentation\rivett.zip`. The required `SKILL.md` name is kept
+only in ChatGPT's
 `%USERPROFILE%\.agents\skills\rivett` auto-discovery folder. Do not create a second
 source copy for another client. Developer references — writing a tool, response contracts, release
 checklist — stay in `docs/references/` and are never installed. The tool audit
@@ -158,6 +159,13 @@ stops it; `-AllowTestFailures` is the deliberate override and is reported at the
 is through `dist/RiveTT-Setup-<version>.exe`, which requests `asInvoker` and never
 prompts for elevation. After touching the tool surface, re-run
 `python tools/audit-tool-surface.py`: its output is installed on the workstation.
+
+The build is ALWAYS the complete one: `.\builder\build.ps1` for every Revit target, ending
+with the Inno Setup installer (`builder/installer/RiveTT.iss`, ISCC) in `dist/`. A
+`dotnet build` or `dotnet test` alone, or a build of a single `-RevitVersion`, is a
+development check, never a build: do not report a change as built, and do not hand
+over binaries, without the `RiveTT-Setup-<version>.exe` produced by that run. If ISCC
+is missing or the run stops, say so; do not substitute a partial build.
 
 `builder/build.ps1` is UTF-8 WITH BOM and must stay so: Windows PowerShell 5.1
 reads a BOM-less script as Windows-1252, and the multi-byte characters then decode

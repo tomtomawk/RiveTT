@@ -184,7 +184,7 @@ qui aurait imposé des droits administrateur.
 L'installation est par utilisateur dans
 `%APPDATA%\Autodesk\Revit\Addins\<2026|2027>\RiveTT`, le serveur dans
 `%LOCALAPPDATA%\RiveTT\server`, la documentation dans
-`%LOCALAPPDATA%\RiveTT\documentation\skills_RiveTT.md`.
+`%LOCALAPPDATA%\RiveTT\documentation\rivett.zip`.
 
 L'installateur propose deux cases : **Configurer la connexion MCP pour Claude** et **Configurer pour ChatGPT (config + skill)**. Claude reçoit uniquement la connexion MCP ; ChatGPT Desktop reçoit aussi le skill local. Une seule source est versionnée, [SKILL.md](src/resources/documentation/SKILL.md) : l'installation générale la renomme en `skills_RiveTT.md`, tandis que la copie destinée à ChatGPT conserve le nom obligatoire `SKILL.md`. Voir [les emplacements et étapes](src/resources/documentation/SKILL.md).
 

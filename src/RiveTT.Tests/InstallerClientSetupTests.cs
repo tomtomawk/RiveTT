@@ -18,14 +18,17 @@ public class InstallerClientSetupTests
     }
 
     [Fact]
-    public void Installer_RenamesTheGuideButKeepsChatGptSkillName()
+    public void Installer_PackagesTheGuideAsZipButKeepsChatGptSkillName()
     {
         var installer = File.ReadAllText(RepositoryFile.Path("builder", "installer", "RiveTT.iss"));
-        Assert.Contains("DestDir: \"{app}\\documentation\"; \\", installer);
-        Assert.Contains("DestName: \"skills_RiveTT.md\"; Flags: ignoreversion", installer);
+        var build = File.ReadAllText(RepositoryFile.Path("builder", "build.ps1"));
+        Assert.Contains("\"..\\staging\\documentation\\rivett.zip\"; DestDir: \"{app}\\documentation\"", installer);
+        Assert.Contains("'rivett.zip'", build);
+        Assert.Contains("'SKILL.md'", build);
         Assert.Contains("DestDir: \"{code:CodexSkillDir}\"; \\", installer);
         Assert.Contains("DestName: \"SKILL.md\"; Flags: ignoreversion; Tasks: mcpcodex", installer);
-        Assert.Contains("{app}\\documentation\\skills_RiveTT.md", installer);
+        Assert.Contains("{app}\\documentation\\rivett.zip", installer);
+        Assert.Contains("Type: files; Name: \"{app}\\documentation\\skills_RiveTT.md\"", installer);
         Assert.DoesNotContain("docs\\claude", installer);
     }
 
@@ -54,7 +57,7 @@ public class InstallerClientSetupTests
         Assert.Contains("Script : ", installer);
         Assert.Contains("register-mcp-Claude.log", installer);
         Assert.Contains("Claude (import manuel si souhaité)", installer);
-        Assert.Contains("{app}\\documentation\\skills_RiveTT.md", installer);
+        Assert.Contains("{app}\\documentation\\rivett.zip", installer);
     }
 
     [Fact]
